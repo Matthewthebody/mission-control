@@ -1,0 +1,116 @@
+name: Linux Release Truth
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - reset/**
+      - codex/**
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release-truth:
+    name: Linux release authority
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      TZ: America/Chicago
+      NODE_ENV: test
+      DB_URL: postgres://postgres:postgres@localhost:5432/pmc
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-current-secret
+      JWT_SECRET_PREVIOUS: ci-previous-secret
+      INTERNAL_SOCKET_SECRET: ci-internal-socket-secret
+      ALLOW_DEV_LOGIN: "true"
+      ALLOW_PASSWORD_LOGIN: "true"
+      ALLOW_PASSWORD_LOGIN_BREAK_GLASS_ONLY: "false"
+      API_PUBLIC_URL: http://localhost:4000
+      ADMIN_WEB_URL: http://localhost:5173
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pmc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pmc"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+
+      - name: Record release authority policy
+        run: |
+          {
+            echo "## Release Authority"
+            echo ""
+            echo "- Linux CI is the only release authority for Mission Control."
+            echo "- Windows local runs are advisory only and must not be used as release truth."
+            echo "- Release requires builds, migrations, full tests, and the pilot smoke suite to pass in this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce Phase 1 freeze manifest
+        env:
+          GITHUB_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          PHASE1_FREEZE_EXCEPTION_APPROVED: ${{ github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ','), 'architect-approved-freeze-exception') && 'true' || 'false' }}
+        run: npm run check:phase1-freeze
+
+      - name: Prepare local env file
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify clean release candidate before validation
+        run: npm run verify:release:clean
+
+      - name: Wait for Postgres and Redis readiness
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d pmc >/dev/null 2>&1 && redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres and Redis were not ready in time." >&2
+          exit 1
+
+      - name: Run migrations
+        run: npm run db:migrate
+
+      - name: Seed demo data
+        run: npm run db:seed
+
+      - name: Run shared pilot-mode release gate
+        run: npm run verify:pilot-mode

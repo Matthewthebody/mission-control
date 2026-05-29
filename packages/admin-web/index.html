@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081523" />
+    <meta name="description" content="Photographer Mission Control PWA for studio operations, scheduling, labor, approvals, and attendance." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon-app.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-app.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>Photographer Mission Control</title>
+    <style>
+      #app-fallback {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: #edf3f8;
+        font-family: "Manrope", sans-serif;
+      }
+
+      #app-fallback[hidden] {
+        display: none;
+      }
+
+      .app-fallback__card {
+        width: min(540px, 100%);
+        border: 1px solid rgba(166, 194, 220, 0.28);
+        border-radius: 24px;
+        background: rgba(7, 18, 31, 0.76);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+        padding: 24px;
+      }
+
+      .app-fallback__eyebrow {
+        margin-bottom: 10px;
+        color: #7ea2c6;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .app-fallback__card h1 {
+        margin: 0 0 12px;
+        font-family: "Barlow Semi Condensed", sans-serif;
+        font-size: clamp(2rem, 4vw, 2.7rem);
+        line-height: 0.94;
+      }
+
+      .app-fallback__card p {
+        margin: 0 0 12px;
+        color: #c6d4e0;
+        line-height: 1.55;
+      }
+
+      .app-fallback__card ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #c6d4e0;
+        line-height: 1.55;
+      }
+    </style>
+    <script>
+      (() => {
+        const isLocalDevHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        if (!isLocalDevHost) {
+          return;
+        }
+        const resetKey = "pmc-local-dev-cache-reset-v1";
+        if (window.sessionStorage.getItem(resetKey)) {
+          return;
+        }
+        const canResetServiceWorkers = "serviceWorker" in navigator && typeof navigator.serviceWorker.getRegistrations === "function";
+        const canResetCaches = "caches" in window && typeof caches.keys === "function";
+        if (!canResetServiceWorkers && !canResetCaches) {
+          return;
+        }
+
+        void Promise.allSettled([
+          canResetServiceWorkers
+            ? navigator.serviceWorker.getRegistrations().then((registrations) => {
+                const hadRegistrations = registrations.length > 0;
+                return Promise.all(registrations.map((registration) => registration.unregister())).then(() => hadRegistrations);
+              })
+            : Promise.resolve(false),
+          canResetCaches
+            ? caches.keys().then((keys) => {
+                const cacheKeys = keys.filter((key) => key.startsWith("pmc-"));
+                return Promise.all(cacheKeys.map((key) => caches.delete(key))).then(() => cacheKeys.length > 0);
+              })
+            : Promise.resolve(false)
+        ]).then((results) => {
+          const changedAnything = results.some((result) => result.status === "fulfilled" && result.value);
+          if (!changedAnything) {
+            return;
+          }
+          window.sessionStorage.setItem(resetKey, "1");
+          window.location.reload();
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app-fallback">
+      <div class="app-fallback__card">
+        <div class="app-fallback__eyebrow">Kemmetmueller Photography</div>
+        <h1>Starting Mission Control</h1>
+        <p>If the login form does not appear, this browser is usually holding a stale local cache. The app now clears local dev cache automatically on first load.</p>
+        <ul>
+          <li>Wait a few seconds for the page to refresh itself once.</li>
+          <li>If this card stays visible, refresh with Ctrl+Shift+R.</li>
+          <li>If needed, reopen the app at http://127.0.0.1:5173.</li>
+        </ul>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

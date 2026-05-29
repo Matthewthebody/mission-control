@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "PMC Mobile",
+    "slug": "pmc-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}

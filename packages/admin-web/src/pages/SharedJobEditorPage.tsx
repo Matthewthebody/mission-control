@@ -1,0 +1,503 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { ApiClientError } from "../api";
+import { usePermission } from "../components/PermissionGate";
+import { SharedJobFormShell } from "../components/jobs/SharedJobFormShell";
+import {
+  buildFieldErrorMap,
+  createBlankSharedJobFormState,
+  getDepartmentJobAdapterUI,
+  getJobSectionIssueCount,
+  getSharedDeliveryTypeOptions,
+  getSharedGalleryTypeOptions,
+  getSharedJobCategoryOptions,
+  getSharedJobPriorityOptions,
+  type SharedJobFormSectionSlot,
+  type SharedJobFieldErrors,
+  type SharedJobFormState,
+  type SharedJobFormValidationIssue
+} from "../components/jobs/DepartmentJobAdapterUIRegistry";
+import { JobDayManager } from "../components/jobs/JobDayManager";
+import { SharedContactPicker, SharedLocationPicker, SharedOrganizationPicker, SharedStaffPicker } from "../components/jobs/SharedJobPickers";
+import { buildSharedJobHash, navigateToSharedJobHash, parseSharedJobIdFromPath } from "../components/jobs/sharedJobRouting";
+import { StatusPill, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
+import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
+import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
+import type { WorkspaceHeaderMeta, WorkspaceHeaderMetaTone } from "../components/workspace/WorkspacePageHeader";
+import type { SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
+import { createSharedJobDraft, getSharedJobDetail, publishSharedJob, updateSharedJobDraft, updateSharedPublishedJob } from "../services/jobsApi";
+import { listDirectoryContacts, listDirectoryLocations, listDirectoryOwnerOptions, listOrganizations } from "../services/organizationApi";
+import type { DirectoryOwnerOption, OrganizationContact, OrganizationLocation, OrganizationSummary, SessionUser } from "../types";
+
+type Props = {
+  token: string;
+  currentUser: SessionUser;
+  departmentType: "schools" | "sports" | null;
+  routeBase: string;
+  mode: "create" | "edit";
+};
+
+function placeholderOrganization(id: string, label: string, departmentType: "schools" | "sports") {
+  return {
+    id,
+    canonical_name: label,
+    logo_url: null,
+    display_name: label,
+    account_type: departmentType === "sports" ? "sports" : "schools_underclass_portraits",
+    active_status: "active",
+    aliases: [],
+    notes: null,
+    contact_count: 0,
+    location_count: 0,
+    created_at: "",
+    updated_at: ""
+  } as OrganizationSummary;
+}
+
+function collectServerIssues(error: unknown): SharedJobFormValidationIssue[] {
+  if (!(error instanceof ApiClientError) || typeof error.details !== "object" || !error.details) {
+    return [];
+  }
+  const details = error.details as {
+    field_errors?: Record<string, string[]>;
+    workflow_validation?: SharedWorkflowTransitionValidation;
+  };
+  const fieldErrors = details.field_errors ?? {};
+  const workflowIssues =
+    details.workflow_validation?.issues.map((issue) => ({
+      field: issue.field ?? "workflow",
+      message: issue.message
+    })) ?? [];
+  return [...Object.entries(fieldErrors).flatMap(([field, messages]) => messages.map((message) => ({ field, message }))), ...workflowIssues];
+}
+
+function mapHeaderTone(status: string | null | undefined): WorkspaceHeaderMetaTone {
+  const tone = statusTone(status);
+  return tone === "danger" ? "critical" : tone;
+}
+
+function groupSections(
+  sharedSections: Array<{ key: string; slot: SharedJobFormSectionSlot; title: string; summary: string; fields: string[]; body: ReactNode }>,
+  adapterSections: ReturnType<ReturnType<typeof getDepartmentJobAdapterUI>["getSectionDefinitions"]>,
+  issues: SharedJobFormValidationIssue[]
+) {
+  const orderedSlots: SharedJobFormSectionSlot[] = ["identity.after", "schedule.after", "contacts.after", "production.after", "notes.after"];
+  const result: Array<{ key: string; title: string; summary: string; issueCount?: number; body: ReactNode }> = [];
+  const insertedSlots = new Set<SharedJobFormSectionSlot>();
+  for (const shared of sharedSections) {
+    result.push({
+      key: shared.key,
+      title: shared.title,
+      summary: shared.summary,
+      issueCount: getJobSectionIssueCount(shared, issues),
+      body: shared.body
+    });
+    if (!insertedSlots.has(shared.slot)) {
+      const adapterForSlot = adapterSections.filter((section) => section.slot === shared.slot);
+      for (const adapterSection of adapterForSlot) {
+        result.push({
+          key: adapterSection.key,
+          title: adapterSection.title,
+          summary: adapterSection.summary,
+          issueCount: getJobSectionIssueCount(adapterSection, issues),
+          body: adapterSection.body
+        });
+      }
+      insertedSlots.add(shared.slot);
+    }
+  }
+  for (const slot of orderedSlots) {
+    if (insertedSlots.has(slot) || sharedSections.some((section) => section.slot === slot)) {
+      continue;
+    }
+    for (const adapterSection of adapterSections.filter((section) => section.slot === slot)) {
+      result.push({
+        key: adapterSection.key,
+        title: adapterSection.title,
+        summary: adapterSection.summary,
+        issueCount: getJobSectionIssueCount(adapterSection, issues),
+        body: adapterSection.body
+      });
+    }
+  }
+  return result;
+}
+
+export function SharedJobEditorPage({ token, currentUser, departmentType, routeBase, mode }: Props) {
+  const { path, params } = useHashRouteSnapshot();
+  const jobId = mode === "edit" ? parseSharedJobIdFromPath(path) : null;
+  const initialDepartment = departmentType ?? (params.get("department") === "schools" ? "schools" : "sports");
+  const [formState, setFormState] = useState<SharedJobFormState>(() => ({ ...createBlankSharedJobFormState(initialDepartment), ...getDepartmentJobAdapterUI(initialDepartment).getDefaultValues() }));
+  const [detail, setDetail] = useState<SharedJobDetailResponse | null>(null);
+  const [loading, setLoading] = useState(mode === "edit");
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState("");
+  const [validationIssues, setValidationIssues] = useState<SharedJobFormValidationIssue[]>([]);
+  const [ownerOptions, setOwnerOptions] = useState<DirectoryOwnerOption[]>([]);
+  const [organizationResults, setOrganizationResults] = useState<OrganizationSummary[]>([]);
+  const [selectedOrganization, setSelectedOrganization] = useState<OrganizationSummary | null>(null);
+  const [locationOptions, setLocationOptions] = useState<OrganizationLocation[]>([]);
+  const [contactOptions, setContactOptions] = useState<OrganizationContact[]>([]);
+  const [organizationSearch, setOrganizationSearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const ignoreDirtyRef = useRef(false);
+
+  const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
+  const permissionContext = { departmentType: formState.department_type };
+  const canCreateJob = usePermission(currentUser, "job.create", permissionContext);
+  const canUpdateJob = usePermission(currentUser, "job.update", permissionContext);
+  const canPublishJob = usePermission(currentUser, "job.publish", permissionContext);
+  const canViewFinance = formState.department_type === "sports" ? usePermission(currentUser, "finance.view_summary", permissionContext) : false;
+  const readOnly = mode === "create" ? !canCreateJob : !canUpdateJob;
+  const fieldErrors: SharedJobFieldErrors = useMemo(() => buildFieldErrorMap(validationIssues), [validationIssues]);
+
+  useEffect(() => {
+    if (!jobId || mode !== "edit") {
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    void getSharedJobDetail(token, jobId)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const mapped = getDepartmentJobAdapterUI(response.job.department_type === "schools" ? "schools" : "sports").mapApiToForm(response);
+        setDetail(response);
+        setFormState(mapped);
+        setSelectedOrganization(response.job.organization_id && response.summary.organization_name ? placeholderOrganization(response.job.organization_id, response.summary.organization_name, response.job.department_type === "schools" ? "schools" : "sports") : null);
+        setDirty(false);
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(loadError instanceof ApiClientError ? loadError.message : "We couldn't load this job for editing.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, mode, token]);
+
+  useEffect(() => {
+    void listDirectoryOwnerOptions(token).then((response) => setOwnerOptions(response.owners)).catch(() => setOwnerOptions([]));
+  }, [token]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void listOrganizations(token, { search: organizationSearch, accountType: "all" }).then((response) => setOrganizationResults(response.organizations)).catch(() => setOrganizationResults([]));
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [organizationSearch, token]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void listDirectoryLocations(token, { search: locationSearch, accountType: "all" }).then((response) => setLocationOptions(response.locations)).catch(() => setLocationOptions([]));
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [locationSearch, token]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void listDirectoryContacts(token, { search: contactSearch, accountType: "all", organizationId: formState.organization_id || null }).then((response) => setContactOptions(response.contacts)).catch(() => setContactOptions([]));
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [contactSearch, formState.organization_id, token]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty || ignoreDirtyRef.current) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const handleHashChange = () => {
+      if (!dirty || ignoreDirtyRef.current) {
+        return;
+      }
+      const next = window.confirm("You have unsaved changes. Leave this job editor?");
+      if (!next) {
+        ignoreDirtyRef.current = true;
+        window.location.hash = buildSharedJobHash(routeBase, mode === "edit" && jobId ? `${jobId}/edit` : "new", departmentType ? {} : { department: formState.department_type });
+        window.setTimeout(() => {
+          ignoreDirtyRef.current = false;
+        }, 0);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [departmentType, dirty, formState.department_type, jobId, mode, routeBase]);
+
+  function updateState(updater: (current: SharedJobFormState) => SharedJobFormState) {
+    if (readOnly) {
+      return;
+    }
+    setDirty(true);
+    setFormState((current) => updater(current));
+  }
+
+  async function persist(target: "draft" | "publish") {
+    if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
+      setError(target === "publish" ? "You do not have permission to publish this job." : "You do not have permission to edit this job.");
+      return;
+    }
+    const issues = target === "publish" ? adapter.validatePublish(formState) : adapter.validateDraft(formState);
+    if (issues.length) {
+      setValidationIssues(issues);
+      return;
+    }
+    setValidationIssues([]);
+    setError("");
+    const payload = adapter.mapFormToApiPayload(formState);
+    try {
+      if (target === "draft") {
+        setSaving(true);
+        const response = mode === "edit" && jobId ? detail?.job.published_at ? await updateSharedPublishedJob(token, jobId, payload) : await updateSharedJobDraft(token, jobId, payload) : await createSharedJobDraft(token, payload);
+        ignoreDirtyRef.current = true;
+        setDirty(false);
+        navigateToSharedJobHash(routeBase, response.job.id);
+      } else {
+        setPublishing(true);
+        const response = mode === "edit" && jobId ? (detail?.job.published_at ? await updateSharedPublishedJob(token, jobId, payload) : await updateSharedJobDraft(token, jobId, payload)) : await createSharedJobDraft(token, payload);
+        const published = await publishSharedJob(token, response.job.id);
+        ignoreDirtyRef.current = true;
+        setDirty(false);
+        navigateToSharedJobHash(routeBase, published.job.id);
+      }
+    } catch (persistError) {
+      const serverIssues = collectServerIssues(persistError);
+      if (serverIssues.length) {
+        setValidationIssues(serverIssues);
+      }
+      setError(persistError instanceof ApiClientError ? persistError.message : `We couldn't ${target === "draft" ? "save" : "publish"} this job right now.`);
+    } finally {
+      setSaving(false);
+      setPublishing(false);
+    }
+  }
+
+  if (loading) {
+    return <WorkspaceLoadingBlock title="Loading job editor" summary="Opening the shared job editor and department adapter fields." />;
+  }
+
+  const adapterSections = adapter.getSectionDefinitions({ state: formState, setState: updateState, errors: fieldErrors, currentUser, canViewFinance });
+  const sidebarCards = [
+    ...(readOnly
+      ? [
+          {
+            key: "access-mode",
+            title: "Access mode",
+            body: <div className="shared-job-sidebar__muted">This job is visible in read-only mode for your current role and scope.</div>
+          }
+        ]
+      : []),
+    ...adapterSections.filter((section) => section.slot === "sidebar.top").map((section) => ({ key: section.key, title: section.title, body: section.body })),
+    {
+      key: "publish-blockers",
+      title: "Publish blockers",
+      body: validationIssues.length ? <div className="shared-job-sidebar__kv">{validationIssues.map((issue) => <span key={`${issue.field}-${issue.message}`}>{issue.message}</span>)}</div> : <div className="shared-job-sidebar__muted">No current blockers.</div>
+    },
+    {
+      key: "live-summary",
+      title: "Live summary",
+      body: <div className="shared-job-sidebar__kv"><span>{formState.organization_id ? "Organization linked" : "Organization unresolved"}</span><span>{formState.days.filter((day) => day.date).length} job day(s)</span><span>{formState.production_required ? "Production required" : "No downstream production"}</span></div>
+    },
+    ...adapter.getSidebarCards({ state: formState, setState: updateState, errors: fieldErrors, currentUser, canViewFinance }),
+    ...adapterSections.filter((section) => section.slot === "sidebar.bottom").map((section) => ({ key: section.key, title: section.title, body: section.body }))
+  ];
+
+  const sharedSections = [
+    {
+      key: "core-identity",
+      slot: "identity.after" as const,
+      title: "Core Identity",
+      summary: "Shared identity fields render once here, with department-specific sections injected after them.",
+      fields: ["department_type", "organization_id", "title", "event_name", "job_category", "description_internal"],
+      body: (
+        <div className="field-grid shared-job-form__grid">
+          <label className="filter-field">
+            <span>Department</span>
+            {departmentType ? (
+              <div className="job-intake__static-field">{humanizeToken(formState.department_type)}</div>
+            ) : (
+              <select value={formState.department_type} onChange={(event) => updateState((current) => ({ ...current, department_type: event.target.value as "schools" | "sports" }))}>
+                <option value="schools">Schools</option>
+                <option value="sports">Sports</option>
+              </select>
+            )}
+          </label>
+          <label className="filter-field">
+            <span>Job category</span>
+            <select value={formState.job_category} onChange={(event) => updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))}>
+              {getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <div className="filter-field filter-field--wide">
+            <SharedOrganizationPicker
+              departmentType={formState.department_type === "schools" ? "schools" : "sports"}
+              searchValue={organizationSearch}
+              onSearchChange={setOrganizationSearch}
+              unresolvedValue=""
+              onUnresolvedChange={() => {}}
+              loading={false}
+              results={organizationResults}
+              selectedOrganization={selectedOrganization}
+              onSelectOrganization={(organization) => {
+                setSelectedOrganization(organization);
+                updateState((current) => ({
+                  ...current,
+                  organization_id: organization.id
+                }));
+              }}
+              required
+              errors={fieldErrors.organization_id}
+              helperText="Schools and Sports both resolve through the same shared organization record."
+            />
+          </div>
+          <label className="filter-field filter-field--wide">
+            <span>{adapter.labels.titleLabel}</span>
+            <input value={formState.title} onChange={(event) => updateState((current) => ({ ...current, title: event.target.value }))} />
+            {fieldErrors.title ? <div className="shared-job-form__field-errors" role="alert">{fieldErrors.title.map((message) => <div key={message}>{message}</div>)}</div> : null}
+          </label>
+          <label className="filter-field filter-field--wide">
+            <span>{adapter.labels.eventNameLabel}</span>
+            <input value={formState.event_name} onChange={(event) => updateState((current) => ({ ...current, event_name: event.target.value }))} />
+          </label>
+          <label className="filter-field filter-field--wide">
+            <span>Internal description</span>
+            <textarea rows={3} value={formState.description_internal} onChange={(event) => updateState((current) => ({ ...current, description_internal: event.target.value }))} />
+          </label>
+        </div>
+      )
+    },
+    {
+      key: "schedule-location",
+      slot: "schedule.after" as const,
+      title: "Schedule and Location",
+      summary: "Shared summary schedule, timezone, location, and day manager entry point.",
+      fields: ["scheduled_start_at", "scheduled_end_at", "timezone", "primary_location_id"],
+      body: (
+        <div className="field-grid shared-job-form__grid">
+          <label className="filter-field"><span>Start date</span><input type="date" value={formState.scheduled_start_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_date: event.target.value }))} /></label>
+          <label className="filter-field"><span>Start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
+          <label className="filter-field"><span>End date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
+          <label className="filter-field"><span>End time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
+          <label className="filter-field"><span>Timezone</span><input value={formState.timezone} onChange={(event) => updateState((current) => ({ ...current, timezone: event.target.value }))} /></label>
+          <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={locationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={(value) => updateState((current) => ({ ...current, primary_location_id: value }))} errors={fieldErrors.primary_location_id} helperText="The shared job uses one primary location while job days can still vary." />
+        </div>
+      )
+    },
+    {
+      key: "contacts-ownership",
+      slot: "contacts.after" as const,
+      title: "Contacts and Ownership",
+      summary: "Primary contact and owner fields stay shared even when the adapter changes labels and extra context.",
+      fields: ["primary_contact_id", "account_owner_user_id"],
+      body: (
+        <div className="shared-job-form__stack">
+          <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={contactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={(value) => updateState((current) => ({ ...current, primary_contact_id: value }))} errors={fieldErrors.primary_contact_id} />
+          <div className="field-grid shared-job-form__grid">
+            <SharedStaffPicker label="Account owner" value={formState.account_owner_user_id} onChange={(value) => updateState((current) => ({ ...current, account_owner_user_id: value }))} options={ownerOptions} required errors={fieldErrors.account_owner_user_id} />
+            <label className="filter-field"><span>Priority</span><select value={formState.priority_level} onChange={(event) => updateState((current) => ({ ...current, priority_level: event.target.value as SharedJobFormState["priority_level"] }))}>{getSharedJobPriorityOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: "shared-production",
+      slot: "production.after" as const,
+      title: "Shared Delivery and Production Basics",
+      summary: "Delivery, gallery, deadlines, and downstream production remain a shared operational language across departments.",
+      fields: ["delivery_type", "gallery_type", "client_deadline_at", "production_deadline_at"],
+      body: (
+        <div className="field-grid shared-job-form__grid">
+          <label className="filter-field"><span>Delivery type</span><select value={formState.delivery_type} onChange={(event) => updateState((current) => ({ ...current, delivery_type: event.target.value }))}>{getSharedDeliveryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="filter-field"><span>Gallery type</span><select value={formState.gallery_type} onChange={(event) => updateState((current) => ({ ...current, gallery_type: event.target.value }))}>{getSharedGalleryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="filter-field"><span>Client deadline</span><input type="date" value={formState.client_deadline_at} onChange={(event) => updateState((current) => ({ ...current, client_deadline_at: event.target.value }))} /></label>
+          <label className="filter-field"><span>Production deadline</span><input type="date" value={formState.production_deadline_at} onChange={(event) => updateState((current) => ({ ...current, production_deadline_at: event.target.value }))} /></label>
+          <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.production_required} onChange={(event) => updateState((current) => ({ ...current, production_required: event.target.checked }))} /><span>Downstream production required</span></label>
+          <label className="filter-field"><span>Estimated staff count</span><input value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} /></label>
+        </div>
+      )
+    },
+    {
+      key: "shared-notes",
+      slot: "notes.after" as const,
+      title: "Shared Operational Notes",
+      summary: "Shared notes stay centralized even when adapters layer in their own operational context.",
+      fields: ["description_internal"],
+      body: (
+        <label className="filter-field filter-field--wide">
+          <span>Internal notes</span>
+          <textarea rows={4} value={formState.description_internal} onChange={(event) => updateState((current) => ({ ...current, description_internal: event.target.value }))} />
+        </label>
+      )
+    },
+    {
+      key: "job-days",
+      slot: "notes.after" as const,
+      title: "Day-Level Management",
+      summary: "Manage one or more execution days through the shared day manager.",
+      fields: ["days"],
+      body: <JobDayManager days={formState.days} onChange={(days) => updateState((current) => ({ ...current, days }))} ownerOptions={ownerOptions} errors={fieldErrors.days} />
+    }
+  ];
+
+  const sections = groupSections(sharedSections, adapterSections, validationIssues);
+  const headerMeta: WorkspaceHeaderMeta[] = detail
+    ? [
+        { label: detail.job.job_number ?? "Draft", tone: "info" },
+        { label: humanizeToken(detail.job.job_status), tone: mapHeaderTone(detail.job.job_status) }
+      ]
+    : [{ label: humanizeToken(formState.department_type), tone: "info" }];
+
+  return (
+    <SharedJobFormShell
+      eyebrow={adapter.labels.departmentBadge}
+      title={mode === "edit" ? adapter.editTitle : adapter.createTitle}
+      summary="One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
+      meta={headerMeta}
+      actions={
+        <WorkspaceActionBar align="end">
+          {detail?.job.published_at ? <StatusPill label={humanizeToken(detail.job.job_status)} tone={statusTone(detail.job.job_status)} /> : null}
+          <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
+            Back
+          </button>
+        </WorkspaceActionBar>
+      }
+      sections={sections}
+      sidebarCards={sidebarCards}
+      footer={
+        <>
+          <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
+            Cancel
+          </button>
+          {!readOnly ? (
+            <button type="button" className="secondary-button" onClick={() => void persist("draft")} disabled={saving || publishing}>
+              Save Draft
+            </button>
+          ) : null}
+          {!readOnly && canPublishJob ? (
+            <button type="button" onClick={() => void persist("publish")} disabled={saving || publishing}>
+              {detail?.job.published_at ? "Update" : "Publish"}
+            </button>
+          ) : null}
+          {readOnly ? <span className="shared-job-sidebar__muted">Read-only access</span> : null}
+          {error ? <span className="shared-job-form__error" role="alert">{error}</span> : null}
+        </>
+      }
+    />
+  );
+}

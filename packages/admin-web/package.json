@@ -1,0 +1,29 @@
+{
+  "name": "@pmc/admin-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run --maxWorkers 1",
+    "test:smoke:my-work": "npm run test -- myWorkPage.test.tsx",
+    "test:smoke:microsoft": "npm run test -- outlookIntegration.test.tsx microsoftIntegrationDiagnosticsPanel.test.tsx teamsHomePage.test.tsx teamsCommunicationsPage.test.tsx communicationsLauncher.test.tsx systemDiagnosticsPage.test.tsx"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.0.1",
+    "typescript": "^5.8.3",
+    "vite": "^6.2.4",
+    "vitest": "^3.2.4"
+  }
+}

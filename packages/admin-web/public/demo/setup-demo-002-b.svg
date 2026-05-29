@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420">
+  <rect width="640" height="420" fill="#f0ece4"/>
+  <rect x="80" y="90" width="480" height="240" rx="26" fill="#c0b39f"/>
+  <rect x="132" y="132" width="140" height="156" rx="16" fill="#7ea2c6"/>
+  <rect x="368" y="132" width="140" height="156" rx="16" fill="#d3a56a"/>
+  <text x="320" y="370" text-anchor="middle" font-size="32" font-family="Arial, sans-serif" fill="#23476e">Indoor backup gym setup</text>
+</svg>

@@ -1,0 +1,71 @@
+.page-intro {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.page-intro h2 {
+  font-size: clamp(1.82rem, 2.7vw, 2.55rem);
+  line-height: 0.98;
+}
+
+.page-intro__body,
+.page-intro__body > div,
+.page-intro__body h2,
+.page-intro__body p {
+  min-width: 0;
+}
+
+.page-intro--workspace {
+  align-items: flex-start;
+  padding: 16px 18px;
+  gap: 14px;
+}
+
+.page-intro--workspace h2 {
+  font-size: clamp(1.55rem, 2.2vw, 2.1rem);
+  line-height: 0.98;
+  margin-bottom: 8px;
+}
+
+.page-intro--workspace p {
+  margin: 0;
+  max-width: 72ch;
+}
+
+.page-intro-actions,
+.workspace-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.page-intro-actions {
+  justify-content: flex-end;
+}
+
+.page-intro-actions--compact {
+  align-items: flex-start;
+}
+
+.page-intro--compact h2 {
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
+  line-height: 1;
+}
+
+.page-intro--compact p {
+  max-width: 58ch;
+}
+
+.workspace-action-bar--start {
+  justify-content: flex-start;
+}
+
+.workspace-action-bar--end {
+  justify-content: flex-end;
+}
+
+.workspace-action-bar--compact {
+  align-items: flex-start;
+}

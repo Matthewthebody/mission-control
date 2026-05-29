@@ -1,0 +1,7 @@
+{
+  "tenant_id": "00000000-0000-4000-8000-000000000000",
+  "provider": "monday",
+  "external_id": "board_123",
+  "object_type": "shoot",
+  "object_id": "00000000-0000-4000-8000-000000000001"
+}

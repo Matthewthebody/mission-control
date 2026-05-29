@@ -1,0 +1,9 @@
+import { SHOOT_LIFECYCLE_FORWARD_TRANSITION_REGISTRY } from "./shoot-lifecycle-forward.registry.js";
+import { SHOOT_LIFECYCLE_REOPEN_TRANSITION_REGISTRY } from "./shoot-lifecycle-reopen.registry.js";
+import { SHOOT_LIFECYCLE_ROLLBACK_TRANSITION_REGISTRY } from "./shoot-lifecycle-rollback.registry.js";
+
+export const SHOOT_LIFECYCLE_TRANSITION_REGISTRY = [
+  ...SHOOT_LIFECYCLE_FORWARD_TRANSITION_REGISTRY,
+  ...SHOOT_LIFECYCLE_ROLLBACK_TRANSITION_REGISTRY,
+  ...SHOOT_LIFECYCLE_REOPEN_TRANSITION_REGISTRY
+] as const;

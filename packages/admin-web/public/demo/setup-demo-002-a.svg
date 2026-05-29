@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420">
+  <rect width="640" height="420" fill="#d9e7f1"/>
+  <rect y="260" width="640" height="160" fill="#7db287"/>
+  <rect x="60" y="120" width="520" height="140" rx="18" fill="#4f79a7"/>
+  <line x1="320" y1="120" x2="320" y2="260" stroke="#edf3f8" stroke-width="8"/>
+  <circle cx="210" cy="190" r="26" fill="#edf3f8"/>
+  <circle cx="430" cy="190" r="26" fill="#edf3f8"/>
+  <text x="320" y="370" text-anchor="middle" font-size="32" font-family="Arial, sans-serif" fill="#23476e">Sideline portrait flow</text>
+</svg>

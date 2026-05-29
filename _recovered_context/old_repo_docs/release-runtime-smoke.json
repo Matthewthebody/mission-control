@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "attested_at": "2026-05-28T15:16:31.845Z",
+  "branch": "feature/mission-control-demo-readiness-v1",
+  "commit_sha": "9ea33373813d2b9f5bcd166174ca55fa25491de2",
+  "core_endpoints": [
+    {
+      "route_path": "/health",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "route_path": "/auth/me",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "route_path": "/api/exceptions",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "route_path": "/api/dashboard/owner-command",
+      "ok": true,
+      "status": 200
+    }
+  ],
+  "error": null
+}

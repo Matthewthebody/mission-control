@@ -1,0 +1,2 @@
+#!/bin/sh
+node tools/release-hygiene-guard.mjs pre-commit

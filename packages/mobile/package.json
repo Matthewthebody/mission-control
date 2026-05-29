@@ -1,0 +1,25 @@
+{
+  "name": "@pmc/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "postinstall": "node scripts/repair-react-refresh.cjs"
+  },
+  "dependencies": {
+    "@react-native-community/netinfo": "11.4.1",
+    "expo": "~54.0.33",
+    "expo-camera": "~17.0.10",
+    "expo-document-picker": "~14.0.8",
+    "expo-image-picker": "~17.0.10",
+    "expo-sqlite": "~16.0.10",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "^5.8.3"
+  }
+}

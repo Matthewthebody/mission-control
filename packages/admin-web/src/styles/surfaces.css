@@ -1,0 +1,128 @@
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.metric-card {
+  padding: 18px 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  background: var(--surface-raised);
+  display: grid;
+  gap: 6px;
+}
+
+.metric-card--compact {
+  padding: 14px 16px;
+  gap: 5px;
+}
+
+.metric-card__label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-card__value {
+  font-size: 1.55rem;
+}
+
+.metric-card--compact .metric-card__value {
+  font-size: 1.35rem;
+}
+
+.stat-card {
+  padding: 20px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stat-card .eyebrow {
+  margin-bottom: 10px;
+}
+
+.stat-card strong {
+  display: block;
+  font-size: clamp(1.8rem, 2.1vw, 2.25rem);
+  line-height: 0.9;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedback-strip {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+}
+
+.feedback-strip--success {
+  border: 1px solid rgba(47, 122, 93, 0.42);
+  background: rgba(47, 122, 93, 0.12);
+  color: #def5e9;
+}
+
+.feedback-strip--info {
+  border: 1px solid rgba(126, 162, 198, 0.28);
+  background: linear-gradient(135deg, rgba(25, 53, 83, 0.96), rgba(18, 40, 63, 0.92));
+  color: #dcecf9;
+}
+
+.feedback-strip--danger {
+  border: 1px solid rgba(182, 91, 91, 0.46);
+  background: rgba(182, 91, 91, 0.12);
+  color: #ffdada;
+}
+
+.feedback-strip--warning {
+  border: 1px solid rgba(198, 137, 69, 0.36);
+  background: rgba(198, 137, 69, 0.12);
+  color: var(--text);
+}
+
+.feedback-strip__content {
+  display: grid;
+  gap: 6px;
+}
+
+.feedback-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.empty-state {
+  color: var(--text-subtle);
+}
+
+.empty-state--panel {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(166, 194, 220, 0.18);
+  background: rgba(7, 18, 31, 0.38);
+  text-align: center;
+}
+
+.error-banner {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(182, 91, 91, 0.46);
+  background: rgba(182, 91, 91, 0.12);
+  color: #ffdada;
+}
+
+.success-banner {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(47, 122, 93, 0.42);
+  background: rgba(47, 122, 93, 0.14);
+  color: #def5e9;
+}

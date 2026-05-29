@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420">
+  <rect width="640" height="420" fill="#edf1d9"/>
+  <rect y="290" width="640" height="130" fill="#9ab47a"/>
+  <rect x="76" y="130" width="64" height="180" rx="28" fill="#7a5c47"/>
+  <circle cx="108" cy="112" r="62" fill="#78995f"/>
+  <rect x="250" y="130" width="140" height="180" rx="18" fill="#d9c7b4"/>
+  <rect x="418" y="168" width="120" height="104" rx="16" fill="#b1c7d8"/>
+  <text x="320" y="370" text-anchor="middle" font-size="32" font-family="Arial, sans-serif" fill="#23476e">Backup tree-line composition</text>
+</svg>

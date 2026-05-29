@@ -1,0 +1,23 @@
+{
+  "name": "Photographer Mission Control",
+  "short_name": "Mission Control",
+  "description": "Kemmetmueller Photography operations workspace for schedules, attendance, labor, approvals, and status monitoring.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#081523",
+  "theme_color": "#081523",
+  "icons": [
+    {
+      "src": "/icon-app.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

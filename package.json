@@ -1,0 +1,46 @@
+{
+  "name": "photographer-mission-control",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "tools/migrate"
+  ],
+  "scripts": {
+    "prepare": "node tools/install-git-hooks.mjs",
+    "dev": "concurrently -n api,worker,web \"npm run dev -w packages/api\" \"npm run dev -w packages/worker\" \"npm run dev -w packages/admin-web\"",
+    "db:migrate": "npm run migrate -w packages/api",
+    "db:seed": "npm run seed -w packages/api",
+    "verify:fresh-db-contract": "npm run verify:fresh-db-contract -w packages/api",
+    "seed:mission-control-demo": "npm run seed:mission-control-demo -w packages/api",
+    "project-tracking:seed-demo": "npm run project-tracking:seed-demo -w packages/api",
+    "project-tracking:reset-demo": "npm run project-tracking:reset-demo -w packages/api",
+    "client-command-center:seed-demo": "npm run client-command-center:seed-demo -w packages/api",
+    "client-command-center:reset-demo": "npm run client-command-center:reset-demo -w packages/api",
+    "test": "npm run test -w packages/api",
+    "verify:api": "npm run build -w packages/api && npm run test -w packages/api",
+    "verify:admin": "npm run build -w packages/admin-web && npm run test -w packages/admin-web",
+    "verify:mobile": "npx tsc -p packages/mobile/tsconfig.json --noEmit",
+    "smoke:jobs": "npm run test:smoke:jobs -w packages/api",
+    "smoke:workflow": "npm run test:smoke:workflow -w packages/api",
+    "smoke:exceptions": "npm run test:smoke:exceptions -w packages/api",
+    "smoke:my-work": "npm run test:smoke:my-work -w packages/api && npm run test:smoke:my-work -w packages/admin-web",
+    "smoke:portal": "npm run test:smoke:portal -w packages/api",
+    "smoke:microsoft": "npm run test:smoke:microsoft -w packages/api && npm run test:smoke:microsoft -w packages/worker && npm run test:smoke:microsoft -w packages/admin-web",
+    "smoke:pilot": "npm run smoke:jobs && npm run smoke:workflow && npm run smoke:exceptions && npm run smoke:my-work && npm run smoke:portal && npm run smoke:microsoft",
+    "verify:release:clean": "node tools/check-clean-git-state.mjs",
+    "verify:release:build": "npm run build -w packages/api && npm run build -w packages/worker && npm run build -w packages/admin-web && npm run verify:mobile",
+    "verify:release:test": "npm run test -w packages/api && npm run test -w packages/worker && npm run test -w packages/admin-web",
+    "verify:release:runtime": "node tools/runtime-smoke-release.mjs",
+    "verify:pilot-mode": "npm run verify:release:clean && npm run verify:release:build && npm run verify:release:test && npm run smoke:pilot && npm run verify:release:runtime && npm run verify:release:clean",
+    "verify:release": "npm run verify:pilot-mode",
+    "verify": "npm run verify:api && npm run build -w packages/worker && npm run test -w packages/worker && npm run verify:admin && npm run verify:mobile",
+    "lint": "npm run lint --workspaces --if-present",
+    "launcher:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/windows-launcher/start-mission-control.ps1",
+    "launcher:windows:build-exe": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/windows-launcher/build-launcher-exe.ps1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}
