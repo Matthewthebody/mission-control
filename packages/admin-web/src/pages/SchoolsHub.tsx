@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
 import { QuickCreateJobDrawer } from "../components/jobIntake/QuickCreateJobDrawer";
+import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
 import { ResumeDraftsDrawer } from "../components/jobIntake/ResumeDraftsDrawer";
 import { StatusPill, formatDate, formatDateTime, humanizeToken, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
@@ -1284,169 +1285,178 @@ export function SchoolsHub({ token, currentUser }: Props) {
       ) : null}
 
       {activeTab === "jobs" ? (
-        <section className="panel schools-department__work-panel">
-          <WorkspaceSectionHeader
-            title="Jobs"
-            summary="All school jobs across the company with owner, current status, milestone dates, and stalled signals."
-            badge={<span className="workspace-page-header__meta-pill">{filteredJobs.length} jobs</span>}
-            actions={
-              featureFlags.centralJobIntakeV1 && canCreate ? (
-                <WorkspaceActionBar align="end" compact>
-                  <button type="button" onClick={() => setQuickCreateOpen(true)}>
-                    New School Job
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => setResumeDraftsOpen(true)}>
-                    Resume Drafts
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => navigateToUtility("#schools/import")}>
-                    Import Jobs
-                  </button>
-                </WorkspaceActionBar>
-              ) : null
-            }
+        <>
+          <ProjectTrackingDepartmentQueue
+            token={token}
+            department="schools"
+            title="Schools workflow queue"
+            summary="Live Project Dashboard rows where the current workflow step belongs to Schools. Use Assign / Status for owner, department, and shared note changes."
+            limit={8}
           />
+          <section className="panel schools-department__work-panel">
+            <WorkspaceSectionHeader
+              title="Jobs"
+              summary="All school jobs across the company with owner, current status, milestone dates, and stalled signals."
+              badge={<span className="workspace-page-header__meta-pill">{filteredJobs.length} jobs</span>}
+              actions={
+                featureFlags.centralJobIntakeV1 && canCreate ? (
+                  <WorkspaceActionBar align="end" compact>
+                    <button type="button" onClick={() => setQuickCreateOpen(true)}>
+                      New School Job
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => setResumeDraftsOpen(true)}>
+                      Resume Drafts
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => navigateToUtility("#schools/import")}>
+                      Import Jobs
+                    </button>
+                  </WorkspaceActionBar>
+                ) : null
+              }
+            />
 
-          <div className="schools-department__filter-grid">
-            <label className="filter-field">
-              <span>Search jobs</span>
-              <input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Job number, school, owner, or title" />
-            </label>
-            <label className="filter-field">
-              <span>Current status</span>
-              <select value={workflowStep} onChange={(event) => setWorkflowStep(event.target.value)}>
-                <option value="">All statuses</option>
-                {workflowOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="filter-field">
-              <span>Assignee</span>
-              <select value={jobAssignee} onChange={(event) => setJobAssignee(event.target.value)}>
-                <option value="">All assignees</option>
-                {assigneeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="filter-field">
-              <span>Client Success Rep</span>
-              <select value={jobClientSuccess} onChange={(event) => setJobClientSuccess(event.target.value)}>
-                <option value="">All reps</option>
-                {clientSuccessOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="filter-field">
-              <span>Director</span>
-              <select value={jobDirector} onChange={(event) => setJobDirector(event.target.value)}>
-                <option value="">All directors</option>
-                {directorOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+            <div className="schools-department__filter-grid">
+              <label className="filter-field">
+                <span>Search jobs</span>
+                <input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Job number, school, owner, or title" />
+              </label>
+              <label className="filter-field">
+                <span>Current status</span>
+                <select value={workflowStep} onChange={(event) => setWorkflowStep(event.target.value)}>
+                  <option value="">All statuses</option>
+                  {workflowOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Assignee</span>
+                <select value={jobAssignee} onChange={(event) => setJobAssignee(event.target.value)}>
+                  <option value="">All assignees</option>
+                  {assigneeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Client Success Rep</span>
+                <select value={jobClientSuccess} onChange={(event) => setJobClientSuccess(event.target.value)}>
+                  <option value="">All reps</option>
+                  {clientSuccessOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Director</span>
+                <select value={jobDirector} onChange={(event) => setJobDirector(event.target.value)}>
+                  <option value="">All directors</option>
+                  {directorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
-          <div className="segmented-toggle segmented-toggle--compact schools-department__subtabs" aria-label="Job state filter">
-            {([
-              { key: "open", label: "Open" },
-              { key: "overdue", label: "Overdue" },
-              { key: "stalled", label: "Stalled" },
-              { key: "all", label: "All Jobs" }
-            ] as Array<{ key: JobsFocus; label: string }>).map((option) => (
-              <button key={option.key} type="button" className={jobsFocus === option.key ? "is-active" : ""} onClick={() => setJobsFocus(option.key)}>
-                {option.label}
-              </button>
-            ))}
-          </div>
+            <div className="segmented-toggle segmented-toggle--compact schools-department__subtabs" aria-label="Job state filter">
+              {([
+                { key: "open", label: "Open" },
+                { key: "overdue", label: "Overdue" },
+                { key: "stalled", label: "Stalled" },
+                { key: "all", label: "All Jobs" }
+              ] as Array<{ key: JobsFocus; label: string }>).map((option) => (
+                <button key={option.key} type="button" className={jobsFocus === option.key ? "is-active" : ""} onClick={() => setJobsFocus(option.key)}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
-          {errors.jobs ? <div className="error-banner">{errors.jobs}</div> : null}
+            {errors.jobs ? <div className="error-banner">{errors.jobs}</div> : null}
 
-          {pagedJobs.items.length ? (
-            <>
-              <div className="dashboard-stack dashboard-stack--compact">
-                {pagedJobs.items.map((job) => {
-                  const milestones = [
-                    { label: "Picture date", value: job.primary_day_date ? formatDate(job.primary_day_date) : job.scheduled_start_at ? formatDate(job.scheduled_start_at) : null },
-                    { label: "Client due", value: job.client_deadline_at ? formatDate(job.client_deadline_at) : null },
-                    { label: "Production due", value: job.production_deadline_at ? formatDate(job.production_deadline_at) : null },
-                    { label: "Yearbook due", value: job.school_profile?.submission_deadline ? formatDate(job.school_profile.submission_deadline) : null }
-                  ].filter((item) => item.value);
-                  return (
-                    <article key={job.id} className="request-card schools-department__record-card">
-                      <div className="schools-department__record-top">
-                        <div>
-                          <strong>{job.title}</strong>
-                          <div className="muted">
-                            {job.job_number ?? "Draft"} | {job.organization_name ?? "Organization pending"}
+            {pagedJobs.items.length ? (
+              <>
+                <div className="dashboard-stack dashboard-stack--compact">
+                  {pagedJobs.items.map((job) => {
+                    const milestones = [
+                      { label: "Picture date", value: job.primary_day_date ? formatDate(job.primary_day_date) : job.scheduled_start_at ? formatDate(job.scheduled_start_at) : null },
+                      { label: "Client due", value: job.client_deadline_at ? formatDate(job.client_deadline_at) : null },
+                      { label: "Production due", value: job.production_deadline_at ? formatDate(job.production_deadline_at) : null },
+                      { label: "Yearbook due", value: job.school_profile?.submission_deadline ? formatDate(job.school_profile.submission_deadline) : null }
+                    ].filter((item) => item.value);
+                    return (
+                      <article key={job.id} className="request-card schools-department__record-card">
+                        <div className="schools-department__record-top">
+                          <div>
+                            <strong>{job.title}</strong>
+                            <div className="muted">
+                              {job.job_number ?? "Draft"} | {job.organization_name ?? "Organization pending"}
+                            </div>
+                          </div>
+                          <div className="schools-department__pill-row">
+                            <StatusPill label={humanizeToken(job.job_status)} tone={toneForState(job.job_status)} />
+                            <StatusPill label={humanizeToken(job.readiness_status)} tone={toneForState(job.readiness_status)} />
+                            <StatusPill label={humanizeToken(job.risk_status)} tone={toneForState(job.risk_status)} />
                           </div>
                         </div>
-                        <div className="schools-department__pill-row">
-                          <StatusPill label={humanizeToken(job.job_status)} tone={toneForState(job.job_status)} />
-                          <StatusPill label={humanizeToken(job.readiness_status)} tone={toneForState(job.readiness_status)} />
-                          <StatusPill label={humanizeToken(job.risk_status)} tone={toneForState(job.risk_status)} />
+                        <div className="schools-department__record-grid">
+                          <div>
+                            <span>Current step</span>
+                            <strong>{jobCurrentStep(job)}</strong>
+                          </div>
+                          <div>
+                            <span>Owner</span>
+                            <strong>{jobOwnerName(job)}</strong>
+                          </div>
+                          <div>
+                            <span>Client Success Rep</span>
+                            <strong>{job.account_owner_name ?? "Unassigned"}</strong>
+                          </div>
+                          <div>
+                            <span>Director</span>
+                            <strong>{job.lead_owner_name ?? "Unassigned"}</strong>
+                          </div>
+                          <div>
+                            <span>Exceptions</span>
+                            <strong>{job.open_watch_flag_count}</strong>
+                          </div>
                         </div>
-                      </div>
-                      <div className="schools-department__record-grid">
-                        <div>
-                          <span>Current step</span>
-                          <strong>{jobCurrentStep(job)}</strong>
+                        {milestones.length ? (
+                          <div className="schools-department__milestones">
+                            {milestones.map((item) => (
+                              <div key={`${job.id}-${item.label}`}>
+                                <span>{item.label}</span>
+                                <strong>{item.value}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                        <div className="schools-department__record-footer">
+                          <div className="muted">{isJobStalled(job) ? "Needs an unblock or a new next action owner" : isJobOverdue(job) ? "Past a milestone date" : "Work is moving"}</div>
+                          <WorkspaceActionBar align="end" compact>
+                            <button type="button" className="secondary-button" onClick={() => (window.location.hash = toSchoolsJobHash(job.id))}>
+                              Open job
+                            </button>
+                          </WorkspaceActionBar>
                         </div>
-                        <div>
-                          <span>Owner</span>
-                          <strong>{jobOwnerName(job)}</strong>
-                        </div>
-                        <div>
-                          <span>Client Success Rep</span>
-                          <strong>{job.account_owner_name ?? "Unassigned"}</strong>
-                        </div>
-                        <div>
-                          <span>Director</span>
-                          <strong>{job.lead_owner_name ?? "Unassigned"}</strong>
-                        </div>
-                        <div>
-                          <span>Exceptions</span>
-                          <strong>{job.open_watch_flag_count}</strong>
-                        </div>
-                      </div>
-                      {milestones.length ? (
-                        <div className="schools-department__milestones">
-                          {milestones.map((item) => (
-                            <div key={`${job.id}-${item.label}`}>
-                              <span>{item.label}</span>
-                              <strong>{item.value}</strong>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="schools-department__record-footer">
-                        <div className="muted">{isJobStalled(job) ? "Needs an unblock or a new next action owner" : isJobOverdue(job) ? "Past a milestone date" : "Work is moving"}</div>
-                        <WorkspaceActionBar align="end" compact>
-                          <button type="button" className="secondary-button" onClick={() => (window.location.hash = toSchoolsJobHash(job.id))}>
-                            Open job
-                          </button>
-                        </WorkspaceActionBar>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-              {renderPagination(pagedJobs.currentPage, pagedJobs.totalPages, setJobsPage)}
-            </>
-          ) : (
-            <WorkspaceEmptyState title="No school jobs match these filters" summary="Change the filters or switch back to all jobs to see more of the department queue." compact />
-          )}
-        </section>
+                      </article>
+                    );
+                  })}
+                </div>
+                {renderPagination(pagedJobs.currentPage, pagedJobs.totalPages, setJobsPage)}
+              </>
+            ) : (
+              <WorkspaceEmptyState title="No school jobs match these filters" summary="Change the filters or switch back to all jobs to see more of the department queue." compact />
+            )}
+          </section>
+        </>
       ) : null}
 
       {activeTab === "tasks" ? (

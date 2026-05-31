@@ -467,12 +467,15 @@ describe("SchoolsHub", () => {
     expect(await screen.findByText("Schools Department")).toBeInTheDocument();
     expect(screen.getByText("Everything the schools team owns, in one place")).toBeInTheDocument();
     expect(screen.getByText("Schools Dashboard")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Schools workflow queue" })).toBeInTheDocument();
+    expect(screen.getByText("1 in queue")).toBeInTheDocument();
+    expect(screen.getByText("Here by current step department")).toBeInTheDocument();
     expect(screen.getByText("Total active school jobs")).toBeInTheDocument();
     expect(screen.getByText("Due today")).toBeInTheDocument();
     expect(screen.getAllByText("Overdue").length).toBeGreaterThan(0);
     expect(screen.getByText("Jobs Due in the Next 7 Days")).toBeInTheDocument();
     expect(screen.getByText("ID Card Tracker")).toBeInTheDocument();
-    expect(screen.getByText("North High")).toBeInTheDocument();
+    expect(screen.getAllByText("North High").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Confirm roster upload").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Open Job Workflow").length).toBeGreaterThan(0);
     expect(screen.queryByText("Board / workflow status")).not.toBeInTheDocument();

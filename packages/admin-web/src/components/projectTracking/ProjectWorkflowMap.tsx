@@ -17,6 +17,8 @@ import {
   sendProjectWorkflowToProduction,
   transitionProjectWorkflowStep
 } from "../../services/projectTracking";
+import { featureFlags } from "../../featureFlags";
+import { canManageWorkflowTemplates } from "../../permissions";
 import type { WorkflowAssignableUser } from "../../services/projectTracking";
 import type { SessionUser } from "../../types";
 
@@ -403,6 +405,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
   const canCompleteProduction = activeHandoffStatus === "accepted_by_production" || activeHandoffStatus === "waiting_on_info";
   const canReturnToSchools = activeHandoffStatus === "production_complete";
   const claimHandoffLabel = canClaimHandoff ? "Claim" : activeHandoffStatus !== "accepted_by_production" ? "Accept first" : "Claimed / assigned";
+  const canEditWorkflowRecipe = featureFlags.workflowTemplateBuilderV1 && canManageWorkflowTemplates(currentUser);
 
   useEffect(() => {
     setDraftStatus(activeStep?.status ?? "IN_PROGRESS");
@@ -754,9 +757,16 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
             Jobs are the actual shoots/events. Workflow Templates are the recipe. This page is the job moving through that workflow.
           </p>
         </div>
-        <a className="button button-secondary" href="#project-tracking">
-          Back to Project Dashboard
-        </a>
+        <div className="project-tracking-board-header__actions">
+          {canEditWorkflowRecipe ? (
+            <a className="button button-secondary" href="#project-tracking/workflow-templates">
+              Edit Workflow Steps
+            </a>
+          ) : null}
+          <a className="button button-secondary" href="#project-tracking">
+            Back to Project Dashboard
+          </a>
+        </div>
       </div>
 
       <div className="project-workflow-map__context-grid">
@@ -771,7 +781,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         <div>
           <span className="metric-label">Workflow</span>
           <strong title={workflow.workflow_run.template_name ?? workflow.workflow_run.template_key}>{workflow.workflow_run.template_name ?? workflow.workflow_run.template_key}</strong>
-          <small>Template recipe copied into this job workflow.</small>
+          <small>{canEditWorkflowRecipe ? "Edit step names, departments, and order in Workflow Templates." : "Template recipe copied into this job workflow."}</small>
         </div>
         <div>
           <span className="metric-label">Organization / District</span>

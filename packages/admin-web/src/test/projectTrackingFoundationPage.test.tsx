@@ -642,6 +642,8 @@ describe("ProjectTrackingFoundation", () => {
 
     expect(await screen.findByText("Job Workflow")).toBeInTheDocument();
     expect(screen.getByText("Jobs are the actual shoots/events. Workflow Templates are the recipe. This page is the job moving through that workflow.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit Workflow Steps" })).toHaveAttribute("href", "#project-tracking/workflow-templates");
+    expect(screen.getByText("Edit step names, departments, and order in Workflow Templates.")).toBeInTheDocument();
     expect(screen.getAllByText("Current step editor").length).toBeGreaterThan(0);
     expect(await screen.findByText("Assigned person appears in My Work. Department-only work stays in the Production Queue until a person is assigned.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Assign step to me" }));
