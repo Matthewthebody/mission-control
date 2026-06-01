@@ -4244,6 +4244,55 @@
   gap: 0.75rem;
 }
 
+.studios-workspace__calendar-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  border-color: var(--border-strong);
+  background: var(--panel);
+}
+
+.studios-workspace__calendar-card h3,
+.studios-workspace__prep-panel h3 {
+  margin: 0.2rem 0;
+}
+
+.studios-workspace__calendar-card p,
+.studios-workspace__prep-panel p,
+.studios-workspace__info-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.studios-workspace__prep-panel {
+  display: grid;
+  gap: 1rem;
+  background: var(--panel);
+}
+
+.studios-workspace__prep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.studios-workspace__info-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.95rem;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+
+@media (max-width: 760px) {
+  .studios-workspace__calendar-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .compact-active-work {
   display: grid;
   gap: 1rem;

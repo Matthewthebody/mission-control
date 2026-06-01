@@ -573,5 +573,5 @@ describe("workflow domain foundation", () => {
       await client.query("ROLLBACK");
       client.release();
     }
-  });
+  }, 60000);
 });

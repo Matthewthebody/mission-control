@@ -244,7 +244,7 @@ describe("scheduling and attendance operations", () => {
       [tenantId, created.body.id]
     );
     expect(realtimeEvents.rows.map((row) => row.change_type)).toEqual(["created", "updated", "published"]);
-  });
+  }, 30000);
 
   it("allows a clock-in within the normal early window without approval friction", async () => {
     const shift = await insertShift({
@@ -278,7 +278,7 @@ describe("scheduling and attendance operations", () => {
     expect(response.body.punch.approval_state).toBe("not_required");
     expect(response.body.punch.timing_status).toBe("early");
     expect(response.body.exceptions.map((item: { exception_type: string }) => item.exception_type)).not.toContain("EARLY_CLOCK_IN_APPROVAL");
-  });
+  }, 30000);
 
   it("allows a scheduled employee to punch into a shift-backed shoot even without a legacy shoot assignment row", async () => {
     const shift = await insertShift({

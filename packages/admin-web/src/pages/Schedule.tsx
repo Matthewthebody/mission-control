@@ -239,6 +239,7 @@ export function Schedule({ token, currentUser }: Props) {
       <UnifiedScheduleSurface
         workspaceMode={workspaceMode}
         initialView={currentViewDefinition.id}
+        initialRange={routeContext === "photography" && currentViewDefinition.id === "jobs" ? "30day" : undefined}
         token={token}
         anchorDate={date}
         search={search}
@@ -283,7 +284,7 @@ function getScheduleRouteContext(hashValue: string, employeeOnlyMode: boolean): 
     return "personal";
   }
   const [path = ""] = hashValue.replace(/^#/, "").split("?");
-  if (path.startsWith("photography/")) {
+  if (path.startsWith("photography/") || path === "studios" || path.startsWith("studios/")) {
     return "photography";
   }
   if (path.startsWith("operations/")) {
@@ -308,7 +309,7 @@ function getHeaderCopy(context: ScheduleRouteContext, view: MasterScheduleView, 
       summary:
         view === "staffing"
           ? "Field staffing, coverage gaps, and photographer placement stay inside the shared master schedule."
-          : "Photography uses the same master schedule engine for shoot timing, readiness pressure, and linked assignment access."
+          : "Photography opens here first: a 30-day view of upcoming shoot load, readiness pressure, and linked assignment access."
     };
   }
 

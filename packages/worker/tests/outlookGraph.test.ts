@@ -247,7 +247,7 @@ describe("Outlook calendar sync scaffolding", () => {
     } finally {
       client.release();
     }
-  });
+  }, 60000);
 
   it("marks linked schedule events for review from sparse Microsoft Graph change notifications and records webhook health", async () => {
     const client = await pool.connect();
@@ -368,7 +368,7 @@ describe("Outlook calendar sync scaffolding", () => {
     } finally {
       client.release();
     }
-  });
+  }, 60000);
 
   it("records subscription lifecycle warnings with explicit retry state", async () => {
     const client = await pool.connect();

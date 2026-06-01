@@ -29,6 +29,7 @@ type ScheduleMemberOption = {
 type Props = {
   workspaceMode?: "scheduling" | "schedule";
   initialView?: "jobs" | "staffing" | "assignment_board";
+  initialRange?: ScheduleRangeMode;
   token: string;
   anchorDate: string;
   search: string;
@@ -66,6 +67,7 @@ const emptyBulkEdit: BulkEditState = {
 export function UnifiedScheduleSurface({
   workspaceMode = "scheduling",
   initialView = "jobs",
+  initialRange = "week",
   token,
   anchorDate,
   search,
@@ -84,7 +86,7 @@ export function UnifiedScheduleSurface({
   const canManage = schedulingWorkspace && currentUser.permissions.includes("schedule.manage");
   const canViewBroaderAssignments = !employeeOnlyMode;
   const [isNarrowLayout, setIsNarrowLayout] = useState(() => matchesNarrowScheduleLayout());
-  const [rangeMode, setRangeMode] = useState<ScheduleRangeMode>("week");
+  const [rangeMode, setRangeMode] = useState<ScheduleRangeMode>(initialRange);
   const [layoutMode, setLayoutMode] = useState<ScheduleLayoutMode>("grid");
   const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>("schedule");
   const [groupBy, setGroupBy] = useState<BoardGroup>("status");

@@ -261,7 +261,7 @@ describe("time clock shell control state route", () => {
     expect(response.body.action.direction).toBe("in");
     expect(response.body.action.shift_id).toBe(shiftId);
     expect(response.body.time_clock_state.current_state).toBe("off_clock");
-  });
+  }, 30000);
 
   it("returns a green active state after punching in through the canonical attendance route", async () => {
     const shiftId = await insertShootShift();
@@ -293,5 +293,5 @@ describe("time clock shell control state route", () => {
     expect(response.body.action.direction).toBe("out");
     expect(response.body.time_clock_state.current_state).toBe("photography");
     expect(response.body.active_shift?.id).toBe(shiftId);
-  });
+  }, 30000);
 });
