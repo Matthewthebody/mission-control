@@ -79,8 +79,11 @@ const PRIMARY_LINKS = [
   { id: "shoots", label: "Today's Shoots", hash: "#studios/shoots", detail: "Execution queue and live field detail for the current shoot day." },
   { id: "pre-service", label: "Pre-Service / Readiness", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and final readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Routing notes, parking context, location reminders, and arrival guidance." },
+  { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, mileage review, and post-shoot learning flow." },
   { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." }
 ];
+
+const HOMEPAGE_LINK_IDS = new Set(["shoots", "pre-service", "travel", "closeout"]);
 
 const PRE_SERVICE_CARDS = [
   {
@@ -130,17 +133,19 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         summary={copy.summary}
         meta={copy.meta}
         actions={
-          <WorkspaceActionBar compact>
-            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#my-schedule")}>
-              My Schedule
-            </button>
-            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-              30-Day Calendar
-            </button>
-            <button type="button" onClick={() => (window.location.hash = "#my-work")}>
-              My Work
-            </button>
-          </WorkspaceActionBar>
+          isOverview ? undefined : (
+            <WorkspaceActionBar compact>
+              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
+                30-Day Calendar
+              </button>
+              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
+                Today's Shoots
+              </button>
+              <button type="button" onClick={() => (window.location.hash = "#my-work")}>
+                My Work
+              </button>
+            </WorkspaceActionBar>
+          )
         }
       />
 
@@ -159,17 +164,11 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
               <button type="button" className="primary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
                 Open 30-Day Calendar
               </button>
-              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
-                Today's Shoots
-              </button>
-              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-                Pre-Service / Readiness
-              </button>
             </div>
           </section>
 
           <section className="studios-workspace__launch-grid" aria-label="Photography launch points">
-            {PRIMARY_LINKS.map((link) => (
+            {PRIMARY_LINKS.filter((link) => HOMEPAGE_LINK_IDS.has(link.id)).map((link) => (
               <button key={link.id} type="button" className="panel studios-workspace__launch-card" onClick={() => (window.location.hash = link.hash)}>
                 <div className="eyebrow">Photography</div>
                 <strong>{link.label}</strong>
@@ -190,25 +189,27 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         </section>
       )}
 
-      <section className="panel studios-workspace__focus-card">
-        <div className="workspace-section-header">
-          <div className="workspace-section-header__copy">
-            <div className="eyebrow">Department Focus</div>
-            <div className="workspace-section-header__title-row">
-              <h3>{copy.title}</h3>
+      {isOverview ? null : (
+        <section className="panel studios-workspace__focus-card">
+          <div className="workspace-section-header">
+            <div className="workspace-section-header__copy">
+              <div className="eyebrow">Department Focus</div>
+              <div className="workspace-section-header__title-row">
+                <h3>{copy.title}</h3>
+              </div>
+              <p>{copy.summary}</p>
             </div>
-            <p>{copy.summary}</p>
           </div>
-        </div>
-        <div className="studios-workspace__focus-actions">
-          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#operations/today")}>
-            Open Today
-          </button>
-          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-            Open Pre-Service
-          </button>
-        </div>
-      </section>
+          <div className="studios-workspace__focus-actions">
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
+              Today's Shoots
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
+              Pre-Service
+            </button>
+          </div>
+        </section>
+      )}
 
       {isTodayFocus ? <PhotographyTodayShootsPanel token={token} /> : null}
 
@@ -259,15 +260,15 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         </section>
       ) : null}
 
-      {isTodayFocus ? null : (
+      {isTodayFocus || isOverview ? null : (
         <CompactActiveWorkPanel
           token={token}
           currentUser={currentUser}
-          title={focus === "overview" ? "Compact Active Work" : copy.title}
+          title={copy.title}
           summary="Dense, scan-first work view for jobs that create field execution pressure. Keep owner, date, next action, and risk visible without a tall card stack."
           routeHash="#studios/shoots"
           focus={focus}
-          showDepartmentFilter={focus === "overview" || focus === "workload"}
+          showDepartmentFilter={focus === "workload"}
         />
       )}
     </div>
