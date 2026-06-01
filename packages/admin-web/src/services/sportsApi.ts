@@ -5,6 +5,7 @@ import type {
   SportsContactsResponse,
   SportsFinancialSummaryInput,
   SportsOverviewResponse,
+  SportsPeerQaBoardResponse,
   SportsProductionResponse,
   SportsProofCycleInput,
   SportsProductItemInput,
@@ -139,6 +140,10 @@ export async function listSportsContacts(token: string) {
 
 export async function listSportsProduction(token: string) {
   return apiFetch<SportsProductionResponse>("/api/sports/production", token);
+}
+
+export async function listSportsPeerQaBoard(token: string) {
+  return apiFetch<SportsPeerQaBoardResponse>("/api/sports/peer-qa", token);
 }
 
 export async function listSportsWatchlist(token: string) {

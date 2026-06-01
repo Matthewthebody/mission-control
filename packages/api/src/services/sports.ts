@@ -10,6 +10,7 @@ import {
 } from "../authz/authority.js";
 import { ApiError } from "../errors/apiError.js";
 import type { AuthUser } from "../types/auth.js";
+import { SPORTS_PEER_QA_STATUSES } from "../types/sports.js";
 import type {
   SportsAccountDetailResponse,
   SportsAccountSummary,
@@ -20,6 +21,10 @@ import type {
   SportsOverviewListItem,
   SportsOverviewResponse,
   SportsPermissionSnapshot,
+  SportsPeerQaBoardResponse,
+  SportsPeerQaChecklistItem,
+  SportsPeerQaJob,
+  SportsPeerQaStatus,
   SportsProductionItemSummary,
   SportsProductionResponse,
   SportsProofCycleRecord,
@@ -214,6 +219,37 @@ type SportsFinancialSummaryInput = {
   notes?: string | null;
 };
 
+type SportsPeerQaRow = {
+  id: string;
+  production_item_id: string;
+  linked_shoot_id: string | null;
+  job_id: string;
+  job_name: string;
+  organization_id: string | null;
+  organization_name: string | null;
+  shoot_date: string | null;
+  qa_status: string;
+  sports_job_type: string;
+  owner_user_id: string | null;
+  owner_name: string | null;
+  peer_reviewer_user_id: string | null;
+  peer_reviewer_name: string | null;
+  final_reviewer_user_id: string | null;
+  final_reviewer_name: string | null;
+  blocker_reason: string | null;
+  blocker_owner: string | null;
+  blocker_notes: string | null;
+  correction_category: string | null;
+  correction_notes: string | null;
+  known_exceptions: string | null;
+  owner_checklist_json: unknown;
+  peer_checklist_json: unknown;
+  conditional_checklist_json: unknown;
+  release_packet_json: unknown;
+  approved_for_release_at: string | null;
+  last_updated_at: string;
+};
+
 const SPORTS_SAVED_VIEWS: Array<{ key: string; label: string; hash: string }> = [
   { key: "today", label: "Today", hash: "#sports?saved_view=today" },
   { key: "next_7_days", label: "Next 7 Days", hash: "#sports?saved_view=next_7_days" },
@@ -244,6 +280,85 @@ function humanizeToken(value: string | null | undefined) {
     return "Unknown";
   }
   return value.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function toPeerQaStatus(value: string | null | undefined): SportsPeerQaStatus {
+  return SPORTS_PEER_QA_STATUSES.includes(value as SportsPeerQaStatus) ? (value as SportsPeerQaStatus) : "ready_for_owner_qa";
+}
+
+function checklistItems(value: unknown): SportsPeerQaChecklistItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const items: SportsPeerQaChecklistItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const record = item as Record<string, unknown>;
+    if (typeof record.label !== "string" || !record.label.trim()) {
+      continue;
+    }
+    const mapped: SportsPeerQaChecklistItem = {
+      label: record.label,
+      complete: Boolean(record.complete)
+    };
+    if (typeof record.applies === "boolean") {
+      mapped.applies = record.applies;
+    }
+    items.push(mapped);
+  }
+  return items;
+}
+
+function releasePacket(value: unknown): SportsPeerQaJob["release_packet"] {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    owner_qa_complete: Boolean(record.owner_qa_complete),
+    peer_qa_complete: Boolean(record.peer_qa_complete),
+    corrections_resolved: Boolean(record.corrections_resolved),
+    spencer_review_complete: Boolean(record.spencer_review_complete),
+    price_sheet_confirmed: Boolean(record.price_sheet_confirmed),
+    team_images_confirmed: Boolean(record.team_images_confirmed),
+    individual_galleries_confirmed: Boolean(record.individual_galleries_confirmed),
+    buddy_photos_complete: typeof record.buddy_photos_complete === "boolean" ? record.buddy_photos_complete : null,
+    virtual_teams_complete: typeof record.virtual_teams_complete === "boolean" ? record.virtual_teams_complete : null,
+    known_exceptions_documented: Boolean(record.known_exceptions_documented),
+    approved_for_release: Boolean(record.approved_for_release)
+  };
+}
+
+function mapSportsPeerQaRow(row: SportsPeerQaRow): SportsPeerQaJob {
+  return {
+    id: row.id,
+    production_item_id: row.production_item_id,
+    linked_shoot_id: row.linked_shoot_id,
+    job_id: row.job_id,
+    job_name: row.job_name,
+    organization_id: row.organization_id,
+    organization_name: row.organization_name,
+    shoot_date: row.shoot_date,
+    qa_status: toPeerQaStatus(row.qa_status),
+    sports_job_type: row.sports_job_type,
+    owner_user_id: row.owner_user_id,
+    owner_name: row.owner_name,
+    peer_reviewer_user_id: row.peer_reviewer_user_id,
+    peer_reviewer_name: row.peer_reviewer_name,
+    final_reviewer_user_id: row.final_reviewer_user_id,
+    final_reviewer_name: row.final_reviewer_name,
+    blocker_reason: row.blocker_reason,
+    blocker_owner: row.blocker_owner,
+    blocker_notes: row.blocker_notes,
+    correction_category: row.correction_category,
+    correction_notes: row.correction_notes,
+    known_exceptions: row.known_exceptions,
+    owner_checklist: checklistItems(row.owner_checklist_json),
+    peer_checklist: checklistItems(row.peer_checklist_json),
+    conditional_checklist: checklistItems(row.conditional_checklist_json),
+    release_packet: releasePacket(row.release_packet_json),
+    approved_for_release_at: row.approved_for_release_at,
+    last_updated_at: row.last_updated_at
+  };
 }
 
 function startOfToday() {
@@ -2048,6 +2163,100 @@ export async function listSportsProduction(client: PoolClient, auth: AuthUser): 
     items: rows,
     proof_cycles: proofCycles.rows,
     specialty_products: specialtyProducts.rows
+  };
+}
+
+export async function listSportsPeerQaBoard(client: PoolClient, auth: AuthUser): Promise<SportsPeerQaBoardResponse> {
+  const { rows } = await client.query<SportsPeerQaRow>(
+    `
+      SELECT
+        qa.id::text,
+        qa.production_item_id::text,
+        shoot_link.shoot_id::text AS linked_shoot_id,
+        job.id::text AS job_id,
+        job.title AS job_name,
+        COALESCE(item.organization_id, job.organization_id)::text AS organization_id,
+        org.display_name AS organization_name,
+        COALESCE(item.shoot_date_start, job.scheduled_start_at::date)::text AS shoot_date,
+        qa.qa_status,
+        qa.sports_job_type,
+        COALESCE(item.department_owner_user_id, item.assigned_to_user_id, job.account_owner_user_id)::text AS owner_user_id,
+        owner.full_name AS owner_name,
+        item.assigned_peer_reviewer_user_id::text AS peer_reviewer_user_id,
+        peer.full_name AS peer_reviewer_name,
+        item.assigned_release_reviewer_user_id::text AS final_reviewer_user_id,
+        final_reviewer.full_name AS final_reviewer_name,
+        qa.blocker_reason,
+        qa.blocker_owner,
+        qa.blocker_notes,
+        qa.correction_category,
+        qa.correction_notes,
+        qa.known_exceptions,
+        qa.owner_checklist_json,
+        qa.peer_checklist_json,
+        qa.conditional_checklist_json,
+        qa.release_packet_json,
+        qa.approved_for_release_at::text,
+        GREATEST(qa.updated_at, item.updated_at, job.updated_at)::text AS last_updated_at
+      FROM sports_peer_qa_reviews qa
+      JOIN production_items item
+        ON item.tenant_id = qa.tenant_id
+       AND item.id = qa.production_item_id
+       AND item.merged_into_production_item_id IS NULL
+      JOIN jobs job
+        ON job.tenant_id = item.tenant_id
+       AND job.id = item.job_id
+       AND job.department_type = 'sports'::job_department_type
+       AND job.archived_at IS NULL
+       AND job.cancelled_at IS NULL
+      LEFT JOIN organization org
+        ON org.tenant_id = job.tenant_id
+       AND org.id = COALESCE(item.organization_id, job.organization_id)
+      LEFT JOIN app_user owner
+        ON owner.id = COALESCE(item.department_owner_user_id, item.assigned_to_user_id, job.account_owner_user_id)
+      LEFT JOIN app_user peer
+        ON peer.id = item.assigned_peer_reviewer_user_id
+      LEFT JOIN app_user final_reviewer
+        ON final_reviewer.id = item.assigned_release_reviewer_user_id
+      LEFT JOIN LATERAL (
+        SELECT link.shoot_id
+        FROM production_item_shoot_links link
+        WHERE link.tenant_id = item.tenant_id
+          AND link.production_item_id = item.id
+        ORDER BY link.created_at DESC
+        LIMIT 1
+      ) shoot_link ON true
+      WHERE qa.tenant_id = $1
+      ORDER BY
+        CASE qa.qa_status
+          WHEN 'corrections_needed' THEN 1
+          WHEN 'blocked_waiting' THEN 2
+          WHEN 'ready_for_peer_qa' THEN 3
+          WHEN 'ready_for_spencer_review' THEN 4
+          WHEN 'ready_for_owner_qa' THEN 5
+          WHEN 'owner_qa_in_progress' THEN 6
+          WHEN 'peer_qa_in_progress' THEN 7
+          WHEN 'corrections_complete' THEN 8
+          WHEN 'approved_for_release' THEN 9
+          ELSE 10
+        END,
+        GREATEST(qa.updated_at, item.updated_at, job.updated_at) DESC
+    `,
+    [auth.tenantId]
+  );
+  const items = rows.map(mapSportsPeerQaRow);
+  const summary = SPORTS_PEER_QA_STATUSES.reduce(
+    (acc, status) => {
+      acc[status] = items.filter((item) => item.qa_status === status).length;
+      return acc;
+    },
+    { total: items.length, blocked: items.filter((item) => item.qa_status === "blocked_waiting").length } as SportsPeerQaBoardResponse["summary"]
+  );
+  return {
+    generated_at: new Date().toISOString(),
+    permissions: buildSportsPermissionSnapshot(auth),
+    summary,
+    items
   };
 }
 

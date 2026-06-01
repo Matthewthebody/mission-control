@@ -24,6 +24,7 @@ import {
   deleteSportsTeamUnit,
   getSportsAccountDetail,
   getSportsOverview,
+  listSportsPeerQaBoard,
   getSportsReports,
   getSportsSettings,
   getSportsShootDetail,
@@ -405,6 +406,16 @@ router.get("/production", requireSportsReadAccess, async (req, res, next) => {
   try {
     const auth = getAuth(req as AuthenticatedRequest);
     const response = await withClientTransaction(auth.tenantId, auth.id, (client) => listSportsProduction(client, auth));
+    return res.json(response);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/peer-qa", requireSportsReadAccess, async (req, res, next) => {
+  try {
+    const auth = getAuth(req as AuthenticatedRequest);
+    const response = await withClientTransaction(auth.tenantId, auth.id, (client) => listSportsPeerQaBoard(client, auth));
     return res.json(response);
   } catch (error) {
     return next(error);

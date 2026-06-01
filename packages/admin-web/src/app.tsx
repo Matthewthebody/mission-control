@@ -154,6 +154,9 @@ const LazySportsAccounts = lazy(() =>
 const LazySportsContacts = lazy(() =>
   import("./pages/SportsContacts").then((module) => ({ default: module.SportsContacts }))
 );
+const LazySportsPeerQaBoard = lazy(() =>
+  import("./pages/SportsPeerQaBoard").then((module) => ({ default: module.SportsPeerQaBoard }))
+);
 const LazySportsReports = lazy(() =>
   import("./pages/SportsReports").then((module) => ({ default: module.SportsReports }))
 );
@@ -1405,6 +1408,14 @@ function renderRouteContent({
       />,
       "Loading sports graphics",
       "Opening the sports graphics queue."
+    );
+  }
+
+  if (route.render.kind === "sports-peer-qa") {
+    return withRouteSuspense(
+      <LazySportsPeerQaBoard token={token} />,
+      "Loading Sports peer QA",
+      "Opening the Sports peer-to-peer QA board."
     );
   }
 

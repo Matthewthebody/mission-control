@@ -108,6 +108,7 @@ type RouteRender =
   | { kind: "sports-accounts" }
   | { kind: "sports-contacts" }
   | { kind: "sports-graphics" }
+  | { kind: "sports-peer-qa" }
   | { kind: "sports-reports" }
   | { kind: "sports-settings" }
   | { kind: "files-workspace" }
@@ -894,6 +895,17 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: true,
     render: { kind: "sports-graphics" }
+  },
+  {
+    id: "sports-peer-qa",
+    label: "Peer QA",
+    sectionKey: "sports",
+    description: "Sports production QA and release-confidence board for owner checks, peer review, corrections, blockers, and Spencer review.",
+    canonicalHash: "#sports/peer-qa",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "sports-peer-qa" }
   },
   {
     id: "sports-exceptions",
@@ -2169,6 +2181,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "sports/graphics") {
     return pickVisibleRoute("sports-graphics", availableTabs, employeeOnlyMode);
+  }
+  if (path === "sports/peer-qa" || path === "sports/qa") {
+    return pickVisibleRoute("sports-peer-qa", availableTabs, employeeOnlyMode);
   }
   if (path === "sports/watchlist") {
     return pickVisibleRoute("sports-exceptions", availableTabs, employeeOnlyMode);

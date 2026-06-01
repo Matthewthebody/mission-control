@@ -32,9 +32,9 @@ import type {
 } from "../jobTruthTypes";
 import { canCreateShootRecords, getSportsWorkspaceAccessScope } from "../permissions";
 import { getSharedDashboard, listSharedExceptions, listSharedJobs } from "../services/jobsApi";
-import { getSportsOverview } from "../services/sportsApi";
+import { getSportsOverview, listSportsPeerQaBoard } from "../services/sportsApi";
 import { listSharedTasks } from "../services/tasksApi";
-import type { SportsOverviewListItem, SportsOverviewResponse } from "../sportsTypes";
+import type { SportsOverviewListItem, SportsOverviewResponse, SportsPeerQaBoardResponse } from "../sportsTypes";
 import type { SessionUser } from "../types";
 import type { SharedTaskListItem } from "../workModelTypes";
 
@@ -49,6 +49,7 @@ type SourceErrors = {
   tasks: string;
   exceptions: string;
   dashboard: string;
+  peerQa: string;
 };
 
 const EMPTY_ERRORS: SourceErrors = {
@@ -56,7 +57,8 @@ const EMPTY_ERRORS: SourceErrors = {
   jobs: "",
   tasks: "",
   exceptions: "",
-  dashboard: ""
+  dashboard: "",
+  peerQa: ""
 };
 
 function filterItems(items: SportsOverviewListItem[], query: string) {
@@ -199,6 +201,7 @@ export function SportsOverview({ token, currentUser }: Props) {
   const [tasks, setTasks] = useState<SharedTaskListItem[]>([]);
   const [exceptions, setExceptions] = useState<SharedExceptionListItem[]>([]);
   const [dashboard, setDashboard] = useState<SharedDashboardResponse | null>(null);
+  const [peerQaBoard, setPeerQaBoard] = useState<SportsPeerQaBoardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<SourceErrors>(EMPTY_ERRORS);
   const [search, setSearch] = useState("");
@@ -221,7 +224,8 @@ export function SportsOverview({ token, currentUser }: Props) {
       listSharedJobs(token, { department_type: "sports" }),
       listSharedTasks(token, { department_type: "sports", limit: 200 }),
       listSharedExceptions(token, { department_type: "sports", limit: 100, only_mine: accessScope === "own" }),
-      getSharedDashboard(token, "home", "sports")
+      getSharedDashboard(token, "home", "sports"),
+      listSportsPeerQaBoard(token)
     ]).then((results) => {
       if (cancelled) {
         return;
@@ -262,6 +266,13 @@ export function SportsOverview({ token, currentUser }: Props) {
       } else {
         setDashboard(null);
         nextErrors.dashboard = messageFor(results[4].reason, "We couldn't load the sports workflow summary.");
+      }
+
+      if (results[5].status === "fulfilled") {
+        setPeerQaBoard(results[5].value);
+      } else {
+        setPeerQaBoard(null);
+        nextErrors.peerQa = messageFor(results[5].reason, "We couldn't load the sports peer QA board.");
       }
 
       setErrors(nextErrors);
@@ -306,7 +317,7 @@ export function SportsOverview({ token, currentUser }: Props) {
     return <WorkspaceLoadingBlock title="Loading Sports" summary="Opening the shared sports contract and the department read models tied to it." />;
   }
 
-  if (!overview && !sharedJobs.length && !tasks.length && !exceptions.length && !dashboard) {
+  if (!overview && !sharedJobs.length && !tasks.length && !exceptions.length && !dashboard && !peerQaBoard) {
     return (
       <section className="sports-workspace">
         <WorkspacePageHeader
@@ -363,6 +374,26 @@ export function SportsOverview({ token, currentUser }: Props) {
         summary="Shared operational health for sports readiness, staffing volatility, missing ready confirmations, blocked workflow, overdue approvals, and delivery risk."
         routeHash="#sports/exceptions"
       />
+
+      <section className="panel sports-peer-qa-entry">
+        <WorkspaceSectionHeader
+          title="Sports Peer-to-Peer QA Board"
+          summary="Track Sports jobs through owner QA, peer review, corrections, blockers, and final release readiness."
+        />
+        <div className="sports-preview-field-grid">
+          <div><span>Ready for Owner QA</span><strong>{peerQaBoard?.summary.ready_for_owner_qa ?? 0}</strong></div>
+          <div><span>Ready for Peer QA</span><strong>{peerQaBoard?.summary.ready_for_peer_qa ?? 0}</strong></div>
+          <div><span>Corrections Needed</span><strong>{peerQaBoard?.summary.corrections_needed ?? 0}</strong></div>
+          <div><span>Ready for Spencer Review</span><strong>{peerQaBoard?.summary.ready_for_spencer_review ?? 0}</strong></div>
+          <div><span>Blocked</span><strong>{peerQaBoard?.summary.blocked_waiting ?? 0}</strong></div>
+          <div><span>Approved for Release</span><strong>{peerQaBoard?.summary.approved_for_release ?? 0}</strong></div>
+        </div>
+        <WorkspaceActionBar align="end">
+          <button type="button" onClick={() => (window.location.hash = "#sports/peer-qa")}>
+            Open Peer QA Board
+          </button>
+        </WorkspaceActionBar>
+      </section>
 
       <CompactActiveWorkPanel
         token={token}

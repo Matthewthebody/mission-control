@@ -521,6 +521,80 @@ export type SportsProductionResponse = {
   specialty_products: SportsSpecialtyProductItemRecord[];
 };
 
+export const SPORTS_PEER_QA_STATUSES = [
+  "ready_for_owner_qa",
+  "owner_qa_in_progress",
+  "ready_for_peer_qa",
+  "peer_qa_in_progress",
+  "corrections_needed",
+  "corrections_complete",
+  "ready_for_spencer_review",
+  "blocked_waiting",
+  "approved_for_release",
+  "released_complete"
+] as const;
+
+export type SportsPeerQaStatus = (typeof SPORTS_PEER_QA_STATUSES)[number];
+
+export type SportsPeerQaChecklistItem = {
+  label: string;
+  complete: boolean;
+  applies?: boolean;
+};
+
+export type SportsPeerQaJob = {
+  id: string;
+  production_item_id: string;
+  linked_shoot_id: string | null;
+  job_id: string;
+  job_name: string;
+  organization_id: string | null;
+  organization_name: string | null;
+  shoot_date: string | null;
+  qa_status: SportsPeerQaStatus;
+  sports_job_type: string;
+  owner_user_id: string | null;
+  owner_name: string | null;
+  peer_reviewer_user_id: string | null;
+  peer_reviewer_name: string | null;
+  final_reviewer_user_id: string | null;
+  final_reviewer_name: string | null;
+  blocker_reason: string | null;
+  blocker_owner: string | null;
+  blocker_notes: string | null;
+  correction_category: string | null;
+  correction_notes: string | null;
+  known_exceptions: string | null;
+  owner_checklist: SportsPeerQaChecklistItem[];
+  peer_checklist: SportsPeerQaChecklistItem[];
+  conditional_checklist: SportsPeerQaChecklistItem[];
+  release_packet: {
+    owner_qa_complete: boolean;
+    peer_qa_complete: boolean;
+    corrections_resolved: boolean;
+    spencer_review_complete: boolean;
+    price_sheet_confirmed: boolean;
+    team_images_confirmed: boolean;
+    individual_galleries_confirmed: boolean;
+    buddy_photos_complete: boolean | null;
+    virtual_teams_complete: boolean | null;
+    known_exceptions_documented: boolean;
+    approved_for_release: boolean;
+  };
+  approved_for_release_at: string | null;
+  last_updated_at: string;
+};
+
+export type SportsPeerQaBoardResponse = {
+  generated_at: string;
+  permissions: SportsPermissionSnapshot;
+  summary: Record<SportsPeerQaStatus, number> & {
+    total: number;
+    blocked: number;
+  };
+  items: SportsPeerQaJob[];
+};
+
 export type SportsWatchlistResponse = {
   generated_at: string;
   permissions: SportsPermissionSnapshot;
