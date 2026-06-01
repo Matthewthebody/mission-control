@@ -9,6 +9,7 @@ import type { SessionUser } from "../types";
 import type { SharedTaskListItem } from "../workModelTypes";
 
 const getSportsOverviewMock = vi.fn();
+const listSportsPeerQaBoardMock = vi.fn();
 const listSharedJobsMock = vi.fn();
 const listSharedTasksMock = vi.fn();
 const listSharedExceptionsMock = vi.fn();
@@ -27,7 +28,8 @@ vi.mock("../permissions", () => ({
 }));
 
 vi.mock("../services/sportsApi", () => ({
-  getSportsOverview: (...args: unknown[]) => getSportsOverviewMock(...args)
+  getSportsOverview: (...args: unknown[]) => getSportsOverviewMock(...args),
+  listSportsPeerQaBoard: (...args: unknown[]) => listSportsPeerQaBoardMock(...args)
 }));
 
 vi.mock("../services/jobsApi", () => ({
@@ -297,6 +299,25 @@ describe("SportsOverview", () => {
       job_rows: []
     });
     getSportsOverviewMock.mockResolvedValue(overview);
+    listSportsPeerQaBoardMock.mockResolvedValue({
+      generated_at: "2026-04-04T12:00:00.000Z",
+      permissions: overview.permissions,
+      summary: {
+        total: 0,
+        blocked: 0,
+        ready_for_owner_qa: 0,
+        owner_qa_in_progress: 0,
+        ready_for_peer_qa: 0,
+        peer_qa_in_progress: 0,
+        corrections_needed: 0,
+        corrections_complete: 0,
+        ready_for_spencer_review: 0,
+        blocked_waiting: 0,
+        approved_for_release: 0,
+        released_complete: 0
+      },
+      items: []
+    });
     listSharedJobsMock.mockResolvedValue({ jobs });
     listSharedTasksMock.mockResolvedValue({ items: tasks });
     listSharedExceptionsMock.mockResolvedValue({ items: exceptions, summary: {}, saved_views: [] });

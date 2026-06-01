@@ -30,6 +30,7 @@ const getCentralJobOrganizationDefaultsMock = vi.fn();
 const getSchoolsHubWorkspaceMock = vi.fn();
 const getSchoolsHubReferenceDataMock = vi.fn();
 const getSportsOverviewMock = vi.fn();
+const listSportsPeerQaBoardMock = vi.fn();
 const listSharedJobsMock = vi.fn();
 const listSharedWatchlistMock = vi.fn();
 const getSharedDashboardMock = vi.fn();
@@ -92,7 +93,8 @@ vi.mock("../services/schoolsHubApi", () => ({
 }));
 
 vi.mock("../services/sportsApi", () => ({
-  getSportsOverview: (...args: unknown[]) => getSportsOverviewMock(...args)
+  getSportsOverview: (...args: unknown[]) => getSportsOverviewMock(...args),
+  listSportsPeerQaBoard: (...args: unknown[]) => listSportsPeerQaBoardMock(...args)
 }));
 
 vi.mock("../services/jobsApi", () => ({
@@ -342,6 +344,7 @@ beforeEach(() => {
   getSchoolsHubWorkspaceMock.mockReset();
   getSchoolsHubReferenceDataMock.mockReset();
   getSportsOverviewMock.mockReset();
+  listSportsPeerQaBoardMock.mockReset();
   getProjectWorkflowCommandCenterMock.mockReset();
   listSharedJobsMock.mockReset();
   listSharedWatchlistMock.mockReset();
@@ -469,6 +472,25 @@ beforeEach(() => {
   getSchoolsHubWorkspaceMock.mockResolvedValue(emptySchoolsWorkspace);
   getSchoolsHubReferenceDataMock.mockResolvedValue(emptySchoolsReferences);
   getSportsOverviewMock.mockResolvedValue(emptySportsOverview);
+  listSportsPeerQaBoardMock.mockResolvedValue({
+    generated_at: "2026-04-01T12:00:00.000Z",
+    permissions: emptySportsOverview.permissions,
+    summary: {
+      total: 0,
+      blocked: 0,
+      ready_for_owner_qa: 0,
+      owner_qa_in_progress: 0,
+      ready_for_peer_qa: 0,
+      peer_qa_in_progress: 0,
+      corrections_needed: 0,
+      corrections_complete: 0,
+      ready_for_spencer_review: 0,
+      blocked_waiting: 0,
+      approved_for_release: 0,
+      released_complete: 0
+    },
+    items: []
+  });
   getProjectWorkflowCommandCenterMock.mockResolvedValue({
     generated_at: "2026-04-04T12:00:00.000Z",
     view: "department",

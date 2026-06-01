@@ -164,7 +164,7 @@ function Get-FileHashText {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolvedRoot = Find-RepoRoot $scriptDir
 if (-not $resolvedRoot) {
-  Fail-Friendly "The launcher could not find the Mission Control repo root." "Run this from inside C:\Dev\Codex-integrated-baseline, or pass -RepoRoot with the repo path."
+  Fail-Friendly "The launcher could not find the Mission Control repo root." "Run this from inside C:\Dev\Codex-integrated-baseline-clean, or pass -RepoRoot with the repo path."
 }
 
 Set-Location -LiteralPath $resolvedRoot

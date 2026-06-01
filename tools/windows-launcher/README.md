@@ -62,7 +62,7 @@ That exe only starts the PowerShell launcher. It does not bundle Node, Docker, P
 
 ## Required Prerequisites
 
-- The repo folder, usually `C:\Dev\Codex-integrated-baseline`
+- The repo folder, usually `C:\Dev\Codex-integrated-baseline-clean`
 - Repo-local `.env`
 - Node.js 20 or newer
 - npm
