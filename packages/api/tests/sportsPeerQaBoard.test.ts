@@ -87,4 +87,92 @@ describe("Sports peer QA board", () => {
       expect.arrayContaining(["Buddy images moved to correct individual galleries"])
     );
   });
+
+  it("updates Sports peer QA status using the existing status model", async () => {
+    const board = await request(app).get("/api/sports/peer-qa").set("Authorization", `Bearer ${token}`);
+    expect(board.status, JSON.stringify(board.body)).toBe(200);
+    const review = board.body.items.find((item: any) => item.qa_status === "ready_for_owner_qa");
+    expect(review).toBeTruthy();
+
+    const response = await request(app)
+      .patch(`/api/sports/peer-qa/${review.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ qa_status: "owner_qa_in_progress" });
+
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.id).toBe(review.id);
+    expect(response.body.qa_status).toBe("owner_qa_in_progress");
+    expect(response.body.approved_for_release_at).toBeNull();
+  });
+
+  it("updates lightweight correction and blocker fields", async () => {
+    const board = await request(app).get("/api/sports/peer-qa").set("Authorization", `Bearer ${token}`);
+    expect(board.status, JSON.stringify(board.body)).toBe(200);
+    const review = board.body.items.find((item: any) => item.qa_status === "corrections_needed");
+    expect(review).toBeTruthy();
+
+    const response = await request(app)
+      .patch(`/api/sports/peer-qa/${review.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        correction_category: "gallery_setup",
+        correction_notes: "Peer found two galleries that need title cleanup before release.",
+        blocker_reason: "waiting_on_owner_fix",
+        blocker_owner: "Production Owner",
+        blocker_notes: "Owner has the ball for gallery title cleanup."
+      });
+
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.correction_category).toBe("gallery_setup");
+    expect(response.body.blocker_reason).toBe("waiting_on_owner_fix");
+    expect(response.body.blocker_owner).toBe("Production Owner");
+  });
+
+  it("mutates JSON checklist items without changing the checklist schema", async () => {
+    const board = await request(app).get("/api/sports/peer-qa").set("Authorization", `Bearer ${token}`);
+    expect(board.status, JSON.stringify(board.body)).toBe(200);
+    const review = board.body.items.find((item: any) => item.owner_checklist.some((check: any) => !check.complete));
+    expect(review).toBeTruthy();
+    const check = review.owner_checklist.find((item: any) => !item.complete);
+
+    const response = await request(app)
+      .patch(`/api/sports/peer-qa/${review.id}/checklist`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ section: "owner", label: check.label, complete: true });
+
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.owner_checklist.find((item: any) => item.label === check.label).complete).toBe(true);
+  });
+
+  it("stamps Spencer approval in a lightweight release packet update", async () => {
+    const board = await request(app).get("/api/sports/peer-qa").set("Authorization", `Bearer ${token}`);
+    expect(board.status, JSON.stringify(board.body)).toBe(200);
+    const review = board.body.items.find((item: any) => item.qa_status === "ready_for_spencer_review");
+    expect(review).toBeTruthy();
+
+    const response = await request(app)
+      .post(`/api/sports/peer-qa/${review.id}/approve`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ approved_by: "Spencer" });
+
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.qa_status).toBe("approved_for_release");
+    expect(response.body.approved_for_release_at).toBeTruthy();
+    expect(response.body.release_packet.spencer_review_complete).toBe(true);
+    expect(response.body.release_packet.approved_for_release).toBe(true);
+  });
+
+  it("rejects invalid Sports peer QA updates", async () => {
+    const invalidStatus = await request(app)
+      .patch("/api/sports/peer-qa/00000000-0000-0000-0000-000000000000")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ qa_status: "made_up_status" });
+    expect(invalidStatus.status).toBe(400);
+
+    const missingReview = await request(app)
+      .patch("/api/sports/peer-qa/00000000-0000-0000-0000-000000000000")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ qa_status: "ready_for_peer_qa" });
+    expect(missingReview.status).toBe(404);
+  });
 });

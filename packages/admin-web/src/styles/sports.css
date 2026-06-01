@@ -318,10 +318,13 @@
   align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text);
   display: grid;
   gap: 10px;
   grid-template-columns: 64px minmax(0, 1fr);
   padding: 10px;
+  text-align: left;
 }
 
 .sports-qa-checklist__item span {
@@ -332,6 +335,62 @@
 
 .sports-qa-checklist__item.is-complete {
   border-color: #83b799;
+}
+
+.sports-qa-action-panel,
+.sports-qa-form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.sports-qa-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sports-qa-quick-actions button.is-active {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
+
+.sports-qa-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.sports-qa-form-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.sports-qa-form-grid label span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sports-qa-form-grid input,
+.sports-qa-form-grid select,
+.sports-qa-form-grid textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text);
+  padding: 9px 10px;
+}
+
+.sports-qa-form-grid__wide {
+  grid-column: 1 / -1;
+}
+
+.sports-qa-action-message {
+  border: 1px solid #83b799;
+  border-radius: var(--radius-md);
+  background: #133b31;
+  color: #dcf6ea;
+  padding: 10px 12px;
 }
 
 .sports-detail-field,

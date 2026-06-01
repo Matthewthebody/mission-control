@@ -21,10 +21,13 @@ import type {
   SportsOverviewListItem,
   SportsOverviewResponse,
   SportsPermissionSnapshot,
+  SportsPeerQaApprovalInput,
   SportsPeerQaBoardResponse,
+  SportsPeerQaChecklistUpdateInput,
   SportsPeerQaChecklistItem,
   SportsPeerQaJob,
   SportsPeerQaStatus,
+  SportsPeerQaUpdateInput,
   SportsProductionItemSummary,
   SportsProductionResponse,
   SportsProofCycleRecord,
@@ -2258,6 +2261,165 @@ export async function listSportsPeerQaBoard(client: PoolClient, auth: AuthUser):
     summary,
     items
   };
+}
+
+async function getSportsPeerQaBoardItem(client: PoolClient, auth: AuthUser, reviewId: string) {
+  const board = await listSportsPeerQaBoard(client, auth);
+  const item = board.items.find((candidate) => candidate.id === reviewId);
+  if (!item) {
+    throw new ApiError(404, "Sports peer QA review not found.");
+  }
+  return item;
+}
+
+function hasOwnValue<T extends object>(input: T, key: keyof T) {
+  return Object.prototype.hasOwnProperty.call(input, key);
+}
+
+function peerQaChecklistColumn(section: SportsPeerQaChecklistUpdateInput["section"]) {
+  switch (section) {
+    case "owner":
+      return "owner_checklist_json";
+    case "peer":
+      return "peer_checklist_json";
+    case "conditional":
+      return "conditional_checklist_json";
+  }
+}
+
+export async function updateSportsPeerQaReview(
+  client: PoolClient,
+  auth: AuthUser,
+  reviewId: string,
+  input: SportsPeerQaUpdateInput
+): Promise<SportsPeerQaJob> {
+  assertSportsManageAccess(auth);
+  if (input.qa_status && !SPORTS_PEER_QA_STATUSES.includes(input.qa_status)) {
+    throw new ApiError(400, "Invalid Sports peer QA status.");
+  }
+
+  const result = await client.query<{ id: string }>(
+    `
+      UPDATE sports_peer_qa_reviews
+      SET
+        qa_status = CASE WHEN $3::boolean THEN $4 ELSE qa_status END,
+        correction_category = CASE WHEN $5::boolean THEN $6 ELSE correction_category END,
+        correction_notes = CASE WHEN $7::boolean THEN $8 ELSE correction_notes END,
+        blocker_reason = CASE WHEN $9::boolean THEN $10 ELSE blocker_reason END,
+        blocker_owner = CASE WHEN $11::boolean THEN $12 ELSE blocker_owner END,
+        blocker_notes = CASE WHEN $13::boolean THEN $14 ELSE blocker_notes END,
+        approved_for_release_at = CASE
+          WHEN $3::boolean AND $4 = 'approved_for_release' THEN COALESCE(approved_for_release_at, now())
+          WHEN $3::boolean AND $4 NOT IN ('approved_for_release', 'released_complete') THEN NULL
+          ELSE approved_for_release_at
+        END,
+        release_packet_json = CASE
+          WHEN $3::boolean AND $4 = 'approved_for_release'
+            THEN release_packet_json || '{"spencer_review_complete": true, "approved_for_release": true}'::jsonb
+          WHEN $3::boolean AND $4 NOT IN ('approved_for_release', 'released_complete')
+            THEN release_packet_json || '{"spencer_review_complete": false, "approved_for_release": false}'::jsonb
+          ELSE release_packet_json
+        END,
+        updated_at = now()
+      WHERE tenant_id = $1
+        AND id = $2::uuid
+      RETURNING id::text
+    `,
+    [
+      auth.tenantId,
+      reviewId,
+      hasOwnValue(input, "qa_status"),
+      input.qa_status ?? null,
+      hasOwnValue(input, "correction_category"),
+      normalizeText(input.correction_category),
+      hasOwnValue(input, "correction_notes"),
+      normalizeText(input.correction_notes),
+      hasOwnValue(input, "blocker_reason"),
+      normalizeText(input.blocker_reason),
+      hasOwnValue(input, "blocker_owner"),
+      normalizeText(input.blocker_owner),
+      hasOwnValue(input, "blocker_notes"),
+      normalizeText(input.blocker_notes)
+    ]
+  );
+  if (!result.rows[0]) {
+    throw new ApiError(404, "Sports peer QA review not found.");
+  }
+  return getSportsPeerQaBoardItem(client, auth, reviewId);
+}
+
+export async function updateSportsPeerQaChecklistItem(
+  client: PoolClient,
+  auth: AuthUser,
+  reviewId: string,
+  input: SportsPeerQaChecklistUpdateInput
+): Promise<SportsPeerQaJob> {
+  assertSportsManageAccess(auth);
+  const column = peerQaChecklistColumn(input.section);
+  const current = await client.query<{ checklist_json: unknown }>(
+    `
+      SELECT ${column} AS checklist_json
+      FROM sports_peer_qa_reviews
+      WHERE tenant_id = $1
+        AND id = $2::uuid
+    `,
+    [auth.tenantId, reviewId]
+  );
+  if (!current.rows[0]) {
+    throw new ApiError(404, "Sports peer QA review not found.");
+  }
+
+  const items = checklistItems(current.rows[0].checklist_json);
+  let updated = false;
+  const nextItems = items.map((item) => {
+    if (item.label !== input.label) {
+      return item;
+    }
+    updated = true;
+    return { ...item, complete: input.complete };
+  });
+  if (!updated) {
+    throw new ApiError(404, "Sports peer QA checklist item not found.");
+  }
+
+  await client.query(
+    `
+      UPDATE sports_peer_qa_reviews
+      SET ${column} = $3::jsonb,
+          updated_at = now()
+      WHERE tenant_id = $1
+        AND id = $2::uuid
+    `,
+    [auth.tenantId, reviewId, JSON.stringify(nextItems)]
+  );
+  return getSportsPeerQaBoardItem(client, auth, reviewId);
+}
+
+export async function approveSportsPeerQaReview(
+  client: PoolClient,
+  auth: AuthUser,
+  reviewId: string,
+  _input: SportsPeerQaApprovalInput = {}
+): Promise<SportsPeerQaJob> {
+  assertSportsManageAccess(auth);
+  const result = await client.query<{ id: string }>(
+    `
+      UPDATE sports_peer_qa_reviews
+      SET
+        qa_status = 'approved_for_release',
+        approved_for_release_at = now(),
+        release_packet_json = release_packet_json || '{"spencer_review_complete": true, "approved_for_release": true}'::jsonb,
+        updated_at = now()
+      WHERE tenant_id = $1
+        AND id = $2::uuid
+      RETURNING id::text
+    `,
+    [auth.tenantId, reviewId]
+  );
+  if (!result.rows[0]) {
+    throw new ApiError(404, "Sports peer QA review not found.");
+  }
+  return getSportsPeerQaBoardItem(client, auth, reviewId);
 }
 
 export async function listSportsWatchlist(client: PoolClient, auth: AuthUser): Promise<SportsWatchlistResponse> {

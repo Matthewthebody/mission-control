@@ -13,8 +13,21 @@ import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader } from "../components/workspace/WorkspacePageHeader";
 import { WorkspaceSectionHeader } from "../components/workspace/WorkspaceSectionHeader";
-import { listSportsPeerQaBoard } from "../services/sportsApi";
-import type { SportsPeerQaBoardResponse, SportsPeerQaChecklistItem, SportsPeerQaJob, SportsPeerQaStatus } from "../sportsTypes";
+import {
+  approveSportsPeerQaReviewRecord,
+  listSportsPeerQaBoard,
+  updateSportsPeerQaChecklistItemRecord,
+  updateSportsPeerQaReviewRecord
+} from "../services/sportsApi";
+import {
+  SPORTS_PEER_QA_STATUSES,
+  type SportsPeerQaBoardResponse,
+  type SportsPeerQaChecklistItem,
+  type SportsPeerQaChecklistSection,
+  type SportsPeerQaJob,
+  type SportsPeerQaStatus,
+  type SportsPeerQaUpdateInput
+} from "../sportsTypes";
 
 type Props = {
   token: string;
@@ -42,6 +55,15 @@ const COUNT_KEYS: Array<{ key: SportsPeerQaStatus; label: string }> = [
   { key: "approved_for_release", label: "Approved" }
 ];
 
+const QUICK_STATUS_KEYS: SportsPeerQaStatus[] = [
+  "ready_for_owner_qa",
+  "ready_for_peer_qa",
+  "corrections_needed",
+  "ready_for_spencer_review",
+  "blocked_waiting",
+  "approved_for_release"
+];
+
 function statusToneForQa(status: SportsPeerQaStatus) {
   if (status === "corrections_needed" || status === "blocked_waiting") {
     return "danger";
@@ -63,7 +85,19 @@ function checklistProgress(items: SportsPeerQaChecklistItem[]) {
   return `${applicable.filter((item) => item.complete).length}/${applicable.length}`;
 }
 
-function ChecklistSection({ title, items }: { title: string; items: SportsPeerQaChecklistItem[] }) {
+function ChecklistSection({
+  title,
+  items,
+  section,
+  disabled,
+  onToggle
+}: {
+  title: string;
+  items: SportsPeerQaChecklistItem[];
+  section: SportsPeerQaChecklistSection;
+  disabled?: boolean;
+  onToggle: (section: SportsPeerQaChecklistSection, item: SportsPeerQaChecklistItem) => void;
+}) {
   return (
     <section className="sports-detail-card sports-detail-card--nested">
       <div className="sports-detail-card__header">
@@ -75,10 +109,16 @@ function ChecklistSection({ title, items }: { title: string; items: SportsPeerQa
       <div className="sports-qa-checklist">
         {items.length ? (
           items.map((item) => (
-            <div key={`${title}-${item.label}`} className={item.complete ? "sports-qa-checklist__item is-complete" : "sports-qa-checklist__item"}>
+            <button
+              key={`${title}-${item.label}`}
+              type="button"
+              className={item.complete ? "sports-qa-checklist__item is-complete" : "sports-qa-checklist__item"}
+              disabled={disabled || item.applies === false}
+              onClick={() => onToggle(section, item)}
+            >
               <span>{item.complete ? "Pass" : item.applies === false ? "N/A" : "Open"}</span>
               <strong>{item.label}</strong>
-            </div>
+            </button>
           ))
         ) : (
           <p>No checks recorded yet.</p>
@@ -108,7 +148,11 @@ function ReleasePacket({ job }: { job: SportsPeerQaJob }) {
       <div className="sports-detail-card__header">
         <div>
           <h4>Ready-for-release packet</h4>
-          <p>{job.approved_for_release_at ? `Approved ${formatDateTime(job.approved_for_release_at)}` : "Release confidence snapshot"}</p>
+          <p>
+            {job.approved_for_release_at
+              ? `Approved by ${job.final_reviewer_name ?? "Spencer"} ${formatDateTime(job.approved_for_release_at)}`
+              : "Release confidence snapshot"}
+          </p>
         </div>
       </div>
       <div className="sports-preview-field-grid">
@@ -123,11 +167,36 @@ function ReleasePacket({ job }: { job: SportsPeerQaJob }) {
   );
 }
 
+function summarizePeerQa(items: SportsPeerQaJob[]): SportsPeerQaBoardResponse["summary"] {
+  const summary = SPORTS_PEER_QA_STATUSES.reduce(
+    (acc, status) => {
+      acc[status] = items.filter((item) => item.qa_status === status).length;
+      return acc;
+    },
+    { total: items.length, blocked: items.filter((item) => item.qa_status === "blocked_waiting").length } as SportsPeerQaBoardResponse["summary"]
+  );
+  return summary;
+}
+
+function replacePeerQaItem(payload: SportsPeerQaBoardResponse, updated: SportsPeerQaJob): SportsPeerQaBoardResponse {
+  const items = payload.items.map((item) => (item.id === updated.id ? updated : item));
+  return {
+    ...payload,
+    generated_at: new Date().toISOString(),
+    summary: summarizePeerQa(items),
+    items
+  };
+}
+
 export function SportsPeerQaBoard({ token }: Props) {
   const [payload, setPayload] = useState<SportsPeerQaBoardResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [savedMessage, setSavedMessage] = useState("");
+  const [busyAction, setBusyAction] = useState("");
+  const [draft, setDraft] = useState<SportsPeerQaUpdateInput>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +225,83 @@ export function SportsPeerQaBoard({ token }: Props) {
   }, [token]);
 
   const selected = useMemo(() => payload?.items.find((item) => item.id === selectedId) ?? payload?.items[0] ?? null, [payload?.items, selectedId]);
+
+  useEffect(() => {
+    if (!selected) {
+      setDraft({});
+      return;
+    }
+    setDraft({
+      qa_status: selected.qa_status,
+      correction_category: selected.correction_category ?? "",
+      correction_notes: selected.correction_notes ?? "",
+      blocker_reason: selected.blocker_reason ?? "",
+      blocker_owner: selected.blocker_owner ?? "",
+      blocker_notes: selected.blocker_notes ?? ""
+    });
+    setActionError("");
+    setSavedMessage("");
+  }, [selected?.id]);
+
+  async function runPeerQaAction(action: () => Promise<SportsPeerQaJob>, message: string, busyKey: string) {
+    setBusyAction(busyKey);
+    setActionError("");
+    setSavedMessage("");
+    try {
+      const updated = await action();
+      setPayload((current) => (current ? replacePeerQaItem(current, updated) : current));
+      setSelectedId(updated.id);
+      setSavedMessage(message);
+    } catch (actionFailure) {
+      setActionError(actionFailure instanceof ApiClientError ? actionFailure.message : "We couldn't save that Sports QA update.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  function saveReviewUpdate(input: SportsPeerQaUpdateInput, message = "Sports QA review updated.", busyKey = "review") {
+    if (!selected) {
+      return;
+    }
+    void runPeerQaAction(() => updateSportsPeerQaReviewRecord(token, selected.id, input), message, busyKey);
+  }
+
+  function saveDraft() {
+    saveReviewUpdate(
+      {
+        qa_status: draft.qa_status,
+        correction_category: draft.correction_category ?? null,
+        correction_notes: draft.correction_notes ?? null,
+        blocker_reason: draft.blocker_reason ?? null,
+        blocker_owner: draft.blocker_owner ?? null,
+        blocker_notes: draft.blocker_notes ?? null
+      },
+      "Sports QA fields saved.",
+      "draft"
+    );
+  }
+
+  function toggleChecklistItem(section: SportsPeerQaChecklistSection, item: SportsPeerQaChecklistItem) {
+    if (!selected) {
+      return;
+    }
+    void runPeerQaAction(
+      () => updateSportsPeerQaChecklistItemRecord(token, selected.id, { section, label: item.label, complete: !item.complete }),
+      item.complete ? "Checklist item reopened." : "Checklist item completed.",
+      `${section}:${item.label}`
+    );
+  }
+
+  function approveSelected() {
+    if (!selected) {
+      return;
+    }
+    void runPeerQaAction(
+      () => approveSportsPeerQaReviewRecord(token, selected.id, { approved_by: selected.final_reviewer_name ?? "Spencer" }),
+      "Spencer approval stamped.",
+      "approve"
+    );
+  }
 
   if (loading) {
     return <WorkspaceLoadingBlock title="Loading Sports peer QA" summary="Opening owner QA, peer QA, corrections, blockers, and release readiness." />;
@@ -265,6 +411,98 @@ export function SportsPeerQaBoard({ token }: Props) {
                   <StatusPill label={selected.blocker_reason ? "Blocked" : "No Active Blocker"} tone={selected.blocker_reason ? "danger" : "success"} />
                 </div>
 
+                {savedMessage ? <div className="sports-qa-action-message" role="status">{savedMessage}</div> : null}
+                {actionError ? <div className="error-banner">{actionError}</div> : null}
+
+                <section className="sports-detail-card sports-detail-card--nested sports-qa-action-panel">
+                  <div className="sports-detail-card__header">
+                    <div>
+                      <h4>Board actions</h4>
+                      <p>Move the review, note what is holding release, and keep the demo queue current.</p>
+                    </div>
+                  </div>
+                  <div className="sports-qa-quick-actions">
+                    {QUICK_STATUS_KEYS.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className={selected.qa_status === status ? "is-active" : ""}
+                        disabled={busyAction !== ""}
+                        onClick={() => saveReviewUpdate({ qa_status: status }, `Moved to ${STATUS_LABELS[status]}.`, `status:${status}`)}
+                      >
+                        {STATUS_LABELS[status]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="sports-qa-form-grid">
+                    <label>
+                      <span>Status</span>
+                      <select
+                        value={draft.qa_status ?? selected.qa_status}
+                        disabled={busyAction !== ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, qa_status: event.target.value as SportsPeerQaStatus }))}
+                      >
+                        {SPORTS_PEER_QA_STATUSES.map((status) => (
+                          <option key={status} value={status}>{STATUS_LABELS[status]}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Correction category</span>
+                      <input
+                        value={draft.correction_category ?? ""}
+                        disabled={busyAction !== ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, correction_category: event.target.value }))}
+                        placeholder="file_structure, spelling, gallery_setup"
+                      />
+                    </label>
+                    <label>
+                      <span>Who has the ball</span>
+                      <input
+                        value={draft.blocker_owner ?? ""}
+                        disabled={busyAction !== ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, blocker_owner: event.target.value }))}
+                        placeholder="Owner, Peer, Spencer, Photography"
+                      />
+                    </label>
+                    <label>
+                      <span>What is blocking release?</span>
+                      <input
+                        value={draft.blocker_reason ?? ""}
+                        disabled={busyAction !== ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, blocker_reason: event.target.value }))}
+                        placeholder="waiting_on_second_shoot_day"
+                      />
+                    </label>
+                    <label className="sports-qa-form-grid__wide">
+                      <span>Correction notes</span>
+                      <textarea
+                        value={draft.correction_notes ?? ""}
+                        disabled={busyAction !== ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, correction_notes: event.target.value }))}
+                        rows={3}
+                      />
+                    </label>
+                    <label className="sports-qa-form-grid__wide">
+                      <span>Blocker notes</span>
+                      <textarea
+                        value={draft.blocker_notes ?? ""}
+                        disabled={busyAction !== ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, blocker_notes: event.target.value }))}
+                        rows={3}
+                      />
+                    </label>
+                  </div>
+                  <WorkspaceActionBar align="end">
+                    <button type="button" className="secondary-button" disabled={busyAction !== ""} onClick={saveDraft}>
+                      {busyAction === "draft" ? "Saving..." : "Save QA Fields"}
+                    </button>
+                    <button type="button" disabled={busyAction !== ""} onClick={approveSelected}>
+                      {busyAction === "approve" ? "Stamping..." : "Stamp Spencer Approval"}
+                    </button>
+                  </WorkspaceActionBar>
+                </section>
+
                 <section className="sports-detail-card sports-detail-card--nested">
                   <div className="sports-detail-card__header">
                     <div>
@@ -282,9 +520,27 @@ export function SportsPeerQaBoard({ token }: Props) {
                   </div>
                 </section>
 
-                <ChecklistSection title="Owner QA checklist" items={selected.owner_checklist} />
-                <ChecklistSection title="Peer QA checklist" items={selected.peer_checklist} />
-                <ChecklistSection title="Conditional Sports checks" items={selected.conditional_checklist} />
+                <ChecklistSection
+                  title="Owner QA checklist"
+                  section="owner"
+                  items={selected.owner_checklist}
+                  disabled={busyAction !== ""}
+                  onToggle={toggleChecklistItem}
+                />
+                <ChecklistSection
+                  title="Peer QA checklist"
+                  section="peer"
+                  items={selected.peer_checklist}
+                  disabled={busyAction !== ""}
+                  onToggle={toggleChecklistItem}
+                />
+                <ChecklistSection
+                  title="Conditional Sports checks"
+                  section="conditional"
+                  items={selected.conditional_checklist}
+                  disabled={busyAction !== ""}
+                  onToggle={toggleChecklistItem}
+                />
 
                 <section className="sports-detail-card sports-detail-card--nested">
                   <div className="sports-detail-card__header">

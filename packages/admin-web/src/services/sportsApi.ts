@@ -5,7 +5,10 @@ import type {
   SportsContactsResponse,
   SportsFinancialSummaryInput,
   SportsOverviewResponse,
+  SportsPeerQaApprovalInput,
   SportsPeerQaBoardResponse,
+  SportsPeerQaChecklistUpdateInput,
+  SportsPeerQaUpdateInput,
   SportsProductionResponse,
   SportsProofCycleInput,
   SportsProductItemInput,
@@ -144,6 +147,27 @@ export async function listSportsProduction(token: string) {
 
 export async function listSportsPeerQaBoard(token: string) {
   return apiFetch<SportsPeerQaBoardResponse>("/api/sports/peer-qa", token);
+}
+
+export async function updateSportsPeerQaReviewRecord(token: string, reviewId: string, input: SportsPeerQaUpdateInput) {
+  return apiFetch<SportsPeerQaBoardResponse["items"][number]>(`/api/sports/peer-qa/${reviewId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateSportsPeerQaChecklistItemRecord(token: string, reviewId: string, input: SportsPeerQaChecklistUpdateInput) {
+  return apiFetch<SportsPeerQaBoardResponse["items"][number]>(`/api/sports/peer-qa/${reviewId}/checklist`, token, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function approveSportsPeerQaReviewRecord(token: string, reviewId: string, input: SportsPeerQaApprovalInput = {}) {
+  return apiFetch<SportsPeerQaBoardResponse["items"][number]>(`/api/sports/peer-qa/${reviewId}/approve`, token, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
 }
 
 export async function listSportsWatchlist(token: string) {

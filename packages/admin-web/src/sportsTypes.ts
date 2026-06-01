@@ -589,6 +589,27 @@ export type SportsPeerQaBoardResponse = {
   items: SportsPeerQaJob[];
 };
 
+export type SportsPeerQaUpdateInput = {
+  qa_status?: SportsPeerQaStatus;
+  correction_category?: string | null;
+  correction_notes?: string | null;
+  blocker_reason?: string | null;
+  blocker_owner?: string | null;
+  blocker_notes?: string | null;
+};
+
+export type SportsPeerQaChecklistSection = "owner" | "peer" | "conditional";
+
+export type SportsPeerQaChecklistUpdateInput = {
+  section: SportsPeerQaChecklistSection;
+  label: string;
+  complete: boolean;
+};
+
+export type SportsPeerQaApprovalInput = {
+  approved_by?: string | null;
+};
+
 export type SportsWatchlistResponse = {
   generated_at: string;
   permissions: SportsPermissionSnapshot;

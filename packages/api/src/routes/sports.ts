@@ -11,6 +11,7 @@ import {
 import { validateBody, validateQuery } from "../middleware/validate.js";
 import {
   SPORTS_PRODUCTION_STATUSES,
+  SPORTS_PEER_QA_STATUSES,
   SPORTS_PROOF_STATUSES,
   SPORTS_READINESS_STATUSES,
   SPORTS_RISK_STATUSES,
@@ -21,6 +22,7 @@ import {
 import type { AuthenticatedRequest } from "../types/http.js";
 import { getRequestMeta } from "../utils/requestMeta.js";
 import {
+  approveSportsPeerQaReview,
   deleteSportsTeamUnit,
   getSportsAccountDetail,
   getSportsOverview,
@@ -34,6 +36,8 @@ import {
   listSportsShoots,
   listSportsWatchlist,
   updateSportsReadinessItem,
+  updateSportsPeerQaChecklistItem,
+  updateSportsPeerQaReview,
   upsertSportsFinancialSummary,
   upsertSportsProofCycle,
   upsertSportsSpecialtyProduct,
@@ -151,6 +155,30 @@ const financialSummarySchema = z.object({
   payout_amount: z.number().nullable().optional(),
   payment_status: z.string().trim().max(80).nullable().optional(),
   notes: z.string().trim().max(4000).nullable().optional()
+});
+
+const peerQaReviewUpdateSchema = z
+  .object({
+    qa_status: z.enum(SPORTS_PEER_QA_STATUSES).optional(),
+    correction_category: z.string().trim().max(120).nullable().optional(),
+    correction_notes: z.string().trim().max(4000).nullable().optional(),
+    blocker_reason: z.string().trim().max(180).nullable().optional(),
+    blocker_owner: z.string().trim().max(120).nullable().optional(),
+    blocker_notes: z.string().trim().max(4000).nullable().optional()
+  })
+  .refine(
+    (value) => Object.values(value).some((field) => field !== undefined),
+    "Provide at least one Sports peer QA update."
+  );
+
+const peerQaChecklistUpdateSchema = z.object({
+  section: z.enum(["owner", "peer", "conditional"]),
+  label: z.string().trim().min(1).max(240),
+  complete: z.boolean()
+});
+
+const peerQaApprovalSchema = z.object({
+  approved_by: z.string().trim().max(160).nullable().optional()
 });
 
 function getAuth(req: AuthenticatedRequest) {
@@ -416,6 +444,39 @@ router.get("/peer-qa", requireSportsReadAccess, async (req, res, next) => {
   try {
     const auth = getAuth(req as AuthenticatedRequest);
     const response = await withClientTransaction(auth.tenantId, auth.id, (client) => listSportsPeerQaBoard(client, auth));
+    return res.json(response);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/peer-qa/:reviewId", requireSportsManageAccess, validateBody(peerQaReviewUpdateSchema), async (req, res, next) => {
+  try {
+    const reviewId = getUuidParam(String(req.params.reviewId), "Sports peer QA review id");
+    const auth = getAuth(req as AuthenticatedRequest);
+    const response = await withClientTransaction(auth.tenantId, auth.id, (client) => updateSportsPeerQaReview(client, auth, reviewId, req.body));
+    return res.json(response);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/peer-qa/:reviewId/checklist", requireSportsManageAccess, validateBody(peerQaChecklistUpdateSchema), async (req, res, next) => {
+  try {
+    const reviewId = getUuidParam(String(req.params.reviewId), "Sports peer QA review id");
+    const auth = getAuth(req as AuthenticatedRequest);
+    const response = await withClientTransaction(auth.tenantId, auth.id, (client) => updateSportsPeerQaChecklistItem(client, auth, reviewId, req.body));
+    return res.json(response);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/peer-qa/:reviewId/approve", requireSportsManageAccess, validateBody(peerQaApprovalSchema), async (req, res, next) => {
+  try {
+    const reviewId = getUuidParam(String(req.params.reviewId), "Sports peer QA review id");
+    const auth = getAuth(req as AuthenticatedRequest);
+    const response = await withClientTransaction(auth.tenantId, auth.id, (client) => approveSportsPeerQaReview(client, auth, reviewId, req.body));
     return res.json(response);
   } catch (error) {
     return next(error);
