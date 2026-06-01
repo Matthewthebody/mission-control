@@ -70,6 +70,7 @@ export function Schedule({ token, currentUser }: Props) {
   const canBroadenVisibility = scheduleScope === "all" || scheduleScope === "department";
   const currentView = employeeOnlyMode && routeState.view === "assignment_board" ? "staffing" : routeState.view;
   const routeContext = getScheduleRouteContext(window.location.hash, employeeOnlyMode);
+  const photographySchedule = routeContext === "photography";
   const workspaceMode = canManageSchedule ? "scheduling" : "schedule";
 
   useEffect(() => {
@@ -128,8 +129,14 @@ export function Schedule({ token, currentUser }: Props) {
   }, [currentUser.department, employeeOnlyMode, scheduleScope]);
 
   const viewOptions = useMemo(
-    () => VIEW_OPTIONS.filter((option) => option.id !== "assignment_board" || canManageSchedule),
-    [canManageSchedule]
+    () =>
+      VIEW_OPTIONS.filter((option) => {
+        if (photographySchedule) {
+          return option.id === "jobs";
+        }
+        return option.id !== "assignment_board" || canManageSchedule;
+      }),
+    [canManageSchedule, photographySchedule]
   );
   const currentViewDefinition = viewOptions.find((option) => option.id === currentView) ?? viewOptions[0];
   const headerCopy = getHeaderCopy(routeContext, currentViewDefinition.id, employeeOnlyMode);
@@ -221,7 +228,7 @@ export function Schedule({ token, currentUser }: Props) {
               Clear Search
             </button>
           ) : null}
-          {canOpenSchedulingTools ? (
+          {canOpenSchedulingTools && !photographySchedule ? (
             <button
               type="button"
               className="secondary-button"
@@ -239,7 +246,8 @@ export function Schedule({ token, currentUser }: Props) {
       <UnifiedScheduleSurface
         workspaceMode={workspaceMode}
         initialView={currentViewDefinition.id}
-        initialRange={routeContext === "photography" && currentViewDefinition.id === "jobs" ? "30day" : undefined}
+        initialRange={photographySchedule && currentViewDefinition.id === "jobs" ? "30day" : undefined}
+        presentationMode={photographySchedule ? "photography" : "default"}
         token={token}
         anchorDate={date}
         search={search}

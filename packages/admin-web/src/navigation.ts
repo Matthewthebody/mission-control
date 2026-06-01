@@ -97,7 +97,7 @@ type RouteRender =
   | { kind: "shared-exceptions"; department: "schools" | "sports" | null }
   | { kind: "executive-dashboard" }
   | { kind: "operations-today"; department: "schools" | "sports" | null }
-  | { kind: "studios-workspace"; focus?: "overview" | "travel" | "pre_service" | "readiness" | "workload" }
+  | { kind: "studios-workspace"; focus?: "overview" | "today" | "travel" | "pre_service" | "readiness" | "workload" }
   | { kind: "global-search" }
   | { kind: "scheduling-workspace"; area?: "calendar" | "staffing" | "exceptions" | "outlook" }
   | { kind: "schedule-workspace" }
@@ -404,7 +404,7 @@ const ROUTES: RouteDefinition[] = [
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
     showInSectionNav: true,
-    render: { kind: "tab", tab: "shoots" }
+    render: { kind: "studios-workspace", focus: "today" }
   },
   {
     id: "operations-schedule",
@@ -538,7 +538,7 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "studios-workload",
-    label: "Workload",
+    label: "Senior Photographer View",
     sectionKey: "photography",
     description: "Compact workload view for crews, readiness owners, and lead photographers across active shoot work.",
     canonicalHash: "#studios/workload",
@@ -1983,7 +1983,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "operations/shoots/import") {
     return pickVisibleRoute("studios-shoots", availableTabs, employeeOnlyMode);
   }
-  if (path === "operations/shoots" || path === "photography/shoots" || path === "shoots") {
+  if (path === "operations/shoots" || path === "photography/shoots" || path === "studios/shoots" || path === "shoots") {
     return pickVisibleRoute("studios-shoots", availableTabs, employeeOnlyMode);
   }
   if (/^photography\/shoots\/[^/]+$/i.test(path)) {

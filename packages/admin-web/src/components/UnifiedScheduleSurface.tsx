@@ -30,6 +30,7 @@ type Props = {
   workspaceMode?: "scheduling" | "schedule";
   initialView?: "jobs" | "staffing" | "assignment_board";
   initialRange?: ScheduleRangeMode;
+  presentationMode?: "default" | "photography";
   token: string;
   anchorDate: string;
   search: string;
@@ -68,6 +69,7 @@ export function UnifiedScheduleSurface({
   workspaceMode = "scheduling",
   initialView = "jobs",
   initialRange = "week",
+  presentationMode = "default",
   token,
   anchorDate,
   search,
@@ -83,6 +85,7 @@ export function UnifiedScheduleSurface({
   const employeeOnlyMode = shouldLimitToEmployeeWorksurface(currentUser);
   const schedulingWorkspace = workspaceMode === "scheduling";
   const scheduleWorkspace = workspaceMode === "schedule";
+  const photographyPresentation = presentationMode === "photography";
   const canManage = schedulingWorkspace && currentUser.permissions.includes("schedule.manage");
   const canViewBroaderAssignments = !employeeOnlyMode;
   const [isNarrowLayout, setIsNarrowLayout] = useState(() => matchesNarrowScheduleLayout());
@@ -731,6 +734,21 @@ export function UnifiedScheduleSurface({
             <strong>{scheduleSummary.unconfirmedLaborCount}</strong>
           </article>
         </div>
+      ) : photographyPresentation ? (
+        <div className="schedule-workspace-summary">
+          <article className="schedule-workspace-summary__card">
+            <span>Linked shoots</span>
+            <strong>{visibleShoots.length}</strong>
+          </article>
+          <article className="schedule-workspace-summary__card">
+            <span>Assignments in view</span>
+            <strong>{visibleAssignments}</strong>
+          </article>
+          <article className="schedule-workspace-summary__card">
+            <span>Window</span>
+            <strong>30 days</strong>
+          </article>
+        </div>
       ) : (
         <div className="schedule-workspace-summary">
           <article className="schedule-workspace-summary__card">
@@ -752,14 +770,21 @@ export function UnifiedScheduleSurface({
         </div>
       )}
 
-      <div className="schedule-sync-summary">
-        <span className="metric-pill">{visibleShoots.length} shoots in view</span>
-        <span className="metric-pill">{visibleAssignments} assignments in scope</span>
-        <span className="metric-pill">
-          Outlook {calendarResponse?.sync.outlook_connected ? calendarResponse?.sync.outlook_health_state.replace(/_/g, " ") : "disconnected"}
-        </span>
-        <span className="metric-pill">{calendarResponse?.sync.pending_sync_count ?? 0} pending sync</span>
-      </div>
+      {photographyPresentation ? (
+        <div className="schedule-sync-summary">
+          <span className="metric-pill">{visibleShoots.length} shoots in view</span>
+          <span className="metric-pill">{visibleAssignments} assignments in scope</span>
+        </div>
+      ) : (
+        <div className="schedule-sync-summary">
+          <span className="metric-pill">{visibleShoots.length} shoots in view</span>
+          <span className="metric-pill">{visibleAssignments} assignments in scope</span>
+          <span className="metric-pill">
+            Outlook {calendarResponse?.sync.outlook_connected ? calendarResponse?.sync.outlook_health_state.replace(/_/g, " ") : "disconnected"}
+          </span>
+          <span className="metric-pill">{calendarResponse?.sync.pending_sync_count ?? 0} pending sync</span>
+        </div>
+      )}
 
       <div className="schedule-filter-grid">
         {schedulingWorkspace ? (
@@ -992,6 +1017,7 @@ export function UnifiedScheduleSurface({
         selectedItemKey,
         selectedShootBriefing,
         showStaffingDetails: schedulingWorkspace,
+        showIntegrationDetails: !photographyPresentation,
         setSelectedDayKey,
         setSelectedItemKey,
         standaloneShiftRowsByDay,
@@ -1120,12 +1146,14 @@ function ScheduleIntegrationPanel({
 function ScheduleEventPanel({
   event,
   canManage,
+  showIntegrationDetails,
   integrationActionKey,
   onIntegrationAction,
   onOpenShoot
 }: {
   event: UnifiedScheduleEventItem;
   canManage: boolean;
+  showIntegrationDetails: boolean;
   integrationActionKey: string;
   onIntegrationAction: (item: UnifiedScheduleItem, action: "push" | "resync" | "acknowledge") => Promise<void>;
   onOpenShoot: (shootId: string) => void;
@@ -1135,7 +1163,9 @@ function ScheduleEventPanel({
       <div className="schedule-selected-detail__meta">
         <span className={`shoot-type-chip shoot-type-chip--${getDepartmentCategory(event.department)}`}>{humanizeLabel(event.event_kind)}</span>
         <span className="meta-pill">{humanizeLabel(event.status)}</span>
-        <span className={`risk-pill risk-pill--${mapIntegrationTone(event.integration.sync_health)}`}>Sync {humanizeLabel(event.schedule_sync_state)}</span>
+        {showIntegrationDetails ? (
+          <span className={`risk-pill risk-pill--${mapIntegrationTone(event.integration.sync_health)}`}>Sync {humanizeLabel(event.schedule_sync_state)}</span>
+        ) : null}
       </div>
       <div className="shoot-briefing">
         <section className="shoot-briefing__section">
@@ -1186,13 +1216,15 @@ function ScheduleEventPanel({
           <div className="section-title">Notes</div>
           <div className="muted">{event.notes || "No additional notes are attached to this operational event yet."}</div>
         </section>
-        <ScheduleIntegrationPanel
-          item={event}
-          integration={event.integration}
-          canManage={canManage}
-          integrationActionKey={integrationActionKey}
-          onIntegrationAction={onIntegrationAction}
-        />
+        {showIntegrationDetails ? (
+          <ScheduleIntegrationPanel
+            item={event}
+            integration={event.integration}
+            canManage={canManage}
+            integrationActionKey={integrationActionKey}
+            onIntegrationAction={onIntegrationAction}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -1563,6 +1595,7 @@ function ScheduleDayBriefing({
   selectedItemKey,
   selectedShootBriefing,
   showStaffingDetails,
+  showIntegrationDetails,
   windowMode
 }: {
   canManage: boolean;
@@ -1581,6 +1614,7 @@ function ScheduleDayBriefing({
   selectedItemKey: string;
   selectedShootBriefing: ReturnType<typeof buildShootBriefing> | null;
   showStaffingDetails: boolean;
+  showIntegrationDetails: boolean;
   windowMode: WindowMode;
 }) {
   const selectedDayLabel =
@@ -1663,7 +1697,7 @@ function ScheduleDayBriefing({
                         {(item.open_alert_count ?? 0) + (item.open_attendance_exception_count ?? 0) === 1 ? "" : "s"}
                       </span>
                     ) : null}
-                    {item.integration.manual_review_required || item.integration.sync_required ? (
+                    {showIntegrationDetails && (item.integration.manual_review_required || item.integration.sync_required) ? (
                       <span className="meta-pill">Sync review</span>
                     ) : null}
                   </div>
@@ -1748,7 +1782,7 @@ function ScheduleDayBriefing({
               Open Maps
             </button>
           </div>
-          {selectedShoot && isShootItem(selectedShoot) ? (
+          {showIntegrationDetails && selectedShoot && isShootItem(selectedShoot) ? (
             <ScheduleIntegrationPanel
               item={selectedShoot}
               integration={selectedShoot.integration}
@@ -1763,6 +1797,7 @@ function ScheduleDayBriefing({
         <ScheduleEventPanel
           event={selectedEvent}
           canManage={canManage}
+          showIntegrationDetails={showIntegrationDetails}
           integrationActionKey={integrationActionKey}
           onIntegrationAction={onIntegrationAction}
           onOpenShoot={onOpenShoot}
@@ -1802,6 +1837,7 @@ function renderCalendarSurface(input: {
   selectedItemKey: string;
   selectedShootBriefing: ReturnType<typeof buildShootBriefing> | null;
   showStaffingDetails: boolean;
+  showIntegrationDetails: boolean;
   setSelectedDayKey: (value: string) => void;
   setSelectedItemKey: (value: string) => void;
   standaloneShiftRowsByDay: Map<string, ShiftRecord[]>;
@@ -1871,6 +1907,7 @@ function renderCalendarSurface(input: {
           selectedItemKey={input.selectedItemKey}
           selectedShootBriefing={input.selectedShootBriefing}
           showStaffingDetails={input.showStaffingDetails}
+          showIntegrationDetails={input.showIntegrationDetails}
           windowMode={input.viewMode === "month" ? "30day" : "week"}
         />
       </div>
@@ -1958,7 +1995,7 @@ function renderCalendarSurface(input: {
                       onClick={() => input.handleEventSelect(item)}
                     >
                       {(() => {
-                        const syncPreview = renderEventSyncPreview(item.integration);
+                        const syncPreview = input.showIntegrationDetails ? renderEventSyncPreview(item.integration) : null;
                         return syncPreview ? (
                           <div className={`schedule-event-card__sync schedule-event-card__sync--${syncPreview.tone}`}>{syncPreview.label}</div>
                         ) : null;
@@ -2036,6 +2073,7 @@ function renderCalendarSurface(input: {
         selectedItemKey={input.selectedItemKey}
         selectedShootBriefing={input.selectedShootBriefing}
         showStaffingDetails={input.showStaffingDetails}
+        showIntegrationDetails={input.showIntegrationDetails}
         windowMode={input.viewMode === "day" ? "today" : "week"}
       />
     </div>
