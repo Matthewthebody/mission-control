@@ -13,9 +13,11 @@ let managerUserId = "";
 let employeeId = "";
 let employeeEmail = "";
 let employeeToken = "";
-let demoShootId = "";
+let studioId = "";
 let demoLocationLat = 0;
 let demoLocationLng = 0;
+const createdShootIds: string[] = [];
+const createdShiftIds: string[] = [];
 
 async function cleanupEmployeeTimeClockArtifacts() {
   await pool.query("DELETE FROM time_clock_compliance_flag WHERE tenant_id = $1 AND employee_id = $2", [tenantId, employeeId]);
@@ -28,6 +30,11 @@ async function cleanupEmployeeTimeClockArtifacts() {
   await pool.query("DELETE FROM clock_event WHERE tenant_id = $1 AND employee_id = $2", [tenantId, employeeId]);
   await pool.query("DELETE FROM time_segment WHERE tenant_id = $1 AND employee_id = $2", [tenantId, employeeId]);
   await pool.query("DELETE FROM time_session WHERE tenant_id = $1 AND employee_id = $2", [tenantId, employeeId]);
+  if (createdShiftIds.length) {
+    await pool.query("DELETE FROM shift_segment WHERE tenant_id = $1 AND shift_id = ANY($2::uuid[])", [tenantId, createdShiftIds]);
+    await pool.query("DELETE FROM work_shift WHERE tenant_id = $1 AND id = ANY($2::uuid[])", [tenantId, createdShiftIds]);
+    createdShiftIds.length = 0;
+  }
   await pool.query(
     "DELETE FROM shift_segment WHERE tenant_id = $1 AND shift_id IN (SELECT id FROM work_shift WHERE tenant_id = $1 AND assigned_user_id = $2 AND title LIKE 'Shell Time Clock Test%')",
     [tenantId, employeeId]
@@ -36,12 +43,64 @@ async function cleanupEmployeeTimeClockArtifacts() {
     "DELETE FROM work_shift WHERE tenant_id = $1 AND assigned_user_id = $2 AND title LIKE 'Shell Time Clock Test%'",
     [tenantId, employeeId]
   );
+  if (createdShootIds.length) {
+    await pool.query("DELETE FROM shoot WHERE tenant_id = $1 AND id = ANY($2::uuid[])", [tenantId, createdShootIds]);
+    createdShootIds.length = 0;
+  }
+}
+
+async function insertShellShoot(startsAt: Date, endsAt: Date) {
+  const code = `TCS-${randomUUID().slice(0, 8)}`;
+  const shoot = (
+    await pool.query<{ id: string }>(
+      `
+        INSERT INTO shoot (
+          tenant_id,
+          studio_id,
+          shoot_code,
+          title,
+          shoot_date,
+          location_name,
+          location_address,
+          location_lat,
+          location_lng,
+          navigation_url,
+          geofence_radius_meters,
+          showtime,
+          arrival_time,
+          start_time,
+          end_time_est,
+          projected_students,
+          created_by
+        )
+        VALUES (
+          $1,$2,$3,'Shell Time Clock Test Shoot',$4::date,'Demo Test Site','123 Demo Way',$5,$6,NULL,804,$7,$7,$7,$8,32,$9
+        )
+        RETURNING id
+      `,
+      [
+        tenantId,
+        studioId,
+        code,
+        startsAt.toISOString(),
+        demoLocationLat,
+        demoLocationLng,
+        startsAt.toISOString(),
+        endsAt.toISOString(),
+        managerUserId
+      ]
+    )
+  ).rows[0];
+
+  createdShootIds.push(shoot.id);
+  return shoot.id;
 }
 
 async function insertShootShift() {
   const startsAt = new Date(Date.now() - 10 * 60_000);
   const endsAt = new Date(Date.now() + 3 * 60 * 60_000);
   const title = `Shell Time Clock Test ${randomUUID().slice(0, 8)}`;
+  const shootId = await insertShellShoot(startsAt, endsAt);
 
   const shift = (
     await pool.query(
@@ -89,7 +148,7 @@ async function insertShootShift() {
       `,
       [
         tenantId,
-        demoShootId,
+        shootId,
         employeeId,
         managerUserId,
         title,
@@ -100,6 +159,7 @@ async function insertShootShift() {
       ]
     )
   ).rows[0];
+  createdShiftIds.push(shift.id);
 
   await pool.query(
     `
@@ -140,7 +200,7 @@ beforeAll(async () => {
   managerUserId = people.rows.find((row) => row.email === "senior@example.com")?.id as string;
   const shoot = await pool.query(
     `
-      SELECT id, location_lat, location_lng
+      SELECT id, studio_id, location_lat, location_lng
       FROM shoot
       WHERE tenant_id = $1
         AND shoot_code = 'DEMO-001'
@@ -148,7 +208,7 @@ beforeAll(async () => {
     `,
     [tenantId]
   );
-  demoShootId = shoot.rows[0].id as string;
+  studioId = shoot.rows[0].studio_id as string;
   demoLocationLat = Number(shoot.rows[0].location_lat ?? 44.973);
   demoLocationLng = Number(shoot.rows[0].location_lng ?? -93.227);
   employeeEmail = `timeclock-shell-${randomUUID().slice(0, 10)}@example.com`;
