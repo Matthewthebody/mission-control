@@ -5,7 +5,8 @@ import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader, type WorkspaceHeaderMeta } from "../components/workspace/WorkspacePageHeader";
 import type { SharedJobListItem } from "../jobTruthTypes";
-import { listSharedJobs } from "../services/jobsApi";
+import type { SharedJobDay, SharedJobDetailResponse, SharedJobStaffAssignment } from "../jobTruthTypes";
+import { getSharedJobDetail, listSharedJobs } from "../services/jobsApi";
 import type { SessionUser } from "../types";
 
 type Props = {
@@ -38,10 +39,10 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
   travel: {
     title: "Travel & Logistics",
     summary:
-      "Keep route planning, parking notes, arrival timing, and field logistics visible before the crew leaves without pretending this is a live mapping integration yet.",
+      "Field-ready arrival, location, contact, parking, crew, and note context for photographers checking the next shoot before they leave.",
     meta: [
-      { label: "Travel visibility", tone: "info" },
-      { label: "Location prep", tone: "neutral" }
+      { label: "Field directions", tone: "info" },
+      { label: "Read-only pilot view", tone: "neutral" }
     ]
   },
   pre_service: {
@@ -104,25 +105,11 @@ const PRE_SERVICE_CARDS = [
   }
 ];
 
-const TRAVEL_CARDS = [
-  {
-    title: "Route Preview",
-    detail: "Open the location in Google Maps when a demo job includes a usable address. This is a safe placeholder, not a live routing sync."
-  },
-  {
-    title: "Arrival Context",
-    detail: "Parking, entrance, check-in contact, unload constraints, and arrival buffer belong here before crews leave."
-  },
-  {
-    title: "Field Notes",
-    detail: "Weather, site reminders, and client-specific movement notes should stay close to the shoot instead of scattered through chat."
-  }
-];
-
 export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Props) {
   const copy = FOCUS_COPY[focus];
   const isOverview = focus === "overview";
   const isTodayFocus = focus === "today";
+  const isTravelFocus = focus === "travel";
   const isPreServiceFocus = focus === "pre_service" || focus === "readiness";
 
   return (
@@ -141,9 +128,11 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
               <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
                 Today's Shoots
               </button>
-              <button type="button" onClick={() => (window.location.hash = "#my-work")}>
-                My Work
-              </button>
+              {!isTravelFocus ? (
+                <button type="button" onClick={() => (window.location.hash = "#my-work")}>
+                  My Work
+                </button>
+              ) : null}
             </WorkspaceActionBar>
           )
         }
@@ -177,7 +166,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
             ))}
           </section>
         </>
-      ) : (
+      ) : !isTravelFocus ? (
         <section className="panel studios-workspace__focus-card" aria-label="Photography route shortcuts">
           <div className="studios-workspace__focus-actions">
             {PRIMARY_LINKS.map((link) => (
@@ -187,9 +176,9 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {isOverview ? null : (
+      {isOverview || isTravelFocus ? null : (
         <section className="panel studios-workspace__focus-card">
           <div className="workspace-section-header">
             <div className="workspace-section-header__copy">
@@ -233,34 +222,9 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         </section>
       ) : null}
 
-      {focus === "travel" ? (
-        <section className="panel studios-workspace__prep-panel">
-          <div className="workspace-section-header">
-            <div className="workspace-section-header__copy">
-              <div className="eyebrow">Travel Cleanup</div>
-              <h3>Route and arrival context</h3>
-              <p>Travel is intentionally simple for the pilot: make the location story obvious, then decide what should be real data.</p>
-            </div>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=North+Metro+Stadium", "_blank", "noopener,noreferrer")}
-            >
-              Open Sample Map
-            </button>
-          </div>
-          <div className="studios-workspace__prep-grid">
-            {TRAVEL_CARDS.map((card) => (
-              <article key={card.title} className="studios-workspace__info-card">
-                <strong>{card.title}</strong>
-                <p>{card.detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {isTravelFocus ? <PhotographyTravelPanel token={token} /> : null}
 
-      {isTodayFocus || isOverview ? null : (
+      {isTodayFocus || isOverview || isTravelFocus ? null : (
         <CompactActiveWorkPanel
           token={token}
           currentUser={currentUser}
@@ -273,6 +237,315 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
       )}
     </div>
   );
+}
+
+function PhotographyTravelPanel({ token }: { token: string }) {
+  const [jobs, setJobs] = useState<SharedJobListItem[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<SharedJobDetailResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    listSharedJobs(token)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const travelJobs = response.jobs
+          .filter((job) => job.primary_day_date && !["archived", "cancelled"].includes(job.job_status))
+          .sort(compareJobsForTravel);
+        setJobs(travelJobs);
+        setSelectedJobId((current) => current ?? travelJobs[0]?.id ?? null);
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Travel details could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!selectedJobId) {
+      setDetail(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+    getSharedJobDetail(token, selectedJobId)
+      .then((response) => {
+        if (!cancelled) {
+          setDetail(response);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDetail(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDetailLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedJobId, token]);
+
+  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0] ?? null, [jobs, selectedJobId]);
+  const travelContext = useMemo(() => buildTravelContext(selectedJob, detail), [detail, selectedJob]);
+
+  if (loading) {
+    return <WorkspaceLoadingBlock title="Loading travel details" summary="Pulling the next shoot location, time, contact, and crew context." />;
+  }
+
+  if (error) {
+    return <WorkspaceEmptyState title="Travel details are unavailable" summary={error} />;
+  }
+
+  if (!selectedJob || !travelContext) {
+    return (
+      <WorkspaceEmptyState
+        title="No upcoming Travel jobs are ready"
+        summary="When a Photography job has a date and location, the field travel overview will show where to go and what to know before leaving."
+        actions={
+          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
+            Open 30-Day Calendar
+          </button>
+        }
+      />
+    );
+  }
+
+  return (
+    <section className="panel studios-workspace__travel-panel" aria-label="Travel field overview">
+      <div className="studios-workspace__travel-header">
+        <div>
+          <div className="eyebrow">Next Field Stop</div>
+          <h3>{travelContext.jobName}</h3>
+          <p>{travelContext.organizationName}</p>
+        </div>
+        {jobs.length > 1 ? (
+          <label className="filter-field">
+            <span>Choose shoot</span>
+            <select value={selectedJob.id} onChange={(event) => setSelectedJobId(event.target.value)}>
+              {jobs.slice(0, 8).map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+
+      <div className="studios-workspace__travel-location-card">
+        <div>
+          <div className="eyebrow">Where Am I Going?</div>
+          <strong>{travelContext.locationName}</strong>
+          {travelContext.address ? <p>{travelContext.address}</p> : <p>Address pending</p>}
+        </div>
+        {travelContext.mapsUrl ? (
+          <a className="secondary-button" href={travelContext.mapsUrl} target="_blank" rel="noreferrer">
+            Open in Google Maps
+          </a>
+        ) : null}
+      </div>
+
+      <div className="studios-workspace__travel-grid">
+        <TravelInfoGroup title="Schedule" items={travelContext.scheduleItems} />
+        <TravelInfoGroup title="Contact" items={travelContext.contactItems} />
+        <TravelInfoGroup title="Crew" items={travelContext.crewItems} />
+        <TravelInfoGroup title="Parking / Load-In" items={travelContext.logisticsItems} />
+        <TravelInfoGroup title="Field Notes" items={travelContext.noteItems} />
+        <article className="studios-workspace__travel-info-card studios-workspace__travel-info-card--placeholder">
+          <h4>Monday</h4>
+          <p>Monday schedule/staffing integration not connected yet.</p>
+        </article>
+      </div>
+
+      {detailLoading ? <p className="muted">Refreshing detail notes...</p> : null}
+    </section>
+  );
+}
+
+function TravelInfoGroup({ title, items }: { title: string; items: string[] }) {
+  return (
+    <article className="studios-workspace__travel-info-card">
+      <h4>{title}</h4>
+      {items.length ? (
+        <ul>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>Not available yet.</p>
+      )}
+    </article>
+  );
+}
+
+function buildTravelContext(job: SharedJobListItem | null, detail: SharedJobDetailResponse | null) {
+  if (!job) {
+    return null;
+  }
+
+  const primaryDay = findPrimaryTravelDay(job, detail?.days ?? []);
+  const employeeLocation = detail?.prep_readiness.employee_briefing.primary_location ?? null;
+  const primaryContact = findPrimaryContact(job, detail);
+  const locationName = firstString(
+    detail?.summary.primary_location_name,
+    primaryDay?.location_name,
+    employeeLocation?.location_name,
+    job.primary_location_name
+  );
+  const address = firstString(employeeLocation?.address_display, detail?.summary.primary_location_address, job.primary_location_address);
+  const mapsUrl = firstString(employeeLocation?.google_maps_url, buildGoogleMapsSearchLink(address ?? locationName));
+  const scheduleItems = [
+    formatDateLine(primaryDay?.date ?? job.primary_day_date),
+    formatTimeLine(primaryDay?.start_time ?? job.primary_day_start_time, primaryDay?.end_time ?? job.primary_day_end_time),
+    primaryDay?.check_in_window_start || primaryDay?.check_in_window_end
+      ? `Check-in window: ${formatClockLabel(primaryDay.check_in_window_start)}-${formatClockLabel(primaryDay.check_in_window_end)}`
+      : null
+  ].filter((value): value is string => Boolean(value));
+  const crewItems = buildCrewItems(job, detail?.staff_assignments ?? []);
+  const logisticsItems = [
+    firstString(primaryDay?.parking_notes, employeeLocation?.parking_instructions),
+    firstString(employeeLocation?.unloading_instructions, primaryDay?.access_notes),
+    firstString(employeeLocation?.entrance_instructions, employeeLocation?.security_checkin_requirements),
+    firstString(primaryDay?.setup_notes, employeeLocation?.setup_area)
+  ].filter((value): value is string => Boolean(value));
+  const noteItems = [
+    firstString(primaryDay?.travel_notes, employeeLocation?.navigation_notes),
+    firstString(employeeLocation?.employee_facing_notes, employeeLocation?.weather_contingency_notes),
+    firstString(job.location_override_note, job.description_internal),
+    firstString(job.school_profile?.special_instructions, job.sports_profile?.client_expectations_notes)
+  ].filter((value): value is string => Boolean(value));
+  const contactItems = [
+    primaryContact?.name ? `Primary: ${primaryContact.name}` : null,
+    primaryContact?.phone ? `Phone: ${primaryContact.phone}` : null,
+    primaryContact?.email ? `Email: ${primaryContact.email}` : null
+  ].filter((value): value is string => Boolean(value));
+
+  return {
+    organizationName: detail?.summary.organization_name ?? job.organization_name ?? "Client pending",
+    jobName: detail?.job.title ?? job.title,
+    locationName: locationName ?? "Location pending",
+    address,
+    mapsUrl,
+    scheduleItems,
+    contactItems,
+    crewItems,
+    logisticsItems,
+    noteItems
+  };
+}
+
+function findPrimaryTravelDay(job: SharedJobListItem, days: SharedJobDay[]) {
+  if (!days.length) {
+    return null;
+  }
+  return days.find((day) => day.date === job.primary_day_date) ?? days[0];
+}
+
+function findPrimaryContact(job: SharedJobListItem, detail: SharedJobDetailResponse | null) {
+  const candidates = [
+    ...(detail?.prep_readiness.client_prep.eligible_email_recipients ?? []),
+    ...(detail?.prep_readiness.client_prep.eligible_sms_recipients ?? [])
+  ];
+  const matchingContact = candidates.find((contact) => contact.display_name === (detail?.summary.primary_contact_name ?? job.primary_contact_name));
+  const contact = matchingContact ?? candidates[0] ?? null;
+  const name = detail?.summary.primary_contact_name ?? job.primary_contact_name ?? contact?.display_name ?? null;
+  return name || contact?.mobile_phone || contact?.email
+    ? {
+        name,
+        phone: contact?.mobile_phone ?? null,
+        email: contact?.email ?? null
+      }
+    : null;
+}
+
+function buildCrewItems(job: SharedJobListItem, assignments: SharedJobStaffAssignment[]) {
+  const confirmed = assignments.filter((assignment) => assignment.assignment_status !== "cancelled");
+  const lead = confirmed.find((assignment) => assignment.is_lead) ?? confirmed.find((assignment) => assignment.user_name === job.lead_owner_name);
+  const crewNames = confirmed.map((assignment) => assignment.user_name).filter((value): value is string => Boolean(value));
+  const items = [
+    lead?.user_name || job.lead_owner_name ? `Lead photographer: ${lead?.user_name ?? job.lead_owner_name}` : null,
+    confirmed.length
+      ? `${confirmed.length} assigned: ${crewNames.slice(0, 4).join(", ")}${crewNames.length > 4 ? ` +${crewNames.length - 4} more` : ""}`
+      : `${job.assigned_staff_count} assigned / ${job.ready_present_count || job.checked_in_staff_count} active`,
+    job.staffing_status !== "ready_confirmed" ? `Staffing status: ${humanizeTravelValue(job.staffing_status)}` : null
+  ];
+  return items.filter((value): value is string => Boolean(value));
+}
+
+function compareJobsForTravel(left: SharedJobListItem, right: SharedJobListItem) {
+  return String(left.primary_day_date ?? "").localeCompare(String(right.primary_day_date ?? "")) || left.title.localeCompare(right.title);
+}
+
+function buildGoogleMapsSearchLink(query: string | null | undefined) {
+  const cleaned = query?.trim();
+  return cleaned ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleaned)}` : null;
+}
+
+function formatDateLine(value: string | null | undefined) {
+  if (!value) {
+    return "Date pending";
+  }
+  const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return `Date: ${value}`;
+  }
+  return `Date: ${parsed.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}`;
+}
+
+function formatTimeLine(start: string | null | undefined, end: string | null | undefined) {
+  if (start && end) {
+    return `Time: ${formatClockLabel(start)}-${formatClockLabel(end)}`;
+  }
+  if (start) {
+    return `Arrival/start: ${formatClockLabel(start)}`;
+  }
+  return "Time pending";
+}
+
+function formatClockLabel(value: string | null | undefined) {
+  if (!value) {
+    return "pending";
+  }
+  const timeOnly = value.includes("T") ? value.slice(11, 16) : value.slice(0, 5);
+  const [hourValue = "0", minuteValue = "00"] = timeOnly.split(":");
+  const hour = Number(hourValue);
+  if (Number.isNaN(hour)) {
+    return value;
+  }
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minuteValue.padStart(2, "0")} ${suffix}`;
+}
+
+function firstString(...values: Array<string | null | undefined>) {
+  return values.find((value) => value?.trim())?.trim() ?? null;
+}
+
+function humanizeTravelValue(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 function PhotographyTodayShootsPanel({ token }: { token: string }) {

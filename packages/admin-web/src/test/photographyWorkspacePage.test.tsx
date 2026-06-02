@@ -5,13 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getRouteById, getVisibleChildRoutes, resolveRouteId, type TabKey } from "../navigation";
 import { StudiosWorkspace } from "../pages/PhotographyWorkspace";
 import { Schedule } from "../pages/Schedule";
-import type { SharedJobListItem } from "../jobTruthTypes";
+import type { SharedJobDetailResponse, SharedJobListItem } from "../jobTruthTypes";
 import type { ScheduleRecordIntegrationState, SessionUser, UnifiedScheduleShootItem } from "../types";
 
 const listSharedJobsMock = vi.fn();
+const getSharedJobDetailMock = vi.fn();
 const apiFetchMock = vi.fn();
 
 vi.mock("../services/jobsApi", () => ({
+  getSharedJobDetail: (...args: unknown[]) => getSharedJobDetailMock(...args),
   listSharedJobs: (...args: unknown[]) => listSharedJobsMock(...args)
 }));
 
@@ -209,9 +211,209 @@ function buildScheduleShoot(overrides: Partial<UnifiedScheduleShootItem> = {}): 
   };
 }
 
+function buildSharedJobDetail(job: SharedJobListItem): SharedJobDetailResponse {
+  return {
+    job,
+    summary: {
+      organization_name: job.organization_name,
+      organization_account_type: "school",
+      primary_location_name: job.primary_location_name,
+      primary_location_address: job.primary_location_address,
+      primary_contact_name: job.primary_contact_name,
+      primary_contact_title: "Athletics Coordinator",
+      account_owner_name: job.account_owner_name,
+      lead_owner_user_id: job.lead_owner_user_id,
+      lead_owner_name: job.lead_owner_name,
+      primary_day_date: job.primary_day_date,
+      primary_day_start_time: job.primary_day_start_time,
+      primary_day_end_time: job.primary_day_end_time,
+      primary_day_label: job.primary_day_label,
+      latest_activity_at: null,
+      department_summary: {},
+      proof_status: null
+    },
+    school_profile: null,
+    sports_profile: {
+      job_id: job.id,
+      tenant_id: job.tenant_id,
+      sport_type: "Football",
+      season: "Fall",
+      league_name: null,
+      division: null,
+      team_structure: null,
+      estimated_team_count: 4,
+      proof_required: true,
+      approval_contact_id: null,
+      approval_contact_name: null,
+      billing_contact_id: null,
+      billing_contact_name: null,
+      revenue_share_enabled: null,
+      revenue_share_terms_summary: null,
+      banner_work_required: false,
+      specialty_products_required: false,
+      buddy_photos_required: false,
+      sponsor_graphics_required: false,
+      client_expectations_notes: "Coach wants a heads-up if athlete pacing falls behind."
+    },
+    job_shoot_links: [],
+    days: [
+      {
+        id: "day-travel",
+        tenant_id: job.tenant_id,
+        job_id: job.id,
+        legacy_shoot_day_id: null,
+        day_label: "Media Day",
+        date: "2026-06-18",
+        start_time: "09:30",
+        end_time: "12:00",
+        timezone: "America/Chicago",
+        location_id: "loc-north-metro",
+        location_name: "North Metro Stadium",
+        onsite_contact_id: "contact-riley",
+        onsite_contact_name: "Riley Hart",
+        lead_user_id: "user-photo",
+        lead_user_name: "Carisa Lead",
+        day_status: "ready",
+        weather_sensitive: true,
+        indoor_outdoor: "outdoor",
+        access_notes: "Check in at the fieldhouse door before unloading.",
+        parking_notes: "Use the east athlete gate and keep a runner by the fieldhouse door.",
+        setup_notes: "Weighted sideline staging only.",
+        travel_notes: "Stadium traffic is heavier than normal but inside the planned buffer.",
+        check_in_window_start: "09:00",
+        check_in_window_end: "09:15",
+        ready_confirmed_at: null,
+        ready_confirmed_by_user_id: null,
+        created_at: "2026-06-01T10:00:00.000Z",
+        updated_at: "2026-06-01T10:00:00.000Z"
+      }
+    ],
+    staff_assignments: [
+      {
+        id: "assignment-lead",
+        tenant_id: job.tenant_id,
+        job_id: job.id,
+        job_day_id: "day-travel",
+        user_id: "user-photo",
+        user_name: "Carisa Lead",
+        assignment_role: "lead_photographer",
+        assignment_status: "confirmed",
+        is_lead: true,
+        check_in_at: null,
+        check_out_at: null,
+        is_ready_present: true,
+        notes: null,
+        created_at: "2026-06-01T10:00:00.000Z",
+        updated_at: "2026-06-01T10:00:00.000Z"
+      },
+      {
+        id: "assignment-second",
+        tenant_id: job.tenant_id,
+        job_id: job.id,
+        job_day_id: "day-travel",
+        user_id: "user-second",
+        user_name: "Senior Photographer",
+        assignment_role: "photographer",
+        assignment_status: "confirmed",
+        is_lead: false,
+        check_in_at: null,
+        check_out_at: null,
+        is_ready_present: true,
+        notes: null,
+        created_at: "2026-06-01T10:00:00.000Z",
+        updated_at: "2026-06-01T10:00:00.000Z"
+      }
+    ],
+    readiness_items: [],
+    production_items: [],
+    production_item_shoot_links: [],
+    production_handoffs: [],
+    approval_requests: [],
+    qa_reviews: [],
+    qa_findings: [],
+    deliverable_items: [],
+    production_issues: [],
+    production_blockers: [],
+    watch_flags: [],
+    activity: [],
+    status: {
+      readiness_percent: job.readiness_percent,
+      job_status: job.job_status,
+      production_status: job.production_status,
+      staffing_status: job.staffing_status,
+      readiness_status: job.readiness_status,
+      risk_status: job.risk_status,
+      blocker_count: job.blocker_count,
+      open_watch_flag_count: job.open_watch_flag_count
+    },
+    workflow: {} as SharedJobDetailResponse["workflow"],
+    prep_readiness: {
+      preview_only: true,
+      generated_at: "2026-06-01T10:00:00.000Z",
+      status: "ready",
+      client_prep: {
+        account_name: job.organization_name,
+        job_name: job.title,
+        job_date: job.primary_day_date,
+        primary_location: {
+          id: "loc-north-metro",
+          location_name: "North Metro Stadium",
+          address_display: "2500 Stadium Drive, Plymouth, MN 55447",
+          google_maps_url: null,
+          client_facing_notes: null,
+          reference_attachments: []
+        },
+        eligible_email_recipients: [
+          {
+            id: "contact-riley",
+            display_name: "Riley Hart",
+            title: "Athletics Coordinator",
+            email: "riley.hart@example.com",
+            mobile_phone: "555-0142",
+            client_roles: ["photo_day_contact"]
+          }
+        ],
+        eligible_sms_recipients: [],
+        excluded_contacts: []
+      },
+      employee_briefing: {
+        primary_location: {
+          id: "loc-north-metro",
+          location_name: "North Metro Stadium",
+          address_display: "2500 Stadium Drive, Plymouth, MN 55447",
+          google_maps_url: null,
+          client_facing_notes: null,
+          reference_attachments: [],
+          navigation_notes: "Plan a small arrival buffer for stadium traffic.",
+          parking_instructions: "Use the east athlete gate and keep a runner by the fieldhouse door.",
+          entrance_instructions: "Enter through the fieldhouse door.",
+          unloading_instructions: "Unload cases at the east curb, then move vehicles.",
+          setup_area: "Sideline staging near the fieldhouse.",
+          backup_indoor_location: null,
+          accessibility_notes: null,
+          power_availability_notes: null,
+          wifi_cell_notes: null,
+          security_checkin_requirements: null,
+          weather_contingency_notes: null,
+          employee_facing_notes: "Keep team warmup lanes clear.",
+          internal_only_notes: null
+        }
+      },
+      message_previews: {
+        client_prep_email: {} as SharedJobDetailResponse["prep_readiness"]["message_previews"]["client_prep_email"],
+        client_prep_sms: {} as SharedJobDetailResponse["prep_readiness"]["message_previews"]["client_prep_sms"],
+        employee_briefing: {} as SharedJobDetailResponse["prep_readiness"]["message_previews"]["employee_briefing"]
+      },
+      warnings: []
+    },
+    policy: {} as SharedJobDetailResponse["policy"]
+  };
+}
+
 describe("StudiosWorkspace", () => {
   beforeEach(() => {
     listSharedJobsMock.mockReset();
+    getSharedJobDetailMock.mockReset();
     apiFetchMock.mockReset();
     window.location.hash = "#studios";
   });
@@ -290,6 +492,55 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByRole("button", { name: "Travel" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Create Task/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/school task/i)).not.toBeInTheDocument();
+  });
+
+  it("renders Travel as a field-ready overview with maps and without dead pilot controls", async () => {
+    const travelJob = buildSharedJob({
+      id: "job-travel",
+      title: "North Metro Stadium Media Day",
+      organization_name: "North Metro Athletics",
+      primary_location_name: "North Metro Stadium",
+      primary_location_address: "2500 Stadium Drive, Plymouth, MN 55447",
+      primary_contact_name: "Riley Hart",
+      primary_day_date: "2026-06-18",
+      primary_day_start_time: "09:30",
+      primary_day_end_time: "12:00",
+      assigned_staff_count: 3,
+      ready_present_count: 2,
+      lead_owner_name: "Carisa Lead"
+    });
+    listSharedJobsMock.mockResolvedValue({ jobs: [travelJob] });
+    getSharedJobDetailMock.mockResolvedValue(buildSharedJobDetail(travelJob));
+
+    render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="travel" />);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Travel & Logistics" })).toBeInTheDocument();
+    expect(await screen.findByText("North Metro Stadium Media Day")).toBeInTheDocument();
+    expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
+    expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
+    expect(screen.getByText("2500 Stadium Drive, Plymouth, MN 55447")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open in Google Maps" })).toHaveAttribute(
+      "href",
+      "https://www.google.com/maps/search/?api=1&query=2500%20Stadium%20Drive%2C%20Plymouth%2C%20MN%2055447"
+    );
+    expect(screen.getByText("Primary: Riley Hart")).toBeInTheDocument();
+    expect(await screen.findByText("Phone: 555-0142")).toBeInTheDocument();
+    expect(screen.getByText("Lead photographer: Carisa Lead")).toBeInTheDocument();
+    expect(screen.getByText(/Use the east athlete gate/i)).toBeInTheDocument();
+    expect(screen.getByText("Monday schedule/staffing integration not connected yet.")).toBeInTheDocument();
+
+    expect(screen.queryByRole("button", { name: "Open Sample Map" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Travel Cleanup")).not.toBeInTheDocument();
+    expect(screen.queryByText("Travel Visibility")).not.toBeInTheDocument();
+    expect(screen.queryByText("Location Prep")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Work" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Team Work" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Board" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More Filters" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Full Workspace" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "30-Day Calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Today's Shoots" })).toBeInTheDocument();
   });
 
   it("routes studios shoots to the Photography Today surface", () => {

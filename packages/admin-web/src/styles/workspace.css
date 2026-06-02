@@ -4309,9 +4309,102 @@
   font-weight: 700;
 }
 
+.studios-workspace__travel-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.studios-workspace__travel-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 1rem;
+  align-items: end;
+}
+
+.studios-workspace__travel-header h3 {
+  margin: 0.2rem 0;
+}
+
+.studios-workspace__travel-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.studios-workspace__travel-location-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  padding: 1.2rem;
+  background: var(--panel-contrast);
+}
+
+.studios-workspace__travel-location-card strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-strong);
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  line-height: 1.15;
+}
+
+.studios-workspace__travel-location-card p {
+  margin: 0.35rem 0 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.studios-workspace__travel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.85rem;
+}
+
+.studios-workspace__travel-info-card {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--panel);
+}
+
+.studios-workspace__travel-info-card h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.98rem;
+}
+
+.studios-workspace__travel-info-card ul {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text);
+}
+
+.studios-workspace__travel-info-card p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.studios-workspace__travel-info-card--placeholder {
+  border-style: dashed;
+}
+
 @media (max-width: 760px) {
   .studios-workspace__calendar-card {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studios-workspace__travel-header,
+  .studios-workspace__travel-location-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studios-workspace__travel-location-card .secondary-button {
+    justify-self: start;
   }
 }
 
