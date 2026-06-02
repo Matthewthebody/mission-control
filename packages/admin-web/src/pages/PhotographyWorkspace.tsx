@@ -33,11 +33,11 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
     ]
   },
   today: {
-    title: "Today's Shoots / Day at a Glance",
+    title: "Day at a Glance",
     summary:
-      "Same-day Photography view for shoot timing, client context, location, lead ownership, and any readiness concerns that need attention before crews move.",
+      "Same-day Photography view for what is happening today, where crews are going, who is assigned, and what needs attention before crews move.",
     meta: [
-      { label: "Same-day shoots", tone: "info" },
+      { label: "Today", tone: "info" },
       { label: "Read-only field view", tone: "neutral" },
       { label: "Prep and travel links", tone: "success" }
     ]
@@ -83,7 +83,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
 
 const PRIMARY_LINKS = [
   { id: "calendar", label: "30-Day Calendar", hash: "#studios/calendar", detail: "Start here for upcoming shoot load, linked assignments, and dates that need attention." },
-  { id: "shoots", label: "Today's Shoots", hash: "#studios/shoots", detail: "Execution queue and live field detail for the current shoot day." },
+  { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and field attention flags." },
   { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and final readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Routing notes, parking context, location reminders, and arrival guidance." },
   { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, mileage review, and post-shoot learning flow." },
@@ -113,9 +113,9 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
                 30-Day Calendar
               </button>
               <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
-                Today's Shoots
+                Day at a Glance
               </button>
-              {!isTravelFocus && !isPrepFocus ? (
+              {!isTravelFocus && !isPrepFocus && !isTodayFocus ? (
                 <button type="button" onClick={() => (window.location.hash = "#my-work")}>
                   My Work
                 </button>
@@ -153,7 +153,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
             ))}
           </section>
         </>
-      ) : !isTravelFocus && !isPrepFocus ? (
+      ) : !isTravelFocus && !isPrepFocus && !isTodayFocus ? (
         <section className="panel studios-workspace__focus-card" aria-label="Photography route shortcuts">
           <div className="studios-workspace__focus-actions">
             {PRIMARY_LINKS.map((link) => (
@@ -165,7 +165,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         </section>
       ) : null}
 
-      {isOverview || isTravelFocus || isPrepFocus ? null : (
+      {isOverview || isTravelFocus || isPrepFocus || isTodayFocus ? null : (
         <section className="panel studios-workspace__focus-card">
           <div className="workspace-section-header">
             <div className="workspace-section-header__copy">
@@ -178,10 +178,10 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
           </div>
           <div className="studios-workspace__focus-actions">
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
-              Today's Shoots
+              Day at a Glance
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-              Pre-Service
+              Job Prep / Pre-Service
             </button>
           </div>
         </section>
@@ -824,7 +824,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
     listSharedJobs(token, { day_date: today })
       .then((response) => {
         if (!cancelled) {
-          setJobs(response.jobs.filter((job) => !["archived", "cancelled"].includes(job.job_status)));
+          setJobs(response.jobs.filter((job) => !["archived", "cancelled"].includes(job.job_status)).sort(compareJobsForDayAtGlance));
         }
       })
       .catch((loadError) => {
@@ -845,57 +845,87 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
   if (loading) {
     return (
       <WorkspaceLoadingBlock
-        title="Loading today's Photography shoots"
+        title="Loading Day at a Glance"
         summary="Pulling same-day jobs, timing, location, lead ownership, and readiness flags."
       />
     );
   }
 
   if (error) {
-    return <WorkspaceEmptyState title="Today's shoots are unavailable" summary={error} />;
+    return <WorkspaceEmptyState title="Day at a Glance is unavailable" summary={error} />;
   }
 
+  const summary = buildDayAtGlanceSummary(jobs);
+
   return (
-    <section className="panel studios-workspace__prep-panel" aria-label="Today's Photography shoots">
-      <div className="workspace-section-header">
-        <div className="workspace-section-header__copy">
-          <div className="eyebrow">Day at a Glance</div>
-          <h3>Photography shoots happening today</h3>
-          <p>Read-only field context for time, client, location, lead ownership, and readiness concerns.</p>
+    <section className="panel studios-workspace__day-panel" aria-label="Photography Day at a Glance">
+      <div className="studios-workspace__day-header">
+        <div>
+          <div className="eyebrow">Today</div>
+          <h3>Photography Day at a Glance</h3>
+          <p>{formatDayAtGlanceDate(today)}</p>
         </div>
-        <span className="metric-pill">{jobs.length} today</span>
+        <div className="studios-workspace__day-summary" aria-label="Day at a Glance summary">
+          <span>
+            <strong>{jobs.length}</strong>
+            shoot{jobs.length === 1 ? "" : "s"} today
+          </span>
+          <span className={summary.redFlags ? "is-warning" : ""}>
+            <strong>{summary.redFlags}</strong>
+            red flag{summary.redFlags === 1 ? "" : "s"}
+          </span>
+          <span>
+            <strong>{summary.watchFlags}</strong>
+            watch flag{summary.watchFlags === 1 ? "" : "s"}
+          </span>
+          <span>
+            <strong>{summary.assignedCrew}</strong>
+            assigned crew
+          </span>
+        </div>
       </div>
       {jobs.length ? (
-        <div className="studios-workspace__prep-grid">
+        <div className="studios-workspace__day-list">
           {jobs.map((job) => (
-            <article key={job.id} className="studios-workspace__info-card">
-              <strong>{job.title}</strong>
-              <p>{job.organization_name ?? "Client pending"}</p>
-              <dl className="studios-workspace__detail-list">
+            <article key={job.id} className="studios-workspace__day-card">
+              <div className="studios-workspace__day-time">
+                <strong>{formatShootTime(job)}</strong>
+                <span>{job.primary_day_label ?? "Shoot"}</span>
+              </div>
+              <div className="studios-workspace__day-main">
                 <div>
-                  <dt>Time</dt>
-                  <dd>{formatShootTime(job)}</dd>
+                  <h4>{job.title}</h4>
+                  <p>{job.organization_name ?? "Client pending"}</p>
                 </div>
-                <div>
-                  <dt>Location</dt>
-                  <dd>{job.primary_location_name ?? job.primary_location_address ?? "Location pending"}</dd>
+                <dl className="studios-workspace__day-details">
+                  <div>
+                    <dt>Location</dt>
+                    <dd>{job.primary_location_name ?? job.primary_location_address ?? "Location pending"}</dd>
+                  </div>
+                  <div>
+                    <dt>Lead</dt>
+                    <dd>{job.lead_owner_name ?? "Lead photographer pending"}</dd>
+                  </div>
+                  <div>
+                    <dt>Crew</dt>
+                    <dd>{describeTodayCrew(job)}</dd>
+                  </div>
+                  <div>
+                    <dt>Readiness</dt>
+                    <dd>{describeTodayReadiness(job)}</dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="studios-workspace__day-status">
+                <span className={`status-pill ${getTodayRiskClass(job)}`}>{describeTodayAttention(job)}</span>
+                <div className="studios-workspace__focus-actions">
+                  <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/travel")}>
+                    Travel
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
+                    Job Prep / Pre-Service
+                  </button>
                 </div>
-                <div>
-                  <dt>Lead</dt>
-                  <dd>{job.lead_owner_name ?? "Lead photographer pending"}</dd>
-                </div>
-                <div>
-                  <dt>Readiness</dt>
-                  <dd>{describeTodayReadiness(job)}</dd>
-                </div>
-              </dl>
-              <div className="studios-workspace__focus-actions">
-                <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-                  Pre-Service
-                </button>
-                <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/travel")}>
-                  Travel
-                </button>
               </div>
             </article>
           ))}
@@ -913,6 +943,29 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
       )}
     </section>
   );
+}
+
+function buildDayAtGlanceSummary(jobs: SharedJobListItem[]) {
+  return jobs.reduce(
+    (summary, job) => ({
+      redFlags: summary.redFlags + job.blocker_count,
+      watchFlags: summary.watchFlags + job.open_watch_flag_count,
+      assignedCrew: summary.assignedCrew + job.assigned_staff_count
+    }),
+    { redFlags: 0, watchFlags: 0, assignedCrew: 0 }
+  );
+}
+
+function compareJobsForDayAtGlance(left: SharedJobListItem, right: SharedJobListItem) {
+  return String(left.primary_day_start_time ?? "").localeCompare(String(right.primary_day_start_time ?? "")) || left.title.localeCompare(right.title);
+}
+
+function formatDayAtGlanceDate(value: string) {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
 function formatShootTime(job: SharedJobListItem) {
@@ -942,6 +995,37 @@ function describeTodayReadiness(job: SharedJobListItem) {
   ].filter(Boolean);
 
   return flags.length ? flags.join(" | ") : "Ready for field review";
+}
+
+function describeTodayCrew(job: SharedJobListItem) {
+  const activeCount = job.ready_present_count || job.checked_in_staff_count;
+  return activeCount ? `${job.assigned_staff_count} assigned / ${activeCount} active` : `${job.assigned_staff_count} assigned`;
+}
+
+function describeTodayAttention(job: SharedJobListItem) {
+  if (job.blocker_count > 0) {
+    return `${job.blocker_count} blocker${job.blocker_count === 1 ? "" : "s"}`;
+  }
+  if (job.open_watch_flag_count > 0) {
+    return `${job.open_watch_flag_count} watch flag${job.open_watch_flag_count === 1 ? "" : "s"}`;
+  }
+  if (job.readiness_percent < 100) {
+    return `${job.readiness_percent}% ready`;
+  }
+  if (job.staffing_status !== "ready_confirmed") {
+    return `Staffing: ${humanizeTravelValue(job.staffing_status)}`;
+  }
+  return "No immediate flags";
+}
+
+function getTodayRiskClass(job: SharedJobListItem) {
+  if (job.blocker_count > 0 || job.risk_status === "critical" || job.risk_status === "high") {
+    return "status-pill--danger";
+  }
+  if (job.open_watch_flag_count > 0 || job.readiness_percent < 100 || job.staffing_status !== "ready_confirmed") {
+    return "status-pill--warning";
+  }
+  return "status-pill--success";
 }
 
 /**

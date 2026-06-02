@@ -558,7 +558,7 @@ describe("StudiosWorkspace", () => {
       expect(window.location.hash).toBe("#studios/calendar");
     });
 
-    expect(screen.getByRole("button", { name: /Photography Today's Shoots/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Photography Day at a Glance/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Photography Post-Shoot \/ Evaluations/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Photography 30-Day Calendar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
@@ -592,7 +592,7 @@ describe("StudiosWorkspace", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
-    expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
+    expect(screen.getAllByText("North Metro Athletics").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 4, name: "Schedule" })).toBeInTheDocument();
     expect(screen.getByText("Time: 9:30 AM-12:00 PM")).toBeInTheDocument();
     expect(screen.getByText("Estimated volume: 220")).toBeInTheDocument();
@@ -601,7 +601,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("2500 Stadium Drive, Plymouth, MN 55447")).toBeInTheDocument();
     expect(screen.getByText("Primary: Riley Hart")).toBeInTheDocument();
     expect(screen.getByText("Lead photographer: Carisa Lead")).toBeInTheDocument();
-    expect(screen.getByText("Arrive early enough to clear the east athlete gate before warmups.")).toBeInTheDocument();
+    expect(await screen.findByText("Arrive early enough to clear the east athlete gate before warmups.")).toBeInTheDocument();
     expect(screen.getByText("Confirm arrival packet - required")).toBeInTheDocument();
     expect(screen.getByText("Review parking notes - complete")).toBeInTheDocument();
     expect(screen.getByText("Last year: staging worked well, but add a second runner during peak athlete arrivals.")).toBeInTheDocument();
@@ -633,12 +633,26 @@ describe("StudiosWorkspace", () => {
     expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
   });
 
-  it("renders a Photography-specific Today's Shoots route without generic create-task actions", async () => {
+  it("renders a Photography-specific Day at a Glance route without generic create-task actions", async () => {
     const today = new Date().toISOString().slice(0, 10);
     listSharedJobsMock.mockResolvedValue({
       jobs: [
         buildSharedJob({
-          id: "job-today",
+          id: "job-today-later",
+          title: "Senior Banner Session",
+          organization_name: "North Metro Athletics",
+          primary_location_name: "North Metro Fieldhouse",
+          primary_day_date: today,
+          primary_day_start_time: "13:30",
+          primary_day_end_time: "15:00",
+          lead_owner_name: "Senior Photographer",
+          assigned_staff_count: 2,
+          ready_present_count: 1,
+          readiness_percent: 100,
+          open_watch_flag_count: 0
+        }),
+        buildSharedJob({
+          id: "job-today-early",
           title: "North Metro Stadium Media Day",
           organization_name: "North Metro Athletics",
           primary_location_name: "North Metro Stadium",
@@ -646,22 +660,39 @@ describe("StudiosWorkspace", () => {
           primary_day_start_time: "09:30",
           primary_day_end_time: "12:00",
           lead_owner_name: "Carisa Lead",
+          assigned_staff_count: 3,
+          ready_present_count: 2,
           readiness_percent: 82,
-          open_watch_flag_count: 1
+          open_watch_flag_count: 1,
+          blocker_count: 1
         })
       ]
     });
 
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="today" />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Today's Shoots / Day at a Glance" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Day at a Glance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Photography Day at a Glance" })).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("shoots today")).toBeInTheDocument();
+    expect(screen.getByText("red flag")).toBeInTheDocument();
+    expect(screen.getByText("watch flag")).toBeInTheDocument();
     expect(screen.getByText("North Metro Stadium Media Day")).toBeInTheDocument();
-    expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
+    expect(screen.getByText("Senior Banner Session")).toBeInTheDocument();
+    expect(screen.getByText("9:30 AM-12:00 PM")).toBeInTheDocument();
+    expect(screen.getByText("1:30 PM-3:00 PM")).toBeInTheDocument();
+    expect(screen.getAllByText("North Metro Athletics").length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
     expect(screen.getByText("Carisa Lead")).toBeInTheDocument();
-    expect(screen.getByText(/1 watch flag/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Pre-Service" }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Travel" })).toBeInTheDocument();
+    expect(screen.getByText("3 assigned / 2 active")).toBeInTheDocument();
+    expect(screen.getByText("1 blocker")).toBeInTheDocument();
+    expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Job Prep / Pre-Service" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Travel" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByText("Department Focus")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Photography route shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Work" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Create Task/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/school task/i)).not.toBeInTheDocument();
   });
@@ -712,13 +743,14 @@ describe("StudiosWorkspace", () => {
     expect(screen.queryByRole("button", { name: "More Filters" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Full Workspace" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30-Day Calendar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Today's Shoots" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day at a Glance" })).toBeInTheDocument();
   });
 
   it("routes studios shoots to the Photography Today surface", () => {
     const routeId = resolveRouteId("#studios/shoots", availableTabs, false);
     expect(routeId).toBe("studios-shoots");
     expect(getRouteById(routeId)?.render).toEqual({ kind: "studios-workspace", focus: "today" });
+    expect(getRouteById(routeId)?.label).toBe("Day at a Glance");
   });
 
   it("keeps staffing and attendance owned by Leadership navigation instead of Photography", () => {

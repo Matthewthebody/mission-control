@@ -396,9 +396,9 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "studios-shoots",
-    label: "Today's Shoots",
+    label: "Day at a Glance",
     sectionKey: "photography",
-    description: "Shoot execution queue for field readiness, travel, pre-service, and same-day studios work.",
+    description: "Same-day Photography schedule for timing, locations, leads, crew counts, readiness, and field attention flags.",
     canonicalHash: "#studios/shoots",
     visibleTabs: ["shoots"],
     visibleForEmployeeOnly: false,
