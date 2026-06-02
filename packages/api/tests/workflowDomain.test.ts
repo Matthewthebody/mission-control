@@ -24,7 +24,6 @@ import { createStaffingIssue, updateStaffingIssueStatus } from "../src/services/
 
 let tenantId = "";
 let studioId = "";
-let shootId = "";
 let leadershipUserId = "";
 let photographerUserId = "";
 
@@ -34,16 +33,12 @@ beforeAll(async () => {
       SELECT
         tenant.id AS tenant_id,
         studio.id AS studio_id,
-        shoot.id AS shoot_id,
         leadership.id AS leadership_user_id,
         photographer.id AS photographer_user_id
       FROM tenant
       JOIN studio
         ON studio.tenant_id = tenant.id
        AND studio.name = 'Main Studio'
-      JOIN shoot
-        ON shoot.tenant_id = tenant.id
-       AND shoot.shoot_code = 'DEMO-001'
       JOIN app_user leadership
         ON leadership.tenant_id = tenant.id
        AND lower(leadership.email) = lower('leadership@example.com')
@@ -57,7 +52,6 @@ beforeAll(async () => {
 
   tenantId = context.rows[0].tenant_id;
   studioId = context.rows[0].studio_id;
-  shootId = context.rows[0].shoot_id;
   leadershipUserId = context.rows[0].leadership_user_id;
   photographerUserId = context.rows[0].photographer_user_id;
 });
@@ -71,6 +65,60 @@ describe("workflow domain foundation", () => {
 
     try {
       await client.query("BEGIN");
+
+      const shootInsert = await client.query<{ id: string }>(
+        `
+          INSERT INTO shoot (
+            tenant_id,
+            studio_id,
+            shoot_code,
+            title,
+            shoot_date,
+            location_name,
+            location_address,
+            location_lat,
+            location_lng,
+            navigation_url,
+            geofence_radius_meters,
+            showtime,
+            arrival_time,
+            start_time,
+            end_time_est,
+            projected_students,
+            created_by
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            'Workflow Domain Test Shoot',
+            $4::date,
+            'Workflow Domain Test Site',
+            '123 Demo Lane',
+            44.973,
+            -93.227,
+            NULL,
+            804,
+            $5,
+            $5,
+            $5,
+            $6,
+            12,
+            $7
+          )
+          RETURNING id
+        `,
+        [
+          tenantId,
+          studioId,
+          `WFD-${crypto.randomUUID().slice(0, 8)}`,
+          startedAt.toISOString().slice(0, 10),
+          startedAt.toISOString(),
+          endedAt.toISOString(),
+          leadershipUserId
+        ]
+      );
+      const shootId = shootInsert.rows[0].id;
 
       const shiftInsert = await client.query<{ id: string }>(
         `
@@ -472,14 +520,14 @@ describe("workflow domain foundation", () => {
       const assignmentEvents = await listAssignmentEvents(client, tenantId, shiftId, 20);
       const staffingIssues = await listStaffingIssueRecords(client, tenantId, { shiftId, limit: 20 });
       const staffingIssueEvents = await listStaffingIssueEvents(client, tenantId, staffingIssue.id, 20);
-      const watchItems = await listWatchItemRecords(client, tenantId, { sourceModule: "scheduling", limit: 20 });
+      const watchItems = await listWatchItemRecords(client, tenantId, { watchItemId, limit: 20 });
       const watchEvents = await listWatchItemEvents(client, tenantId, watchItemId, 20);
-      const productionJobs = await listProductionJobRecords(client, tenantId, { ownerUserId: leadershipUserId, limit: 20 });
+      const productionJobs = await listProductionJobRecords(client, tenantId, { productionJobId: projectId, limit: 20 });
       const productionJobEvents = await listProductionJobEvents(client, tenantId, projectId, 20);
       const productionTasks = await listProductionTaskRecords(client, tenantId, { productionJobId: projectId, limit: 20 });
       const productionTaskEvents = await listProductionTaskEvents(client, tenantId, taskId, 20);
       const approvalRequests = await listApprovalRequestRecords(client, tenantId, {
-        requesterUserId: leadershipUserId,
+        approvalRequestId,
         limit: 20
       });
       const approvalEvents = await listApprovalRequestEvents(client, tenantId, approvalRequestId, 20);
