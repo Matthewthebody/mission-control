@@ -6,7 +6,7 @@ import { getRouteById, getVisibleChildRoutes, resolveRouteId, type TabKey } from
 import { StudiosWorkspace } from "../pages/PhotographyWorkspace";
 import { Schedule } from "../pages/Schedule";
 import type { SharedJobListItem } from "../jobTruthTypes";
-import type { SessionUser } from "../types";
+import type { ScheduleRecordIntegrationState, SessionUser, UnifiedScheduleShootItem } from "../types";
 
 const listSharedJobsMock = vi.fn();
 const apiFetchMock = vi.fn();
@@ -55,6 +55,29 @@ const currentUser: SessionUser = {
 };
 
 const availableTabs: TabKey[] = ["dashboard", "calendar", "shoots", "projects", "time", "alerts"];
+
+const cleanIntegration: ScheduleRecordIntegrationState = {
+  provider: "outlook",
+  link_state: "not_linked",
+  source_of_truth: "mission_control",
+  sync_state: "not_linked",
+  sync_health: "neutral",
+  sync_required: false,
+  manual_review_required: false,
+  review_reason: null,
+  external_record_id: null,
+  external_calendar_id: null,
+  last_synced_at: null,
+  last_sync_direction: "none",
+  last_sync_error: null,
+  external_last_modified_at: null,
+  changed_fields: [],
+  changed_field_labels: [],
+  source_system: null,
+  pending_external_changes: false,
+  stale_data_warning: false,
+  recommended_next_action: null
+};
 
 function buildSharedJob(overrides: Partial<SharedJobListItem> = {}): SharedJobListItem {
   return {
@@ -122,6 +145,66 @@ function buildSharedJob(overrides: Partial<SharedJobListItem> = {}): SharedJobLi
     assigned_staff_count: 4,
     checked_in_staff_count: 0,
     ready_present_count: 4,
+    ...overrides
+  };
+}
+
+function buildScheduleShoot(overrides: Partial<UnifiedScheduleShootItem> = {}): UnifiedScheduleShootItem {
+  return {
+    item_kind: "shoot",
+    id: "schedule-shoot-1",
+    shoot_id: "schedule-shoot-1",
+    date_key: "2026-06-10",
+    title: "Spring Picture Day",
+    shoot_code: "SCH-101",
+    department: "schools",
+    shoot_category: "schools",
+    status: "ready",
+    starts_at: "2026-06-10T08:30:00.000Z",
+    ends_at: "2026-06-10T12:00:00.000Z",
+    showtime: null,
+    arrival_time: null,
+    start_time: null,
+    end_time_est: null,
+    location_name: "Lakeview High School",
+    location_address: "123 Lakeview Ave",
+    navigation_url: null,
+    estimated_drive_minutes: null,
+    projected_students: 100,
+    planned_staff_count: 4,
+    assigned_staff_count: 4,
+    required_lead_count: 1,
+    lead_coverage_count: 1,
+    lead_name: "Carisa Lead",
+    operations_priority: "standard",
+    big_shoot_manual_override: false,
+    special_equipment: null,
+    missing_fields: [],
+    open_alert_count: 0,
+    open_attendance_exception_count: 0,
+    schedule_sync_state: "clean",
+    schedule_sync_required: false,
+    staffing_state: "staffed",
+    staffing_health_state: "healthy",
+    staffing_health_label: "Staffed",
+    staffing_detail_visibility: "limited",
+    staffing_gap_count: 0,
+    unconfirmed_staff_count: 0,
+    scale_label: "Standard",
+    priority_label: null,
+    priority_label_display: null,
+    priority_reasons: [],
+    future_profitability_flag: null,
+    future_profitability_display: null,
+    board_day_part: "morning",
+    under_staffed: false,
+    missing_lead: false,
+    over_staffed: false,
+    conflict_warning_count: 0,
+    draft_shift_count: 0,
+    published_shift_count: 0,
+    publish_state: "published",
+    integration: cleanIntegration,
     ...overrides
   };
 }
@@ -245,7 +328,7 @@ describe("StudiosWorkspace", () => {
     expect(resolveRouteId("#employees/attendance", availableTabs, false)).toBe("operations-attendance");
   });
 
-  it("opens Photography calendar in 30-day mode without staffing or sync controls", async () => {
+  it("opens Photography calendar as a readable read-only 30-day view with a week toggle", async () => {
     window.location.hash = "#studios/calendar";
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/api/shifts/resources/members")) {
@@ -254,7 +337,29 @@ describe("StudiosWorkspace", () => {
       if (path.startsWith("/api/schedule/calendar?")) {
         return {
           range: { start_date: "2026-06-01", end_date: "2026-06-30" },
-          items: [],
+          items: [
+            buildScheduleShoot(),
+            buildScheduleShoot({
+              id: "schedule-shoot-2",
+              shoot_id: "schedule-shoot-2",
+              date_key: "2026-06-10",
+              title: "Senior Banner Session",
+              shoot_code: "SCH-102",
+              starts_at: "2026-06-10T13:00:00.000Z",
+              ends_at: "2026-06-10T15:00:00.000Z",
+              open_alert_count: 1,
+              staffing_health_state: "watch"
+            }),
+            buildScheduleShoot({
+              id: "schedule-shoot-3",
+              shoot_id: "schedule-shoot-3",
+              date_key: "2026-06-10",
+              title: "Makeup Portraits",
+              shoot_code: "SCH-103",
+              starts_at: "2026-06-10T16:00:00.000Z",
+              ends_at: "2026-06-10T17:00:00.000Z"
+            })
+          ],
           sync: {
             source_of_truth: "outlook_mock",
             outlook_connected: false,
@@ -273,10 +378,29 @@ describe("StudiosWorkspace", () => {
 
     expect(await screen.findByRole("heading", { name: "Photography Calendar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30-Day" })).toHaveClass("is-active");
+    expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
+    expect(screen.getByText("Spring Picture Day")).toBeInTheDocument();
+    expect(screen.getByText("Senior Banner Session")).toBeInTheDocument();
+    expect(screen.getByText("+1 more")).toBeInTheDocument();
+    expect(screen.getByText("Read-only calendar")).toBeInTheDocument();
+    expect(screen.queryByText("Company scope")).not.toBeInTheDocument();
+    expect(screen.queryByText("Job Schedule")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Day" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "3-Day" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "List" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Staffing Schedule/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Coverage Requests/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Staff Shoot/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Create/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/OUTLOOK MOCK/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/pending sync/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Week" })).toHaveClass("is-active");
+    });
+    expect(screen.getByText("Day Briefing")).toBeInTheDocument();
+    expect(screen.queryByText("Open Shoot Workspace")).not.toBeInTheDocument();
   });
 
   it("keeps focused subpages above the repeated homepage launch stack and labels workload for senior photographers", async () => {

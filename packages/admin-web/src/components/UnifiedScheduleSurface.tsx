@@ -634,10 +634,12 @@ export function UnifiedScheduleSurface({
       unconfirmedLaborCount: 0
     }
   );
-  const scheduleHeaderTitle = scheduleWorkspace ? (employeeOnlyMode ? "My Schedule" : "Schedule") : "Scheduling";
-  const scheduleHeaderSubtitle = scheduleWorkspace
-    ? "Schedule is the clean assignment layer. It keeps your own work, timing, location, and update status readable without exposing manager staffing control."
-    : "Scheduling is the staffing control layer. Plan coverage, compare required vs assigned labor, and catch gaps before the day goes live.";
+  const scheduleHeaderTitle = photographyPresentation ? "Photography Calendar" : scheduleWorkspace ? (employeeOnlyMode ? "My Schedule" : "Schedule") : "Scheduling";
+  const scheduleHeaderSubtitle = photographyPresentation
+    ? "A read-only view of upcoming shoots, timing, client names, and the few alerts that need field attention."
+    : scheduleWorkspace
+      ? "Schedule is the clean assignment layer. It keeps your own work, timing, location, and update status readable without exposing manager staffing control."
+      : "Scheduling is the staffing control layer. Plan coverage, compare required vs assigned labor, and catch gaps before the day goes live.";
 
   return (
     <section className="panel dashboard-panel unified-schedule-surface">
@@ -648,26 +650,30 @@ export function UnifiedScheduleSurface({
         </div>
         <div className="dashboard-calendar-toolbar">
           <div className="report-tab-row">
-            <button
-              className={surfaceMode === "schedule" && layoutMode === "grid" && rangeMode === "day" ? "is-active" : ""}
-              onClick={() => {
-                setSurfaceMode("schedule");
-                setLayoutMode("grid");
-                setRangeMode("day");
-              }}
-            >
-              Day
-            </button>
-            <button
-              className={surfaceMode === "schedule" && layoutMode === "grid" && rangeMode === "3day" ? "is-active" : ""}
-              onClick={() => {
-                setSurfaceMode("schedule");
-                setLayoutMode("grid");
-                setRangeMode("3day");
-              }}
-            >
-              3-Day
-            </button>
+            {!photographyPresentation ? (
+              <>
+                <button
+                  className={surfaceMode === "schedule" && layoutMode === "grid" && rangeMode === "day" ? "is-active" : ""}
+                  onClick={() => {
+                    setSurfaceMode("schedule");
+                    setLayoutMode("grid");
+                    setRangeMode("day");
+                  }}
+                >
+                  Day
+                </button>
+                <button
+                  className={surfaceMode === "schedule" && layoutMode === "grid" && rangeMode === "3day" ? "is-active" : ""}
+                  onClick={() => {
+                    setSurfaceMode("schedule");
+                    setLayoutMode("grid");
+                    setRangeMode("3day");
+                  }}
+                >
+                  3-Day
+                </button>
+              </>
+            ) : null}
             <button
               className={surfaceMode === "schedule" && layoutMode === "grid" && rangeMode === "week" ? "is-active" : ""}
               onClick={() => {
@@ -688,17 +694,19 @@ export function UnifiedScheduleSurface({
             >
               30-Day
             </button>
-            <button
-              className={surfaceMode === "schedule" && layoutMode === "list" ? "is-active" : ""}
-              onClick={() => {
-                setSurfaceMode("schedule");
-                setLayoutMode("list");
-              }}
-            >
-              List
-            </button>
+            {!photographyPresentation ? (
+              <button
+                className={surfaceMode === "schedule" && layoutMode === "list" ? "is-active" : ""}
+                onClick={() => {
+                  setSurfaceMode("schedule");
+                  setLayoutMode("list");
+                }}
+              >
+                List
+              </button>
+            ) : null}
           </div>
-          {canManage ? (
+          {canManage && !photographyPresentation ? (
             <div className="report-tab-row">
               <button className={surfaceMode === "schedule" ? "is-active" : ""} onClick={() => setSurfaceMode("schedule")}>
                 Grid
@@ -711,7 +719,7 @@ export function UnifiedScheduleSurface({
         </div>
       </div>
 
-      {schedulingWorkspace ? (
+      {schedulingWorkspace && !photographyPresentation ? (
         <div className="schedule-workspace-summary">
           <article className="schedule-workspace-summary__card">
             <span>Coverage gaps</span>
@@ -741,12 +749,8 @@ export function UnifiedScheduleSurface({
             <strong>{visibleShoots.length}</strong>
           </article>
           <article className="schedule-workspace-summary__card">
-            <span>Assignments in view</span>
-            <strong>{visibleAssignments}</strong>
-          </article>
-          <article className="schedule-workspace-summary__card">
             <span>Window</span>
-            <strong>30 days</strong>
+            <strong>{rangeMode === "30day" ? "30 days" : "Week"}</strong>
           </article>
         </div>
       ) : (
@@ -770,12 +774,7 @@ export function UnifiedScheduleSurface({
         </div>
       )}
 
-      {photographyPresentation ? (
-        <div className="schedule-sync-summary">
-          <span className="metric-pill">{visibleShoots.length} shoots in view</span>
-          <span className="metric-pill">{visibleAssignments} assignments in scope</span>
-        </div>
-      ) : (
+      {!photographyPresentation ? (
         <div className="schedule-sync-summary">
           <span className="metric-pill">{visibleShoots.length} shoots in view</span>
           <span className="metric-pill">{visibleAssignments} assignments in scope</span>
@@ -784,9 +783,9 @@ export function UnifiedScheduleSurface({
           </span>
           <span className="metric-pill">{calendarResponse?.sync.pending_sync_count ?? 0} pending sync</span>
         </div>
-      )}
+      ) : null}
 
-      <div className="schedule-filter-grid">
+      {!photographyPresentation ? <div className="schedule-filter-grid">
         {schedulingWorkspace ? (
           <label className="filter-field">
             <span>Shoot Type</span>
@@ -897,7 +896,7 @@ export function UnifiedScheduleSurface({
             <input type="checkbox" checked={myItemsOnly} onChange={(event) => setMyItemsOnly(event.target.checked)} />
           </label>
         ) : null}
-        {surfaceMode === "schedule" && layoutMode !== "list" && gridMode !== "month" ? (
+        {surfaceMode === "schedule" && layoutMode !== "list" && gridMode !== "month" && !photographyPresentation ? (
           <label className="filter-field">
             <span>Assignments</span>
             <select value={staffingDisplayMode} onChange={(event) => setStaffingDisplayMode(event.target.value as StaffingDisplayMode)}>
@@ -917,7 +916,7 @@ export function UnifiedScheduleSurface({
             </select>
           </label>
         ) : null}
-      </div>
+      </div> : null}
 
       {canManage && surfaceMode === "board" && selectedShootIds.length ? (
         <section className="schedule-bulk-bar">
@@ -1018,6 +1017,7 @@ export function UnifiedScheduleSurface({
         selectedShootBriefing,
         showStaffingDetails: schedulingWorkspace,
         showIntegrationDetails: !photographyPresentation,
+        photographyPresentation,
         setSelectedDayKey,
         setSelectedItemKey,
         standaloneShiftRowsByDay,
@@ -1580,6 +1580,7 @@ function getItemKey(item: UnifiedScheduleItem) {
 
 function ScheduleDayBriefing({
   canManage,
+  compact = false,
   dayGroups,
   integrationActionKey,
   onIntegrationAction,
@@ -1599,6 +1600,7 @@ function ScheduleDayBriefing({
   windowMode
 }: {
   canManage: boolean;
+  compact?: boolean;
   dayGroups: ScheduleDayGroup[];
   integrationActionKey: string;
   onIntegrationAction: (item: UnifiedScheduleItem, action: "push" | "resync" | "acknowledge") => Promise<void>;
@@ -1627,7 +1629,7 @@ function ScheduleDayBriefing({
       : null;
 
   return (
-    <aside className="panel shoot-briefing-panel schedule-day-briefing">
+    <aside className={`panel shoot-briefing-panel schedule-day-briefing${compact ? " schedule-day-briefing--compact" : ""}`}>
       <div className="shoot-briefing-panel__header">
         <div>
           <div className="eyebrow">Day Briefing</div>
@@ -1640,7 +1642,7 @@ function ScheduleDayBriefing({
         </div>
       </div>
 
-      {selectedDayKey ? (
+      {selectedDayKey && !compact ? (
         <div className="schedule-day-briefing__summary">
           <article className="schedule-day-summary-card">
             <span>Shoots</span>
@@ -1763,7 +1765,7 @@ function ScheduleDayBriefing({
         <div className="empty-state empty-state--panel">No schedule items land on this day yet.</div>
       )}
 
-      {selectedShootBriefing ? (
+      {!compact && selectedShootBriefing ? (
         <div className="schedule-selected-detail">
           <div className="schedule-selected-detail__actions">
             <button className="secondary-button" onClick={() => onOpenShoot(selectedShootBriefing.shootId)}>
@@ -1793,7 +1795,7 @@ function ScheduleDayBriefing({
           ) : null}
           <ShootBriefingBody briefing={selectedShootBriefing} />
         </div>
-      ) : selectedEvent ? (
+      ) : !compact && selectedEvent ? (
         <ScheduleEventPanel
           event={selectedEvent}
           canManage={canManage}
@@ -1802,9 +1804,9 @@ function ScheduleDayBriefing({
           onIntegrationAction={onIntegrationAction}
           onOpenShoot={onOpenShoot}
         />
-      ) : selectedAvailability ? (
+      ) : !compact && selectedAvailability ? (
         <ScheduleAvailabilityPanel availability={selectedAvailability} />
-      ) : selectedDayItems.length ? (
+      ) : !compact && selectedDayItems.length ? (
         <div className="empty-state empty-state--panel">Select a shoot, event, or availability block from the day queue to review the full detail.</div>
       ) : null}
     </aside>
@@ -1836,6 +1838,7 @@ function renderCalendarSurface(input: {
   selectedEvent: UnifiedScheduleEventItem | null;
   selectedItemKey: string;
   selectedShootBriefing: ReturnType<typeof buildShootBriefing> | null;
+  photographyPresentation: boolean;
   showStaffingDetails: boolean;
   showIntegrationDetails: boolean;
   setSelectedDayKey: (value: string) => void;
@@ -1881,6 +1884,13 @@ function renderCalendarSurface(input: {
               >
                 <span className="schedule-month-day__number">{day.dayOfMonth}</span>
                 <span className="schedule-month-day__count">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span>
+                {items.slice(0, 2).map((item) => (
+                  <span key={getItemKey(item)} className="schedule-month-day__preview">
+                    <span>{getItemTimeLabel(item)}</span>
+                    <strong>{getItemTitle(item)}</strong>
+                  </span>
+                ))}
+                {items.length > 2 ? <span className="schedule-month-day__more">+{items.length - 2} more</span> : null}
                 {summary.staffingWatchCount || summary.reviewCount ? (
                   <span className="schedule-month-day__flag">
                     {summary.staffingWatchCount ? `${summary.staffingWatchCount} watch` : `${summary.reviewCount} review`}
@@ -1916,6 +1926,29 @@ function renderCalendarSurface(input: {
 
   return (
     <div className={`schedule-calendar-layout schedule-calendar-layout--${input.viewMode}`}>
+      {input.photographyPresentation && input.viewMode === "week" ? (
+        <ScheduleDayBriefing
+          canManage={false}
+          compact
+          dayGroups={input.dayGroups}
+          integrationActionKey={input.integrationActionKey}
+          onIntegrationAction={input.onIntegrationAction}
+          onOpenShoot={input.onOpenShoot}
+          onOpenStaffing={input.onOpenStaffing}
+          onSelectAvailability={input.handleAvailabilitySelect}
+          onSelectEvent={input.handleEventSelect}
+          onSelectShoot={input.handleShootToggle}
+          selectedAvailability={input.selectedAvailability}
+          selectedDayItems={selectedDay?.items ?? []}
+          selectedDayKey={input.selectedDayKey}
+          selectedEvent={input.selectedEvent}
+          selectedItemKey={input.selectedItemKey}
+          selectedShootBriefing={input.selectedShootBriefing}
+          showStaffingDetails={false}
+          showIntegrationDetails={false}
+          windowMode="week"
+        />
+      ) : null}
       <div className={`schedule-day-columns schedule-day-columns--${input.viewMode}${input.isNarrowLayout ? " schedule-day-columns--narrow" : ""}`}>
         {visibleDayGroups.map((group) => {
           const daySummary = summarizeDayItems(group.items);
@@ -1969,23 +2002,32 @@ function renderCalendarSurface(input: {
               <div className="schedule-day-column__items">
                 {group.items.map((item) =>
                   isShootItem(item) ? (
-                    <div key={item.id} draggable={input.canManage} onDragStart={(event) => event.dataTransfer.setData("application/json", JSON.stringify(item))}>
-                      <ShootHotSheetCard
-                        briefing={buildShootBriefing(toShootSummary(item), input.detailCache[item.id] ?? null)}
-                        expanded={input.selectedItemKey === `shoot:${item.id}`}
-                        expansionMode="panel"
-                        onToggle={() => input.handleShootToggle(item)}
+                    input.photographyPresentation ? (
+                      <CompactScheduleItemCard
+                        key={item.id}
+                        item={item}
+                        selected={input.selectedItemKey === `shoot:${item.id}`}
+                        onSelect={() => input.handleShootToggle(item)}
                       />
-                      {input.staffingDisplayMode === "show_assignments" ? (
-                        <ScheduleShiftLayer
-                          shifts={input.shiftsByShootId.get(item.id) ?? []}
-                          employeeOnlyMode={input.employeeOnlyMode}
-                          personalPresentation={!input.showStaffingDetails}
-                          onOpenShift={input.onOpenShift}
-                          title={input.employeeOnlyMode ? "My Assignments" : "Assignments"}
+                    ) : (
+                      <div key={item.id} draggable={input.canManage} onDragStart={(event) => event.dataTransfer.setData("application/json", JSON.stringify(item))}>
+                        <ShootHotSheetCard
+                          briefing={buildShootBriefing(toShootSummary(item), input.detailCache[item.id] ?? null)}
+                          expanded={input.selectedItemKey === `shoot:${item.id}`}
+                          expansionMode="panel"
+                          onToggle={() => input.handleShootToggle(item)}
                         />
-                      ) : null}
-                    </div>
+                        {input.staffingDisplayMode === "show_assignments" ? (
+                          <ScheduleShiftLayer
+                            shifts={input.shiftsByShootId.get(item.id) ?? []}
+                            employeeOnlyMode={input.employeeOnlyMode}
+                            personalPresentation={!input.showStaffingDetails}
+                            onOpenShift={input.onOpenShift}
+                            title={input.employeeOnlyMode ? "My Assignments" : "Assignments"}
+                          />
+                        ) : null}
+                      </div>
+                    )
                   ) : isEventItem(item) ? (
                     <button
                       key={item.id}
@@ -2056,28 +2098,72 @@ function renderCalendarSurface(input: {
           );
         })}
       </div>
-      <ScheduleDayBriefing
-        canManage={input.canManage}
-        dayGroups={input.dayGroups}
-        integrationActionKey={input.integrationActionKey}
-        onIntegrationAction={input.onIntegrationAction}
-        onOpenShoot={input.onOpenShoot}
-        onOpenStaffing={input.onOpenStaffing}
-        onSelectAvailability={input.handleAvailabilitySelect}
-        onSelectEvent={input.handleEventSelect}
-        onSelectShoot={input.handleShootToggle}
-        selectedAvailability={input.selectedAvailability}
-        selectedDayItems={selectedDay?.items ?? []}
-        selectedDayKey={input.selectedDayKey}
-        selectedEvent={input.selectedEvent}
-        selectedItemKey={input.selectedItemKey}
-        selectedShootBriefing={input.selectedShootBriefing}
-        showStaffingDetails={input.showStaffingDetails}
-        showIntegrationDetails={input.showIntegrationDetails}
-        windowMode={input.viewMode === "day" ? "today" : "week"}
-      />
+      {input.photographyPresentation && input.viewMode === "week" ? null : (
+        <ScheduleDayBriefing
+          canManage={input.canManage}
+          dayGroups={input.dayGroups}
+          integrationActionKey={input.integrationActionKey}
+          onIntegrationAction={input.onIntegrationAction}
+          onOpenShoot={input.onOpenShoot}
+          onOpenStaffing={input.onOpenStaffing}
+          onSelectAvailability={input.handleAvailabilitySelect}
+          onSelectEvent={input.handleEventSelect}
+          onSelectShoot={input.handleShootToggle}
+          selectedAvailability={input.selectedAvailability}
+          selectedDayItems={selectedDay?.items ?? []}
+          selectedDayKey={input.selectedDayKey}
+          selectedEvent={input.selectedEvent}
+          selectedItemKey={input.selectedItemKey}
+          selectedShootBriefing={input.selectedShootBriefing}
+          showStaffingDetails={input.showStaffingDetails}
+          showIntegrationDetails={input.showIntegrationDetails}
+          windowMode={input.viewMode === "day" ? "today" : "week"}
+        />
+      )}
     </div>
   );
+}
+
+function CompactScheduleItemCard({
+  item,
+  selected,
+  onSelect
+}: {
+  item: UnifiedScheduleShootItem;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const issueCount = (item.open_alert_count ?? 0) + (item.open_attendance_exception_count ?? 0);
+  const showRisk = issueCount > 0 || item.missing_lead || item.staffing_health_state === "coverage_gap";
+
+  return (
+    <button
+      type="button"
+      className={`schedule-compact-item-card${selected ? " is-selected" : ""}`}
+      onClick={onSelect}
+    >
+      <div className="schedule-compact-item-card__top">
+        <span>{getItemTimeLabel(item)}</span>
+        {showRisk ? <span className="schedule-compact-item-card__risk">Needs attention</span> : null}
+      </div>
+      <strong>{item.title}</strong>
+      <div className="schedule-compact-item-card__meta">
+        <span>{humanizeLabel(item.shoot_category ?? item.department)}</span>
+        {item.location_name || item.location_address ? <span>{item.location_name || item.location_address}</span> : null}
+      </div>
+    </button>
+  );
+}
+
+function getItemTitle(item: UnifiedScheduleItem) {
+  return item.title;
+}
+
+function getItemTimeLabel(item: UnifiedScheduleItem) {
+  if (isAvailabilityItem(item)) {
+    return item.starts_at && item.ends_at ? formatTimeRange(item.starts_at, item.ends_at) : "All day";
+  }
+  return formatTimeRange(item.starts_at, item.ends_at);
 }
 
 function renderAgendaSurface(input: {

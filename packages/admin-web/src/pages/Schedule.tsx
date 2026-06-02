@@ -37,8 +37,8 @@ type ScheduleRouteContext = "global" | "photography" | "operations" | "personal"
 const VIEW_OPTIONS: Array<{ id: MasterScheduleView; label: string; summary: string }> = [
   {
     id: "jobs",
-    label: "Job Schedule",
-    summary: "See Jobs / Events on the shared calendar without burying timing and location context."
+    label: "Calendar",
+    summary: "See jobs and events on the shared calendar without burying timing and location context."
   },
   {
     id: "staffing",
@@ -71,7 +71,7 @@ export function Schedule({ token, currentUser }: Props) {
   const currentView = employeeOnlyMode && routeState.view === "assignment_board" ? "staffing" : routeState.view;
   const routeContext = getScheduleRouteContext(window.location.hash, employeeOnlyMode);
   const photographySchedule = routeContext === "photography";
-  const workspaceMode = canManageSchedule ? "scheduling" : "schedule";
+  const workspaceMode = photographySchedule ? "schedule" : canManageSchedule ? "scheduling" : "schedule";
 
   useEffect(() => {
     const sync = () => {
@@ -119,6 +119,9 @@ export function Schedule({ token, currentUser }: Props) {
   }, [canBroadenVisibility, currentUser, date, token]);
 
   const scopeLabel = useMemo(() => {
+    if (photographySchedule) {
+      return "Read-only calendar";
+    }
     if (scheduleScope === "all") {
       return "Company scope";
     }
@@ -126,7 +129,7 @@ export function Schedule({ token, currentUser }: Props) {
       return `${humanizeLabel(currentUser.department)} scope`;
     }
     return employeeOnlyMode ? "Own assignments only" : "Personal scope";
-  }, [currentUser.department, employeeOnlyMode, scheduleScope]);
+  }, [currentUser.department, employeeOnlyMode, photographySchedule, scheduleScope]);
 
   const viewOptions = useMemo(
     () =>
@@ -157,7 +160,10 @@ export function Schedule({ token, currentUser }: Props) {
         summary={headerCopy.summary}
         meta={[
           { label: scopeLabel, tone: employeeOnlyMode ? "warning" : "info" },
-          { label: currentViewDefinition.label, tone: currentViewDefinition.id === "assignment_board" ? "critical" : "neutral" }
+          {
+            label: photographySchedule ? "Week / 30-day" : currentViewDefinition.label,
+            tone: currentViewDefinition.id === "assignment_board" ? "critical" : "neutral"
+          }
         ]}
         actions={
           <WorkspaceActionBar compact>
@@ -180,23 +186,25 @@ export function Schedule({ token, currentUser }: Props) {
         }
       />
 
-      <section className="panel schedule-shell__view-strip" aria-label="Master schedule views">
-        <div className="schedule-shell__view-tabs" role="tablist" aria-label="Schedule view selector">
-          {viewOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="tab"
-              aria-selected={currentViewDefinition.id === option.id}
-              className={currentViewDefinition.id === option.id ? "schedule-shell__view-tab is-active" : "schedule-shell__view-tab"}
-              onClick={() => navigateToView(option.id)}
-            >
-              <strong>{option.label}</strong>
-              <span>{option.summary}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      {!photographySchedule ? (
+        <section className="panel schedule-shell__view-strip" aria-label="Master schedule views">
+          <div className="schedule-shell__view-tabs" role="tablist" aria-label="Schedule view selector">
+            {viewOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="tab"
+                aria-selected={currentViewDefinition.id === option.id}
+                className={currentViewDefinition.id === option.id ? "schedule-shell__view-tab is-active" : "schedule-shell__view-tab"}
+                onClick={() => navigateToView(option.id)}
+              >
+                <strong>{option.label}</strong>
+                <span>{option.summary}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <WorkspaceFilterToolbar className="schedule-shell__toolbar">
         <div className="workspace-toolbar__group">
