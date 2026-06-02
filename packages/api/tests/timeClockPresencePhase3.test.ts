@@ -21,13 +21,71 @@ let fieldEmployeeToken = "";
 let officeEmployeeEmail = "";
 let fieldEmployeeEmail = "";
 let missingEmployeeEmail = "";
+const createdShootIds: string[] = [];
+const createdShiftIds: string[] = [];
 
 function addMinutes(value: Date, minutes: number) {
   return new Date(value.getTime() + minutes * 60000);
 }
 
+function phase3AnchorTime() {
+  return new Date("2035-01-15T16:00:00.000Z");
+}
+
 function toDateString(value: Date) {
   return getLocalDateString(value);
+}
+
+function testEmployeeIds() {
+  return [officeEmployeeId, fieldEmployeeId, missingEmployeeId].filter(Boolean);
+}
+
+async function cleanupPhase3Records(options: { removeEmployees?: boolean } = {}) {
+  const employeeIds = testEmployeeIds();
+  if (!tenantId || !employeeIds.length) {
+    return;
+  }
+
+  await pool.query("DELETE FROM time_clock_presence_incident WHERE tenant_id = $1 AND employee_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM time_clock_presence_observation WHERE tenant_id = $1 AND employee_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query(
+    `
+      DELETE FROM approval_record
+      WHERE tenant_id = $1
+        AND request_id IN (
+          SELECT id
+          FROM exception_request
+          WHERE tenant_id = $1
+            AND employee_id = ANY($2::uuid[])
+        )
+    `,
+    [tenantId, employeeIds]
+  );
+  await pool.query("DELETE FROM exception_request WHERE tenant_id = $1 AND employee_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM clock_event WHERE tenant_id = $1 AND employee_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM time_segment WHERE tenant_id = $1 AND employee_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM time_session WHERE tenant_id = $1 AND employee_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM attendance_exception WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM shift_punch WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM time_entry WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  await pool.query("DELETE FROM status_event WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+
+  if (createdShiftIds.length) {
+    await pool.query("DELETE FROM work_shift WHERE tenant_id = $1 AND id = ANY($2::uuid[])", [tenantId, createdShiftIds]);
+    createdShiftIds.length = 0;
+  }
+  if (createdShootIds.length) {
+    await pool.query("DELETE FROM shoot WHERE tenant_id = $1 AND id = ANY($2::uuid[])", [tenantId, createdShootIds]);
+    createdShootIds.length = 0;
+  }
+
+  if (options.removeEmployees) {
+    await pool.query("DELETE FROM auth_session WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+    await pool.query("DELETE FROM user_role WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+    await pool.query("DELETE FROM user_job_function_profile WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+    await pool.query("DELETE FROM user_authority_assignment WHERE tenant_id = $1 AND user_id = ANY($2::uuid[])", [tenantId, employeeIds]);
+    await pool.query("DELETE FROM app_user WHERE tenant_id = $1 AND id = ANY($2::uuid[])", [tenantId, employeeIds]);
+  }
 }
 
 async function cloneEmployee(label: string) {
@@ -159,7 +217,9 @@ async function insertShoot(input: {
       leadershipId
     ]
   );
-  return rows[0].id;
+  const shootId = rows[0].id;
+  createdShootIds.push(shootId);
+  return shootId;
 }
 
 async function insertShift(input: {
@@ -214,7 +274,9 @@ async function insertShift(input: {
       input.longitude
     ]
   );
-  return rows[0].id;
+  const shiftId = rows[0].id;
+  createdShiftIds.push(shiftId);
+  return shiftId;
 }
 
 beforeAll(async () => {
@@ -255,45 +317,18 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await pool.query("DELETE FROM time_clock_presence_incident WHERE tenant_id = $1", [tenantId]);
-  await pool.query("DELETE FROM time_clock_presence_observation WHERE tenant_id = $1", [tenantId]);
-  await pool.query("DELETE FROM approval_record WHERE tenant_id = $1", [tenantId]);
-  await pool.query("DELETE FROM exception_request WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM clock_event WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM time_segment WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM time_session WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM attendance_exception WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM shift_punch WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM time_entry WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM status_event WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM work_shift WHERE tenant_id = $1 AND title LIKE 'TC3-%'", [tenantId]);
-  await pool.query("DELETE FROM shoot WHERE tenant_id = $1 AND shoot_code LIKE 'TC3-%'", [tenantId]);
+  await cleanupPhase3Records();
 });
 
 afterAll(async () => {
-  await pool.query("DELETE FROM time_clock_presence_incident WHERE tenant_id = $1", [tenantId]);
-  await pool.query("DELETE FROM time_clock_presence_observation WHERE tenant_id = $1", [tenantId]);
-  await pool.query("DELETE FROM approval_record WHERE tenant_id = $1", [tenantId]);
-  await pool.query("DELETE FROM exception_request WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM clock_event WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM time_segment WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM time_session WHERE tenant_id = $1 AND employee_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM attendance_exception WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM shift_punch WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM time_entry WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM status_event WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM auth_session WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM user_role WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM user_job_function_profile WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM user_authority_assignment WHERE tenant_id = $1 AND user_id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
-  await pool.query("DELETE FROM app_user WHERE tenant_id = $1 AND id IN ($2,$3,$4)", [tenantId, officeEmployeeId, fieldEmployeeId, missingEmployeeId]);
+  await cleanupPhase3Records({ removeEmployees: true });
 });
 
 describe("time clock phase 3 presence", () => {
   it(
     "renders the attendance awareness widget with leadership-friendly attendance buckets and legacy compatibility",
     async () => {
-    const now = new Date();
+    const now = phase3AnchorTime();
     const shootId = await insertShoot({
       title: "TC3 Home Widget Shoot",
       showtime: now,
@@ -368,15 +403,15 @@ describe("time clock phase 3 presence", () => {
     await pool.query(
       `
         INSERT INTO time_clock_presence_incident (
-          tenant_id, employee_id, shift_id, shoot_id, alert_type, geofence_classification, current_state, resolution_status, last_observed_at
+          tenant_id, employee_id, shift_id, shoot_id, alert_type, geofence_classification, current_state, resolution_status, created_at, last_observed_at
         )
-        VALUES ($1,$2,$3,$4,'assigned_but_missing','outside_soft_radius','off_clock','open',$5)
+        VALUES ($1,$2,$3,$4,'assigned_but_missing','outside_soft_radius','off_clock','open',$5,$5)
       `,
       [tenantId, missingEmployeeId, shiftId, shootId, now.toISOString()]
     );
 
     const response = await request(app)
-      .get("/api/dashboard/home?mode=app")
+      .get(`/api/dashboard/home?mode=app&date=${workDate}`)
       .set("Authorization", `Bearer ${leadershipToken}`);
 
     expect(response.status).toBe(200);
