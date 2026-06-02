@@ -433,10 +433,10 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "operations-attendance",
     label: "Attendance",
-    sectionKey: "hr-admin",
-    description: "Attendance exceptions, presence visibility, and correction workflows that belong with employee accountability.",
+    sectionKey: "leadership",
+    description: "Leadership-owned attendance exceptions, presence visibility, and correction workflows tied to staffing accountability.",
     canonicalHash: "#employees/attendance",
-    visibleTabs: ["time"],
+    visibleTabs: ["time", "calendar"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
     showInSectionNav: true,
@@ -1824,7 +1824,6 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   schedule: ["operations-schedule", "operations-scheduling"],
   "hr-admin": [
     "people-ops",
-    "operations-attendance",
     "people-ops-requests",
     "people-ops-pto",
     "people-ops-approvals",
@@ -1839,6 +1838,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   ],
   leadership: [
     "operations-staffing",
+    "operations-attendance",
     "business-health-reports",
     "business-health-kpis",
     "business-health-labor",
@@ -2008,7 +2008,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
     return pickVisibleRoute("studios-pre-service", availableTabs, employeeOnlyMode);
   }
   if (path === "photography/staffing") {
-    return pickVisibleRoute("studios-staffing", availableTabs, employeeOnlyMode);
+    return pickVisibleRoute("operations-staffing", availableTabs, employeeOnlyMode);
   }
   if (path === "photography/calendar") {
     return pickVisibleRoute("studios-calendar", availableTabs, employeeOnlyMode);
@@ -2044,7 +2044,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
     return pickVisibleRoute("studios-pre-service", availableTabs, employeeOnlyMode);
   }
   if (path === "studios/staffing") {
-    return pickVisibleRoute("studios-staffing", availableTabs, employeeOnlyMode);
+    return pickVisibleRoute("operations-staffing", availableTabs, employeeOnlyMode);
   }
   if (path === "studios/calendar") {
     return pickVisibleRoute("studios-calendar", availableTabs, employeeOnlyMode);

@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getRouteById, resolveRouteId, type TabKey } from "../navigation";
+import { getRouteById, getVisibleChildRoutes, resolveRouteId, type TabKey } from "../navigation";
 import { StudiosWorkspace } from "../pages/PhotographyWorkspace";
 import { Schedule } from "../pages/Schedule";
 import type { SharedJobListItem } from "../jobTruthTypes";
@@ -213,6 +213,36 @@ describe("StudiosWorkspace", () => {
     const routeId = resolveRouteId("#studios/shoots", availableTabs, false);
     expect(routeId).toBe("studios-shoots");
     expect(getRouteById(routeId)?.render).toEqual({ kind: "studios-workspace", focus: "today" });
+  });
+
+  it("keeps staffing and attendance owned by Leadership navigation instead of Photography", () => {
+    const photographyRoutes = getVisibleChildRoutes("photography", availableTabs, false);
+    const leadershipRoutes = getVisibleChildRoutes("leadership", availableTabs, false);
+    const photographyRouteIds = photographyRoutes.map((route) => route.id);
+    const leadershipRouteIds = leadershipRoutes.map((route) => route.id);
+
+    expect(photographyRouteIds).toEqual([
+      "studios-calendar",
+      "studios-shoots",
+      "studios-pre-service",
+      "job-closeout-v1",
+      "studios-travel",
+      "studios-workload"
+    ]);
+    expect(photographyRouteIds).not.toContain("studios-staffing");
+    expect(photographyRouteIds).not.toContain("operations-attendance");
+
+    expect(leadershipRouteIds[0]).toBe("operations-staffing");
+    expect(leadershipRouteIds[1]).toBe("operations-attendance");
+    expect(getRouteById("operations-staffing")?.label).toBe("Staff Assignment Board");
+    expect(getRouteById("operations-attendance")?.canonicalHash).toBe("#employees/attendance");
+  });
+
+  it("routes old Photography staffing deep links to the Leadership staff assignment board", () => {
+    expect(resolveRouteId("#photography/staffing", availableTabs, false)).toBe("operations-staffing");
+    expect(resolveRouteId("#studios/staffing", availableTabs, false)).toBe("operations-staffing");
+    expect(resolveRouteId("#schedule/assignment-board", availableTabs, false)).toBe("operations-staffing");
+    expect(resolveRouteId("#employees/attendance", availableTabs, false)).toBe("operations-attendance");
   });
 
   it("opens Photography calendar in 30-day mode without staffing or sync controls", async () => {

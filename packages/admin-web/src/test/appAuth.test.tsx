@@ -1076,7 +1076,7 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#photography/pre-service", availableTabs, false)).toBe("studios-pre-service");
     expect(resolveRouteId("#photography/travel", availableTabs, false)).toBe("studios-travel");
     expect(resolveRouteId("#photography/readiness", availableTabs, false)).toBe("studios-readiness");
-    expect(resolveRouteId("#photography/staffing", availableTabs, false)).toBe("studios-staffing");
+    expect(resolveRouteId("#photography/staffing", availableTabs, false)).toBe("operations-staffing");
     expect(resolveRouteId("#photography/calendar", availableTabs, false)).toBe("studios-calendar");
     expect(resolveRouteId("#photography/workload", availableTabs, false)).toBe("studios-workload");
     expect(resolveRouteId("#production", availableTabs, false)).toBe("graphics");
