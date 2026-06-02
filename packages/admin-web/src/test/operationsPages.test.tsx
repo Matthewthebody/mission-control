@@ -5353,7 +5353,7 @@ describe("admin operations regressions", () => {
     expect(screen.getByRole("heading", { name: "My Schedule" })).toBeInTheDocument();
     expect(screen.getAllByText("My Schedule").length).toBeGreaterThan(0);
     expect(screen.getByText("Own assignments only")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Job Schedule/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Calendar/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Staffing Schedule/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Day" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "3-Day" })).toBeInTheDocument();
