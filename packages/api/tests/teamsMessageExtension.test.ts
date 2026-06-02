@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import request from "supertest";
 import type { Express } from "express";
 import type { Pool } from "pg";
@@ -12,6 +10,34 @@ let dbPool: Pool;
 let leadershipToken = "";
 let demoTenantId = "";
 let demoOrgId = "";
+
+async function assertTeamsSearchSchemaReady() {
+  const columns = await dbPool.query<{ column_name: string }>(
+    `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'global_search_index'
+        AND column_name IN ('permissions_payload', 'deep_link', 'has_notes', 'has_alerts', 'has_staffing_gap')
+    `
+  );
+  const columnNames = new Set(columns.rows.map((row) => row.column_name));
+  const requiredColumns = ["permissions_payload", "deep_link", "has_notes", "has_alerts", "has_staffing_gap"];
+  const missingColumns = requiredColumns.filter((column) => !columnNames.has(column));
+
+  const resourceType = await dbPool.query(
+    `
+      SELECT 1
+      FROM pg_constraint
+      WHERE conname = 'global_search_index_entity_type_check'
+        AND pg_get_constraintdef(oid) LIKE '%resource_library_item%'
+      LIMIT 1
+    `
+  );
+
+  if (missingColumns.length || !resourceType.rowCount) {
+    throw new Error("Teams message extension search schema is not migrated. Run npm run db:migrate before this test.");
+  }
+}
 
 async function login(email: string) {
   const response = await request(app).post("/auth/dev-login").send({ email });
@@ -150,12 +176,7 @@ beforeAll(async () => {
   const { pool } = await import("../src/db/pool.js");
   app = createApp();
   dbPool = pool;
-
-  const migrationSql = await readFile(
-    resolve(process.cwd(), "../../db/migrations/111_teams_message_extension_search_phase4.sql"),
-    "utf8"
-  );
-  await dbPool.query(migrationSql);
+  await assertTeamsSearchSchemaReady();
 
   leadershipToken = await login("leadership@example.com");
   const membership = await dbPool.query<{ tenant_id: string }>(
