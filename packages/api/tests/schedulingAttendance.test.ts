@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { pool } from "../src/db/pool.js";
 import { getLocalDateString } from "../src/utils/localDate.js";
-import { elevateSession } from "./helpers.js";
+import { devLogin, elevateSession } from "./helpers.js";
 
 const app = createApp();
 
@@ -12,7 +12,6 @@ let leadershipToken = "";
 let adminToken = "";
 let seniorToken = "";
 let photoToken = "";
-let newHireToken = "";
 let tenantId = "";
 let demoShootId = "";
 let sportsShootId = "";
@@ -36,7 +35,7 @@ function todayString() {
   return getLocalDateString(new Date());
 }
 
-async function cloneDemoShootForDate(codePrefix: string, title: string, shootDate: string) {
+async function cloneShootForDate(sourceShootId: string, codePrefix: string, title: string, shootDate: string) {
   const { rows } = await pool.query(
     `
       INSERT INTO shoot (
@@ -64,12 +63,109 @@ async function cloneDemoShootForDate(codePrefix: string, title: string, shootDat
       WHERE id = $1
       RETURNING id, shoot_date
     `,
-    [demoShootId, `${codePrefix}-${randomUUID().slice(0, 8)}`, title, shootDate]
+    [sourceShootId, `${codePrefix}-${randomUUID().slice(0, 8)}`, title, shootDate]
   );
   if (!rows[0]) {
     throw new Error("Unable to create test-owned shoot fixture.");
   }
   return rows[0];
+}
+
+async function cloneDemoShootForDate(codePrefix: string, title: string, shootDate: string) {
+  return cloneShootForDate(demoShootId, codePrefix, title, shootDate);
+}
+
+async function isolateSeededShootForShift(shootId: string | null | undefined, title: string, startsAt: Date) {
+  if (!shootId || (shootId !== demoShootId && shootId !== sportsShootId)) {
+    return shootId ?? null;
+  }
+
+  const sourceLabel = shootId === sportsShootId ? "Sports" : "Demo";
+  const clone = await cloneShootForDate(shootId, "SHIFT", `${sourceLabel} ${title}`, getLocalDateString(startsAt));
+  return clone.id;
+}
+
+async function cloneTradeReplacementUser() {
+  const email = `trade-replacement-${randomUUID().slice(0, 10)}@example.com`;
+  const cloned = await pool.query<{ id: string; email: string }>(
+    `
+      INSERT INTO app_user (
+        tenant_id,
+        email,
+        full_name,
+        is_active,
+        department,
+        status,
+        approved_at
+      )
+      SELECT
+        tenant_id,
+        $2,
+        'Trade Replacement Photographer',
+        true,
+        department,
+        'active',
+        now()
+      FROM app_user
+      WHERE id = $1
+      RETURNING id, email
+    `,
+    [newHireId, email]
+  );
+  const replacement = cloned.rows[0];
+  if (!replacement) {
+    throw new Error("Unable to create trade replacement fixture.");
+  }
+
+  await pool.query(
+    `
+      INSERT INTO user_authority_assignment (
+        tenant_id,
+        user_id,
+        authority_tier,
+        primary_job_function_profile,
+        scope_department,
+        scope_overrides,
+        assigned_by_user_id
+      )
+      SELECT
+        tenant_id,
+        $2,
+        authority_tier,
+        primary_job_function_profile,
+        scope_department,
+        scope_overrides,
+        assigned_by_user_id
+      FROM user_authority_assignment
+      WHERE tenant_id = $1
+        AND user_id = $3
+    `,
+    [tenantId, replacement.id, newHireId]
+  );
+
+  await pool.query(
+    `
+      INSERT INTO user_job_function_profile (tenant_id, user_id, job_function_profile)
+      SELECT tenant_id, $2, job_function_profile
+      FROM user_job_function_profile
+      WHERE tenant_id = $1
+        AND user_id = $3
+    `,
+    [tenantId, replacement.id, newHireId]
+  );
+
+  await pool.query(
+    `
+      INSERT INTO user_role (tenant_id, user_id, role_id)
+      SELECT tenant_id, $2, role_id
+      FROM user_role
+      WHERE tenant_id = $1
+        AND user_id = $3
+    `,
+    [tenantId, replacement.id, newHireId]
+  );
+
+  return replacement;
 }
 
 async function insertShift(options: {
@@ -87,6 +183,7 @@ async function insertShift(options: {
   geofenceRadiusMeters?: number;
   segments?: Array<{ label: string; kind: string; startsAt: Date; endsAt: Date; rateCode: string }>;
 }) {
+  const shootId = await isolateSeededShootForShift(options.shootId, options.title, options.startsAt);
   const shift = (
     await pool.query(
       `
@@ -103,7 +200,7 @@ async function insertShift(options: {
       `,
       [
         tenantId,
-        options.shootId ?? null,
+        shootId,
         options.assignedUserId,
         options.managerUserId ?? null,
         leadershipId,
@@ -181,7 +278,6 @@ beforeAll(async () => {
   adminToken = (await request(app).post("/auth/login").send({ email: "admin@example.com", password: "LocalDemo123!" })).body.token;
   seniorToken = (await request(app).post("/auth/login").send({ email: "senior@example.com", password: "LocalDemo123!" })).body.token;
   photoToken = (await request(app).post("/auth/login").send({ email: "photo@example.com", password: "LocalDemo123!" })).body.token;
-  newHireToken = (await request(app).post("/auth/login").send({ email: "newhire@example.com", password: "LocalDemo123!" })).body.token;
   await elevateSession(app, leadershipToken, "LocalDemo123!");
 });
 
@@ -189,8 +285,9 @@ describe("scheduling and attendance operations", () => {
   it("allows director admins and leadership to create and publish shifts", async () => {
     const startsAt = localTodayAt(13, 0);
     const endsAt = addMinutes(startsAt, 120);
+    const schedulingShoot = await cloneDemoShootForDate("SHIFT-CREATE", "Leadership Schedule Fixture", todayString());
     const payload = {
-      shoot_id: demoShootId,
+      shoot_id: schedulingShoot.id,
       assigned_user_id: photoId,
       manager_user_id: seniorId,
       shift_kind: "shoot",
@@ -313,7 +410,7 @@ describe("scheduling and attendance operations", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.punch.shift_id).toBe(shift.id);
-    expect(response.body.event.shoot_id).toBe(sportsShootId);
+    expect(response.body.event.shoot_id).toBe(shift.shoot_id);
   });
 
   it("keeps a shift-backed shoot visible to the assigned employee without relying on legacy assignments", async () => {
@@ -1239,7 +1336,7 @@ describe("scheduling and attendance operations", () => {
           VALUES ($1,$2,$3,$4,'RUNNING_LATE_NOTICE','high','open','Testing senior classification scope.')
           RETURNING id
         `,
-        [tenantId, shift.id, demoShootId, associateId]
+        [tenantId, shift.id, shift.shoot_id, associateId]
       )
     ).rows[0];
 
@@ -1397,6 +1494,8 @@ describe("scheduling and attendance operations", () => {
   });
 
   it("allows same-day senior trade approval only within their attendance scope", async () => {
+    const replacement = await cloneTradeReplacementUser();
+    const replacementToken = (await devLogin(app, replacement.email)).body.token;
     const shift = await insertShift({
       shootId: demoShootId,
       assignedUserId: photoId,
@@ -1407,24 +1506,11 @@ describe("scheduling and attendance operations", () => {
       endsAt: addMinutes(new Date(), 160)
     });
 
-    await pool.query(
-      `
-        UPDATE work_shift
-        SET status = 'cancelled',
-            cancelled_at = now()
-        WHERE assigned_user_id = $1
-          AND id <> $2
-          AND cancelled_at IS NULL
-          AND tstzrange(starts_at, ends_at, '[)') && tstzrange($3::timestamptz, $4::timestamptz, '[)')
-      `,
-      [newHireId, shift.id, shift.starts_at, shift.ends_at]
-    );
-
     const tradeRequest = await request(app)
       .post(`/api/shifts/${shift.id}/trade-requests`)
       .set("Authorization", `Bearer ${photoToken}`)
       .send({
-        requested_with_user_id: newHireId,
+        requested_with_user_id: replacement.id,
         reason: "Need a same-day swap."
       });
 
@@ -1432,7 +1518,7 @@ describe("scheduling and attendance operations", () => {
 
     const accepted = await request(app)
       .post(`/api/shifts/trade-requests/${tradeRequest.body.id}/respond`)
-      .set("Authorization", `Bearer ${newHireToken}`)
+      .set("Authorization", `Bearer ${replacementToken}`)
       .send({
         status: "accepted",
         notes: "I can cover this same-day swap."
@@ -1448,7 +1534,7 @@ describe("scheduling and attendance operations", () => {
     expect(approved.status).toBe(200);
 
     const updatedShift = await pool.query("SELECT assigned_user_id FROM work_shift WHERE id = $1", [shift.id]);
-    expect(updatedShift.rows[0].assigned_user_id).toBe(newHireId);
+    expect(updatedShift.rows[0].assigned_user_id).toBe(replacement.id);
   });
 
   it("returns live clock status plus labor, punch, and exception reporting rows", async () => {
