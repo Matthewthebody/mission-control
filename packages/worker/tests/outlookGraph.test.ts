@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { PoolClient } from "pg";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "../src/config.js";
 import { pool } from "../src/db.js";
 import { processIntegrationSyncOperation, reconcileExternalCalendarChange, syncShiftToOutlook } from "../src/calendar/outlookGraph.js";
 
 let tenantId = "";
+let studioId = "";
 let leadershipId = "";
 const originalWorkerGraphConfig = {
   clientId: config.MICROSOFT_GRAPH_CLIENT_ID,
@@ -17,10 +19,26 @@ const originalWorkerGraphConfig = {
 };
 
 beforeAll(async () => {
-  const tenant = await pool.query("SELECT id FROM tenant WHERE name = 'Demo Studio' LIMIT 1");
-  tenantId = tenant.rows[0].id;
-  const leadership = await pool.query("SELECT id FROM app_user WHERE tenant_id = $1 AND email = 'leadership@example.com' LIMIT 1", [tenantId]);
-  leadershipId = leadership.rows[0].id;
+  const context = await pool.query(
+    `
+      SELECT
+        tenant.id AS tenant_id,
+        studio.id AS studio_id,
+        leadership.id AS leadership_id
+      FROM tenant
+      JOIN studio
+        ON studio.tenant_id = tenant.id
+       AND studio.name = 'Main Studio'
+      JOIN app_user leadership
+        ON leadership.tenant_id = tenant.id
+       AND leadership.email = 'leadership@example.com'
+      WHERE tenant.name = 'Demo Studio'
+      LIMIT 1
+    `
+  );
+  tenantId = context.rows[0].tenant_id;
+  studioId = context.rows[0].studio_id;
+  leadershipId = context.rows[0].leadership_id;
 });
 
 beforeEach(() => {
@@ -162,8 +180,7 @@ describe("Outlook calendar sync scaffolding", () => {
     try {
       await client.query("BEGIN");
 
-      const demoShoot = await client.query("SELECT id FROM shoot WHERE tenant_id = $1 AND shoot_code = 'DEMO-001' LIMIT 1", [tenantId]);
-      const linkedShootId = demoShoot.rows[0].id;
+      const linkedShootId = await insertOutlookLinkedShoot(client, "Outlook linked staffing review");
       const eventId = `event-lead-standup-${randomUUID().slice(0, 8)}`;
       const scheduleEvent = await client.query(
         `
@@ -254,8 +271,7 @@ describe("Outlook calendar sync scaffolding", () => {
     try {
       await client.query("BEGIN");
 
-      const demoShoot = await client.query("SELECT id FROM shoot WHERE tenant_id = $1 AND shoot_code = 'DEMO-001' LIMIT 1", [tenantId]);
-      const linkedShootId = demoShoot.rows[0].id;
+      const linkedShootId = await insertOutlookLinkedShoot(client, "Outlook sparse notification review");
       const eventId = `graph-notice-${randomUUID().slice(0, 8)}`;
       const scheduleEvent = await client.query(
         `
@@ -695,4 +711,62 @@ function jsonResponse(body: unknown, status = 200) {
       "Content-Type": "application/json"
     }
   });
+}
+
+async function insertOutlookLinkedShoot(client: PoolClient, title: string) {
+  const now = new Date();
+  const startsAt = new Date(now.getTime() + 60 * 60 * 1000);
+  const endsAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const { rows } = await client.query<{ id: string }>(
+    `
+      INSERT INTO shoot (
+        tenant_id,
+        studio_id,
+        shoot_code,
+        title,
+        shoot_date,
+        location_name,
+        location_address,
+        location_lat,
+        location_lng,
+        navigation_url,
+        geofence_radius_meters,
+        arrival_time,
+        start_time,
+        end_time_est,
+        projected_students,
+        created_by
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5::date,
+        'Outlook Fixture Venue',
+        '123 Outlook Fixture Lane',
+        44.973,
+        -93.227,
+        NULL,
+        804,
+        $6,
+        $6,
+        $7,
+        12,
+        $8
+      )
+      RETURNING id
+    `,
+    [
+      tenantId,
+      studioId,
+      `OUTLOOK-${randomUUID().slice(0, 8)}`,
+      title,
+      startsAt.toISOString().slice(0, 10),
+      startsAt.toISOString(),
+      endsAt.toISOString(),
+      leadershipId
+    ]
+  );
+  return rows[0].id;
 }
