@@ -324,8 +324,60 @@ function buildSharedJobDetail(job: SharedJobListItem): SharedJobDetailResponse {
         updated_at: "2026-06-01T10:00:00.000Z"
       }
     ],
-    readiness_items: [],
-    production_items: [],
+    readiness_items: [
+      {
+        id: "readiness-arrival-packet",
+        tenant_id: job.tenant_id,
+        job_id: job.id,
+        job_day_id: "day-travel",
+        section_key: "field_prep",
+        label: "Confirm arrival packet",
+        description: "Confirm senior photographers have the packet before travel.",
+        is_required: true,
+        is_blocker: false,
+        is_complete: false,
+        completed_at: null,
+        completed_by_user_id: null,
+        completed_by_name: null,
+        due_at: null,
+        sort_order: 1,
+        source_template_key: null,
+        notes: "Packet should include QR document and setup reference.",
+        created_at: "2026-06-01T10:00:00.000Z",
+        updated_at: "2026-06-01T10:00:00.000Z"
+      },
+      {
+        id: "readiness-parking-notes",
+        tenant_id: job.tenant_id,
+        job_id: job.id,
+        job_day_id: "day-travel",
+        section_key: "field_prep",
+        label: "Review parking notes",
+        description: null,
+        is_required: true,
+        is_blocker: false,
+        is_complete: true,
+        completed_at: "2026-06-01T10:00:00.000Z",
+        completed_by_user_id: "user-photo",
+        completed_by_name: "Carisa Lead",
+        due_at: null,
+        sort_order: 2,
+        source_template_key: null,
+        notes: null,
+        created_at: "2026-06-01T10:00:00.000Z",
+        updated_at: "2026-06-01T10:00:00.000Z"
+      }
+    ],
+    production_items: [
+      {
+        id: "production-prior-eval",
+        tenant_id: job.tenant_id,
+        job_id: job.id,
+        title: "Prior post-shoot evaluation",
+        post_shoot_eval_summary: "Last year: staging worked well, but add a second runner during peak athlete arrivals.",
+        internal_notes: null
+      }
+    ] as SharedJobDetailResponse["production_items"],
     production_item_shoot_links: [],
     production_handoffs: [],
     approval_requests: [],
@@ -361,7 +413,17 @@ function buildSharedJobDetail(job: SharedJobListItem): SharedJobDetailResponse {
           address_display: "2500 Stadium Drive, Plymouth, MN 55447",
           google_maps_url: null,
           client_facing_notes: null,
-          reference_attachments: []
+          reference_attachments: [
+            {
+              id: "attachment-client-map",
+              title: "Client check-in map PDF",
+              description: "Client-facing map packet.",
+              attachment_type: "qr_code_job_document",
+              audience: "client_facing",
+              file_url: "https://example.test/check-in-map.pdf",
+              storage_key: null
+            }
+          ]
         },
         eligible_email_recipients: [
           {
@@ -383,7 +445,6 @@ function buildSharedJobDetail(job: SharedJobListItem): SharedJobDetailResponse {
           address_display: "2500 Stadium Drive, Plymouth, MN 55447",
           google_maps_url: null,
           client_facing_notes: null,
-          reference_attachments: [],
           navigation_notes: "Plan a small arrival buffer for stadium traffic.",
           parking_instructions: "Use the east athlete gate and keep a runner by the fieldhouse door.",
           entrance_instructions: "Enter through the fieldhouse door.",
@@ -396,13 +457,76 @@ function buildSharedJobDetail(job: SharedJobListItem): SharedJobDetailResponse {
           security_checkin_requirements: null,
           weather_contingency_notes: null,
           employee_facing_notes: "Keep team warmup lanes clear.",
-          internal_only_notes: null
+          internal_only_notes: null,
+          reference_attachments: [
+            {
+              id: "attachment-qr-packet",
+              title: "Check-in QR Packet",
+              description: "PDF packet for field check-in.",
+              attachment_type: "qr_code_job_document",
+              audience: "employee_facing",
+              file_url: "https://example.test/check-in-qr.pdf",
+              storage_key: null
+            },
+            {
+              id: "attachment-setup-photo",
+              title: "Best reference setup photo",
+              description: "Prior successful setup angle.",
+              attachment_type: "setup_photo",
+              audience: "employee_facing",
+              file_url: "https://example.test/setup-photo.jpg",
+              storage_key: null
+            }
+          ]
         }
       },
       message_previews: {
-        client_prep_email: {} as SharedJobDetailResponse["prep_readiness"]["message_previews"]["client_prep_email"],
-        client_prep_sms: {} as SharedJobDetailResponse["prep_readiness"]["message_previews"]["client_prep_sms"],
-        employee_briefing: {} as SharedJobDetailResponse["prep_readiness"]["message_previews"]["employee_briefing"]
+        client_prep_email: {
+          preview_only: true,
+          template_key: "client_prep_email_v1",
+          label: "Client prep email",
+          channel: "email",
+          can_preview: true,
+          recipients: [],
+          subject: "North Metro Stadium Media Day prep",
+          body_lines: ["Please have athletes ready near the fieldhouse entrance."],
+          warnings: [],
+          reference_attachments: []
+        },
+        client_prep_sms: {
+          preview_only: true,
+          template_key: "client_prep_sms_v1",
+          label: "Client prep SMS",
+          channel: "sms",
+          can_preview: true,
+          recipients: [],
+          subject: null,
+          body_lines: ["Mission Control reminder for photo day."],
+          warnings: [],
+          reference_attachments: []
+        },
+        employee_briefing: {
+          preview_only: true,
+          template_key: "employee_briefing_v1",
+          label: "Employee briefing",
+          channel: "internal_briefing",
+          can_preview: true,
+          recipients: [],
+          subject: "Field briefing",
+          body_lines: ["Arrive early enough to clear the east athlete gate before warmups."],
+          warnings: [],
+          reference_attachments: [
+            {
+              id: "attachment-briefing-reference",
+              title: "Fieldhouse reference photo",
+              description: "Internal reference photo.",
+              attachment_type: "location_reference",
+              audience: "employee_facing",
+              file_url: "https://example.test/fieldhouse-reference.jpg",
+              storage_key: null
+            }
+          ]
+        }
       },
       warnings: []
     },
@@ -447,18 +571,66 @@ describe("StudiosWorkspace", () => {
     expect(screen.queryByRole("button", { name: /New Studios Task/i })).not.toBeInTheDocument();
   });
 
-  it("routes launch cards into the new studios hashes", async () => {
-    listSharedJobsMock.mockResolvedValue({ jobs: [] });
+  it("renders Job Prep as the consolidated Pre-Service and Readiness packet", async () => {
+    const prepJob = buildSharedJob({
+      id: "job-prep",
+      title: "North Metro Stadium Media Day",
+      organization_name: "North Metro Athletics",
+      primary_location_name: "North Metro Stadium",
+      primary_location_address: "2500 Stadium Drive, Plymouth, MN 55447",
+      primary_contact_name: "Riley Hart",
+      primary_day_date: "2026-06-18",
+      primary_day_start_time: "09:30",
+      primary_day_end_time: "12:00",
+      estimated_subject_count: 220,
+      lead_owner_name: "Carisa Lead"
+    });
+    listSharedJobsMock.mockResolvedValue({ jobs: [prepJob] });
+    getSharedJobDetailMock.mockResolvedValue(buildSharedJobDetail(prepJob));
 
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="pre_service" />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Pre-Service \/ Readiness" })).toBeInTheDocument();
-    expect(screen.getByText("Job Prep Desk")).toBeInTheDocument();
-    expect(screen.getByText("Reference Packet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Travel & Logistics" }));
-    await waitFor(() => {
-      expect(window.location.hash).toBe("#studios/travel");
-    });
+    expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
+    expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Schedule" })).toBeInTheDocument();
+    expect(screen.getByText("Time: 9:30 AM-12:00 PM")).toBeInTheDocument();
+    expect(screen.getByText("Estimated volume: 220")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Location" })).toBeInTheDocument();
+    expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
+    expect(screen.getByText("2500 Stadium Drive, Plymouth, MN 55447")).toBeInTheDocument();
+    expect(screen.getByText("Primary: Riley Hart")).toBeInTheDocument();
+    expect(screen.getByText("Lead photographer: Carisa Lead")).toBeInTheDocument();
+    expect(screen.getByText("Arrive early enough to clear the east athlete gate before warmups.")).toBeInTheDocument();
+    expect(screen.getByText("Confirm arrival packet - required")).toBeInTheDocument();
+    expect(screen.getByText("Review parking notes - complete")).toBeInTheDocument();
+    expect(screen.getByText("Last year: staging worked well, but add a second runner during peak athlete arrivals.")).toBeInTheDocument();
+    expect(screen.getByText("Customer survey notes are not connected yet.")).toBeInTheDocument();
+    expect(screen.getByText("Check-in QR Packet")).toBeInTheDocument();
+    expect(screen.getByText("Client check-in map PDF")).toBeInTheDocument();
+    expect(screen.getByText("Best reference setup photo")).toBeInTheDocument();
+    expect(screen.getByText("Fieldhouse reference photo")).toBeInTheDocument();
+
+    expect(screen.queryByText("Reference Packet")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Travel & Logistics" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Work" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Board" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Full Workspace" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the old Readiness route as a thin compatibility path into Job Prep", async () => {
+    const prepJob = buildSharedJob({ id: "job-readiness", title: "North Metro Stadium Media Day" });
+    listSharedJobsMock.mockResolvedValue({ jobs: [prepJob] });
+    getSharedJobDetailMock.mockResolvedValue(buildSharedJobDetail(prepJob));
+
+    render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="readiness" />);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
+    expect(screen.getByText("Readiness now lives in Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Readiness Checklist" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
   });
 
   it("renders a Photography-specific Today's Shoots route without generic create-task actions", async () => {
@@ -565,6 +737,9 @@ describe("StudiosWorkspace", () => {
     ]);
     expect(photographyRouteIds).not.toContain("studios-staffing");
     expect(photographyRouteIds).not.toContain("operations-attendance");
+    expect(getRouteById("studios-pre-service")?.label).toBe("Job Prep / Pre-Service");
+    expect(getRouteById("studios-readiness")?.label).toBe("Readiness (Job Prep)");
+    expect(getRouteById("studios-readiness")?.showInSectionNav).toBe(false);
 
     expect(leadershipRouteIds[0]).toBe("operations-staffing");
     expect(leadershipRouteIds[1]).toBe("operations-attendance");

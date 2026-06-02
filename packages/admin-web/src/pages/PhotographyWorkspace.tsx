@@ -5,7 +5,13 @@ import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader, type WorkspaceHeaderMeta } from "../components/workspace/WorkspacePageHeader";
 import type { SharedJobListItem } from "../jobTruthTypes";
-import type { SharedJobDay, SharedJobDetailResponse, SharedJobStaffAssignment } from "../jobTruthTypes";
+import type {
+  SharedJobDay,
+  SharedJobDetailResponse,
+  SharedJobPrepLocationAttachmentPreview,
+  SharedJobReadinessItem,
+  SharedJobStaffAssignment
+} from "../jobTruthTypes";
 import { getSharedJobDetail, listSharedJobs } from "../services/jobsApi";
 import type { SessionUser } from "../types";
 
@@ -46,22 +52,22 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
     ]
   },
   pre_service: {
-    title: "Pre-Service / Readiness",
+    title: "Job Prep / Pre-Service",
     summary:
-      "Pre-service is the job prep desk for briefings, last-year context, reference material, crew notes, and the final readiness items senior photographers need before launch.",
+      "Job Prep is the pre-shoot packet for schedule, location, crew, briefing notes, readiness items, prior context, and reference material before crews launch.",
     meta: [
       { label: "Crew briefings", tone: "warning" },
-      { label: "Reference context", tone: "info" },
-      { label: "Launch ready", tone: "success" }
+      { label: "Readiness checklist", tone: "info" },
+      { label: "Prep packet", tone: "success" }
     ]
   },
   readiness: {
-    title: "Pre-Service / Readiness",
+    title: "Job Prep / Pre-Service",
     summary:
-      "Readiness now lives inside Pre-Service so crews have one place to check briefing status, prep gaps, references, and customer context before the shoot.",
+      "Readiness now lives inside Job Prep so crews have one place to check briefing status, prep gaps, references, and customer context before the shoot.",
     meta: [
-      { label: "Blocked work", tone: "critical" },
-      { label: "Pre-service desk", tone: "warning" }
+      { label: "Compatibility route", tone: "neutral" },
+      { label: "Prep packet", tone: "warning" }
     ]
   },
   workload: {
@@ -78,7 +84,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
 const PRIMARY_LINKS = [
   { id: "calendar", label: "30-Day Calendar", hash: "#studios/calendar", detail: "Start here for upcoming shoot load, linked assignments, and dates that need attention." },
   { id: "shoots", label: "Today's Shoots", hash: "#studios/shoots", detail: "Execution queue and live field detail for the current shoot day." },
-  { id: "pre-service", label: "Pre-Service / Readiness", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and final readiness context in one place." },
+  { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and final readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Routing notes, parking context, location reminders, and arrival guidance." },
   { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, mileage review, and post-shoot learning flow." },
   { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." }
@@ -86,31 +92,12 @@ const PRIMARY_LINKS = [
 
 const HOMEPAGE_LINK_IDS = new Set(["shoots", "pre-service", "travel", "closeout"]);
 
-const PRE_SERVICE_CARDS = [
-  {
-    title: "Job Details",
-    detail: "Event timing, location, primary contact, account owner, estimated volume, and current readiness status should be checked here first."
-  },
-  {
-    title: "Crew & Staffing Summary",
-    detail: "Shows the planned crew, lead photographer, open coverage, and confirmation posture. Staffing edits remain in the leadership assignment board."
-  },
-  {
-    title: "Pre-Service Briefing Notes",
-    detail: "A single place for day-specific notes, setup reminders, customer expectations, and known site constraints."
-  },
-  {
-    title: "Reference Packet",
-    detail: "PDFs, prior-year notes, reference photos, customer survey context, and last post-shoot evaluation should land here as the next data-backed slice."
-  }
-];
-
 export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Props) {
   const copy = FOCUS_COPY[focus];
   const isOverview = focus === "overview";
   const isTodayFocus = focus === "today";
   const isTravelFocus = focus === "travel";
-  const isPreServiceFocus = focus === "pre_service" || focus === "readiness";
+  const isPrepFocus = focus === "pre_service" || focus === "readiness";
 
   return (
     <div className="workspace-shell studios-workspace">
@@ -128,7 +115,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
               <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
                 Today's Shoots
               </button>
-              {!isTravelFocus ? (
+              {!isTravelFocus && !isPrepFocus ? (
                 <button type="button" onClick={() => (window.location.hash = "#my-work")}>
                   My Work
                 </button>
@@ -166,7 +153,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
             ))}
           </section>
         </>
-      ) : !isTravelFocus ? (
+      ) : !isTravelFocus && !isPrepFocus ? (
         <section className="panel studios-workspace__focus-card" aria-label="Photography route shortcuts">
           <div className="studios-workspace__focus-actions">
             {PRIMARY_LINKS.map((link) => (
@@ -178,7 +165,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         </section>
       ) : null}
 
-      {isOverview || isTravelFocus ? null : (
+      {isOverview || isTravelFocus || isPrepFocus ? null : (
         <section className="panel studios-workspace__focus-card">
           <div className="workspace-section-header">
             <div className="workspace-section-header__copy">
@@ -202,29 +189,11 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
 
       {isTodayFocus ? <PhotographyTodayShootsPanel token={token} /> : null}
 
-      {isPreServiceFocus ? (
-        <section className="panel studios-workspace__prep-panel">
-          <div className="workspace-section-header">
-            <div className="workspace-section-header__copy">
-              <div className="eyebrow">Job Prep Desk</div>
-              <h3>What senior photographers should check before launch</h3>
-              <p>These cards keep the review honest: some context is present today, and some reference packet pieces are the next slice.</p>
-            </div>
-          </div>
-          <div className="studios-workspace__prep-grid">
-            {PRE_SERVICE_CARDS.map((card) => (
-              <article key={card.title} className="studios-workspace__info-card">
-                <strong>{card.title}</strong>
-                <p>{card.detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {isPrepFocus ? <PhotographyJobPrepPanel token={token} compatibilityNotice={focus === "readiness"} /> : null}
 
       {isTravelFocus ? <PhotographyTravelPanel token={token} /> : null}
 
-      {isTodayFocus || isOverview || isTravelFocus ? null : (
+      {isTodayFocus || isOverview || isTravelFocus || isPrepFocus ? null : (
         <CompactActiveWorkPanel
           token={token}
           currentUser={currentUser}
@@ -236,6 +205,300 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         />
       )}
     </div>
+  );
+}
+
+function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string; compatibilityNotice: boolean }) {
+  const [jobs, setJobs] = useState<SharedJobListItem[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<SharedJobDetailResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    listSharedJobs(token)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const prepJobs = response.jobs
+          .filter((job) => job.primary_day_date && !["archived", "cancelled"].includes(job.job_status))
+          .sort(compareJobsByPrimaryDate);
+        setJobs(prepJobs);
+        setSelectedJobId((current) => current ?? prepJobs[0]?.id ?? null);
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Job prep details could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!selectedJobId) {
+      setDetail(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+    getSharedJobDetail(token, selectedJobId)
+      .then((response) => {
+        if (!cancelled) {
+          setDetail(response);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDetail(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDetailLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedJobId, token]);
+
+  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0] ?? null, [jobs, selectedJobId]);
+  const prepContext = useMemo(() => buildJobPrepContext(selectedJob, detail), [detail, selectedJob]);
+
+  if (loading) {
+    return <WorkspaceLoadingBlock title="Loading Job Prep" summary="Pulling upcoming shoots, briefing notes, readiness items, and reference context." />;
+  }
+
+  if (error) {
+    return <WorkspaceEmptyState title="Job Prep is unavailable" summary={error} />;
+  }
+
+  if (!selectedJob || !prepContext) {
+    return (
+      <WorkspaceEmptyState
+        title="No upcoming jobs are ready for Job Prep"
+        summary="When a Photography job has schedule context, the prep packet will show the field details, readiness items, and briefing notes here."
+        actions={
+          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
+            Open 30-Day Calendar
+          </button>
+        }
+      />
+    );
+  }
+
+  return (
+    <section className="panel studios-workspace__job-prep-panel" aria-label="Job Prep / Pre-Service packet">
+      {compatibilityNotice ? (
+        <div className="studios-workspace__job-prep-notice">
+          Readiness now lives in Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.
+        </div>
+      ) : null}
+
+      <div className="studios-workspace__job-prep-header">
+        <div>
+          <div className="eyebrow">Job Prep Packet</div>
+          <h3>{prepContext.jobName}</h3>
+          <p>{prepContext.organizationName}</p>
+        </div>
+        {jobs.length > 1 ? (
+          <label className="filter-field">
+            <span>Choose job</span>
+            <select value={selectedJob.id} onChange={(event) => setSelectedJobId(event.target.value)}>
+              {jobs.slice(0, 8).map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+
+      <div className="studios-workspace__prep-summary-grid">
+        <PrepInfoGroup title="Schedule" items={prepContext.scheduleItems} />
+        <PrepInfoGroup title="Location" items={prepContext.locationItems} />
+        <PrepInfoGroup title="Contact" items={prepContext.contactItems} />
+        <PrepInfoGroup title="Crew" items={prepContext.crewItems} />
+      </div>
+
+      <div className="studios-workspace__prep-detail-grid">
+        <PrepInfoGroup title="Briefing Notes" items={prepContext.briefingItems} wide />
+        <PrepReadinessGroup items={prepContext.readinessItems} />
+        <PrepInfoGroup title="Prior Evaluation" items={prepContext.priorEvaluationItems} placeholder="No prior post-shoot evaluation is connected to this prep packet yet." />
+        <PrepInfoGroup title="Customer Survey Notes" items={[]} placeholder="Customer survey notes are not connected yet." />
+        <PrepAttachmentGroup title="PDFs / Resources" attachments={prepContext.documentAttachments} placeholder="No PDF packet or resource document is attached yet." />
+        <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.photoAttachments} placeholder="No reference photos are attached yet." />
+      </div>
+
+      {detailLoading ? <p className="muted">Refreshing prep packet...</p> : null}
+    </section>
+  );
+}
+
+function PrepInfoGroup({ title, items, placeholder = "Not available yet.", wide = false }: { title: string; items: string[]; placeholder?: string; wide?: boolean }) {
+  return (
+    <article className={`studios-workspace__prep-info-card${wide ? " studios-workspace__prep-info-card--wide" : ""}`}>
+      <h4>{title}</h4>
+      {items.length ? (
+        <ul>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>{placeholder}</p>
+      )}
+    </article>
+  );
+}
+
+function PrepReadinessGroup({ items }: { items: SharedJobReadinessItem[] }) {
+  return (
+    <article className="studios-workspace__prep-info-card">
+      <h4>Readiness Checklist</h4>
+      {items.length ? (
+        <ul>
+          {items.slice(0, 6).map((item) => (
+            <li key={item.id}>
+              {item.label}
+              {item.is_complete ? " - complete" : item.is_blocker ? " - blocker" : item.is_required ? " - required" : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No readiness checklist items are open yet.</p>
+      )}
+    </article>
+  );
+}
+
+function PrepAttachmentGroup({
+  title,
+  attachments,
+  placeholder
+}: {
+  title: string;
+  attachments: SharedJobPrepLocationAttachmentPreview[];
+  placeholder: string;
+}) {
+  return (
+    <article className="studios-workspace__prep-info-card">
+      <h4>{title}</h4>
+      {attachments.length ? (
+        <ul>
+          {attachments.map((attachment) => (
+            <li key={attachment.id}>{attachment.title}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>{placeholder}</p>
+      )}
+    </article>
+  );
+}
+
+function buildJobPrepContext(job: SharedJobListItem | null, detail: SharedJobDetailResponse | null) {
+  if (!job) {
+    return null;
+  }
+
+  const primaryDay = findPrimaryJobDay(job, detail?.days ?? []);
+  const employeeLocation = detail?.prep_readiness.employee_briefing.primary_location ?? null;
+  const primaryContact = findPrimaryContact(job, detail);
+  const locationName = firstString(
+    detail?.summary.primary_location_name,
+    primaryDay?.location_name,
+    employeeLocation?.location_name,
+    job.primary_location_name
+  );
+  const address = firstString(employeeLocation?.address_display, detail?.summary.primary_location_address, job.primary_location_address);
+  const briefingLines = detail?.prep_readiness.message_previews.employee_briefing?.body_lines ?? [];
+  const attachments = collectPrepAttachments(detail);
+  const documentAttachments = attachments.filter(isDocumentAttachment);
+  const photoAttachments = attachments.filter(isPhotoAttachment);
+  const priorEvaluationItems = (detail?.production_items ?? [])
+    .map((item) => firstString(item.post_shoot_eval_summary, item.internal_notes))
+    .filter((value): value is string => Boolean(value));
+
+  const briefingItems = [
+    ...briefingLines,
+    firstString(primaryDay?.setup_notes, employeeLocation?.setup_area),
+    firstString(primaryDay?.access_notes, employeeLocation?.entrance_instructions),
+    firstString(employeeLocation?.employee_facing_notes, employeeLocation?.navigation_notes),
+    firstString(job.school_profile?.special_instructions, job.sports_profile?.client_expectations_notes, job.description_internal)
+  ].filter((value): value is string => Boolean(value));
+
+  return {
+    organizationName: detail?.summary.organization_name ?? job.organization_name ?? "Client pending",
+    jobName: detail?.job.title ?? job.title,
+    scheduleItems: [
+      formatDateLine(primaryDay?.date ?? job.primary_day_date),
+      formatTimeLine(primaryDay?.start_time ?? job.primary_day_start_time, primaryDay?.end_time ?? job.primary_day_end_time),
+      job.estimated_subject_count ? `Estimated volume: ${job.estimated_subject_count}` : null
+    ].filter((value): value is string => Boolean(value)),
+    locationItems: [locationName ?? "Location pending", address, firstString(primaryDay?.parking_notes, employeeLocation?.parking_instructions)].filter(
+      (value): value is string => Boolean(value)
+    ),
+    contactItems: [
+      primaryContact?.name ? `Primary: ${primaryContact.name}` : null,
+      primaryContact?.phone ? `Phone: ${primaryContact.phone}` : null,
+      primaryContact?.email ? `Email: ${primaryContact.email}` : null
+    ].filter((value): value is string => Boolean(value)),
+    crewItems: buildCrewItems(job, detail?.staff_assignments ?? []),
+    briefingItems,
+    readinessItems: (detail?.readiness_items ?? []).sort(compareReadinessItems),
+    priorEvaluationItems,
+    documentAttachments,
+    photoAttachments
+  };
+}
+
+function collectPrepAttachments(detail: SharedJobDetailResponse | null) {
+  const candidates = [
+    ...(detail?.prep_readiness.client_prep.primary_location?.reference_attachments ?? []),
+    ...(detail?.prep_readiness.employee_briefing.primary_location?.reference_attachments ?? []),
+    ...(detail?.prep_readiness.message_previews.client_prep_email?.reference_attachments ?? []),
+    ...(detail?.prep_readiness.message_previews.employee_briefing?.reference_attachments ?? [])
+  ];
+  const byKey = new Map<string, SharedJobPrepLocationAttachmentPreview>();
+  candidates.forEach((attachment) => {
+    byKey.set(attachment.id || attachment.title, attachment);
+  });
+  return Array.from(byKey.values());
+}
+
+function isDocumentAttachment(attachment: SharedJobPrepLocationAttachmentPreview) {
+  const haystack = `${attachment.title} ${attachment.attachment_type} ${attachment.file_url ?? ""} ${attachment.storage_key ?? ""}`.toLowerCase();
+  return haystack.includes("pdf") || haystack.includes("document") || haystack.includes("packet") || haystack.includes("qr");
+}
+
+function isPhotoAttachment(attachment: SharedJobPrepLocationAttachmentPreview) {
+  const haystack = `${attachment.title} ${attachment.attachment_type} ${attachment.file_url ?? ""} ${attachment.storage_key ?? ""}`.toLowerCase();
+  return haystack.includes("photo") || haystack.includes("image") || haystack.includes("reference") || haystack.includes(".jpg") || haystack.includes(".png");
+}
+
+function compareReadinessItems(left: SharedJobReadinessItem, right: SharedJobReadinessItem) {
+  return (
+    Number(right.is_blocker) - Number(left.is_blocker) ||
+    Number(right.is_required) - Number(left.is_required) ||
+    Number(left.is_complete) - Number(right.is_complete) ||
+    left.sort_order - right.sort_order ||
+    left.label.localeCompare(right.label)
   );
 }
 
@@ -258,7 +521,7 @@ function PhotographyTravelPanel({ token }: { token: string }) {
         }
         const travelJobs = response.jobs
           .filter((job) => job.primary_day_date && !["archived", "cancelled"].includes(job.job_status))
-          .sort(compareJobsForTravel);
+          .sort(compareJobsByPrimaryDate);
         setJobs(travelJobs);
         setSelectedJobId((current) => current ?? travelJobs[0]?.id ?? null);
       })
@@ -406,7 +669,7 @@ function buildTravelContext(job: SharedJobListItem | null, detail: SharedJobDeta
     return null;
   }
 
-  const primaryDay = findPrimaryTravelDay(job, detail?.days ?? []);
+  const primaryDay = findPrimaryJobDay(job, detail?.days ?? []);
   const employeeLocation = detail?.prep_readiness.employee_briefing.primary_location ?? null;
   const primaryContact = findPrimaryContact(job, detail);
   const locationName = firstString(
@@ -457,7 +720,7 @@ function buildTravelContext(job: SharedJobListItem | null, detail: SharedJobDeta
   };
 }
 
-function findPrimaryTravelDay(job: SharedJobListItem, days: SharedJobDay[]) {
+function findPrimaryJobDay(job: SharedJobListItem, days: SharedJobDay[]) {
   if (!days.length) {
     return null;
   }
@@ -495,7 +758,7 @@ function buildCrewItems(job: SharedJobListItem, assignments: SharedJobStaffAssig
   return items.filter((value): value is string => Boolean(value));
 }
 
-function compareJobsForTravel(left: SharedJobListItem, right: SharedJobListItem) {
+function compareJobsByPrimaryDate(left: SharedJobListItem, right: SharedJobListItem) {
   return String(left.primary_day_date ?? "").localeCompare(String(right.primary_day_date ?? "")) || left.title.localeCompare(right.title);
 }
 

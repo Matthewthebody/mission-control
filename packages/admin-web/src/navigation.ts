@@ -480,9 +480,9 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "studios-readiness",
-    label: "Readiness (Pre-Service)",
+    label: "Readiness (Job Prep)",
     sectionKey: "photography",
-    description: "Compatibility route for readiness pressure now consolidated into the Pre-Service job prep desk.",
+    description: "Compatibility route for readiness pressure now consolidated into the Job Prep / Pre-Service desk.",
     canonicalHash: "#studios/readiness",
     visibleTabs: ["shoots", "calendar"],
     visibleForEmployeeOnly: false,
@@ -503,9 +503,9 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "studios-pre-service",
-    label: "Pre-Service",
+    label: "Job Prep / Pre-Service",
     sectionKey: "photography",
-    description: "Pre-service coordination, field briefings, and the last operational checks before crews go live.",
+    description: "Consolidated job prep packet for field briefings, readiness checks, references, and pre-shoot context.",
     canonicalHash: "#studios/pre-service",
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
