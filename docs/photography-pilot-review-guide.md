@@ -19,9 +19,9 @@ First sentence to frame the review:
 1. Photography homepage: `#photography`
 2. Calendar 30-day view: click the primary Calendar card, or open `#photography/calendar`
 3. Week view / Day Briefing: use the week/day controls inside the calendar surface
-4. Travel: `#photography/travel`
+4. Day at a Glance: `#photography/shoots`
 5. Job Prep / Pre-Service: `#photography/pre-service`
-6. Day at a Glance / Today: `#photography/shoots`
+6. Travel & Logistics: `#photography/travel`
 7. Leadership > Staff Assignment Board: open Leadership, then Staff Assignment Board
 8. Leadership > Attendance: open Leadership, then Attendance
 
@@ -39,7 +39,7 @@ Should answer:
 Look for:
 
 - Calendar as the dominant first action.
-- Day at a Glance, Job Prep / Pre-Service, Travel, Post-Shoot, and Senior Photographer View as understandable next steps.
+- Day at a Glance, Job Prep / Pre-Service, Travel & Logistics, and Post-Shoot as understandable next steps.
 - No Staffing, Create Job, or Create Event actions presented as core Photography work.
 
 ### Calendar 30-Day View
@@ -70,7 +70,7 @@ Look for:
 - Day and week controls that feel discoverable.
 - Day briefing content that explains timing, location, and attention flags.
 
-### Travel
+### Travel & Logistics
 
 Should answer:
 
@@ -81,7 +81,7 @@ Should answer:
 Look for:
 
 - Address, arrival, parking, contact, lead photographer, and notes.
-- Clear distinction between useful demo data and future Monday-specific staffing details.
+- Clear distinction between field travel details and Leadership-owned staffing/attendance review.
 
 ### Job Prep / Pre-Service
 
@@ -97,7 +97,7 @@ Look for:
 - Job-level checklist and risk clarity.
 - No split between two similar prep surfaces.
 
-### Day At A Glance / Today
+### Day at a Glance
 
 Should answer:
 
@@ -174,7 +174,7 @@ Look for:
 Capture comments in these buckets:
 
 - Calendar-first clarity
-- Today clarity
+- Day-at-a-glance clarity
 - Prep/readiness clarity
 - Travel usefulness
 - Staffing/attendance ownership
@@ -186,9 +186,8 @@ Capture comments in these buckets:
 
 ## Known Rough Edges
 
-- Travel is field-useful for the demo, but not a full maps/routing integration.
-- Monday-specific schedule/staffing details are not fully connected.
-- Staffing and attendance are intentionally reviewed through Leadership, not built as a new Photography workflow here.
+- Travel & Logistics is field-useful for the demo, but not a full maps/routing integration.
+- Staffing and attendance details are intentionally reviewed through Leadership during this pilot, not built as a new Photography workflow here.
 - Some historical route names still use Studios internally for compatibility, even though the visible review is Photography.
 - The pilot data is seeded demo data, not live production data.
 
@@ -209,9 +208,8 @@ Capture comments in these buckets:
 
 ## Recommended Next Development Slices After Feedback
 
-1. Small Photography pilot polish pass for labels, dead buttons, and route order based on live review notes.
+1. Small Photography pilot polish pass for labels, dead buttons, and route order based on live review notes if stakeholders still find friction.
 2. Leadership-owned staffing and attendance pilot slice, if Carisa/Jessica confirm the ownership split.
 3. Production handoff clarity slice with Spencer: status labels, blockers, and return-to-Photography visibility.
 4. Schools-to-Photography handoff tightening with Jessica: ready/waiting/blocker language and ownership.
 5. Field travel detail slice: parking, contact, arrival notes, and printable/mobile-friendly job context.
-

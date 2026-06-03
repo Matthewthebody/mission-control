@@ -162,7 +162,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   {
     key: "photography",
     label: "Photography",
-    description: "Shoot readiness, today's shoots, field workflow, post-shoot closeout, staffing, and travel.",
+    description: "Calendar-first shoot planning, day-of field workflow, job prep, travel logistics, and post-shoot closeout.",
     routeId: "studios"
   },
   {

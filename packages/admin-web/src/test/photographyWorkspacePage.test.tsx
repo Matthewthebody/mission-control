@@ -558,8 +558,8 @@ describe("StudiosWorkspace", () => {
       expect(window.location.hash).toBe("#studios/calendar");
     });
 
-    expect(screen.getByRole("button", { name: /Photography Day at a Glance/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Photography Post-Shoot \/ Evaluations/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day at a Glance" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Post-Shoot / Evaluations" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Photography 30-Day Calendar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Work" })).not.toBeInTheDocument();
@@ -627,7 +627,7 @@ describe("StudiosWorkspace", () => {
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="readiness" />);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
-    expect(screen.getByText("Readiness now lives in Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.")).toBeInTheDocument();
+    expect(screen.getByText("Readiness is part of Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Readiness Checklist" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
@@ -672,7 +672,7 @@ describe("StudiosWorkspace", () => {
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="today" />);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Day at a Glance" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Photography Day at a Glance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Today's Photography Shoots" })).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("shoots today")).toBeInTheDocument();
     expect(screen.getByText("red flag")).toBeInTheDocument();
@@ -688,7 +688,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Job Prep / Pre-Service" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Travel" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Travel & Logistics" }).length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Department Focus")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Photography route shortcuts")).not.toBeInTheDocument();
@@ -730,7 +730,7 @@ describe("StudiosWorkspace", () => {
     expect(await screen.findByText("Phone: 555-0142")).toBeInTheDocument();
     expect(screen.getByText("Lead photographer: Carisa Lead")).toBeInTheDocument();
     expect(screen.getByText(/Use the east athlete gate/i)).toBeInTheDocument();
-    expect(screen.getByText("Monday schedule/staffing integration not connected yet.")).toBeInTheDocument();
+    expect(screen.getByText("Staffing and attendance review stay in Leadership for this pilot.")).toBeInTheDocument();
 
     expect(screen.queryByRole("button", { name: "Open Sample Map" })).not.toBeInTheDocument();
     expect(screen.queryByText("Travel Cleanup")).not.toBeInTheDocument();

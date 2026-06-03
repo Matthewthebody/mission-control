@@ -85,7 +85,7 @@ const PRIMARY_LINKS = [
   { id: "calendar", label: "30-Day Calendar", hash: "#studios/calendar", detail: "Start here for upcoming shoot load, linked assignments, and dates that need attention." },
   { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and field attention flags." },
   { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and final readiness context in one place." },
-  { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Routing notes, parking context, location reminders, and arrival guidance." },
+  { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Field location, parking, contact, crew, and arrival guidance." },
   { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, mileage review, and post-shoot learning flow." },
   { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." }
 ];
@@ -145,7 +145,13 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
 
           <section className="studios-workspace__launch-grid" aria-label="Photography launch points">
             {PRIMARY_LINKS.filter((link) => HOMEPAGE_LINK_IDS.has(link.id)).map((link) => (
-              <button key={link.id} type="button" className="panel studios-workspace__launch-card" onClick={() => (window.location.hash = link.hash)}>
+              <button
+                key={link.id}
+                type="button"
+                className="panel studios-workspace__launch-card"
+                aria-label={link.label}
+                onClick={() => (window.location.hash = link.hash)}
+              >
                 <div className="eyebrow">Photography</div>
                 <strong>{link.label}</strong>
                 <p>{link.detail}</p>
@@ -305,7 +311,7 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
     <section className="panel studios-workspace__job-prep-panel" aria-label="Job Prep / Pre-Service packet">
       {compatibilityNotice ? (
         <div className="studios-workspace__job-prep-notice">
-          Readiness now lives in Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.
+          Readiness is part of Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.
         </div>
       ) : null}
 
@@ -637,8 +643,8 @@ function PhotographyTravelPanel({ token }: { token: string }) {
         <TravelInfoGroup title="Parking / Load-In" items={travelContext.logisticsItems} />
         <TravelInfoGroup title="Field Notes" items={travelContext.noteItems} />
         <article className="studios-workspace__travel-info-card studios-workspace__travel-info-card--placeholder">
-          <h4>Monday</h4>
-          <p>Monday schedule/staffing integration not connected yet.</p>
+          <h4>Leadership Staffing Context</h4>
+          <p>Staffing and attendance review stay in Leadership for this pilot.</p>
         </article>
       </div>
 
@@ -862,7 +868,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
       <div className="studios-workspace__day-header">
         <div>
           <div className="eyebrow">Today</div>
-          <h3>Photography Day at a Glance</h3>
+          <h3>Today's Photography Shoots</h3>
           <p>{formatDayAtGlanceDate(today)}</p>
         </div>
         <div className="studios-workspace__day-summary" aria-label="Day at a Glance summary">
@@ -920,7 +926,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                 <span className={`status-pill ${getTodayRiskClass(job)}`}>{describeTodayAttention(job)}</span>
                 <div className="studios-workspace__focus-actions">
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/travel")}>
-                    Travel
+                    Travel & Logistics
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
                     Job Prep / Pre-Service
