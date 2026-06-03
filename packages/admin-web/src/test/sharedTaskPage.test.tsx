@@ -312,6 +312,9 @@ describe("SharedTaskPage", () => {
     await waitFor(() => {
       expect(window.location.hash).toBe("#tasks/task-1");
     });
+    expect(await screen.findByText("Task created: Upload QA pass. It is now open and available in My Tasks.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open My Tasks" }));
+    expect(window.location.hash).toBe("#tasks");
   });
 
   it("shows Teams messaging and meeting actions on task detail when the user is communication-ready", async () => {

@@ -15329,6 +15329,19 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
   margin-bottom: 0;
 }
 
+.home-operational__header-actions {
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.home-operational__header-actions .home-operational__search-launcher {
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
 .home-operational__top-panel,
 .home-operational__clock-panel,
 .home-operational__attendance-panel,
@@ -15448,6 +15461,10 @@ html[data-theme="light"] .home-operational__search-launcher {
 .home-operational__attendance-grid,
 .home-operational__summary-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-operational__attendance-panel--compact {
+  align-self: stretch;
 }
 
 .home-operational__clock-stat,
@@ -15631,6 +15648,10 @@ html[data-theme="light"] .home-operational__moving-card {
     grid-template-columns: 1fr 1fr;
   }
 
+  .home-operational__header-actions {
+    grid-template-columns: 1fr;
+  }
+
   .home-operational__top-actions > button,
   .home-operational__top-actions > a {
     width: 100%;
@@ -15646,6 +15667,14 @@ html[data-theme="light"] .home-operational__moving-card {
 .home-task-hub {
   display: grid;
   gap: 16px;
+}
+
+.shared-task-page__success {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .home-task-hub__summary-panel,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { buildShellRouteHash } from "../../navigation";
-import { canAccessRoute, canCreateShootRecords } from "../../permissions";
+import { canAccessRoute } from "../../permissions";
 import { getHomeDashboard } from "../../services/homeDashboard";
 import type {
   HomeDepartmentTaskCounts,
@@ -26,12 +26,6 @@ type Props = {
   onOpenConcierge?: (initialQuery?: string) => void;
   createEventHash: string;
   createTaskHash: string;
-};
-
-type TopAction = {
-  label: string;
-  hash: string;
-  tone: "primary" | "secondary";
 };
 
 type OperationalSummaryCard = {
@@ -238,9 +232,9 @@ function buildSummaryCards(input: {
   if (input.canOpenToday && todayShoots) {
     cards.push({
       key: "shoots_today",
-      title: "Shoots Today",
+      title: "Today's Shoots",
       count: todayShoots.total,
-      summary: "Scheduled shoots happening today",
+      summary: "Shoots and field work scheduled for today",
       actionLabel: "View Today's Jobs",
       hash: "#operations/today",
       tone: todayShoots.needs_attention_count > 0 ? "warning" : "info"
@@ -258,7 +252,7 @@ function buildSummaryCards(input: {
       key: "staffing_gaps",
       title: "Staffing Gaps",
       count: staffingWidget?.count ?? fallbackCount,
-      summary: "Jobs missing leads or needed coverage",
+      summary: "Coverage gaps that could slow down today's work",
       actionLabel: "View Staffing Gaps",
       hash: staffingWidget?.action_hash || "#operations/staffing?area=staffing",
       tone: staffingTone
@@ -268,7 +262,7 @@ function buildSummaryCards(input: {
   if (input.canOpenProductionQueue && productionProjects) {
     cards.push({
       key: "digital_production",
-      title: "Jobs in Digital Production",
+      title: "Production Work",
       count: productionWidget?.count ?? productionProjects.counts.active_jobs,
       summary: "Jobs currently moving through digital production",
       actionLabel: "View Production Queue",
@@ -324,7 +318,6 @@ export function HomeCommandSurface({
   currentUser,
   socket,
   onOpenConcierge = () => undefined,
-  createEventHash,
   createTaskHash
 }: Props) {
   const cacheKey = `${token}:${currentUser.id}`;
@@ -332,13 +325,11 @@ export function HomeCommandSurface({
   const [dashboard, setDashboard] = useState<HomeDashboardResponse | null>(cachedDashboard?.payload ?? null);
   const [loading, setLoading] = useState(cachedDashboard == null);
   const [error, setError] = useState("");
-  const [liveMessage, setLiveMessage] = useState("");
+  const [urgentExpanded, setUrgentExpanded] = useState(false);
 
-  const canCreateEvent = canCreateShootRecords(currentUser);
   const canCreateTask = canAccessRoute(currentUser, "task-new");
   const canOpenSchedule = canAccessRoute(currentUser, "dashboard-my-schedule");
   const canOpenAlerts = canAccessRoute(currentUser, "dashboard-alerts");
-  const canOpenMyTasks = canAccessRoute(currentUser, "dashboard-my-tasks");
   const canOpenAttendance = canAccessRoute(currentUser, "operations-attendance");
   const canOpenToday = canAccessRoute(currentUser, "operations-today");
   const canOpenStaffing = canAccessRoute(currentUser, "operations-staffing");
@@ -401,11 +392,8 @@ export function HomeCommandSurface({
       return;
     }
 
-    const clearLiveMessage = () => window.setTimeout(() => setLiveMessage(""), 2400);
     const onRefresh = () => {
-      setLiveMessage("Live update: Home refreshed.");
       void loadHome({ quiet: true, force: true });
-      clearLiveMessage();
     };
 
     socket.on("schedule_changed", onRefresh);
@@ -419,20 +407,9 @@ export function HomeCommandSurface({
     };
   }, [cacheKey, socket, token]);
 
-  const topActions = useMemo(
-    () =>
-      [
-        canCreateEvent ? { label: "Create Event", hash: createEventHash, tone: "primary" } : null,
-        canCreateTask ? { label: "Create Task", hash: createTaskHash, tone: "primary" } : null,
-        canOpenSchedule ? { label: "My Schedule", hash: buildShellRouteHash("dashboard-my-schedule"), tone: "secondary" } : null,
-        canOpenAlerts ? { label: "Alerts", hash: buildShellRouteHash("dashboard-alerts"), tone: "secondary" } : null,
-        canOpenMyTasks ? { label: "My Tasks", hash: buildShellRouteHash("dashboard-my-tasks"), tone: "secondary" } : null
-      ].filter((action): action is TopAction => action != null),
-    [canCreateEvent, canCreateTask, canOpenAlerts, canOpenMyTasks, canOpenSchedule, createEventHash, createTaskHash]
-  );
-
   const timeBand = dashboard?.home_surface?.time_band ?? null;
   const attendanceMetrics = useMemo(() => getAttendanceMetrics(dashboard?.home_surface?.staffing_band ?? null), [dashboard]);
+  const attendanceAttentionMetric = attendanceMetrics.find((metric) => metric.id === "assigned_but_missing" && metric.count > 0) ?? null;
   const summaryCards = useMemo(
     () =>
       buildSummaryCards({
@@ -450,6 +427,7 @@ export function HomeCommandSurface({
   const urgentItems = dashboard?.home_surface?.urgent_attention?.visible
     ? dashboard.home_surface.urgent_attention.items.slice(0, 4)
     : [];
+  const visibleUrgentItems = urgentExpanded ? urgentItems : urgentItems.slice(0, 2);
   const movingItems = useMemo(() => buildMovingItems(dashboard), [dashboard]);
   const updatedLabel = dashboard ? `Updated ${formatHomeTimestamp(dashboard.generated_at)}` : null;
 
@@ -464,35 +442,28 @@ export function HomeCommandSurface({
 
   return (
     <section className="home-operational">
-      <WorkspacePageHeader title="Home" summary="Today's work, alerts, and schedule" compact className="home-operational__header" />
+      <WorkspacePageHeader
+        title="Home"
+        summary="Daily operating view for today's schedule, staffing gaps, urgent issues, and department task counts."
+        compact
+        className="home-operational__header"
+        actions={
+          <div className="home-operational__header-actions">
+            <button type="button" className="home-operational__search-launcher" onClick={() => onOpenConcierge()}>
+              <span className="home-operational__search-label">Search or ask Concierge</span>
+              <strong>Search jobs, people, schedules, and alerts</strong>
+              <span>{updatedLabel ?? "Ask Concierge anything from Home."}</span>
+            </button>
+            {canCreateTask ? (
+              <button type="button" onClick={() => navigateToHash(createTaskHash)}>
+                New Task
+              </button>
+            ) : null}
+          </div>
+        }
+      />
 
       {error ? <div className="error-banner">{error}</div> : null}
-      {liveMessage ? <div className="feedback-strip feedback-strip--info">{liveMessage}</div> : null}
-
-      <section className="panel home-operational__top-panel">
-        <div className="home-operational__search-row">
-          <button type="button" className="home-operational__search-launcher" onClick={() => onOpenConcierge()}>
-            <span className="home-operational__search-label">Search or ask Concierge</span>
-            <strong>Search jobs, people, schedules, and alerts</strong>
-            <span>{updatedLabel ?? "Ask Concierge anything from Home."}</span>
-          </button>
-
-          {topActions.length ? (
-            <div className="home-operational__top-actions" aria-label="Home shortcuts">
-              {topActions.map((action) => (
-                <button
-                  key={`${action.label}-${action.hash}`}
-                  type="button"
-                  className={action.tone === "primary" ? "" : "secondary-button"}
-                  onClick={() => navigateToHash(action.hash)}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
 
       <div className="home-operational__top-grid">
         {timeBand?.visible ? (
@@ -527,11 +498,11 @@ export function HomeCommandSurface({
           </section>
         ) : null}
 
-        {attendanceMetrics.length ? (
-          <section className="panel home-operational__attendance-panel" aria-label="Attendance visibility">
+        {attendanceAttentionMetric ? (
+          <section className="panel home-operational__attendance-panel home-operational__attendance-panel--compact" aria-label="Attendance health">
             <WorkspaceSectionHeader
-              title="Attendance"
-              summary="Who is clocked in, who is in the field or office, and who still needs follow-through."
+              title="Attendance needs attention"
+              summary="Someone expected for today's work has not checked in yet."
               compact
               actions={
                 canOpenAttendance ? (
@@ -541,20 +512,15 @@ export function HomeCommandSurface({
                 ) : null
               }
             />
-            <div className="home-operational__attendance-grid">
-              {attendanceMetrics.map((metric) => (
-                <button
-                  key={metric.id}
-                  type="button"
-                  className={`home-operational__attendance-card home-operational__attendance-card--${metric.tone}`}
-                  onClick={() => navigateToHash(metric.action_hash)}
-                >
-                  <span>{metric.label}</span>
-                  <strong>{metric.count}</strong>
-                  <p>{metric.detail}</p>
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              className={`home-operational__attendance-card home-operational__attendance-card--${attendanceAttentionMetric.tone}`}
+              onClick={() => navigateToHash(attendanceAttentionMetric.action_hash)}
+            >
+              <span>{attendanceAttentionMetric.label}</span>
+              <strong>{attendanceAttentionMetric.count}</strong>
+              <p>{attendanceAttentionMetric.detail}</p>
+            </button>
           </section>
         ) : null}
       </div>
@@ -563,7 +529,7 @@ export function HomeCommandSurface({
         <section className="panel home-operational__summary-panel">
           <WorkspaceSectionHeader
             title="Today at a glance"
-            summary="Start with the main operating counts, then open the workspace that owns the next action."
+            summary="A compact daily operating view: today's shoots, staffing gaps, department tasks, and production work that needs a lane owner."
             compact
           />
           <div className="home-operational__summary-grid">
@@ -589,18 +555,25 @@ export function HomeCommandSurface({
           <section className="panel home-operational__urgent-panel">
             <WorkspaceSectionHeader
               title="Urgent Issues"
-              summary="What needs attention first, with direct drilldown into the owning job or operational record."
+              summary="The first issues to clear today. Expand only when you need the rest of the watch list."
               compact
               actions={
-                canOpenAlerts ? (
-                  <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("dashboard-alerts"))}>
-                    View Alerts
-                  </button>
-                ) : null
+                <WorkspaceActionBar align="end" compact>
+                  {urgentItems.length > 2 ? (
+                    <button type="button" className="secondary-button" onClick={() => setUrgentExpanded((current) => !current)}>
+                      {urgentExpanded ? "Show Fewer" : `Show All (${urgentItems.length})`}
+                    </button>
+                  ) : null}
+                  {canOpenAlerts ? (
+                    <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("dashboard-alerts"))}>
+                      View Alerts
+                    </button>
+                  ) : null}
+                </WorkspaceActionBar>
               }
             />
             <div className="home-operational__issue-list">
-              {urgentItems.map((item: HomeUrgentWatchItem) => (
+              {visibleUrgentItems.map((item: HomeUrgentWatchItem) => (
                 <button
                   key={item.id}
                   type="button"

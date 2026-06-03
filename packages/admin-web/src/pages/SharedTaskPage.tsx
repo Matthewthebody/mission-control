@@ -44,6 +44,7 @@ type TaskFormState = {
 const TASK_STATUS_OPTIONS: SharedTaskStatus[] = ["not_started", "in_progress", "waiting", "blocked", "review", "completed", "cancelled"];
 const TASK_PRIORITY_OPTIONS: JobPriorityLevel[] = ["low", "normal", "high", "urgent"];
 const DEPARTMENT_OPTIONS: WorkDepartmentType[] = ["schools", "sports", "production", "photography", "operations", "other"];
+const TASK_CREATED_NOTICE_PREFIX = "mission-control-task-created:";
 const DEFAULT_WORK_MODEL: WorkModelSummary[] = [
   {
     object_kind: "job_event",
@@ -154,6 +155,31 @@ function toJobDepartmentFilter(department: WorkDepartmentType): JobDepartmentTyp
   return department === "schools" || department === "sports" ? department : undefined;
 }
 
+function getTaskCreatedNoticeKey(taskId: string) {
+  return `${TASK_CREATED_NOTICE_PREFIX}${taskId}`;
+}
+
+function rememberCreatedTask(taskId: string, title: string) {
+  try {
+    window.sessionStorage.setItem(getTaskCreatedNoticeKey(taskId), title);
+  } catch {
+    // Session storage is only used for a cross-route success notice.
+  }
+}
+
+function consumeCreatedTaskTitle(taskId: string) {
+  try {
+    const key = getTaskCreatedNoticeKey(taskId);
+    const title = window.sessionStorage.getItem(key);
+    if (title) {
+      window.sessionStorage.removeItem(key);
+    }
+    return title;
+  } catch {
+    return null;
+  }
+}
+
 export function SharedTaskPage({ token, currentUser, mode }: Props) {
   const { path, params } = useHashRouteSnapshot();
   const taskId = mode === "detail" ? parseTaskIdFromPath(path) : null;
@@ -226,6 +252,10 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
         }
         setDetail(response);
         setFormState(fromDetail(response));
+        const createdTitle = consumeCreatedTaskTitle(response.task.id);
+        if (createdTitle) {
+          setNotice(`Task created: ${createdTitle}. It is now open and available in My Tasks.`);
+        }
         setError("");
       })
       .catch((loadError) => {
@@ -273,7 +303,8 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
       const created = await createSharedTask(token, toPayload(formState));
       setDetail(created);
       setFormState(fromDetail(created));
-      setNotice("Task created.");
+      rememberCreatedTask(created.task.id, created.task.title);
+      setNotice(`Task created: ${created.task.title}. It is now open and available in My Tasks.`);
       window.location.hash = `#tasks/${created.task.id}`;
     } catch (persistError) {
       setError(persistError instanceof ApiClientError ? persistError.message : "We couldn't save this task right now.");
@@ -322,7 +353,14 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
         compact
       />
 
-      {notice ? <div className="success-banner">{notice}</div> : null}
+      {notice ? (
+        <div className="success-banner shared-task-page__success">
+          <span>{notice}</span>
+          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#tasks")}>
+            Open My Tasks
+          </button>
+        </div>
+      ) : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
       <section className="panel shared-task-page__model-panel">
