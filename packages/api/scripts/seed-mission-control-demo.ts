@@ -1,5 +1,6 @@
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import type { PoolClient } from "pg";
 import { pool } from "../src/db/pool.js";
 import { seedProjectTrackingDemoData } from "./seed-project-tracking-demo.js";
 import { runClientCommandCenterDemoSeed } from "./seed-client-command-center-demo.js";
@@ -238,6 +239,374 @@ function normalizeName(value: string) {
 
 function checklist(labels: string[], completeCount: number) {
   return labels.map((label, index) => ({ label, complete: index < completeCount }));
+}
+
+function toIsoDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function localTodayAt(hour: number, minute = 0) {
+  const value = new Date();
+  value.setHours(hour, minute, 0, 0);
+  return value;
+}
+
+function addMinutes(value: Date, minutes: number) {
+  return new Date(value.getTime() + minutes * 60 * 1000);
+}
+
+function normalizeSeedText(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+async function upsertPilotLocation(
+  client: PoolClient,
+  input: {
+    tenantId: string;
+    organizationId: string;
+    externalKey: string;
+    name: string;
+    address: string;
+    addressLine1: string;
+    city: string;
+    state: string;
+    zip: string;
+    actorUserId: string;
+    navigationNotes: string;
+    parkingInstructions: string;
+    entranceInstructions: string;
+    setupArea: string;
+    employeeFacingNotes: string;
+  }
+) {
+  const location = await client.query<{ id: string }>(
+    `
+      INSERT INTO shoot_location (
+        tenant_id,
+        organization_id,
+        external_source,
+        external_key,
+        name,
+        normalized_name,
+        address,
+        normalized_address,
+        address_line_1,
+        city,
+        state,
+        zip,
+        maps_label,
+        navigation_url,
+        navigation_notes,
+        parking_instructions,
+        entrance_instructions,
+        setup_area,
+        employee_facing_notes,
+        location_details,
+        created_by_user_id,
+        updated_by_user_id,
+        updated_at
+      )
+      VALUES (
+        $1,$2,'mission_control_demo',$3,$4,$5,$6,$7,$8,$9,$10,$11,$4,
+        'https://www.google.com/maps/search/?api=1&query=' || replace($6, ' ', '%20'),
+        $12,$13,$14,$15,$16,'Photography pilot same-day location.',$17,$17,now()
+      )
+      ON CONFLICT (tenant_id, external_source, external_key) DO UPDATE
+      SET
+        organization_id = EXCLUDED.organization_id,
+        name = EXCLUDED.name,
+        normalized_name = EXCLUDED.normalized_name,
+        address = EXCLUDED.address,
+        normalized_address = EXCLUDED.normalized_address,
+        address_line_1 = EXCLUDED.address_line_1,
+        city = EXCLUDED.city,
+        state = EXCLUDED.state,
+        zip = EXCLUDED.zip,
+        maps_label = EXCLUDED.maps_label,
+        navigation_url = EXCLUDED.navigation_url,
+        navigation_notes = EXCLUDED.navigation_notes,
+        parking_instructions = EXCLUDED.parking_instructions,
+        entrance_instructions = EXCLUDED.entrance_instructions,
+        setup_area = EXCLUDED.setup_area,
+        employee_facing_notes = EXCLUDED.employee_facing_notes,
+        location_details = EXCLUDED.location_details,
+        updated_by_user_id = EXCLUDED.updated_by_user_id,
+        updated_at = now()
+      RETURNING id::text
+    `,
+    [
+      input.tenantId,
+      input.organizationId,
+      input.externalKey,
+      input.name,
+      normalizeSeedText(input.name),
+      input.address,
+      normalizeSeedText(input.address),
+      input.addressLine1,
+      input.city,
+      input.state,
+      input.zip,
+      input.navigationNotes,
+      input.parkingInstructions,
+      input.entranceInstructions,
+      input.setupArea,
+      input.employeeFacingNotes,
+      input.actorUserId
+    ]
+  );
+  return location.rows[0]!.id;
+}
+
+async function enrichSameDayPhotographyJob(
+  client: PoolClient,
+  input: {
+    tenantId: string;
+    jobNumber: string;
+    start: Date;
+    end: Date;
+    locationId: string;
+    leadUserId: string;
+    crewUserIds: string[];
+    dayLabel: string;
+    readiness: Array<{ label: string; isComplete: boolean; isBlocker?: boolean; sortOrder: number }>;
+  }
+) {
+  const job = await client.query<{ id: string }>(
+    `
+      UPDATE jobs
+      SET
+        primary_location_id = $3,
+        scheduled_start_at = $4,
+        scheduled_end_at = $5,
+        staffing_status = CASE WHEN $6 >= 3 THEN 'ready_confirmed'::job_staffing_status_type ELSE 'partially_staffed'::job_staffing_status_type END,
+        readiness_status = 'on_track'::job_readiness_status_type,
+        updated_at = now()
+      WHERE tenant_id = $1
+        AND job_number = $2
+      RETURNING id::text
+    `,
+    [input.tenantId, input.jobNumber, input.locationId, input.start.toISOString(), input.end.toISOString(), input.crewUserIds.length]
+  );
+  const jobId = job.rows[0]?.id;
+  if (!jobId) {
+    throw new Error(`Missing same-day Photography pilot job ${input.jobNumber}`);
+  }
+
+  await client.query("DELETE FROM job_staff_assignments WHERE tenant_id = $1 AND job_id = $2", [input.tenantId, jobId]);
+  await client.query("DELETE FROM job_readiness_items WHERE tenant_id = $1 AND job_id = $2", [input.tenantId, jobId]);
+  await client.query("DELETE FROM job_days WHERE tenant_id = $1 AND job_id = $2", [input.tenantId, jobId]);
+
+  const day = await client.query<{ id: string }>(
+    `
+      INSERT INTO job_days (
+        tenant_id,
+        job_id,
+        day_label,
+        date,
+        start_time,
+        end_time,
+        timezone,
+        location_id,
+        lead_user_id,
+        day_status,
+        access_notes,
+        parking_notes,
+        setup_notes,
+        travel_notes
+      )
+      VALUES ($1,$2,$3,$4::date,$5,$6,'America/Chicago',$7,$8,'ready'::job_day_status_type,$9,$10,$11,$12)
+      RETURNING id::text
+    `,
+    [
+      input.tenantId,
+      jobId,
+      input.dayLabel,
+      toIsoDateOnly(input.start),
+      input.start.toTimeString().slice(0, 5),
+      input.end.toTimeString().slice(0, 5),
+      input.locationId,
+      input.leadUserId,
+      "Check in with the front office before setup.",
+      "Use the staff lot and keep the unload lane clear.",
+      "Stage camera cases near the assigned setup area.",
+      "Open Travel & Logistics before leaving the studio."
+    ]
+  );
+
+  await client.query(
+    `
+      INSERT INTO job_staff_assignments (
+        tenant_id,
+        job_id,
+        job_day_id,
+        user_id,
+        assignment_role,
+        assignment_status,
+        is_lead,
+        is_ready_present
+      )
+      SELECT $1,$2,$3,crew.user_id,crew.assignment_role::text,crew.assignment_status::job_assignment_status_type,crew.is_lead,crew.is_ready_present
+      FROM jsonb_to_recordset($4::jsonb) AS crew(
+        user_id uuid,
+        assignment_role text,
+        assignment_status text,
+        is_lead boolean,
+        is_ready_present boolean
+      )
+    `,
+    [
+      input.tenantId,
+      jobId,
+      day.rows[0]!.id,
+      JSON.stringify(
+        input.crewUserIds.map((userId, index) => ({
+          user_id: userId,
+          assignment_role: index === 0 ? "shoot_lead" : "photographer",
+          assignment_status: index === 0 ? "confirmed" : "assigned",
+          is_lead: index === 0,
+          is_ready_present: index < 2
+        }))
+      )
+    ]
+  );
+
+  await client.query(
+    `
+      INSERT INTO job_readiness_items (
+        tenant_id,
+        job_id,
+        section_key,
+        label,
+        description,
+        is_required,
+        is_blocker,
+        is_complete,
+        sort_order,
+        source_template_key
+      )
+      SELECT $1,$2,'pilot_review',item.label,NULL,true,item.is_blocker,item.is_complete,item.sort_order,'same_day_photography_pilot'
+      FROM jsonb_to_recordset($3::jsonb) AS item(label text, is_blocker boolean, is_complete boolean, sort_order int)
+    `,
+    [
+      input.tenantId,
+      jobId,
+      JSON.stringify(input.readiness.map((item) => ({ label: item.label, is_blocker: Boolean(item.isBlocker), is_complete: item.isComplete, sort_order: item.sortOrder })))
+    ]
+  );
+}
+
+async function seedSameDayPhotographyPilotRows() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const tenant = await client.query<{ id: string }>("SELECT id::text FROM tenant WHERE name = 'Demo Studio' LIMIT 1");
+    const tenantId = tenant.rows[0]?.id;
+    if (!tenantId) {
+      throw new Error("Demo Studio tenant is required before seeding same-day Photography pilot rows.");
+    }
+    const users = await client.query<{ id: string; email: string; full_name: string }>(
+      `
+        SELECT id::text, lower(email) AS email, full_name
+        FROM app_user
+        WHERE tenant_id = $1
+        ORDER BY created_at ASC
+      `,
+      [tenantId]
+    );
+    const userByEmail = new Map(users.rows.map((user) => [user.email, user]));
+    const lead = userByEmail.get("photo@example.com") ?? users.rows[0];
+    const associate = userByEmail.get("associate@example.com") ?? users.rows[1] ?? lead;
+    const senior = users.rows.find((user) => /senior/i.test(user.full_name)) ?? userByEmail.get("leadership@example.com") ?? lead;
+    if (!lead || !associate || !senior) {
+      throw new Error("Demo users are required before seeding same-day Photography pilot rows.");
+    }
+
+    const schoolOrg = await client.query<{ id: string }>(
+      "SELECT id::text FROM organization WHERE tenant_id = $1 AND normalized_canonical_name = $2 LIMIT 1",
+      [tenantId, normalizeName("White Bear Lake High School")]
+    );
+    const sportsOrg = await client.query<{ id: string }>(
+      "SELECT id::text FROM organization WHERE tenant_id = $1 AND normalized_canonical_name = $2 LIMIT 1",
+      [tenantId, normalizeName("Kettle Moraine Volleyball Club")]
+    );
+    if (!schoolOrg.rows[0] || !sportsOrg.rows[0]) {
+      throw new Error("Demo organizations are required before seeding same-day Photography pilot rows.");
+    }
+
+    const schoolLocationId = await upsertPilotLocation(client, {
+      tenantId,
+      organizationId: schoolOrg.rows[0].id,
+      externalKey: "same-day-school-portrait",
+      name: "White Bear Lake Main Gym",
+      address: "5040 Bald Eagle Ave, White Bear Lake, MN 55110",
+      addressLine1: "5040 Bald Eagle Ave",
+      city: "White Bear Lake",
+      state: "MN",
+      zip: "55110",
+      actorUserId: lead.id,
+      navigationNotes: "Use the south activities entrance and check in at the main office.",
+      parkingInstructions: "Park in the visitor lot near the activities entrance.",
+      entranceInstructions: "Enter through Door 4 and check in with the front office.",
+      setupArea: "Main gym, west wall.",
+      employeeFacingNotes: "Bring the school portrait kit and ID card packet."
+    });
+    const sportsLocationId = await upsertPilotLocation(client, {
+      tenantId,
+      organizationId: sportsOrg.rows[0].id,
+      externalKey: "same-day-sports-media-day",
+      name: "Kettle Moraine Fieldhouse",
+      address: "349 N Oak Crest Dr, Wales, WI 53183",
+      addressLine1: "349 N Oak Crest Dr",
+      city: "Wales",
+      state: "WI",
+      zip: "53183",
+      actorUserId: lead.id,
+      navigationNotes: "Unload at the athletics entrance before moving vehicles to the north lot.",
+      parkingInstructions: "Use the north athletics lot after unloading.",
+      entranceInstructions: "Enter at the athletics doors and check in with the activities desk.",
+      setupArea: "Fieldhouse court two.",
+      employeeFacingNotes: "Bring gray screen kit and team ordering QR cards."
+    });
+
+    await enrichSameDayPhotographyJob(client, {
+      tenantId,
+      jobNumber: "PT-DEMO-TRACK-001",
+      start: localTodayAt(9, 0),
+      end: localTodayAt(12, 0),
+      locationId: schoolLocationId,
+      leadUserId: senior.id,
+      crewUserIds: [senior.id, lead.id, associate.id],
+      dayLabel: "School portrait day",
+      readiness: [
+        { label: "Portrait kit packed", isComplete: true, sortOrder: 10 },
+        { label: "Office packet confirmed", isComplete: true, sortOrder: 20 },
+        { label: "Final roster file confirmed", isComplete: false, isBlocker: true, sortOrder: 30 }
+      ]
+    });
+    await enrichSameDayPhotographyJob(client, {
+      tenantId,
+      jobNumber: "SPQA-DEMO-001",
+      start: localTodayAt(14, 0),
+      end: addMinutes(localTodayAt(14, 0), 150),
+      locationId: sportsLocationId,
+      leadUserId: lead.id,
+      crewUserIds: [lead.id, associate.id],
+      dayLabel: "Sports media day",
+      readiness: [
+        { label: "Gray screen kit packed", isComplete: true, sortOrder: 10 },
+        { label: "Team schedule printed", isComplete: true, sortOrder: 20 },
+        { label: "Ordering QR cards staged", isComplete: true, sortOrder: 30 }
+      ]
+    });
+
+    await client.query("COMMIT");
+    return { seeded: 2, job_numbers: ["PT-DEMO-TRACK-001", "SPQA-DEMO-001"] };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function seedSportsPeerQaDemoData() {
@@ -601,6 +970,7 @@ export async function seedMissionControlDemoData(argv = process.argv) {
   const projectTracking = await seedProjectTrackingDemoData();
   const jobCloseout = await seedJobCloseoutDemoData(argv);
   const sportsPeerQa = await seedSportsPeerQaDemoData();
+  const photographyToday = await seedSameDayPhotographyPilotRows();
   const counts = await getDemoCounts();
   assertDemoCaps(counts);
   return {
@@ -609,8 +979,9 @@ export async function seedMissionControlDemoData(argv = process.argv) {
     project_tracking: projectTracking,
     job_closeout: jobCloseout,
     sports_peer_qa: sportsPeerQa,
+    photography_today: photographyToday,
     counts,
-    seeded_areas: ["client_command_center", "project_tracking", "workflow_templates", "job_closeout", "sports_peer_qa"],
+    seeded_areas: ["client_command_center", "project_tracking", "workflow_templates", "job_closeout", "sports_peer_qa", "photography_today"],
     reference_areas: ["checklist_template_defaults"],
     deferred_areas: ["compliance_workspace_specific_story"]
   };
