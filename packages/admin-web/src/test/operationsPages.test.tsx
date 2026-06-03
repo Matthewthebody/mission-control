@@ -5046,17 +5046,17 @@ describe("admin operations regressions", () => {
 
     expect(screen.getByText("Loading Home")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-      expect(screen.getByText("Today at a glance")).toBeInTheDocument();
-      expect(screen.getByText("School Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Today at a glance")).toBeInTheDocument();
+    expect(screen.getByText("School Tasks")).toBeInTheDocument();
     expect(screen.getByText("Sports Tasks")).toBeInTheDocument();
-    expect(screen.getByText("My Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Shoots Today")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Schedule" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Alerts" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Tasks" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Event" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Task" })).toBeInTheDocument();
+    expect(screen.getByText("Today's Shoots")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
     expect(screen.getByText("Search or ask Concierge")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create Event" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create Task" })).not.toBeInTheDocument();
   });
 
   it("keeps the role-aware home shell usable when the classic home surface is calm", async () => {
