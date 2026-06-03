@@ -143,7 +143,7 @@ Look for:
 - Does the Schools-to-Photography handoff feel connected enough?
 - Can you tell when a Schools job is ready for Photography, waiting on Photography, or blocked before Photography?
 - What handoff words are missing from the prep/readiness view?
-- Would this reduce monday.com checking, or would you still need another board open?
+- Would this reduce checking another board, or would you still keep one open?
 - What should not move out of the existing Schools workflow yet?
 
 ## Questions For Carisa
@@ -182,7 +182,7 @@ Capture comments in these buckets:
 - Missing field details
 - Confusing labels
 - Dead or fake actions
-- Anything that makes someone say, "I would still open monday.com"
+- Anything that makes someone say, "I would still open another board"
 
 ## Known Rough Edges
 
@@ -200,7 +200,7 @@ Capture comments in these buckets:
 
 ## What Not To Demo As Finished
 
-- Do not promise live Outlook, Teams, maps, payroll, mileage, or monday.com replacement behavior unless separately verified.
+- Do not promise live Outlook, Teams, maps, payroll, mileage, or existing-board replacement behavior unless separately verified.
 - Do not describe Staffing or Attendance as fully rebuilt.
 - Do not describe Travel as automated routing.
 - Do not describe Job Prep / Pre-Service as a complete replacement for every existing prep checklist.

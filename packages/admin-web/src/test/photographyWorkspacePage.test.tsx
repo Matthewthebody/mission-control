@@ -605,7 +605,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Confirm arrival packet - required")).toBeInTheDocument();
     expect(screen.getByText("Review parking notes - complete")).toBeInTheDocument();
     expect(screen.getByText("Last year: staging worked well, but add a second runner during peak athlete arrivals.")).toBeInTheDocument();
-    expect(screen.getByText("Customer survey notes are not connected yet.")).toBeInTheDocument();
+    expect(screen.getByText("No customer survey notes are in this seeded packet yet.")).toBeInTheDocument();
     expect(screen.getByText("Check-in QR Packet")).toBeInTheDocument();
     expect(screen.getByText("Client check-in map PDF")).toBeInTheDocument();
     expect(screen.getByText("Best reference setup photo")).toBeInTheDocument();

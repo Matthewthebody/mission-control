@@ -25,7 +25,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
   overview: {
     title: "Photography Workspace",
     summary:
-      "Photography starts with the 30-day shoot calendar, then moves into today's shoots, pre-service readiness, travel context, and field workload without turning staffing into a Photography-owned queue.",
+      "Photography starts with the 30-day shoot calendar, then moves into Day at a Glance, Job Prep / Pre-Service, Travel & Logistics, and field workload without turning staffing into a Photography-owned queue.",
     meta: [
       { label: "Calendar first", tone: "info" },
       { label: "Field readiness", tone: "warning" },
@@ -47,7 +47,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
     summary:
       "Field-ready arrival, location, contact, parking, crew, and note context for photographers checking the next shoot before they leave.",
     meta: [
-      { label: "Field directions", tone: "info" },
+      { label: "Field logistics", tone: "info" },
       { label: "Read-only pilot view", tone: "neutral" }
     ]
   },
@@ -64,7 +64,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
   readiness: {
     title: "Job Prep / Pre-Service",
     summary:
-      "Readiness now lives inside Job Prep so crews have one place to check briefing status, prep gaps, references, and customer context before the shoot.",
+      "Readiness is part of Job Prep / Pre-Service so crews have one place to check briefing status, prep gaps, references, and customer context before the shoot.",
     meta: [
       { label: "Compatibility route", tone: "neutral" },
       { label: "Prep packet", tone: "warning" }
@@ -83,10 +83,10 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
 
 const PRIMARY_LINKS = [
   { id: "calendar", label: "30-Day Calendar", hash: "#studios/calendar", detail: "Start here for upcoming shoot load, linked assignments, and dates that need attention." },
-  { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and field attention flags." },
-  { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and final readiness context in one place." },
+  { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and next links to Travel and Job Prep." },
+  { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Field location, parking, contact, crew, and arrival guidance." },
-  { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, mileage review, and post-shoot learning flow." },
+  { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, and post-shoot learning flow." },
   { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." }
 ];
 
@@ -345,10 +345,10 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
       <div className="studios-workspace__prep-detail-grid">
         <PrepInfoGroup title="Briefing Notes" items={prepContext.briefingItems} wide />
         <PrepReadinessGroup items={prepContext.readinessItems} />
-        <PrepInfoGroup title="Prior Evaluation" items={prepContext.priorEvaluationItems} placeholder="No prior post-shoot evaluation is connected to this prep packet yet." />
-        <PrepInfoGroup title="Customer Survey Notes" items={[]} placeholder="Customer survey notes are not connected yet." />
-        <PrepAttachmentGroup title="PDFs / Resources" attachments={prepContext.documentAttachments} placeholder="No PDF packet or resource document is attached yet." />
-        <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.photoAttachments} placeholder="No reference photos are attached yet." />
+        <PrepInfoGroup title="Prior Evaluation" items={prepContext.priorEvaluationItems} placeholder="No prior post-shoot evaluation is in this seeded packet yet." />
+        <PrepInfoGroup title="Customer Survey Notes" items={[]} placeholder="No customer survey notes are in this seeded packet yet." />
+        <PrepAttachmentGroup title="PDFs / Resources" attachments={prepContext.documentAttachments} placeholder="No PDF packet or resource document is in this seeded packet yet." />
+        <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.photoAttachments} placeholder="No reference photos are in this seeded packet yet." />
       </div>
 
       {detailLoading ? <p className="muted">Refreshing prep packet...</p> : null}
@@ -590,7 +590,7 @@ function PhotographyTravelPanel({ token }: { token: string }) {
   if (!selectedJob || !travelContext) {
     return (
       <WorkspaceEmptyState
-        title="No upcoming Travel jobs are ready"
+        title="No upcoming Travel & Logistics details are ready"
         summary="When a Photography job has a date and location, the field travel overview will show where to go and what to know before leaving."
         actions={
           <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
@@ -759,7 +759,7 @@ function buildCrewItems(job: SharedJobListItem, assignments: SharedJobStaffAssig
     confirmed.length
       ? `${confirmed.length} assigned: ${crewNames.slice(0, 4).join(", ")}${crewNames.length > 4 ? ` +${crewNames.length - 4} more` : ""}`
       : `${job.assigned_staff_count} assigned / ${job.ready_present_count || job.checked_in_staff_count} active`,
-    job.staffing_status !== "ready_confirmed" ? `Staffing status: ${humanizeTravelValue(job.staffing_status)}` : null
+    job.staffing_status !== "ready_confirmed" ? `Crew confirmation: ${humanizeTravelValue(job.staffing_status)}` : null
   ];
   return items.filter((value): value is string => Boolean(value));
 }
@@ -1019,7 +1019,7 @@ function describeTodayAttention(job: SharedJobListItem) {
     return `${job.readiness_percent}% ready`;
   }
   if (job.staffing_status !== "ready_confirmed") {
-    return `Staffing: ${humanizeTravelValue(job.staffing_status)}`;
+    return `Crew confirmation: ${humanizeTravelValue(job.staffing_status)}`;
   }
   return "No immediate flags";
 }

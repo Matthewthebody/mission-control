@@ -458,7 +458,7 @@ const ROUTES: RouteDefinition[] = [
     id: "studios-travel",
     label: "Travel & Logistics",
     sectionKey: "photography",
-    description: "Travel blocks, routing context, field logistics, and pre-day movement planning for shoot crews.",
+    description: "Travel blocks, field logistics, location notes, and pre-day movement planning for shoot crews.",
     canonicalHash: "#studios/travel",
     visibleTabs: ["calendar", "shoots"],
     visibleForEmployeeOnly: false,

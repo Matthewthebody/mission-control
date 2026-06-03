@@ -5,12 +5,12 @@ Date: 2026-06-03
 ## Repo State
 
 - Branch: `feature/mission-control-demo-readiness-v1`
-- Current local HEAD before this handoff refresh commit: `cc0ce7f Refresh Photography pilot review guide`
-- Working tree before this handoff refresh: clean
-- Branch position before this handoff refresh: ahead of `origin/feature/mission-control-demo-readiness-v1` by 2 commits
+- Local branch was at `692fefc Refresh Photography handoff docs` before this wording cleanup pass.
+- Working tree before this wording cleanup pass: clean
+- Branch position before this wording cleanup pass: ahead of `origin/feature/mission-control-demo-readiness-v1` by 3 commits
 - Anything pushed after the latest polish/docs commits: no
 
-Use `git log --oneline -10` after this handoff refresh commit for the exact final HEAD.
+Use `git log --oneline -10` after this wording cleanup commit for the exact final HEAD.
 
 ## Completed Photography Pilot Slices
 
@@ -37,7 +37,8 @@ Use `git log --oneline -10` after this handoff refresh commit for the exact fina
 
 - `686cb03 Polish Photography pilot workflow`
 - `cc0ce7f Refresh Photography pilot review guide`
-- This handoff refresh commit, once created.
+- `692fefc Refresh Photography handoff docs`
+- This wording cleanup commit, once created.
 
 Earlier validated commits on this branch include the Photography pilot slices and validation hardening commits listed in `docs/validation-hardening-report.md`.
 
