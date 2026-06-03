@@ -19,9 +19,9 @@ First sentence to frame the review:
 1. Photography homepage: `#photography`
 2. Calendar 30-day view: click the primary Calendar card, or open `#photography/calendar`
 3. Week view / Day Briefing: use the week/day controls inside the calendar surface
-4. Day at a Glance: `#photography/shoots`
+4. Travel & Logistics: `#photography/travel`
 5. Job Prep / Pre-Service: `#photography/pre-service`
-6. Travel & Logistics: `#photography/travel`
+6. Day at a Glance: `#photography/shoots`
 7. Leadership > Staff Assignment Board: open Leadership, then Staff Assignment Board
 8. Leadership > Attendance: open Leadership, then Attendance
 
@@ -208,7 +208,7 @@ Capture comments in these buckets:
 
 ## Recommended Next Development Slices After Feedback
 
-1. Small Photography pilot polish pass for labels, dead buttons, and route order based on live review notes if stakeholders still find friction.
+1. Tiny Photography label or dead-action polish only if stakeholders still find friction during the live review.
 2. Leadership-owned staffing and attendance pilot slice, if Carisa/Jessica confirm the ownership split.
 3. Production handoff clarity slice with Spencer: status labels, blockers, and return-to-Photography visibility.
 4. Schools-to-Photography handoff tightening with Jessica: ready/waiting/blocker language and ownership.
