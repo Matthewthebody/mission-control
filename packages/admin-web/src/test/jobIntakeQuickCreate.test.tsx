@@ -662,7 +662,7 @@ describe("central job intake quick create", () => {
 
   it("saves a sports draft from the sports-facing entry point", async () => {
     renderSportsPage();
-    const dialog = await openQuickCreate("New Sports Job");
+    const dialog = await openQuickCreate("Quick Create");
 
     fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Unresolved organization placeholder", "input"), { target: { value: "Metro Athletics" } });
     fireEvent.change(getLabeledControl<HTMLSelectElement>(dialog, "Sports Job Type", "select"), { target: { value: "media_day" } });
