@@ -4,6 +4,7 @@ import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader, type WorkspaceHeaderMeta } from "../components/workspace/WorkspacePageHeader";
+import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
 import type { SharedJobListItem } from "../jobTruthTypes";
 import type {
   SharedJobDay,
@@ -23,13 +24,13 @@ type Props = {
 
 const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: string; meta: WorkspaceHeaderMeta[] }> = {
   overview: {
-    title: "Photography Workspace",
+    title: "Photography Today",
     summary:
-      "Photography starts with the 30-day shoot calendar, then moves into Day at a Glance, Job Prep / Pre-Service, Travel & Logistics, and field workload without turning staffing into a Photography-owned queue.",
+      "Photography opens on today's shoots: where crews are going, who is assigned, what needs readiness attention, and the next practical click for Travel or Job Prep. The 30-day calendar stays available for planning.",
     meta: [
-      { label: "Calendar first", tone: "info" },
+      { label: "Today's shoots first", tone: "info" },
       { label: "Field readiness", tone: "warning" },
-      { label: "Staffing stays leadership-owned", tone: "neutral" }
+      { label: "30-day planning available", tone: "neutral" }
     ]
   },
   today: {
@@ -82,15 +83,15 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
 };
 
 const PRIMARY_LINKS = [
-  { id: "calendar", label: "30-Day Calendar", hash: "#studios/calendar", detail: "Start here for upcoming shoot load, linked assignments, and dates that need attention." },
   { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and clear next links to Travel or Job Prep." },
   { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Field location, parking, contact, crew, and arrival guidance." },
-  { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, and post-shoot learning flow." },
-  { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." }
+  { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." },
+  { id: "calendar", label: "30-Day Planning Calendar", hash: "#studios/calendar", detail: "Planning view for upcoming shoot load, linked assignments, and dates that need attention." },
+  { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, and post-shoot learning flow." }
 ];
 
-const HOMEPAGE_LINK_IDS = new Set(["shoots", "pre-service", "travel", "closeout"]);
+const HOMEPAGE_LINK_IDS = new Set(["pre-service", "travel", "workload", "calendar", "closeout"]);
 
 export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Props) {
   const copy = FOCUS_COPY[focus];
@@ -127,21 +128,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
 
       {isOverview ? (
         <>
-          <section className="panel studios-workspace__calendar-card">
-            <div>
-              <div className="eyebrow">Open First</div>
-              <h3>30-Day Photography Calendar</h3>
-              <p>
-                Use the calendar as the first stop for the review. It should answer what is coming up, which shoot days look heavy,
-                and where a senior photographer needs to click next.
-              </p>
-            </div>
-            <div className="studios-workspace__focus-actions">
-              <button type="button" className="primary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-                Open 30-Day Calendar
-              </button>
-            </div>
-          </section>
+          <PhotographyTodayShootsPanel token={token} />
 
           <section className="studios-workspace__launch-grid" aria-label="Photography launch points">
             {PRIMARY_LINKS.filter((link) => HOMEPAGE_LINK_IDS.has(link.id)).map((link) => (
@@ -929,7 +916,10 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                     Travel details
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-                    Prep checklist
+                    Job Prep / Readiness
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", job.id))}>
+                    Open details
                   </button>
                 </div>
               </div>

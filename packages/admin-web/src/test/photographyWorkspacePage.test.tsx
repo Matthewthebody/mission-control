@@ -546,20 +546,50 @@ describe("StudiosWorkspace", () => {
     cleanup();
   });
 
-  it("renders a calendar-first studios homepage without redundant quick actions", async () => {
-    listSharedJobsMock.mockResolvedValue({ jobs: [] });
+  it("renders a today-first studios homepage without redundant quick actions", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    listSharedJobsMock.mockResolvedValue({
+      jobs: [
+        buildSharedJob({
+          id: "job-home-early",
+          title: "North Metro Stadium Media Day",
+          organization_name: "North Metro Athletics",
+          primary_location_name: "North Metro Stadium",
+          primary_day_date: today,
+          primary_day_start_time: "09:30",
+          primary_day_end_time: "12:00",
+          lead_owner_name: "Carisa Lead",
+          assigned_staff_count: 3,
+          ready_present_count: 2,
+          readiness_percent: 82,
+          open_watch_flag_count: 1,
+          blocker_count: 1
+        })
+      ]
+    });
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Photography Workspace" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "30-Day Photography Calendar" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button")[0]).toHaveAccessibleName("Open 30-Day Calendar");
-    fireEvent.click(screen.getByRole("button", { name: "Open 30-Day Calendar" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Photography Today" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Today's Photography Shoots" })).toBeInTheDocument();
+    expect(screen.getByText("North Metro Stadium Media Day")).toBeInTheDocument();
+    expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
+    expect(screen.getByText("Carisa Lead")).toBeInTheDocument();
+    expect(screen.getByText("3 assigned / 2 active")).toBeInTheDocument();
+    expect(screen.getByText("1 blocker")).toBeInTheDocument();
+    expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Travel details" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Job Prep / Readiness" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open details" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Senior Photographer View" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "30-Day Planning Calendar" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "30-Day Planning Calendar" }));
     await waitFor(() => {
       expect(window.location.hash).toBe("#studios/calendar");
     });
 
-    expect(screen.getByRole("button", { name: "Day at a Glance" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Post-Shoot / Evaluations" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3, name: "30-Day Photography Calendar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Photography 30-Day Calendar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Work" })).not.toBeInTheDocument();
@@ -687,8 +717,9 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("3 assigned / 2 active")).toBeInTheDocument();
     expect(screen.getByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Prep checklist" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Job Prep / Readiness" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Travel details" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open details" }).length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Department Focus")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Photography route shortcuts")).not.toBeInTheDocument();
@@ -760,12 +791,12 @@ describe("StudiosWorkspace", () => {
     const leadershipRouteIds = leadershipRoutes.map((route) => route.id);
 
     expect(photographyRouteIds).toEqual([
-      "studios-calendar",
       "studios-shoots",
       "studios-pre-service",
-      "job-closeout-v1",
       "studios-travel",
-      "studios-workload"
+      "job-closeout-v1",
+      "studios-workload",
+      "studios-calendar"
     ]);
     expect(photographyRouteIds).not.toContain("studios-staffing");
     expect(photographyRouteIds).not.toContain("operations-attendance");

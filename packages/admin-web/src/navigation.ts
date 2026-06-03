@@ -494,7 +494,7 @@ const ROUTES: RouteDefinition[] = [
     id: "studios",
     label: "Photography",
     sectionKey: "photography",
-    description: "Calendar-first workspace for field execution, Job Prep / Pre-Service, Travel & Logistics, and senior photographer workload clarity.",
+    description: "Today-first field command surface for shoot timing, locations, readiness, Travel & Logistics, Job Prep, and senior photographer workload clarity.",
     canonicalHash: "#studios",
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -528,7 +528,7 @@ const ROUTES: RouteDefinition[] = [
     id: "studios-calendar",
     label: "30-Day Calendar",
     sectionKey: "photography",
-    description: "Calendar-first Photography view over the shared master schedule.",
+    description: "30-day Photography planning view over the shared master schedule.",
     canonicalHash: "#studios/calendar",
     visibleTabs: ["calendar"],
     visibleForEmployeeOnly: true,
@@ -1810,12 +1810,12 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   schools: ["schools-jobs", "schools-tasks", "schools-exceptions"],
   sports: ["sports-shoots", "sports-accounts", "sports-contacts", "sports-graphics", "sports-exceptions"],
   photography: [
-    "studios-calendar",
     "studios-shoots",
     "studios-pre-service",
-    "job-closeout-v1",
     "studios-travel",
-    "studios-workload"
+    "job-closeout-v1",
+    "studios-workload",
+    "studios-calendar"
   ],
   production: ["production-workflow-queue", "graphics-queue", "graphics-workload", "graphics-qa", "graphics-release", "files"],
   "project-tracking": ["prep-readiness-queue"],
