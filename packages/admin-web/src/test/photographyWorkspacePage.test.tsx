@@ -629,7 +629,7 @@ describe("StudiosWorkspace", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
     expect(screen.getByText("Readiness is part of Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 4, name: "Readiness Checklist" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Readiness Inside Job Prep" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
   });
 
@@ -687,8 +687,8 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("3 assigned / 2 active")).toBeInTheDocument();
     expect(screen.getByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Job Prep / Pre-Service" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Travel & Logistics" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Prep checklist" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Travel details" }).length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Department Focus")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Photography route shortcuts")).not.toBeInTheDocument();

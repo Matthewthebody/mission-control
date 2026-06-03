@@ -69,7 +69,7 @@ Run one final full validation proof after this handoff refresh before pushing.
 
 ## Known Rough Edges
 
-- Travel & Logistics is field-useful for the demo, but not a full maps/routing integration.
+- Travel & Logistics is field-useful for the demo, but not automated routing.
 - Staffing and Attendance are intentionally reviewed through Leadership, not rebuilt as a Photography-owned workflow.
 - Some internal route names still use `studios` for compatibility even though the visible experience says Photography.
 - Pilot data is seeded demo data, not live production data.

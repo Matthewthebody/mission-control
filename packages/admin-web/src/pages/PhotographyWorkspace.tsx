@@ -35,7 +35,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
   today: {
     title: "Day at a Glance",
     summary:
-      "Same-day Photography view for what is happening today, where crews are going, who is assigned, and what needs attention before crews move.",
+      "Same-day Photography view for what is happening today, what needs attention, and whether the next click should be Travel or Job Prep.",
     meta: [
       { label: "Today", tone: "info" },
       { label: "Read-only field view", tone: "neutral" },
@@ -57,7 +57,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
       "Job Prep is the pre-shoot packet for schedule, location, crew, briefing notes, readiness items, prior context, and reference material before crews launch.",
     meta: [
       { label: "Crew briefings", tone: "warning" },
-      { label: "Readiness checklist", tone: "info" },
+      { label: "Readiness inside Job Prep", tone: "info" },
       { label: "Prep packet", tone: "success" }
     ]
   },
@@ -83,7 +83,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
 
 const PRIMARY_LINKS = [
   { id: "calendar", label: "30-Day Calendar", hash: "#studios/calendar", detail: "Start here for upcoming shoot load, linked assignments, and dates that need attention." },
-  { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and next links to Travel and Job Prep." },
+  { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and clear next links to Travel or Job Prep." },
   { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Field location, parking, contact, crew, and arrival guidance." },
   { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, and post-shoot learning flow." },
@@ -376,7 +376,7 @@ function PrepInfoGroup({ title, items, placeholder = "Not available yet.", wide 
 function PrepReadinessGroup({ items }: { items: SharedJobReadinessItem[] }) {
   return (
     <article className="studios-workspace__prep-info-card">
-      <h4>Readiness Checklist</h4>
+      <h4>Readiness Inside Job Prep</h4>
       {items.length ? (
         <ul>
           {items.slice(0, 6).map((item) => (
@@ -638,9 +638,9 @@ function PhotographyTravelPanel({ token }: { token: string }) {
 
       <div className="studios-workspace__travel-grid">
         <TravelInfoGroup title="Schedule" items={travelContext.scheduleItems} />
+        <TravelInfoGroup title="Parking / Load-In" items={travelContext.logisticsItems} />
         <TravelInfoGroup title="Contact" items={travelContext.contactItems} />
         <TravelInfoGroup title="Crew" items={travelContext.crewItems} />
-        <TravelInfoGroup title="Parking / Load-In" items={travelContext.logisticsItems} />
         <TravelInfoGroup title="Field Notes" items={travelContext.noteItems} />
         <article className="studios-workspace__travel-info-card studios-workspace__travel-info-card--placeholder">
           <h4>Leadership Staffing Context</h4>
@@ -926,10 +926,10 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                 <span className={`status-pill ${getTodayRiskClass(job)}`}>{describeTodayAttention(job)}</span>
                 <div className="studios-workspace__focus-actions">
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/travel")}>
-                    Travel & Logistics
+                    Travel details
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-                    Job Prep / Pre-Service
+                    Prep checklist
                   </button>
                 </div>
               </div>

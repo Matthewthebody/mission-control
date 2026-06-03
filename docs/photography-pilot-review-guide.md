@@ -186,7 +186,7 @@ Capture comments in these buckets:
 
 ## Known Rough Edges
 
-- Travel & Logistics is field-useful for the demo, but not a full maps/routing integration.
+- Travel & Logistics is field-useful for the demo, but not automated routing.
 - Staffing and attendance details are intentionally reviewed through Leadership during this pilot, not built as a new Photography workflow here.
 - Some historical route names still use Studios internally for compatibility, even though the visible review is Photography.
 - The pilot data is seeded demo data, not live production data.
