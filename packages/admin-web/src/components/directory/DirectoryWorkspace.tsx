@@ -221,6 +221,8 @@ export function DirectoryWorkspace({
     locationContacts: selectedLocationContacts
   });
   const isSchoolOrganization = view === "organizations" && isSchoolAccountType(detail.organization.account_type);
+  const preciseRelatedWorkItems = buildPreciseRelatedWorkItems(operationsHub, view, selectedContact?.id ?? null, selectedLocation?.id ?? null);
+  const primaryRelatedWorkItem = preciseRelatedWorkItems[0] ?? null;
 
   return (
     <section className="directory-workspace">
@@ -280,6 +282,19 @@ export function DirectoryWorkspace({
           ) : null}
         </div>
       </div>
+
+      <DirectoryRelatedWorkPanel
+        view={view}
+        organizationName={detail.organization.display_name}
+        selectedContact={selectedContact}
+        selectedLocation={selectedLocation}
+        operationsHub={operationsHub}
+        operationsHubLoading={operationsHubLoading}
+        preciseItems={preciseRelatedWorkItems}
+        primaryItem={primaryRelatedWorkItem}
+        onOpenOrganization={() => onSelectOrganization(detail.organization.id)}
+        onOpenOperations={() => onTabChange("operations")}
+      />
 
       {view === "contacts" && contactDetailError ? (
         <div className="feedback-strip feedback-strip--warning">
@@ -1035,6 +1050,197 @@ export function DirectoryWorkspace({
       ) : null}
     </section>
   );
+}
+
+type DirectoryRelatedWorkItem = {
+  id: string;
+  title: string;
+  summary: string;
+  ownerLabel: string;
+  dueLabel: string | null;
+  actionHash: string;
+  tone: OrganizationOperationsHub["queues"]["projects"]["items"][number]["tone"];
+  sourceLabel: string;
+};
+
+function DirectoryRelatedWorkPanel({
+  view,
+  organizationName,
+  selectedContact,
+  selectedLocation,
+  operationsHub,
+  operationsHubLoading,
+  preciseItems,
+  primaryItem,
+  onOpenOrganization,
+  onOpenOperations
+}: {
+  view: DirectoryView;
+  organizationName: string;
+  selectedContact: OrganizationContact | null;
+  selectedLocation: OrganizationLocation | null;
+  operationsHub: OrganizationOperationsHub | null;
+  operationsHubLoading: boolean;
+  preciseItems: DirectoryRelatedWorkItem[];
+  primaryItem: DirectoryRelatedWorkItem | null;
+  onOpenOrganization: () => void;
+  onOpenOperations: () => void;
+}) {
+  const hasLoadedOperations = Boolean(operationsHub);
+  const heading =
+    view === "contacts"
+      ? "Relationship Context"
+      : view === "locations"
+        ? "Location Work Links"
+        : "Related Work Links";
+  const summary =
+    view === "contacts"
+      ? "Directory owns the person and relationship. Project Tracking owns active work, next owners, due dates, blockers, and recent changes."
+      : view === "locations"
+        ? "Directory owns the place and setup context. Only open exact work when the existing record exposes a real link."
+        : "Directory owns the account record. Open exact linked work only when the existing operations data provides a real route.";
+
+  return (
+    <section className="request-card directory-related-work" aria-label="Directory related work links">
+      <div className="directory-card__header">
+        <div>
+          <strong>{heading}</strong>
+          <div className="muted">{summary}</div>
+        </div>
+        <div className="page-intro-actions page-intro-actions--compact">
+          <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#project-tracking"; }}>
+            Open Project Tracking
+          </button>
+          {view !== "organizations" ? (
+            <button type="button" className="secondary-button" onClick={onOpenOrganization}>
+              Open organization
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {operationsHubLoading ? (
+        <div className="empty-state empty-state--panel">Checking existing related-work links...</div>
+      ) : preciseItems.length ? (
+        <div className="directory-related-work__grid">
+          {preciseItems.map((item) => (
+            <article key={`${item.sourceLabel}:${item.id}`} className={`directory-related-work-card directory-related-work-card--${item.tone}`}>
+              <div>
+                <span className="meta-pill">{item.sourceLabel}</span>
+                <strong>{item.title}</strong>
+                <p>{item.summary}</p>
+              </div>
+              <div className="directory-related-work-card__meta">
+                <span>{item.ownerLabel}</span>
+                {item.dueLabel ? <span>{item.dueLabel}</span> : null}
+              </div>
+              <button type="button" className="secondary-button" onClick={() => { window.location.hash = item.actionHash; }}>
+                {item.actionHash.startsWith("#project-tracking/workflows/") ? "Open in Project Tracking" : "Open related work"}
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : view === "contacts" ? (
+        <div className="directory-related-work__honest-state">
+          <strong>Connected organization: {organizationName}</strong>
+          <p>
+            {selectedContact
+              ? `${selectedContact.full_name} does not have a direct work link in this Directory record yet. Use the organization record for shared work context.`
+              : "This contact record does not expose a direct work link yet."}
+          </p>
+          {primaryItem ? (
+            <button type="button" className="secondary-button" onClick={() => { window.location.hash = primaryItem.actionHash; }}>
+              View organization work
+            </button>
+          ) : null}
+        </div>
+      ) : view === "locations" ? (
+        <div className="directory-related-work__honest-state">
+          <strong>{selectedLocation?.location_name ?? "Location"} stays directory-focused</strong>
+          <p>No direct work link is available from this location record yet. Open the organization or Project Tracking for the full work spine.</p>
+        </div>
+      ) : hasLoadedOperations ? (
+        <div className="directory-related-work__honest-state">
+          <strong>No direct work link yet</strong>
+          <p>No precise related-work route is available from this organization record right now. Project Tracking remains the full work spine.</p>
+        </div>
+      ) : (
+        <div className="directory-related-work__honest-state">
+          <strong>Related work loads from Operations</strong>
+          <p>Open the Operations tab to check existing project, follow-up, and review links for this organization. No active-work count is assumed here.</p>
+          <button type="button" className="secondary-button" onClick={onOpenOperations}>
+            Open Operations tab
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function buildPreciseRelatedWorkItems(
+  operationsHub: OrganizationOperationsHub | null,
+  view: DirectoryView,
+  contactId: string | null,
+  locationId: string | null
+): DirectoryRelatedWorkItem[] {
+  if (!operationsHub) {
+    return [];
+  }
+
+  const projectItems = operationsHub.queues.projects.items
+    .filter((item) => {
+      if (view === "contacts") {
+        return Boolean(contactId && item.related_contact_id === contactId);
+      }
+      if (view === "locations") {
+        return Boolean(locationId && item.related_location_id === locationId);
+      }
+      return true;
+    })
+    .map((item): DirectoryRelatedWorkItem => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      ownerLabel: item.owner_label,
+      dueLabel: item.due_label,
+      actionHash: item.action_hash,
+      tone: item.tone,
+      sourceLabel: item.action_hash.startsWith("#project-tracking/workflows/") ? "Project Tracking" : "Linked production"
+    }));
+
+  const timelineItems = operationsHub.timeline
+    .filter((item) => item.kind === "project" && item.action_hash)
+    .filter((item) => {
+      if (view === "contacts") {
+        return Boolean(contactId && item.related_contact_id === contactId);
+      }
+      if (view === "locations") {
+        return Boolean(locationId && item.related_location_id === locationId);
+      }
+      return true;
+    })
+    .map((item): DirectoryRelatedWorkItem => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      ownerLabel: item.owner_label,
+      dueLabel: item.due_label,
+      actionHash: item.action_hash ?? "#project-tracking",
+      tone: item.tone,
+      sourceLabel: item.action_hash?.startsWith("#project-tracking/workflows/") ? "Project Tracking" : "Linked production"
+    }));
+
+  const seen = new Set<string>();
+  return [...projectItems, ...timelineItems]
+    .filter((item) => {
+      const key = `${item.actionHash}:${item.title}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 3);
 }
 
 function isSchoolAccountType(accountType: OrganizationDetail["organization"]["account_type"]) {

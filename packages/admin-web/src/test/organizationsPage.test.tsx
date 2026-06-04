@@ -797,7 +797,7 @@ function createDirectoryHarness(options: { seedOrganizationOnlyTouchpoint?: bool
               summary: "Production kickoff is still waiting on owner assignment.",
               tone: "warning",
               next_action: "Assign the production owner and confirm the kickoff path.",
-                  action_hash: "#production?project=project-ops-1",
+              action_hash: "#project-tracking/workflows/workflow-related-1",
               owner_label: "Owner unassigned",
               due_label: "Due Mar 29",
               related_contact_id: null,
@@ -1946,6 +1946,31 @@ describe("organizations workflow surface", () => {
     expect(screen.getByText("Linked Production (1)")).toBeInTheDocument();
     expect(screen.getByText(/Timeline \(/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Log communication" }).length).toBeGreaterThan(0);
+
+    const relatedWorkPanel = screen.getByLabelText("Directory related work links");
+    expect(within(relatedWorkPanel).getByText("Related Work Links")).toBeInTheDocument();
+    expect(within(relatedWorkPanel).getByText("Post-Shoot Production Wrap")).toBeInTheDocument();
+    expect(within(relatedWorkPanel).getByText("Project Tracking")).toBeInTheDocument();
+
+    fireEvent.click(within(relatedWorkPanel).getByRole("button", { name: "Open in Project Tracking" }));
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#project-tracking/workflows/workflow-related-1");
+    });
+  });
+
+  it("keeps contact records honest when no direct work link exists", async () => {
+    createDirectoryHarness();
+    window.history.replaceState(null, "", "#directory/contacts");
+
+    render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
+
+    const relatedWorkPanel = await screen.findByLabelText("Directory related work links");
+
+    expect(within(relatedWorkPanel).getByText("Relationship Context")).toBeInTheDocument();
+    expect(within(relatedWorkPanel).getByText("Connected organization: White Bear Lake High School")).toBeInTheDocument();
+    expect(within(relatedWorkPanel).getByText(/does not have a direct work link/i)).toBeInTheDocument();
+    expect(within(relatedWorkPanel).getByRole("button", { name: "Open organization" })).toBeInTheDocument();
+    expect(within(relatedWorkPanel).queryByText(/Active work:/i)).not.toBeInTheDocument();
   });
 
   it("shows a school-focused detail panel with overview, rules, and timeline context", async () => {

@@ -12342,6 +12342,61 @@ html[data-theme="light"] .sales-resurface-strip {
   border-color: rgba(105, 184, 144, 0.24);
 }
 
+.directory-related-work {
+  display: grid;
+  gap: 14px;
+}
+
+.directory-related-work__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.directory-related-work-card,
+.directory-related-work__honest-state {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+
+.directory-related-work-card strong,
+.directory-related-work__honest-state strong {
+  display: block;
+}
+
+.directory-related-work-card p,
+.directory-related-work__honest-state p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.directory-related-work-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-subtle);
+  font-size: 0.84rem;
+}
+
+.directory-related-work-card--warning {
+  border-color: rgba(211, 165, 106, 0.28);
+}
+
+.directory-related-work-card--critical {
+  border-color: rgba(182, 91, 91, 0.32);
+}
+
+.directory-related-work-card--good,
+.directory-related-work-card--info {
+  border-color: rgba(105, 184, 144, 0.18);
+}
+
 .directory-rail,
 .directory-workspace__hero,
 .directory-entity-card {
@@ -13810,6 +13865,10 @@ html[data-theme="light"] .sales-resurface-strip {
 
   .directory-command-strip__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directory-related-work__grid {
+    grid-template-columns: 1fr;
   }
 
   .directory-rail {
