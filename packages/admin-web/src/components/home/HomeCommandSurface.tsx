@@ -401,6 +401,7 @@ export function HomeCommandSurface({
   const canOpenSchedule = canAccessRoute(currentUser, "dashboard-my-schedule");
   const canOpenAlerts = canAccessRoute(currentUser, "dashboard-alerts");
   const canOpenAttendance = canAccessRoute(currentUser, "operations-attendance");
+  const canOpenNeedsAttention = canAccessRoute(currentUser, "people-ops-compliance");
   const canOpenToday = canAccessRoute(currentUser, "operations-today");
   const canOpenStaffing = canAccessRoute(currentUser, "operations-staffing");
   const canOpenProductionQueue = canAccessRoute(currentUser, "production") || canAccessRoute(currentUser, "production-workload");
@@ -670,6 +671,11 @@ export function HomeCommandSurface({
                   {canOpenAlerts ? (
                     <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("dashboard-alerts"))}>
                       View Alerts
+                    </button>
+                  ) : null}
+                  {canOpenNeedsAttention ? (
+                    <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("people-ops-compliance"))}>
+                      View Needs Attention
                     </button>
                   ) : null}
                 </WorkspaceActionBar>

@@ -236,7 +236,7 @@ export function Attendance({ token, currentUser, socket }: Props) {
         <div>
           <div className="eyebrow">Leadership Attendance Review</div>
           <h2>Attendance Operating System</h2>
-          <p>Use this leadership desk for live coverage risk, unresolved punches, compliance follow-up, and payroll-safe review. Employees should start from Home or My Work when they only need to clock in.</p>
+          <p>Use this leadership desk for live coverage risk, unresolved punches, and payroll-safe attendance review. Employees should start from Home or My Work when they only need to clock in; cross-operational blockers belong in Needs Attention.</p>
         </div>
         <div className="page-intro-actions">
           <label className="filter-field">
@@ -256,8 +256,8 @@ export function Attendance({ token, currentUser, socket }: Props) {
           <button className="secondary-button" onClick={() => void load()}>
             {loading ? "Refreshing..." : "Refresh"}
           </button>
-          <a className="secondary-button" href="#employees/compliance" title="Open the leadership compliance review workspace.">
-            Open Compliance Review
+          <a className="secondary-button" href="#needs-attention" title="Open the leadership Needs Attention review queue.">
+            Open Needs Attention
           </a>
           <a className="secondary-button" href="#employees/payroll" title="Open the payroll review workspace.">
             Open Payroll Review

@@ -1242,10 +1242,10 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "people-ops-compliance",
-    label: "Compliance",
-    sectionKey: "hr-admin",
-    description: "Leadership-side compliance review for payroll blockers, mileage blockers, closeout drift, and unresolved presence exceptions.",
-    canonicalHash: "#employees/compliance",
+    label: "Needs Attention",
+    sectionKey: "leadership",
+    description: "Leadership review queue for blocked, missing, overdue, or review-required operational items.",
+    canonicalHash: "#needs-attention",
     visibleTabs: ["compliance"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -1781,8 +1781,8 @@ const ROUTES: RouteDefinition[] = [
     id: "review-desk",
     label: "Review Desk (Legacy Alias)",
     sectionKey: "hr-admin",
-    description: "Legacy alias for the Compliance workspace. Keep it working for backward compatibility, but do not treat it as the owner route.",
-    canonicalHash: "#employees/compliance",
+    description: "Legacy alias for the Needs Attention review queue. Keep it working for backward compatibility, but do not treat it as the owner route.",
+    canonicalHash: "#needs-attention",
     visibleTabs: ["compliance"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -2469,7 +2469,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "account") {
     return pickVisibleRoute("account", availableTabs, employeeOnlyMode);
   }
-  if (path === "employees/compliance" || path === "compliance") {
+  if (path === "needs-attention" || path === "employees/compliance" || path === "compliance") {
     return pickVisibleRoute("people-ops-compliance", availableTabs, employeeOnlyMode);
   }
   if (path === "review-desk") {

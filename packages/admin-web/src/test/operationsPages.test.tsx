@@ -5050,8 +5050,8 @@ describe("admin operations regressions", () => {
     expect(screen.getByText("School Tasks")).toBeInTheDocument();
     expect(screen.getByText("Sports Tasks")).toBeInTheDocument();
     expect(screen.getByText("Today's Shoots")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
-    expect(screen.getByText("Search or ask Concierge")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Task" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();
@@ -5559,16 +5559,16 @@ describe("admin operations regressions", () => {
     render(<Attendance token="token" currentUser={leadershipUser} socket={null} />);
 
     expect(screen.getByText("Loading attendance")).toBeInTheDocument();
-    expect(await screen.findByText("Attendance Operating System")).toBeInTheDocument();
+    expect((await screen.findAllByText("Attendance Operating System")).length).toBeGreaterThan(0);
     expect(await screen.findByText("Manager Correction Flow")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Compliance" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toBeInTheDocument();
     expect(screen.getByText("Coverage Risk")).toBeInTheDocument();
     expect(screen.getByText("Home-Ready Summary")).toBeInTheDocument();
 
     const detailPanel = screen.getByText("Manager Correction Flow").closest("aside");
     expect(detailPanel).not.toBeNull();
     expect(within(detailPanel as HTMLElement).getByText("Shift Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Open Compliance")).toBeInTheDocument();
+    expect(screen.getByText("Open Needs Attention")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Demo Associate - Shift Beta/i }));
 

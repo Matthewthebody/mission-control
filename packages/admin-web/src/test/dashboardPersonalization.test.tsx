@@ -385,6 +385,7 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText("Production Tasks")).toBeInTheDocument();
 
     expect(screen.getByText("Urgent Issues")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View Needs Attention" })).toBeInTheDocument();
     expect(screen.getByText("Lead still missing")).toBeInTheDocument();
     expect(screen.getByText("Why it matters")).toBeInTheDocument();
     expect(screen.getByText(/Owner\/context: Owner: Demo Leadership/i)).toBeInTheDocument();

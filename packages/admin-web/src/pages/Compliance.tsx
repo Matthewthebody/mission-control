@@ -96,7 +96,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
       if (detailRequestIdRef.current !== requestId) {
         return;
       }
-      setError(loadError instanceof Error ? loadError.message : "We couldn't load the compliance detail view.");
+      setError(loadError instanceof Error ? loadError.message : "We couldn't load the Needs Attention detail view.");
     } finally {
       if (detailRequestIdRef.current === requestId) {
         setLoadingDetail(false);
@@ -123,7 +123,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
       setWorkspace(payload);
       setError("");
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "We couldn't load the compliance workspace.");
+      setError(loadError instanceof Error ? loadError.message : "We couldn't load Needs Attention.");
     } finally {
       setLoadingWorkspace(false);
     }
@@ -195,8 +195,8 @@ export function Compliance({ token, currentUser, socket }: Props) {
       void loadWorkspace();
       clearLiveMessage();
     };
-    const onAttendanceChanged = () => onRefresh("Live update: compliance review refreshed.");
-    const onNotificationCreated = () => onRefresh("Live update: compliance notifications refreshed.");
+    const onAttendanceChanged = () => onRefresh("Live update: Needs Attention refreshed.");
+    const onNotificationCreated = () => onRefresh("Live update: review notifications refreshed.");
     const onScheduleChanged = () => onRefresh("Live update: linked shift and shoot context refreshed.");
 
     socket.on("attendance_changed", onAttendanceChanged);
@@ -226,12 +226,12 @@ export function Compliance({ token, currentUser, socket }: Props) {
       } else {
         await reviewComplianceAttendanceException(token, item.source_id, { status });
       }
-      setNotice(status === "approved" ? "Compliance review approved." : "Compliance review rejected.");
+      setNotice(status === "approved" ? "Review approved." : "Review rejected.");
       await loadWorkspace();
       const refreshed = await getComplianceWorkspaceDetail(token, item.source_kind, item.source_id).catch(() => null);
       setDetail(refreshed);
     } catch (reviewError) {
-      setError(reviewError instanceof Error ? reviewError.message : "We couldn't save that compliance review decision.");
+      setError(reviewError instanceof Error ? reviewError.message : "We couldn't save that review decision.");
     } finally {
       setSubmittingReview(false);
     }
@@ -247,8 +247,8 @@ export function Compliance({ token, currentUser, socket }: Props) {
   if (!canViewWorkspace) {
     return (
       <section className="panel">
-        <div className="section-title">Compliance access is restricted</div>
-        <p className="section-subtitle">This workspace is reserved for leadership-side operational review and audit follow-up.</p>
+        <div className="section-title">Needs Attention access is restricted</div>
+        <p className="section-subtitle">This review queue is reserved for leadership-side operating review and follow-up.</p>
       </section>
     );
   }
@@ -258,22 +258,27 @@ export function Compliance({ token, currentUser, socket }: Props) {
       <section className="panel">
         <div className="page-header">
           <div>
-            <div className="eyebrow">Compliance Workspace</div>
-            <h1>Compliance review</h1>
+            <div className="eyebrow">Leadership Review Queue</div>
+            <h1>Needs Attention</h1>
             <p className="section-subtitle">
-              Review trust blockers in one place. The page should tell you what is blocked, where to go fix it, and what history led there.
+              Review blocked, missing, overdue, or approval-required items in one calm queue. Use it to decide the next safe action, not to discipline employees.
             </p>
           </div>
         </div>
         {freshestUpdate ? <div className="detail-chip-row"><span className="detail-chip">Latest unresolved update: {formatDateTime(freshestUpdate)}</span></div> : null}
         <div className="metrics-grid workspace-summary-strip">
-          <MetricCard label="Unresolved Blockers" value={workspace?.summary.open_count ?? 0} />
-          <MetricCard label="Payroll Blockers" value={workspace?.summary.payroll_blocking_count ?? 0} />
-          <MetricCard label="Mileage Blockers" value={workspace?.summary.mileage_blocking_count ?? 0} />
-          <MetricCard label="Missed Punch Review" value={workspace?.summary.missed_clock_in_review_count ?? 0} />
-          <MetricCard label="No-Lunch Review" value={workspace?.summary.no_lunch_review_count ?? 0} />
-          <MetricCard label="Off-Clock Upload Review" value={workspace?.summary.off_clock_upload_review_count ?? 0} />
-          <MetricCard label="Presence Incident Review" value={workspace?.summary.presence_incident_review_count ?? 0} />
+          <MetricCard label="Open Items" value={workspace?.summary.open_count ?? 0} />
+          <MetricCard label="Overdue / Urgent" value={urgencyCounts.urgent} />
+          <MetricCard label="Blocking Payroll or Mileage" value={(workspace?.summary.payroll_blocking_count ?? 0) + (workspace?.summary.mileage_blocking_count ?? 0)} />
+          <MetricCard
+            label="Waiting on Review"
+            value={
+              (workspace?.summary.missed_clock_in_review_count ?? 0) +
+              (workspace?.summary.no_lunch_review_count ?? 0) +
+              (workspace?.summary.off_clock_upload_review_count ?? 0) +
+              (workspace?.summary.presence_incident_review_count ?? 0)
+            }
+          />
         </div>
         <div className="detail-chip-row">
           <span className="detail-chip">Urgent: {urgencyCounts.urgent}</span>
@@ -381,7 +386,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                     <OperationalPreviewCard
                       key={item.id}
                       eyebrow={item.issue_label}
-                      title={item.employee_name ?? item.shoot_title ?? item.organization_display_name ?? "Compliance item"}
+                      title={item.employee_name ?? item.shoot_title ?? item.organization_display_name ?? "Needs Attention item"}
                       summary={
                         <>
                           <div>{item.blocker.summary}</div>
@@ -397,7 +402,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                       statusTone={getStatusTone(item)}
                       meta={[
                         { label: humanizeLabel(item.urgency), tone: getStatusTone(item) },
-                        { label: `Fix in ${item.blocker.owning_workspace_label}` },
+                        { label: `Fix in ${displayWorkspaceLabel(item.blocker.owning_workspace_label)}` },
                         { label: formatDateTime(item.updated_at) }
                       ]}
                       flags={buildFlags(item)}
@@ -418,14 +423,14 @@ export function Compliance({ token, currentUser, socket }: Props) {
               </section>
             ))}
             {!loadingWorkspace && !rows.length ? (
-              <div className="empty-state">No compliance items match these filters right now.</div>
+              <div className="empty-state">Nothing needs review right now.</div>
             ) : null}
           </div>
 
           <aside className="preview-detail-panel">
             <div className="section-title">Review Detail</div>
-            <p className="section-subtitle">Resolve the underlying blocker from here, then drill into the owning workspace when you need the operational context.</p>
-            {loadingDetail ? <div className="empty-state">Loading compliance detail...</div> : null}
+            <p className="section-subtitle">Review why the item is blocked, who owns the context, and the next supported action.</p>
+            {loadingDetail ? <div className="empty-state">Loading review detail...</div> : null}
             {!loadingDetail && detail ? (
               <div className="request-card detail-card">
                 <div className="ops-preview-card__header">
@@ -441,7 +446,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                   <span className="detail-chip">{humanizeLabel(detail.item.urgency)}</span>
                   <span className="detail-chip">{detail.item.employee_name ?? "No linked employee"}</span>
                   <span className="detail-chip">{detail.item.shoot_title ?? detail.item.shoot_code ?? "No linked Shoot"}</span>
-                  <span className="detail-chip">Fix in {detail.item.blocker.owning_workspace_label}</span>
+                  <span className="detail-chip">Fix in {displayWorkspaceLabel(detail.item.blocker.owning_workspace_label)}</span>
                 </div>
                 <div className="preview-detail-panel__actions compliance-actions-row">
                   <button className="secondary-button" type="button" onClick={() => jumpToSection("shift")} disabled={!detail.linked_records.shift}>
@@ -480,8 +485,8 @@ export function Compliance({ token, currentUser, socket }: Props) {
                     {detail.available_actions
                       .filter((action) => action.hash)
                       .map((action) => (
-                        <a key={action.id} className="secondary-button" href={action.hash ?? "#employees/compliance"}>
-                          {action.label}
+                        <a key={action.id} className="secondary-button" href={normalizeNeedsAttentionHash(action.hash)}>
+                          {displayActionLabel(action.label)}
                         </a>
                       ))}
                   </div>
@@ -492,7 +497,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                       .filter((action) => !action.hash)
                       .map((action) => (
                         <span key={action.id} className="detail-chip">
-                          {action.label}
+                          {displayActionLabel(action.label)}
                         </span>
                       ))}
                   </div>
@@ -517,7 +522,10 @@ export function Compliance({ token, currentUser, socket }: Props) {
                       <SummaryRow label="Issue type" value={detail.item.issue_label} />
                       <SummaryRow label="Blocker" value={detail.item.blocker.label} />
                       <SummaryRow label="Why blocked" value={detail.item.blocker.summary} />
-                      <SummaryRow label="Fix workspace" value={`${detail.item.blocker.owning_workspace_label} (${detail.item.blocker.owning_workspace_hash})`} />
+                      <SummaryRow
+                        label="Fix workspace"
+                        value={`${displayWorkspaceLabel(detail.item.blocker.owning_workspace_label)} (${normalizeNeedsAttentionHash(detail.item.blocker.owning_workspace_hash)})`}
+                      />
                       <SummaryRow label="Status" value={humanizeLabel(detail.item.source_status)} />
                       <SummaryRow label="Employee" value={detail.item.employee_name ?? "No linked employee"} />
                       <SummaryRow label="Organization" value={detail.item.organization_display_name ?? "No linked organization"} />
@@ -609,7 +617,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                         ) : null}
                       </>
                     ) : (
-                      <div className="empty-state">No linked shift context was found for this compliance item.</div>
+                      <div className="empty-state">No linked shift context was found for this review item.</div>
                     )}
                   </OperationalDetailSection>
                 </div>
@@ -628,7 +636,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                         <SummaryRow label="Status" value={detail.linked_records.shoot.status ? humanizeLabel(detail.linked_records.shoot.status) : "Not set"} />
                       </div>
                     ) : (
-                      <div className="empty-state">No linked shoot context was found for this compliance item.</div>
+                      <div className="empty-state">No linked shoot context was found for this review item.</div>
                     )}
                   </OperationalDetailSection>
                 </div>
@@ -748,7 +756,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                         <SummaryRow label="Resolution reason" value={detail.linked_records.presence_incident.resolution_reason ?? "No reason saved"} />
                       </div>
                     ) : (
-                      <div className="empty-state">This compliance item does not have a linked presence incident.</div>
+                      <div className="empty-state">This review item does not have a linked presence incident.</div>
                     )}
                   </OperationalDetailSection>
                 </div>
@@ -775,7 +783,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                 </div>
               </div>
             ) : null}
-            {!loadingDetail && !detail ? <div className="empty-state">Choose a compliance item to review the linked operational context.</div> : null}
+            {!loadingDetail && !detail ? <div className="empty-state">Choose an item to review the linked operational context.</div> : null}
           </aside>
         </div>
       </section>
@@ -932,7 +940,7 @@ function buildFlags(item: ComplianceWorkspaceItem) {
     ...(item.mileage_blocking ? [{ label: "Mileage Blocking", tone: "warning" as const }] : []),
     ...(item.missing_closeout ? [{ label: "Missing Closeout", tone: "info" as const }] : []),
     ...(item.unresolved_end_of_day_confirmation ? [{ label: "End-of-Day Confirmation", tone: "warning" as const }] : []),
-    ...(item.blocker.owning_workspace_label ? [{ label: `Fix in ${item.blocker.owning_workspace_label}`, tone: "info" as const }] : [])
+    ...(item.blocker.owning_workspace_label ? [{ label: `Fix in ${displayWorkspaceLabel(item.blocker.owning_workspace_label)}`, tone: "info" as const }] : [])
   ];
 }
 
@@ -952,7 +960,19 @@ function getNextAction(item: ComplianceWorkspaceItem) {
   if (item.issue_type === "unresolved_end_of_day_confirmation") {
     return "Open Payroll Review and resolve end-of-day confirmation";
   }
-  return `Open ${item.blocker.owning_workspace_label}`;
+  return `Open ${displayWorkspaceLabel(item.blocker.owning_workspace_label)}`;
+}
+
+function displayWorkspaceLabel(label: string) {
+  return label === "Compliance" ? "Needs Attention" : label;
+}
+
+function displayActionLabel(label: string) {
+  return label.replace(/Compliance Workspace/g, "Needs Attention").replace(/Compliance/g, "Needs Attention");
+}
+
+function normalizeNeedsAttentionHash(hash: string | null | undefined) {
+  return hash === "#employees/compliance" || hash === "#compliance" ? "#needs-attention" : hash ?? "#needs-attention";
 }
 
 function formatDateTime(value: string) {

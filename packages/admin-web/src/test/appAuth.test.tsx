@@ -1050,6 +1050,7 @@ describe("app auth bootstrap", () => {
     expect(buildShellRouteHash("admin-checklists")).toBe("#admin/templates");
     expect(buildShellRouteHash("dashboard-my-schedule")).toBe("#my-schedule");
     expect(buildShellRouteHash("dashboard-alerts")).toBe("#notifications");
+    expect(buildShellRouteHash("people-ops-compliance")).toBe("#needs-attention");
     expect(buildShellRouteHash("sports-shoots")).toBe("#sports/jobs");
     expect(buildShellRouteHash("task-new")).toBe("#tasks/new");
     expect(resolveRouteId("#home", availableTabs, false)).toBe("dashboard");
@@ -1093,6 +1094,7 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#employees/attendance", availableTabs, false)).toBe("operations-attendance");
     expect(resolveRouteId("#employees/exceptions", availableTabs, false)).toBe("people-exceptions");
     expect(resolveRouteId("#employees/requests", availableTabs, false)).toBe("people-ops-requests");
+    expect(resolveRouteId("#needs-attention", availableTabs, false)).toBe("people-ops-compliance");
     expect(resolveRouteId("#compliance", availableTabs, false)).toBe("people-ops-compliance");
     expect(resolveRouteId("#employees/compliance", availableTabs, false)).toBe("people-ops-compliance");
     expect(resolveRouteId("#people-ops/approvals", availableTabs, false)).toBe("people-ops-approvals");

@@ -101,7 +101,7 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
         label: "Follow-Through",
         value: followThroughCount,
         detail: followThroughCount ? "Closeout, setup, or end-of-day work is still open." : "No missing closeout items are blocking the day.",
-        actionHash: "#employees/compliance"
+        actionHash: "#needs-attention"
       },
       {
         label: "Mileage / Payroll",
@@ -242,9 +242,9 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
                       ...(row.payroll_blocking ? [{ label: "Payroll blocking", tone: "critical" as const }] : []),
                       ...(row.mileage_blocking ? [{ label: "Mileage blocking", tone: "warning" as const }] : [])
                     ]}
-                    nextAction="Open compliance review"
+                    nextAction="Open Needs Attention"
                     onClick={() => {
-                      window.location.hash = "#employees/compliance";
+                      window.location.hash = "#needs-attention";
                     }}
                   />
                 ))}

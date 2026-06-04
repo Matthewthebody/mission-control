@@ -305,7 +305,7 @@ export const DASHBOARD_WIDGET_CONTENT_SPECS: Record<DashboardWidgetId, Dashboard
       "Primary line: exception pressure for the day.",
       "Secondary rows: exception queue items owned by the existing review workflow surface."
     ],
-    primaryCta: { label: "Open Compliance", hash: "#employees/compliance" },
+    primaryCta: { label: "Open Needs Attention", hash: "#needs-attention" },
     emptyState: {
       message: "No field exceptions need review right now."
     },
@@ -313,7 +313,7 @@ export const DASHBOARD_WIDGET_CONTENT_SPECS: Record<DashboardWidgetId, Dashboard
     errorState: {
       message: "We couldn't load field exceptions.",
       action: { label: "Retry" },
-      secondaryAction: { label: "Open Compliance", hash: "#employees/compliance" }
+      secondaryAction: { label: "Open Needs Attention", hash: "#needs-attention" }
     },
     mobileVariant: "Keep the surface collapsed behind the lower queue section for narrow screens.",
     implementationNote: "This widget reuses the shared workflow surface instead of creating a second field-exception model."
@@ -500,7 +500,7 @@ export const DASHBOARD_WIDGET_CONTENT_SPECS: Record<DashboardWidgetId, Dashboard
       "Secondary rows: staffing, attendance, approvals, and follow-through through the shared workflow surface."
     ],
     primaryCta: { label: "Open Team Schedule", hash: "#operations/schedule" },
-    secondaryCta: { label: "Resolve Exception", hash: "#employees/compliance" },
+    secondaryCta: { label: "Open Needs Attention", hash: "#needs-attention" },
     emptyState: {
       message: "No team issues need intervention right now."
     },
@@ -610,7 +610,7 @@ export const DASHBOARD_WIDGET_CONTENT_SPECS: Record<DashboardWidgetId, Dashboard
       "Secondary rows: operations, production, support, and growth status through the shared cockpit surface."
     ],
     primaryCta: { label: "Open Executive Summary", hash: "#reports/executive" },
-    secondaryCta: { label: "Open Compliance", hash: "#employees/compliance" },
+    secondaryCta: { label: "Open Needs Attention", hash: "#needs-attention" },
     emptyState: {
       message: "No executive queue issues need review right now."
     },
