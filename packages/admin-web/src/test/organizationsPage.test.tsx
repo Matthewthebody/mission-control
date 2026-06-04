@@ -2078,6 +2078,31 @@ describe("organizations workflow surface", () => {
     ).toBe(false);
   });
 
+  it("surfaces source-of-truth checks and routes work actions to existing hubs", async () => {
+    createDirectoryHarness();
+
+    render(<Organizations token="token" currentUser={leadershipUser} />);
+
+    const sourceOfTruthHub = await screen.findByLabelText("Contacts and Organizations source-of-truth checks");
+
+    expect(within(sourceOfTruthHub).getByText("Contacts + Organizations Source of Truth")).toBeInTheDocument();
+    expect(within(sourceOfTruthHub).getByText("Confirm the record before work moves")).toBeInTheDocument();
+    expect(within(sourceOfTruthHub).getByText("Current view")).toBeInTheDocument();
+    expect(within(sourceOfTruthHub).getByText("Needs follow-up")).toBeInTheDocument();
+    expect(within(sourceOfTruthHub).getByText("Owner gaps")).toBeInTheDocument();
+    expect(within(sourceOfTruthHub).getByText("Primary contacts")).toBeInTheDocument();
+
+    fireEvent.click(within(sourceOfTruthHub).getByRole("button", { name: "View in Project Tracking" }));
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#project-tracking");
+    });
+
+    fireEvent.click(within(sourceOfTruthHub).getByRole("button", { name: "Open Needs Attention" }));
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#needs-attention");
+    });
+  });
+
   it("shows a focused import workflow with duplicate warnings from the Contacts workspace", async () => {
     createDirectoryHarness();
     window.history.replaceState(null, "", "#directory/contacts");

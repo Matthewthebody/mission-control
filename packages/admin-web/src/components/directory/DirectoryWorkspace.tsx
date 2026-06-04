@@ -193,7 +193,7 @@ export function DirectoryWorkspace({
   const visibleTabs = WORKSPACE_TAB_OPTIONS.filter((tab) => canManage || tab.value !== "duplicates");
 
   if (loading) {
-    return <div className="request-card empty-state empty-state--panel">Loading the organization workspace...</div>;
+    return <div className="request-card empty-state empty-state--panel">Loading the trusted directory record...</div>;
   }
 
   if (error) {
@@ -201,7 +201,7 @@ export function DirectoryWorkspace({
   }
 
   if (!detail) {
-    return <div className="request-card empty-state empty-state--panel">Choose an organization from the rail to open the workflow workspace.</div>;
+    return <div className="request-card empty-state empty-state--panel">Choose an organization or contact to open its trusted directory record.</div>;
   }
 
   const contactMaintenanceSignals = selectedContact?.maintenance_signals ?? [];
@@ -236,21 +236,27 @@ export function DirectoryWorkspace({
             <p className="eyebrow">
               {view === "contacts"
                 ? selectedContact?.organization_id === detail.organization.id && detail.organization.account_type === "internal"
-                  ? "Company Directory"
-                  : "Contacts"
+                  ? "Company Directory Record"
+                  : "Contact Record"
                 : view === "locations"
-                  ? "Locations"
-                  : "Relationship Workspace"}
+                  ? "Location Record"
+                  : "Organization Record"}
             </p>
             <h2>{view === "contacts" && selectedContact ? selectedContact.full_name : detail.organization.display_name}</h2>
             <p className="muted">
               {view === "contacts" && selectedContact
-                ? `${selectedContact.title || "No title on file"} - ${detail.organization.display_name}. Keep owner, freshness, influence, and day-of contact context visible without digging through old communication history.`
-                : "Keep relationship ownership, key contacts, and location context above the fold, then move into continuity and duplicate review only when you need deeper history."}
+                ? `${selectedContact.title || "No title on file"} - ${detail.organization.display_name}. Confirm who this person is, who owns the relationship, what needs follow-up, and which organization they are tied to.`
+                : "Confirm the account, relationship owner, primary contacts, locations, references, and related work without turning Directory into a second project tracker."}
             </p>
           </div>
         </div>
         <div className="page-intro-actions page-intro-actions--compact">
+          <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#project-tracking"; }}>
+            View in Project Tracking
+          </button>
+          <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#needs-attention"; }}>
+            Open Needs Attention
+          </button>
           {canManage ? (
             <>
               {view === "contacts" ? (
