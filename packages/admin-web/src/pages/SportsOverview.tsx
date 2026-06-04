@@ -139,6 +139,19 @@ function isBeforeToday(value: string | null | undefined) {
   return parsed ? parsed.getTime() < startOfToday().getTime() : false;
 }
 
+function isWithinNextSevenDays(value: string | null | undefined) {
+  const parsed = parseDate(value);
+  if (!parsed) {
+    return false;
+  }
+  const diffDays = (parsed.getTime() - startOfToday().getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays >= 0 && diffDays <= 7;
+}
+
+function dueDateForSportsJob(job: SharedJobListItem) {
+  return job.production_deadline_at ?? job.client_deadline_at ?? job.primary_day_date ?? job.scheduled_start_at;
+}
+
 function boardDateLabel(job: SharedJobListItem) {
   return formatDate(job.primary_day_date ?? job.scheduled_start_at ?? job.client_deadline_at ?? job.production_deadline_at);
 }
@@ -537,6 +550,41 @@ export function SportsOverview({ token, currentUser }: Props) {
     }),
     [sportsOperatingRows]
   );
+  const sportsCommandSummaryCards = useMemo(
+    () => [
+      {
+        label: "Active Sports Work",
+        value: sportsOperatingRows.length,
+        detail: "Open sports jobs in the current command view.",
+        hash: "#sports/jobs"
+      },
+      {
+        label: "Photo Days / Events",
+        value: overview?.upcoming_shoots.length ?? sharedJobs.filter((job) => Boolean(job.primary_day_date || job.scheduled_start_at)).length,
+        detail: "Upcoming shoots and sports events already visible from existing data.",
+        hash: "#sports/jobs"
+      },
+      {
+        label: "Due Soon",
+        value: sharedJobs.filter((job) => isWithinNextSevenDays(dueDateForSportsJob(job))).length,
+        detail: "Sports work with a date or deadline inside the next seven days.",
+        hash: "#sports/jobs"
+      },
+      {
+        label: "Blocked / Needs Review",
+        value: sportsOperatingRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length,
+        detail: "Blocked, high-risk, staffing, proof, production, or review-needed work.",
+        hash: "#needs-attention"
+      },
+      {
+        label: "Recently Changed",
+        value: sharedJobs.filter((job) => Boolean(job.updated_at)).length,
+        detail: "Current sports jobs with update timestamps.",
+        hash: "#project-tracking"
+      }
+    ],
+    [overview?.upcoming_shoots.length, sharedJobs, sportsOperatingRows]
+  );
 
   const allErrors = Object.values(errors).filter(Boolean);
 
@@ -550,7 +598,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <WorkspacePageHeader
           eyebrow="Sports"
           title="Sports"
-          summary="Sports uses the same shared jobs, tasks, exceptions, and workflow contract as the rest of the operating system."
+          summary="Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner."
           meta={[{ label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "info" }]}
         />
         <section className="panel">
@@ -573,7 +621,7 @@ export function SportsOverview({ token, currentUser }: Props) {
       <WorkspacePageHeader
         eyebrow="Sports"
         title="Sports"
-        summary="Sports now runs on the same shared jobs, tasks, exceptions, and workflow contract as Schools, with sports-specific pressure shown only as read-model projections."
+        summary="Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner."
         meta={[
           { label: overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Shared contract view", tone: "info" },
           { label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "success" }
@@ -587,7 +635,10 @@ export function SportsOverview({ token, currentUser }: Props) {
               Import Sports Jobs
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/exceptions")}>
-              View Exceptions
+              Review blockers
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
+              View full work spine
             </button>
           </WorkspaceActionBar>
         }
@@ -596,8 +647,8 @@ export function SportsOverview({ token, currentUser }: Props) {
       <section className="panel sports-operating-board">
         <div className="sports-operating-board__top">
           <WorkspaceSectionHeader
-            title="Sports Operating Board"
-            summary="Compact view of active sports jobs, account/contact context, proof approvals, production pressure, staffing gaps, and the next owner action."
+            title="Sports Command Hub"
+            summary="Summary-first view of sports work, photo days, due dates, blockers, next owners, and where to inspect the full work record."
           />
           <WorkspaceActionBar align="end">
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/jobs")}>
@@ -612,13 +663,21 @@ export function SportsOverview({ token, currentUser }: Props) {
           </WorkspaceActionBar>
         </div>
 
-        <div className="sports-operating-board__kpis" aria-label="Sports operating board metrics">
-          <div><span>Board rows</span><strong>{sportsOperatingRows.length}</strong></div>
-          <div><span>At risk</span><strong>{sportsOperatingRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length}</strong></div>
-          <div><span>Owners</span><strong>{new Set(sportsOperatingRows.map((row) => row.ownerLabel).filter((owner) => owner !== "Unassigned")).size}</strong></div>
+        <div className="sports-operating-board__kpis" aria-label="Sports operating summary cards">
+          {sportsCommandSummaryCards.map((card) => (
+            <button key={card.label} type="button" className="sports-operating-board__summary-card" onClick={() => (window.location.hash = card.hash)}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+            </button>
+          ))}
         </div>
 
-        <div className="sports-operating-board__signals" aria-label="Sports issue lanes">
+        <div className="sports-operating-board__signals" aria-label="Sports attention preview">
+          <div className="sports-operating-board__signal-label">
+            <strong>What needs attention</strong>
+            <span>Preview only. Use Needs Attention for cross-operational blockers.</span>
+          </div>
           <button type="button" onClick={() => (window.location.hash = "#sports/graphics")}>
             <span>Proof approvals</span>
             <strong>{sportsBoardIssueCounts.proofApprovals}</strong>
@@ -646,16 +705,16 @@ export function SportsOverview({ token, currentUser }: Props) {
         </div>
 
         {sportsOperatingRows.length ? (
-          <div className="sports-operating-board__table" role="table" aria-label="Sports operating job board">
+          <div className="sports-operating-board__table" role="table" aria-label="Sports department command list">
             <div className="sports-operating-board__row sports-operating-board__row--head" role="row">
-              <span role="columnheader">Client / team</span>
-              <span role="columnheader">Job type</span>
-              <span role="columnheader">Date / deadline</span>
-              <span role="columnheader">Current status</span>
+              <span role="columnheader">Team / account</span>
+              <span role="columnheader">Department work</span>
+              <span role="columnheader">Due / event</span>
+              <span role="columnheader">Status</span>
               <span role="columnheader">Next action</span>
-              <span role="columnheader">Owner</span>
-              <span role="columnheader">Risk</span>
-              <span role="columnheader">Account / job actions</span>
+              <span role="columnheader">Next owner</span>
+              <span role="columnheader">Blocker / review</span>
+              <span role="columnheader">Open next</span>
             </div>
             {sportsOperatingRows.map((row) => (
               <div key={row.id} className="sports-operating-board__row" role="row">
@@ -669,7 +728,7 @@ export function SportsOverview({ token, currentUser }: Props) {
                 </div>
                 <div>
                   <strong>{row.dateLabel}</strong>
-                  <span>Job date / deadline</span>
+                  <span>Event date or deadline</span>
                 </div>
                 <div>
                   <strong>{row.statusLabel}</strong>
@@ -693,8 +752,16 @@ export function SportsOverview({ token, currentUser }: Props) {
                 </div>
                 <div className="sports-operating-board__actions">
                   <button type="button" onClick={() => (window.location.hash = row.jobHash)}>
-                    Job
+                    Open work
                   </button>
+                  <button type="button" onClick={() => (window.location.hash = "#project-tracking")}>
+                    View in Project Tracking
+                  </button>
+                  {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
+                    <button type="button" onClick={() => (window.location.hash = "#needs-attention")}>
+                      Open Needs Attention
+                    </button>
+                  ) : null}
                   {row.accountHash ? (
                     <button type="button" onClick={() => (window.location.hash = row.accountHash ?? "#sports/accounts")}>
                       Account
@@ -716,8 +783,8 @@ export function SportsOverview({ token, currentUser }: Props) {
           </div>
         ) : (
           <WorkspaceEmptyState
-            title="No active sports jobs"
-            summary="Published sports jobs will appear as compact operating rows with account, owner, risk, production, proof, and staffing signals."
+            title="No active sports work is showing here yet"
+            summary="Published sports jobs appear here when the shared job queue has team, owner, event, and risk context."
             actions={
               <button type="button" onClick={() => (window.location.hash = "#sports/jobs/new")} disabled={!canCreate}>
                 Start Sports Job
@@ -760,7 +827,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         token={token}
         currentUser={currentUser}
         title="Sports Active Work"
-        summary="Dense sports workload strip for event pressure, owner clarity, next action, and risk before the full department contract view takes over."
+        summary="Compact sports workload strip for event pressure, owner clarity, next action, and risk before opening the full work spine."
         defaultDepartment="sports"
         routeHash="#sports/jobs"
         focus="overview"
@@ -771,7 +838,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         token={token}
         department="sports"
         title="Sports workflow queue"
-        summary="Live Project Dashboard rows where the current workflow step belongs to Sports. Open the job workflow to update progress."
+        summary="Live Project Tracking rows where the next step belongs to Sports. Open Project Tracking for the full work spine."
       />
 
       {featureFlags.centralJobIntakeV1 ? (
@@ -925,7 +992,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <section className="sports-read-model-block">
           <WorkspaceSectionHeader
             title="Sports read-model projections"
-            summary="These signals stay sports-specific, but they are projections over the same shared jobs, tasks, exceptions, and workflow runtime."
+            summary="These signals stay sports-specific while Project Tracking remains the shared work spine for full inspection."
           />
           <div className="sports-grid sports-grid--two">
             <OverviewListCard

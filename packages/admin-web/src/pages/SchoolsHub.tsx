@@ -1150,14 +1150,6 @@ export function SchoolsHub({ token, currentUser }: Props) {
     () => buildSchoolsDashboardRows(schoolJobs, workspace?.queue_items ?? [], workflowRows, tasks, exceptions, anchorDate).slice(0, SCHOOLS_OPERATING_BOARD_ROW_LIMIT),
     [anchorDate, exceptions, schoolJobs, tasks, workflowRows, workspace?.queue_items]
   );
-  const dueTodayCount = useMemo(
-    () => schoolDashboardRows.filter((row) => isDueTodayFromAnchor(row.dueDate, anchorDate)).length,
-    [anchorDate, schoolDashboardRows]
-  );
-  const overdueCount = useMemo(
-    () => schoolDashboardRows.filter((row) => isOverdueFromAnchor(row.dueDate, anchorDate)).length,
-    [anchorDate, schoolDashboardRows]
-  );
   const idTracker = useMemo(() => {
     const idRows = schoolDashboardRows.filter((row) => isIdRelatedText(row.jobType, row.currentStep, row.nextAction));
     return {
@@ -1179,7 +1171,42 @@ export function SchoolsHub({ token, currentUser }: Props) {
     }),
     [dashboard?.summary.overdue_approval_count, schoolDashboardRows]
   );
-  const workflowDataNote = errors.projectTracking ? "Live workflow links are limited until Project Dashboard rows load." : "Rows open the live workflow when a workflow is connected.";
+  const commandSummaryCards = useMemo(
+    () => [
+      {
+        label: "Active School Work",
+        value: schoolDashboardRows.length,
+        detail: "Open school jobs and school work in the current view.",
+        hash: "#schools/jobs"
+      },
+      {
+        label: "Due Soon",
+        value: schoolDashboardRows.filter((row) => isDueWithinSevenDays(row.dueDate, anchorDate)).length,
+        detail: "Work with a date or deadline inside the next seven days.",
+        hash: buildSchoolsTabHash("jobs", { focus: "open" })
+      },
+      {
+        label: "Waiting on School",
+        value: (workspace?.summary.waiting_on_school ?? 0) + workflowRows.filter((row) => row.waiting_on_party === "school").length,
+        detail: "Rows explicitly waiting on a school, roster, contact, or approval.",
+        hash: buildSchoolsTabHash("exceptions", { focus: "missing_data" })
+      },
+      {
+        label: "Blocked / Needs Review",
+        value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length,
+        detail: "Blocked, overdue, high-risk, or review-needed work.",
+        hash: "#needs-attention"
+      },
+      {
+        label: "Recently Changed",
+        value: schoolDashboardRows.filter((row) => Boolean(row.updatedAt)).length,
+        detail: "Current rows with live update timestamps.",
+        hash: "#project-tracking"
+      }
+    ],
+    [anchorDate, schoolDashboardRows, workspace?.summary.waiting_on_school, workflowRows]
+  );
+  const workflowDataNote = errors.projectTracking ? "Project Tracking links are limited until work-spine rows load." : "Use Project Tracking for the full work spine when a workflow is connected.";
   const workflowOptions = useMemo(() => buildSelectOptions(schoolJobs.map((job) => ({ value: job.job_status, label: humanizeToken(job.job_status) }))), [schoolJobs]);
   const assigneeOptions = useMemo(
     () => buildSelectOptions(schoolJobs.map((job) => ({ value: job.lead_owner_user_id ?? job.account_owner_user_id ?? "", label: jobOwnerName(job) }))),
@@ -1275,13 +1302,13 @@ export function SchoolsHub({ token, currentUser }: Props) {
   const fullyBlocked = !workspace && !schoolJobs.length && !tasks.length && !exceptions.length && Object.values(errors).some(Boolean);
 
   if (loading) {
-    return <WorkspaceLoadingBlock title="Loading Schools Department" summary="Pulling the jobs, tasks, exceptions, and risk counts the schools team needs today." />;
+    return <WorkspaceLoadingBlock title="Loading Schools" summary="Pulling the school jobs, tasks, exceptions, and work-spine links the team needs today." />;
   }
 
   if (accessScope == null) {
     return (
       <section className="schools-department">
-        <WorkspacePageHeader title="Schools Department" summary="Everything the schools team owns, in one place" />
+        <WorkspacePageHeader title="Schools" summary="School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner." />
         <section className="panel">
           <WorkspaceEmptyState title="Schools access is not enabled for this account" summary="Ask an admin to add the Schools access your role needs before using this department page." />
         </section>
@@ -1292,8 +1319,12 @@ export function SchoolsHub({ token, currentUser }: Props) {
   return (
     <section className="schools-department">
       <WorkspacePageHeader
-        title="Schools Department"
-        summary={accessScope === "own" ? "Your assigned school jobs, tasks, and risks in one place" : "Everything the schools team owns, in one place"}
+        title="Schools"
+        summary={
+          accessScope === "own"
+            ? "Your assigned school jobs, rosters, galleries, yearbooks, account follow-up, and next-owner work."
+            : "School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner."
+        }
         actions={
           <WorkspaceActionBar align="end" compact>
             <button type="button" className="secondary-button" onClick={() => navigateToUtility("#my-schedule")}>
@@ -1314,8 +1345,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
       <section className="panel schools-dashboard-v1">
         <div className="schools-dashboard-v1__top">
           <WorkspaceSectionHeader
-            title="Schools Operating Board"
-            summary="Compact Monday-style view of active school jobs, next actions, owners, risks, and account paths. Deeper Jobs, Tasks, and Exceptions stay in the tabs below."
+            title="Schools Command Hub"
+            summary="Summary-first view of school work, due dates, blockers, next owners, and where to inspect the full work record."
           />
           <div className="segmented-toggle segmented-toggle--compact schools-department__primary-tabs" role="tablist" aria-label="Schools work modes">
             {([
@@ -1330,22 +1361,21 @@ export function SchoolsHub({ token, currentUser }: Props) {
           </div>
         </div>
 
-        <div className="schools-dashboard-v1__kpis" aria-label="Schools operating board KPIs">
-          <div>
-            <span>Board rows</span>
-            <strong>{schoolDashboardRows.length}</strong>
-          </div>
-          <div>
-            <span>Due today</span>
-            <strong>{dueTodayCount}</strong>
-          </div>
-          <div>
-            <span>Overdue</span>
-            <strong>{overdueCount}</strong>
-          </div>
+        <div className="schools-dashboard-v1__kpis" aria-label="Schools operating summary cards">
+          {commandSummaryCards.map((card) => (
+            <button key={card.label} type="button" className="schools-dashboard-v1__summary-card" onClick={() => navigateToUtility(card.hash)}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+            </button>
+          ))}
         </div>
 
         <div className="schools-dashboard-v1__issue-strip" aria-label="Schools issue lanes">
+          <div className="schools-dashboard-v1__issue-label">
+            <strong>What needs attention</strong>
+            <span>Preview only. Use Needs Attention for cross-operational blockers.</span>
+          </div>
           <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("exceptions", { focus: "gallery_release" })}>
             <span>Proof approvals</span>
             <strong>{boardIssueCounts.proofApprovals}</strong>
@@ -1370,22 +1400,22 @@ export function SchoolsHub({ token, currentUser }: Props) {
 
         <div className="schools-dashboard-v1__main">
           <WorkspaceSectionHeader
-            title="Active jobs and work"
-            summary={`${workflowDataNote} Use Workflow for current-step changes, Job for detail, and Account for school/contact context.`}
+            title="Department work"
+            summary={`${workflowDataNote} Use Open work for the next safe item, Open details for the job record, and Needs Attention for blockers that cross departments.`}
             compact
-            badge={<span className="workspace-page-header__meta-pill">{schoolDashboardRows.length} visible rows</span>}
+            badge={<span className="workspace-page-header__meta-pill">{schoolDashboardRows.length} visible items</span>}
           />
           {schoolDashboardRows.length ? (
-            <div className="schools-dashboard-v1__table" role="table" aria-label="Schools operating job board">
+            <div className="schools-dashboard-v1__table" role="table" aria-label="Schools department command list">
               <div className="schools-dashboard-v1__row schools-dashboard-v1__row--head" role="row">
                 <span role="columnheader">School / account</span>
-                <span role="columnheader">Job / work type</span>
-                <span role="columnheader">Date / deadline</span>
-                <span role="columnheader">Current step / status</span>
+                <span role="columnheader">Department work</span>
+                <span role="columnheader">Due / changed</span>
+                <span role="columnheader">Next step / status</span>
                 <span role="columnheader">Next action</span>
-                <span role="columnheader">Owner / assignee</span>
-                <span role="columnheader">Risk / urgency</span>
-                <span role="columnheader">Contact / account action</span>
+                <span role="columnheader">Next owner</span>
+                <span role="columnheader">Blocker / review</span>
+                <span role="columnheader">Open next</span>
               </div>
               {schoolDashboardRows.map((row) => (
                 <div key={row.id} className="schools-dashboard-v1__row" role="row">
@@ -1399,7 +1429,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
                   </div>
                   <div>
                     <strong>{formatDate(row.dueDate)}</strong>
-                    <span>Updated {formatDateTime(row.updatedAt)}</span>
+                    <span>Changed {formatDateTime(row.updatedAt)}</span>
                   </div>
                   <div>
                     <strong title={row.currentStep}>{row.currentStep}</strong>
@@ -1424,10 +1454,18 @@ export function SchoolsHub({ token, currentUser }: Props) {
                   </div>
                   <div className="schools-dashboard-v1__row-actions">
                     <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.workflowHash)}>
-                      {row.hasWorkflow ? "Workflow" : "Review"}
+                      Open work
                     </button>
+                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.hasWorkflow ? row.workflowHash : "#project-tracking")}>
+                      View in Project Tracking
+                    </button>
+                    {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
+                      <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
+                        Open Needs Attention
+                      </button>
+                    ) : null}
                     <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.jobHash)}>
-                      Job
+                      Open details
                     </button>
                     {row.accountHash ? (
                       <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.accountHash!)}>
@@ -1440,8 +1478,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
             </div>
           ) : (
             <WorkspaceEmptyState
-              title="No active school jobs are ready for the board"
-              summary="Active school jobs appear here when the shared job queue has account and date context."
+              title="No active school work is showing here yet"
+              summary="Active school jobs appear here when the shared job queue has school, owner, and date context."
               compact
             />
           )}
@@ -1487,7 +1525,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
             token={token}
             department="schools"
             title="Schools workflow queue"
-            summary="Live Project Dashboard rows where the current workflow step belongs to Schools. Use Assign / Status for owner, department, and shared note changes."
+            summary="Live Project Tracking rows where the next step belongs to Schools. Open Project Tracking for the full work spine."
             limit={8}
           />
           <section className="panel schools-department__work-panel">

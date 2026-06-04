@@ -377,14 +377,21 @@ describe("SportsOverview", () => {
     cleanup();
   });
 
-  it("renders sports as a compact operating board with distinct work signals", async () => {
+  it("renders Sports as a department command hub with work-spine and blocker links", async () => {
     render(<SportsOverview token="token" currentUser={baseUser} />);
 
     expect(await screen.findByRole("heading", { name: "Sports" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sports Operating Board" })).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Sports operating job board" })).toBeInTheDocument();
-    expect(screen.getByText("Client / team")).toBeInTheDocument();
-    expect(screen.getByText("Account / job actions")).toBeInTheDocument();
+    expect(screen.getByText("Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sports Command Hub" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Sports department command list" })).toBeInTheDocument();
+    expect(screen.getByText("Active Sports Work")).toBeInTheDocument();
+    expect(screen.getByText("Photo Days / Events")).toBeInTheDocument();
+    expect(screen.getByText("Due Soon")).toBeInTheDocument();
+    expect(screen.getByText("Blocked / Needs Review")).toBeInTheDocument();
+    expect(screen.getByText("Recently Changed")).toBeInTheDocument();
+    expect(screen.getByText("What needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Team / account")).toBeInTheDocument();
+    expect(screen.getByText("Open next")).toBeInTheDocument();
     expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
     expect(screen.getByText("Metro United Soccer")).toBeInTheDocument();
     expect(screen.getByText("Contact: Jamie Coach")).toBeInTheDocument();
@@ -397,10 +404,13 @@ describe("SportsOverview", () => {
     expect(screen.getAllByText("Staffing").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Client/info").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Job" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "View in Project Tracking" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Production" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Exceptions" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Sports Operating Board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Board rows")).not.toBeInTheDocument();
     expect(screen.getByText("Shared operational contract")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();

@@ -7861,21 +7861,41 @@ html[data-theme="light"] .communications-launcher__panel {
 
 .schools-dashboard-v1__kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 160px));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
 .schools-dashboard-v1__kpis > div,
+.schools-dashboard-v1__summary-card,
 .schools-dashboard-v1__sidebar {
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 8px;
   background: #f8fafc;
 }
 
-.schools-dashboard-v1__kpis > div {
+.schools-dashboard-v1__kpis > div,
+.schools-dashboard-v1__summary-card {
   display: grid;
   gap: 2px;
   padding: 8px 10px;
+}
+
+.schools-dashboard-v1__summary-card {
+  min-height: 92px;
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.schools-dashboard-v1__summary-card:hover,
+.schools-dashboard-v1__summary-card:focus-visible {
+  transform: none;
+  border-color: rgba(37, 99, 235, 0.42);
+  background: #f8fbff;
 }
 
 .schools-dashboard-v1__kpis span,
@@ -7894,10 +7914,36 @@ html[data-theme="light"] .communications-launcher__panel {
   font-size: 1.35rem;
 }
 
+.schools-dashboard-v1__summary-card small {
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
 .schools-dashboard-v1__issue-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: minmax(180px, 0.9fr) repeat(5, minmax(0, 1fr));
   gap: 8px;
+}
+
+.schools-dashboard-v1__issue-label {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #172033;
+}
+
+.schools-dashboard-v1__issue-label strong {
+  font-size: 0.86rem;
+}
+
+.schools-dashboard-v1__issue-label span {
+  color: #64748b;
+  font-size: 0.72rem;
 }
 
 .schools-dashboard-v1__issue-chip {
@@ -7951,9 +7997,9 @@ html[data-theme="light"] .communications-launcher__panel {
 
 .schools-dashboard-v1__row {
   width: 100%;
-  min-width: 1260px;
+  min-width: 1320px;
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) 128px 116px minmax(160px, 1fr) minmax(200px, 1.35fr) 130px 150px 172px;
+  grid-template-columns: minmax(180px, 1.1fr) 128px 132px minmax(160px, 1fr) minmax(190px, 1.25fr) 130px 150px minmax(260px, 1.25fr);
   gap: 8px;
   align-items: stretch;
   padding: 7px 10px;
@@ -8023,7 +8069,9 @@ html[data-theme="light"] .communications-launcher__panel {
 }
 
 .schools-dashboard-v1__row-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   align-content: center;
 }
 
@@ -8033,6 +8081,73 @@ html[data-theme="light"] .communications-launcher__panel {
   color: #172033;
   border-color: rgba(148, 163, 184, 0.36);
   background: #ffffff;
+}
+
+.sports-operating-board__kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sports-operating-board__summary-card,
+.sports-operating-board__signal-label {
+  display: grid;
+  gap: 4px;
+  min-height: 92px;
+  padding: 8px 10px;
+  border: 1px solid rgba(166, 194, 220, 0.14);
+  border-radius: 8px;
+  background: rgba(7, 18, 31, 0.42);
+  color: var(--text);
+}
+
+.sports-operating-board__summary-card {
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.sports-operating-board__summary-card:hover,
+.sports-operating-board__summary-card:focus-visible {
+  transform: none;
+  border-color: rgba(126, 162, 198, 0.42);
+  background: rgba(126, 162, 198, 0.1);
+}
+
+.sports-operating-board__summary-card span,
+.sports-operating-board__signal-label span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sports-operating-board__summary-card strong {
+  font-family: "Barlow Semi Condensed", sans-serif;
+  font-size: 1.35rem;
+}
+
+.sports-operating-board__summary-card small,
+.sports-operating-board__signal-label span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.sports-operating-board__signals {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sports-operating-board__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .schools-dashboard-v1__sidebar {
