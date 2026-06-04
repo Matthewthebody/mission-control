@@ -235,13 +235,13 @@ function buildSummaryCards(input: {
       key: "shoots_today",
       title: "Today's Shoots",
       count: todayShoots.total,
-      summary: "Shoots and field work scheduled for today",
+      summary: "Photography field work scheduled for today",
       explanation:
         todayShoots.needs_attention_count > 0
           ? `${todayShoots.needs_attention_count} scheduled item${todayShoots.needs_attention_count === 1 ? "" : "s"} still need readiness follow-through before the day is safe.`
           : "Today's field work is visible here so the team can confirm timing, readiness, and staffing before jumping into details.",
-      actionLabel: "View Today's Jobs",
-      hash: "#operations/today",
+      actionLabel: "Open Photography Command Hub",
+      hash: "#studios/shoots",
       tone: todayShoots.needs_attention_count > 0 ? "warning" : "info"
     });
   }

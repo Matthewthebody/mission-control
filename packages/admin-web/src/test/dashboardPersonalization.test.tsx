@@ -400,6 +400,9 @@ describe("dashboard home command surface", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i }));
     expect(onOpenConcierge).toHaveBeenCalledTimes(1);
 
+    fireEvent.click(screen.getByRole("button", { name: /Today's Shoots/i }));
+    expect(window.location.hash).toBe("#studios/shoots");
+
     fireEvent.click(screen.getByRole("button", { name: /Staffing Gaps/i }));
     expect(window.location.hash).toBe("#operations/staffing?area=staffing");
 

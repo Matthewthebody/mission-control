@@ -14565,6 +14565,241 @@ html[data-theme="light"] .home-command-preview-pill--info {
   background: color-mix(in srgb, var(--brand-blue) 10%, var(--surface-2));
 }
 
+.studios-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.studios-workspace__command-summary,
+.studios-workspace__launch-grid,
+.studios-workspace__prep-summary-grid,
+.studios-workspace__prep-detail-grid,
+.studios-workspace__travel-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.studios-workspace__command-summary {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0.9rem 0 1rem;
+}
+
+.studios-workspace__command-card,
+.studios-workspace__launch-card,
+.studios-workspace__prep-info-card,
+.studios-workspace__travel-info-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.studios-workspace__command-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  min-height: 126px;
+}
+
+.studios-workspace__command-card span,
+.studios-workspace__day-time span,
+.studios-workspace__day-details dt {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.studios-workspace__command-card strong {
+  font-size: 1.7rem;
+}
+
+.studios-workspace__command-card small {
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.studios-workspace__command-card--danger {
+  border-color: color-mix(in srgb, var(--danger) 48%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-2));
+}
+
+.studios-workspace__command-card--warning {
+  border-color: color-mix(in srgb, var(--warm-accent) 48%, transparent);
+  background: color-mix(in srgb, var(--warm-accent) 11%, var(--surface-2));
+}
+
+.studios-workspace__command-card--success {
+  border-color: color-mix(in srgb, var(--success) 42%, transparent);
+  background: color-mix(in srgb, var(--success) 11%, var(--surface-2));
+}
+
+.studios-workspace__command-card--info {
+  border-color: color-mix(in srgb, var(--brand-blue-bright) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-blue) 11%, var(--surface-2));
+}
+
+.studios-workspace__launch-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.studios-workspace__launch-card {
+  padding: 1rem;
+}
+
+.studios-workspace__launch-card p,
+.studios-workspace__prep-info-card p,
+.studios-workspace__travel-info-card p {
+  margin-bottom: 0;
+  color: var(--text-muted);
+}
+
+.studios-workspace__day-panel,
+.studios-workspace__job-prep-panel,
+.studios-workspace__travel-panel,
+.studios-workspace__focus-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.studios-workspace__day-header,
+.studios-workspace__job-prep-header,
+.studios-workspace__travel-header,
+.studios-workspace__travel-location-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.studios-workspace__day-summary,
+.studios-workspace__focus-actions,
+.studios-workspace__travel-header-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.studios-workspace__day-summary span {
+  min-width: 104px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.studios-workspace__day-summary strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.studios-workspace__day-summary .is-warning {
+  border-color: color-mix(in srgb, var(--warm-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--warm-accent) 10%, var(--surface-2));
+}
+
+.studios-workspace__day-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.studios-workspace__day-card {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.7fr) minmax(16rem, 2fr) minmax(15rem, 1.4fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.studios-workspace__day-main,
+.studios-workspace__day-status {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.studios-workspace__day-details {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin: 0;
+}
+
+.studios-workspace__day-details div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.studios-workspace__day-details dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.studios-workspace__prep-summary-grid,
+.studios-workspace__travel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.studios-workspace__prep-detail-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.studios-workspace__prep-info-card,
+.studios-workspace__travel-info-card {
+  padding: 1rem;
+}
+
+.studios-workspace__prep-info-card--wide {
+  grid-column: span 2;
+}
+
+.studios-workspace__prep-info-card ul,
+.studios-workspace__travel-info-card ul {
+  margin-bottom: 0;
+  padding-left: 1.1rem;
+}
+
+.studios-workspace__job-prep-notice {
+  border: 1px solid color-mix(in srgb, var(--brand-blue-bright) 35%, transparent);
+  border-radius: 8px;
+  padding: 0.8rem 0.95rem;
+  background: color-mix(in srgb, var(--brand-blue) 10%, var(--surface-2));
+  color: var(--text-muted);
+}
+
+.studios-workspace__travel-location-card {
+  border: 1px solid color-mix(in srgb, var(--brand-blue-bright) 32%, var(--border));
+  border-radius: 8px;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--brand-blue) 9%, var(--surface-2));
+}
+
+html[data-theme="light"] .studios-workspace__command-card,
+html[data-theme="light"] .studios-workspace__launch-card,
+html[data-theme="light"] .studios-workspace__prep-info-card,
+html[data-theme="light"] .studios-workspace__travel-info-card,
+html[data-theme="light"] .studios-workspace__day-card,
+html[data-theme="light"] .studios-workspace__day-summary span {
+  background: var(--surface-raised);
+}
+
+@media (max-width: 900px) {
+  .studios-workspace__day-card {
+    grid-template-columns: 1fr;
+  }
+
+  .studios-workspace__prep-info-card--wide {
+    grid-column: auto;
+  }
+}
+
 .operations-boundary-callout {
   display: flex;
   justify-content: space-between;

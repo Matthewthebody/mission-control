@@ -24,13 +24,12 @@ type Props = {
 
 const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: string; meta: WorkspaceHeaderMeta[] }> = {
   overview: {
-    title: "Photography Today",
-    summary:
-      "Photography opens on today's shoots: where crews are going, who is assigned, what needs readiness attention, and the next practical click for Travel or Job Prep. The 30-day calendar stays available for planning.",
+    title: "Photography Command Hub",
+    summary: "Today's shoots, readiness, travel details, job prep, references, and field handoffs in one place.",
     meta: [
-      { label: "Today's shoots first", tone: "info" },
-      { label: "Field readiness", tone: "warning" },
-      { label: "30-day planning available", tone: "neutral" }
+      { label: "Field readiness", tone: "info" },
+      { label: "Job prep connected", tone: "success" },
+      { label: "Work spine linked", tone: "neutral" }
     ]
   },
   today: {
@@ -83,12 +82,12 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
 };
 
 const PRIMARY_LINKS = [
-  { id: "shoots", label: "Day at a Glance", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and clear next links to Travel or Job Prep." },
+  { id: "shoots", label: "Today's Shoots", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, crew counts, readiness, and clear next links to Travel or Job Prep." },
   { id: "pre-service", label: "Job Prep / Pre-Service", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and readiness context in one place." },
   { id: "travel", label: "Travel & Logistics", hash: "#studios/travel", detail: "Field location, parking, contact, crew, and arrival guidance." },
-  { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Compact next-action view for leads and senior photographers." },
+  { id: "workload", label: "Senior Photographer View", hash: "#studios/workload", detail: "Field leadership view for shoot readiness, handoffs, and photographer support." },
   { id: "calendar", label: "30-Day Planning Calendar", hash: "#studios/calendar", detail: "Planning view for upcoming shoot load, linked assignments, and dates that need attention." },
-  { id: "closeout", label: "Post-Shoot / Evaluations", hash: "#job-closeout", detail: "Closeout, shoot check-ins, and post-shoot learning flow." }
+  { id: "closeout", label: "Post-Shoot Evaluation", hash: "#job-closeout", detail: "Closeout, shoot check-ins, mileage review, and post-shoot learning flow." }
 ];
 
 const HOMEPAGE_LINK_IDS = new Set(["pre-service", "travel", "workload", "calendar", "closeout"]);
@@ -191,7 +190,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
           token={token}
           currentUser={currentUser}
           title={copy.title}
-          summary="Dense, scan-first work view for jobs that create field execution pressure. Keep owner, date, next action, and risk visible without a tall card stack."
+          summary="Field leadership view for shoot readiness, handoffs, photographer support, owner clarity, and the next safe action."
           routeHash="#studios/shoots"
           focus={focus}
           showDepartmentFilter={focus === "workload"}
@@ -334,9 +333,26 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
         <PrepReadinessGroup items={prepContext.readinessItems} />
         <PrepInfoGroup title="Prior Evaluation" items={prepContext.priorEvaluationItems} placeholder="No prior post-shoot evaluation is in this seeded packet yet." />
         <PrepInfoGroup title="Customer Survey Notes" items={[]} placeholder="No customer survey notes are in this seeded packet yet." />
-        <PrepAttachmentGroup title="PDFs / Resources" attachments={prepContext.documentAttachments} placeholder="No PDF packet or resource document is in this seeded packet yet." />
-        <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.photoAttachments} placeholder="No reference photos are in this seeded packet yet." />
+        <PrepAttachmentGroup title="Shoot References" attachments={prepContext.documentAttachments} placeholder="No shoot references are attached to this prep packet yet." />
+        <PrepAttachmentGroup title="Setup References" attachments={prepContext.photoAttachments} placeholder="No setup references are attached to this prep packet yet." />
       </div>
+
+      <WorkspaceActionBar align="end" compact>
+        <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/travel")}>
+          Travel Details
+        </button>
+        <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", selectedJob.id))}>
+          Open work
+        </button>
+        <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
+          View in Project Tracking
+        </button>
+        {hasJobPrepAttention(prepContext) ? (
+          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
+            Open Needs Attention
+          </button>
+        ) : null}
+      </WorkspaceActionBar>
 
       {detailLoading ? <p className="muted">Refreshing prep packet...</p> : null}
     </section>
@@ -459,6 +475,10 @@ function buildJobPrepContext(job: SharedJobListItem | null, detail: SharedJobDet
     documentAttachments,
     photoAttachments
   };
+}
+
+function hasJobPrepAttention(prepContext: NonNullable<ReturnType<typeof buildJobPrepContext>>) {
+  return prepContext.readinessItems.some((item) => item.is_blocker || (item.is_required && !item.is_complete));
 }
 
 function collectPrepAttachments(detail: SharedJobDetailResponse | null) {
@@ -596,18 +616,31 @@ function PhotographyTravelPanel({ token }: { token: string }) {
           <h3>{travelContext.jobName}</h3>
           <p>{travelContext.organizationName}</p>
         </div>
-        {jobs.length > 1 ? (
-          <label className="filter-field">
-            <span>Choose shoot</span>
-            <select value={selectedJob.id} onChange={(event) => setSelectedJobId(event.target.value)}>
-              {jobs.slice(0, 8).map((job) => (
-                <option key={job.id} value={job.id}>
-                  {job.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <div className="studios-workspace__travel-header-actions">
+          {jobs.length > 1 ? (
+            <label className="filter-field">
+              <span>Choose shoot</span>
+              <select value={selectedJob.id} onChange={(event) => setSelectedJobId(event.target.value)}>
+                {jobs.slice(0, 8).map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <WorkspaceActionBar align="end" compact>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
+              Job Prep
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", selectedJob.id))}>
+              Open work
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
+              View in Project Tracking
+            </button>
+          </WorkspaceActionBar>
+        </div>
       </div>
 
       <div className="studios-workspace__travel-location-card">
@@ -631,7 +664,7 @@ function PhotographyTravelPanel({ token }: { token: string }) {
         <TravelInfoGroup title="Field Notes" items={travelContext.noteItems} />
         <article className="studios-workspace__travel-info-card studios-workspace__travel-info-card--placeholder">
           <h4>Leadership Staffing Context</h4>
-          <p>Staffing and attendance review stay in Leadership for this pilot.</p>
+          <p>Leadership handles staffing and attendance review so this page stays focused on field travel.</p>
         </article>
       </div>
 
@@ -849,6 +882,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
   }
 
   const summary = buildDayAtGlanceSummary(jobs);
+  const commandCards = buildPhotographyCommandCards(jobs);
 
   return (
     <section className="panel studios-workspace__day-panel" aria-label="Photography Day at a Glance">
@@ -876,6 +910,15 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
             assigned crew
           </span>
         </div>
+      </div>
+      <div className="studios-workspace__command-summary" aria-label="Photography operating summary cards">
+        {commandCards.map((card) => (
+          <button key={card.label} type="button" className={`studios-workspace__command-card studios-workspace__command-card--${card.tone}`} onClick={() => (window.location.hash = card.hash)}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.detail}</small>
+          </button>
+        ))}
       </div>
       {jobs.length ? (
         <div className="studios-workspace__day-list">
@@ -916,11 +959,19 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                     Travel details
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-                    Job Prep / Readiness
+                    Job Prep
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", job.id))}>
-                    Open details
+                    Open work
                   </button>
+                  <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
+                    View in Project Tracking
+                  </button>
+                  {needsPhotographyAttention(job) ? (
+                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
+                      Open Needs Attention
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </article>
@@ -939,6 +990,53 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
       )}
     </section>
   );
+}
+
+function buildPhotographyCommandCards(jobs: SharedJobListItem[]) {
+  return [
+    {
+      label: "Today's Shoots",
+      value: jobs.length,
+      detail: "Shoots and field work scheduled for today.",
+      hash: "#studios/shoots",
+      tone: "info"
+    },
+    {
+      label: "Ready to Go",
+      value: jobs.filter(isPhotographyReadyToGo).length,
+      detail: "No blockers, watch flags, or prep gaps are visible.",
+      hash: "#studios/shoots",
+      tone: "success"
+    },
+    {
+      label: "Needs Prep",
+      value: jobs.filter(needsPhotographyPrep).length,
+      detail: "Readiness, crew confirmation, or job prep needs review.",
+      hash: "#studios/pre-service",
+      tone: "warning"
+    },
+    {
+      label: "Travel Notes",
+      value: jobs.filter(hasPhotographyTravelDetails).length,
+      detail: "Rows with location, address, or field travel context.",
+      hash: "#studios/travel",
+      tone: "info"
+    },
+    {
+      label: "Post-Shoot Evals",
+      value: jobs.filter((job) => job.job_status === "execution_complete").length,
+      detail: "Completed jobs in this view that may need closeout.",
+      hash: "#job-closeout",
+      tone: "neutral"
+    },
+    {
+      label: "Recently Changed",
+      value: jobs.filter((job) => Boolean(job.updated_at)).length,
+      detail: "Rows with current update timestamps.",
+      hash: "#project-tracking",
+      tone: "neutral"
+    }
+  ];
 }
 
 function getLocalDateKey(now = new Date()) {
@@ -1016,6 +1114,22 @@ function describeTodayAttention(job: SharedJobListItem) {
     return `Crew confirmation: ${humanizeTravelValue(job.staffing_status)}`;
   }
   return "No immediate flags";
+}
+
+function isPhotographyReadyToGo(job: SharedJobListItem) {
+  return job.blocker_count === 0 && job.open_watch_flag_count === 0 && job.readiness_percent >= 100 && job.staffing_status === "ready_confirmed";
+}
+
+function needsPhotographyPrep(job: SharedJobListItem) {
+  return job.readiness_percent < 100 || job.staffing_status !== "ready_confirmed" || job.readiness_status === "at_risk" || job.readiness_status === "off_track";
+}
+
+function needsPhotographyAttention(job: SharedJobListItem) {
+  return job.blocker_count > 0 || job.open_watch_flag_count > 0 || job.risk_status === "critical" || job.risk_status === "high" || needsPhotographyPrep(job);
+}
+
+function hasPhotographyTravelDetails(job: SharedJobListItem) {
+  return Boolean(job.primary_location_name || job.primary_location_address || job.location_override_note || job.description_internal);
 }
 
 function getTodayRiskClass(job: SharedJobListItem) {
