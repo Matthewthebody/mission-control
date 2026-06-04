@@ -35,6 +35,7 @@ export type TabKey =
 export type ShellSectionKey =
   | "home"
   | "my-work"
+  | "needs-attention"
   | "schools"
   | "sports"
   | "photography"
@@ -138,31 +139,37 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   {
     key: "home",
     label: "Home",
-    description: "Calm command overview for priorities, today's risks, recent activity, and quick links.",
+    description: "Daily command center for today's work, risk, search, and the clearest next action.",
     routeId: "dashboard"
   },
   {
     key: "my-work",
     label: "My Work",
-    description: "Personal execution surface for assigned work, approvals, follow-ups, and completed work.",
+    description: "Your day and assigned work, including schedule context, time clock, approvals, and follow-through.",
     routeId: "dashboard-my-day"
+  },
+  {
+    key: "needs-attention",
+    label: "Needs Attention",
+    description: "Leadership review queue for blocked, missing, overdue, or review-required work.",
+    routeId: "people-ops-compliance"
   },
   {
     key: "schools",
     label: "Schools",
-    description: "Focused school work lens for active jobs, tasks, contacts, risks, and project tracking.",
+    description: "School command hub for school jobs, tasks, contacts, risks, and linked work.",
     routeId: "operations-schools"
   },
   {
     key: "sports",
     label: "Sports",
-    description: "Focused sports work lens for active jobs, accounts, contacts, risks, and production handoffs.",
+    description: "Sports command hub for sports jobs, organizations, contacts, risks, and production handoffs.",
     routeId: "sports"
   },
   {
     key: "photography",
     label: "Photography",
-    description: "Calendar-first shoot planning, day-of field workflow, job prep, travel logistics, and post-shoot closeout.",
+    description: "Field readiness and shoot execution hub for today's shoots, travel, job prep, and closeout.",
     routeId: "studios"
   },
   {
@@ -174,7 +181,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   {
     key: "project-tracking",
     label: "Project Tracking",
-    description: "Master workflow, owner, status, current step, deadline, waiting-on, and risk view.",
+    description: "Source-of-truth work spine for active work, next owners, due dates, blockers, and recent changes.",
     routeId: "project-tracking"
   },
   {
@@ -185,8 +192,8 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   },
   {
     key: "contacts",
-    label: "Contacts",
-    description: "People, organizations, schools, sports organizations, districts, roles, and relationship notes.",
+    label: "Directory",
+    description: "Contacts, organizations, and locations relationship spine.",
     routeId: "directory-accounts"
   },
   {
@@ -197,7 +204,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   },
   {
     key: "hr-admin",
-    label: "HR / Administrative",
+    label: "Employees",
     description: "Employees, profiles, training, certifications, attendance, approvals, payroll, review tools, and assets.",
     routeId: "people-ops"
   },
@@ -1243,7 +1250,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "people-ops-compliance",
     label: "Needs Attention",
-    sectionKey: "leadership",
+    sectionKey: "needs-attention",
     description: "Leadership review queue for blocked, missing, overdue, or review-required operational items.",
     canonicalHash: "#needs-attention",
     visibleTabs: ["compliance"],
@@ -1807,6 +1814,7 @@ const ROUTE_BY_ID = new Map(ROUTES.map((route) => [route.id, route]));
 const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   home: [],
   "my-work": ["dashboard-my-day", "dashboard-my-tasks"],
+  "needs-attention": [],
   schools: ["schools-jobs", "schools-tasks", "schools-exceptions"],
   sports: ["sports-shoots", "sports-accounts", "sports-contacts", "sports-graphics", "sports-exceptions"],
   photography: [
@@ -1827,7 +1835,6 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "people-ops-requests",
     "people-ops-pto",
     "people-ops-approvals",
-    "people-ops-compliance",
     "people-ops-availability",
     "people-ops-training",
     "people-ops-certifications",

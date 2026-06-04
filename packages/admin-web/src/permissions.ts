@@ -1951,6 +1951,8 @@ export function canAccessSection(user: SessionUser, sectionKey: ShellSectionKey)
   switch (sectionKey) {
     case "home":
       return canAccessOperatingSystemModule(user, "home") || canAccessEmployeeMyWork(user);
+    case "needs-attention":
+      return canAccessComplianceWorkspace(user);
     case "photography":
       return canAccessStudiosWorkspace(user);
     case "production":
