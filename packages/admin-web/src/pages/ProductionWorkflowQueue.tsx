@@ -17,6 +17,25 @@ type ProductionWorkflowQueueProps = {
   currentUser: SessionUser;
 };
 
+type ProductionBoardLaneId =
+  | "came_in"
+  | "ready_to_start"
+  | "in_production"
+  | "blocked_waiting"
+  | "qa_hold"
+  | "ready_to_release"
+  | "released_complete";
+
+const PRODUCTION_BOARD_LANES: Array<{ id: ProductionBoardLaneId; title: string; summary: string }> = [
+  { id: "came_in", title: "What came in", summary: "New handoffs from upstream workflow." },
+  { id: "ready_to_start", title: "Ready to start", summary: "Accepted or queue-owned work missing an owner." },
+  { id: "in_production", title: "In production", summary: "Active work Production can move now." },
+  { id: "blocked_waiting", title: "Blocked / waiting", summary: "Real blocker or missing-info signals only." },
+  { id: "qa_hold", title: "QA / on hold", summary: "QA, correction, or hold language from the current step." },
+  { id: "ready_to_release", title: "Ready to release", summary: "Release-ready language from real workflow data." },
+  { id: "released_complete", title: "Released / complete", summary: "Production-complete handoffs ready to return." }
+];
+
 function formatDate(value: string | null | undefined) {
   if (!value) {
     return "Not connected yet";
@@ -89,6 +108,106 @@ function displayAssignmentLabel(item: ProjectWorkflowProductionQueueItem) {
   return assignmentLabel(item).replace(/\u00c2\u00b7/g, "-").replace(/\u00b7/g, "-");
 }
 
+function itemSearchText(item: ProjectWorkflowProductionQueueItem) {
+  return [
+    item.production_step,
+    item.needed_work,
+    item.next_action,
+    item.clear_condition,
+    item.notes,
+    item.missing_info,
+    item.step_status,
+    item.status,
+    item.assignment_status
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function laneForItem(item: ProjectWorkflowProductionQueueItem): ProductionBoardLaneId {
+  const text = itemSearchText(item);
+  if (item.status === "production_complete") {
+    return "released_complete";
+  }
+  if (item.status === "sent_to_production" || item.status === "pending") {
+    return "came_in";
+  }
+  if (item.status === "waiting_on_info" || item.assignment_status === "waiting_on_info" || item.step_status === "BLOCKED" || item.operational_status === "waiting") {
+    return "blocked_waiting";
+  }
+  if (text.includes("ready to release") || text.includes("release ready")) {
+    return "ready_to_release";
+  }
+  if (text.includes("qa") || text.includes("correction") || text.includes("hold")) {
+    return "qa_hold";
+  }
+  if (item.assignment_status === "needs_assignment" || !item.assigned_user_id) {
+    return "ready_to_start";
+  }
+  return "in_production";
+}
+
+function laneTone(laneId: ProductionBoardLaneId) {
+  if (laneId === "blocked_waiting") {
+    return "danger";
+  }
+  if (laneId === "ready_to_release" || laneId === "released_complete") {
+    return "success";
+  }
+  if (laneId === "qa_hold") {
+    return "warning";
+  }
+  return "neutral";
+}
+
+function ageLabel(value: string | null | undefined) {
+  if (!value) {
+    return "No age signal";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "No age signal";
+  }
+  const elapsedMs = Date.now() - date.getTime();
+  if (elapsedMs < 0) {
+    return "Updated ahead";
+  }
+  const hours = Math.floor(elapsedMs / 3_600_000);
+  if (hours < 1) {
+    return "Updated just now";
+  }
+  if (hours < 24) {
+    return `${hours}h aging`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days}d aging`;
+}
+
+function riskLabel(item: ProjectWorkflowProductionQueueItem) {
+  if (item.step_status === "BLOCKED") {
+    return "Blocked";
+  }
+  if (item.status === "waiting_on_info" || item.assignment_status === "waiting_on_info" || item.operational_status === "waiting") {
+    return "Waiting";
+  }
+  if (item.operational_status === "overdue") {
+    return "Overdue";
+  }
+  if (item.operational_status === "missing_owner" || item.assignment_status === "needs_assignment" || !item.assigned_user_id) {
+    return "Needs owner";
+  }
+  return "On track";
+}
+
+function jobDetailHref(item: ProjectWorkflowProductionQueueItem) {
+  return `#jobs/detail?preview=${encodeURIComponent(item.job_id)}`;
+}
+
+function accountHref(item: ProjectWorkflowProductionQueueItem) {
+  return item.organization_id ? `#client-command-center/accounts/${encodeURIComponent(item.organization_id)}` : null;
+}
+
 function canAccept(item: ProjectWorkflowProductionQueueItem) {
   return item.source === "handoff" && item.status === "sent_to_production";
 }
@@ -151,6 +270,14 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
   }, [token]);
 
   const items = useMemo(() => queue?.items ?? [], [queue]);
+  const lanes = useMemo(
+    () =>
+      PRODUCTION_BOARD_LANES.map((lane) => ({
+        ...lane,
+        items: items.filter((item) => laneForItem(item) === lane.id)
+      })),
+    [items]
+  );
 
   const runAction = async (item: ProjectWorkflowProductionQueueItem, label: string, action: () => Promise<unknown>) => {
     if (!item.handoff_id) {
@@ -176,10 +303,10 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
     <section className="production-workflow-queue">
       <div className="production-workflow-queue__header">
         <div>
-          <span className="eyebrow">Production Queue V1</span>
-          <h1>Production Queue</h1>
+          <span className="eyebrow">Production Operating Board V1</span>
+          <h1>Production Operating Board</h1>
           <p>
-            Filtered view of Production-owned workflow work. Project Dashboard is the company-wide map; this page is the Production department.
+            Spencer-facing board for real Production handoffs and queue-owned workflow steps. No fake automation, no synthetic urgency.
           </p>
         </div>
         <a className="button button-secondary" href="#project-tracking">
@@ -189,16 +316,61 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
 
       {queue ? (
         <div className="production-workflow-queue__summary" aria-label="Production queue summary">
-          <button type="button"><span>Ready for Production</span><strong>{queue.summary.ready_for_production}</strong></button>
-          <button type="button"><span>Needs Assignment</span><strong>{queue.summary.needs_assignment}</strong></button>
-          <button type="button"><span>Waiting on Info</span><strong>{queue.summary.waiting_on_info}</strong></button>
-          <button type="button"><span>Due Today</span><strong>{queue.summary.due_today}</strong></button>
-          <button type="button"><span>Overdue</span><strong>{queue.summary.overdue}</strong></button>
+          <div><span>Came in</span><strong>{queue.summary.ready_for_production}</strong></div>
+          <div><span>Needs owner</span><strong>{queue.summary.needs_assignment}</strong></div>
+          <div><span>Blocked / waiting</span><strong>{queue.summary.waiting_on_info}</strong></div>
+          <div><span>Due today</span><strong>{queue.summary.due_today}</strong></div>
+          <div><span>Overdue</span><strong>{queue.summary.overdue}</strong></div>
         </div>
       ) : null}
 
       {notice ? <p className="production-workflow-queue__notice">{notice}</p> : null}
       {error ? <p className="production-workflow-queue__error">{error}</p> : null}
+
+      <div className="production-operating-board" aria-label="Production Operating Board lanes">
+        {lanes.map((lane) => (
+          <section className={`production-operating-board__lane is-${laneTone(lane.id)}`} key={lane.id} aria-label={lane.title}>
+            <div className="production-operating-board__lane-header">
+              <div>
+                <h2>{lane.title}</h2>
+                <p>{lane.summary}</p>
+              </div>
+              <strong>{lane.items.length}</strong>
+            </div>
+            <div className="production-operating-board__cards">
+              {loading ? <p className="section-subtitle">Loading...</p> : null}
+              {!loading && lane.items.length === 0 ? <p className="section-subtitle">No real rows in this lane.</p> : null}
+              {lane.items.slice(0, 4).map((item) => {
+                const itemKey = item.handoff_id ?? `${item.workflow_run_id}:${item.step_id}`;
+                const accountLink = accountHref(item);
+                return (
+                  <article className="production-operating-card" key={`${lane.id}-${itemKey}`}>
+                    <div className="production-operating-card__head">
+                      <strong>{item.organization_name ?? item.job_title}</strong>
+                      <span>{riskLabel(item)}</span>
+                    </div>
+                    <p>{item.production_step}</p>
+                    <div className="production-operating-card__meta">
+                      <span>{formatDate(item.due_at)}</span>
+                      <span>{displayAssignmentLabel(item)}</span>
+                      <span>{ageLabel(item.last_updated)}</span>
+                    </div>
+                    <div className="production-operating-card__next">
+                      <span>Next action</span>
+                      <strong>{item.next_action}</strong>
+                    </div>
+                    <div className="production-operating-card__links">
+                      <a href={`#project-tracking/workflows/${item.workflow_run_id}`}>Open workflow</a>
+                      <a href={jobDetailHref(item)}>Open job</a>
+                      {accountLink ? <a href={accountLink}>Open account</a> : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
 
       <div className="production-workflow-table" role="table" aria-label="Production Queue handoffs">
         <div className="production-workflow-table__header" role="row">
@@ -218,6 +390,7 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
         {items.map((item) => {
           const itemKey = item.handoff_id ?? `${item.workflow_run_id}:${item.step_id}`;
           const expanded = expandedItemKey === itemKey;
+          const accountLink = accountHref(item);
           return (
           <article className="production-workflow-row" role="row" key={itemKey}>
             <span>{formatDate(item.due_at)}</span>
@@ -252,6 +425,14 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
               <a className="button button-secondary" href={`#project-tracking/workflows/${item.workflow_run_id}`}>
                 Open Workflow
               </a>
+              <a className="button button-secondary" href={jobDetailHref(item)}>
+                Open Job
+              </a>
+              {accountLink ? (
+                <a className="button button-secondary" href={accountLink}>
+                  Open Account
+                </a>
+              ) : null}
               <button
                 type="button"
                 className="button button-secondary"

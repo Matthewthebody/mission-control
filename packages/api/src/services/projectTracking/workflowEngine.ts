@@ -325,6 +325,7 @@ type ProductionQueueRow = {
   job_id: string;
   job_title: string;
   job_type: string | null;
+  organization_id: string | null;
   organization_name: string | null;
   step_id: string;
   production_step: string;
@@ -3559,6 +3560,7 @@ function toProductionQueueItem(row: ProductionQueueRow): ProjectWorkflowProducti
     job_id: row.job_id,
     job_title: row.job_title,
     job_type: row.job_type,
+    organization_id: row.organization_id,
     organization_name: row.organization_name,
     step_id: row.step_id,
     production_step: row.production_step,
@@ -3647,6 +3649,7 @@ function toProductionQueueItemFromWorkflowRow(row: ProjectWorkflowJobRow): Proje
     job_id: row.job_id,
     job_title: row.job_title,
     job_type: row.job_code ?? row.phase,
+    organization_id: row.organization_id,
     organization_name: row.organization_name,
     step_id: step.id,
     production_step: step.name,
@@ -3680,6 +3683,7 @@ export async function listProjectWorkflowProductionQueue(client: PoolClient, aut
         job.id::text AS job_id,
         job.title AS job_title,
         job.job_category::text AS job_type,
+        job.organization_id::text,
         organization.display_name AS organization_name,
         COALESCE(active_step.id, target_step.id)::text AS step_id,
         COALESCE(active_step.name, target_step.name) AS production_step,

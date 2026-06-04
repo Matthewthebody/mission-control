@@ -745,6 +745,7 @@ describe("ProjectTrackingFoundation", () => {
           job_id: "job-lakeview",
           job_title: "Lakeview Elementary Retake Day",
           job_type: "photo_day",
+          organization_id: "org-lakeview",
           organization_name: "Lakeview Elementary",
           step_id: "step-production",
           production_step: "Confirm Files Received",
@@ -773,6 +774,7 @@ describe("ProjectTrackingFoundation", () => {
           job_id: "job-queue-only",
           job_title: "Riverside Elementary Spring Portraits",
           job_type: "photo_day",
+          organization_id: "org-riverside",
           organization_name: "Riverside Elementary",
           step_id: "step-queue-only",
           production_step: "Edit proof set",
@@ -802,11 +804,14 @@ describe("ProjectTrackingFoundation", () => {
 
     render(<ProductionWorkflowQueue token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Production Queue" })).toBeInTheDocument();
-    expect(screen.getByText("Filtered view of Production-owned workflow work. Project Dashboard is the company-wide map; this page is the Production department.")).toBeInTheDocument();
-    expect(screen.getByText("Lakeview Elementary")).toBeInTheDocument();
-    expect(screen.getByText("Riverside Elementary")).toBeInTheDocument();
-    expect(screen.getByText("Needs Assignment - Production")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Production Operating Board" })).toBeInTheDocument();
+    expect(screen.getByText("Spencer-facing board for real Production handoffs and queue-owned workflow steps. No fake automation, no synthetic urgency.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What came in" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ready to start" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Blocked / waiting" })).toBeInTheDocument();
+    expect(screen.getAllByText("Lakeview Elementary").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Riverside Elementary").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Needs Assignment - Production").length).toBeGreaterThanOrEqual(2);
     const detailButtons = screen.getAllByRole("button", { name: "Details" });
     fireEvent.click(detailButtons[0]);
     expect(screen.getByText("Here by Production handoff")).toBeInTheDocument();
@@ -816,9 +821,16 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: "Assign / Status" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-lakeview");
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[1]).toHaveAttribute("href", "#project-tracking/workflows/workflow-queue-only");
+    expect(screen.getAllByRole("link", { name: "Open account" })[0]).toHaveAttribute("href", "#client-command-center/accounts/org-lakeview");
+    expect(screen.getAllByRole("link", { name: "Open Account" })[0]).toHaveAttribute("href", "#client-command-center/accounts/org-lakeview");
+    expect(screen.getAllByRole("link", { name: "Open job" })[0]).toHaveAttribute("href", "#jobs/detail?preview=job-lakeview");
+    expect(screen.getAllByRole("link", { name: "Open Job" })[0]).toHaveAttribute("href", "#jobs/detail?preview=job-lakeview");
     expect(screen.queryByText("Use Assign / Status for owner, department, and note changes, or Open Workflow for deeper review and send-back.")).not.toBeInTheDocument();
     expect(window.location.hash).toBe("#project-tracking");
-    const lakeviewRow = screen.getByText("Lakeview Elementary").closest("article");
+    const lakeviewRow = screen
+      .getAllByText("Lakeview Elementary")
+      .map((element) => element.closest(".production-workflow-row"))
+      .find(Boolean);
     expect(lakeviewRow).not.toBeNull();
     getProjectWorkflowInstanceMock.mockResolvedValue({
       workflow_run: {
@@ -874,7 +886,10 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(noNextEditor).getByText("No valid next step is available. Open Workflow for closeout or send-back review.")).toBeInTheDocument();
     expect(within(noNextEditor).getByRole("button", { name: "Move to next step" })).toBeDisabled();
     fireEvent.click(within(noNextEditor).getByRole("button", { name: "Cancel" }));
-    const riversideRow = screen.getByText("Riverside Elementary").closest("article");
+    const riversideRow = screen
+      .getAllByText("Riverside Elementary")
+      .map((element) => element.closest(".production-workflow-row"))
+      .find(Boolean);
     expect(riversideRow).not.toBeNull();
     const workflowBeforeMove = {
       workflow_run: {

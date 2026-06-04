@@ -16056,7 +16056,7 @@ html[data-theme="light"] .home-task-hub__task-card {
   margin-bottom: 0.85rem;
 }
 
-.production-workflow-queue__summary button {
+.production-workflow-queue__summary div {
   border: 1px solid #d9e2ef;
   border-radius: 12px;
   background: #fff;
@@ -16074,6 +16074,150 @@ html[data-theme="light"] .home-task-hub__task-card {
 .production-workflow-queue__summary strong {
   display: block;
   font-size: 1.25rem;
+}
+
+.production-operating-board {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(220px, 1fr));
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.7rem;
+  margin-bottom: 0.85rem;
+}
+
+.production-operating-board__lane {
+  min-width: 220px;
+  border: 1px solid #d9e2ef;
+  border-top: 4px solid #94a3b8;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.65rem;
+}
+
+.production-operating-board__lane.is-danger {
+  border-top-color: #dc2626;
+}
+
+.production-operating-board__lane.is-warning {
+  border-top-color: #d97706;
+}
+
+.production-operating-board__lane.is-success {
+  border-top-color: #16a34a;
+}
+
+.production-operating-board__lane-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.55rem;
+}
+
+.production-operating-board__lane-header h2 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.production-operating-board__lane-header p {
+  margin: 0.15rem 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.production-operating-board__lane-header > strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #172033;
+}
+
+.production-operating-board__cards {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.production-operating-card {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 0.55rem;
+}
+
+.production-operating-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+.production-operating-card__head strong {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.production-operating-card__head span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.production-operating-card p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.production-operating-card__meta {
+  display: grid;
+  gap: 0.2rem;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.production-operating-card__next {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.production-operating-card__next span {
+  color: #64748b;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.production-operating-card__next strong {
+  color: #0f172a;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.production-operating-card__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.production-operating-card__links a {
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .production-workflow-queue__notice,
