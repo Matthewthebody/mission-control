@@ -146,10 +146,10 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
     <section className="panel dashboard-panel dashboard-panel--compact">
       <div className="dashboard-panel__header">
         <div>
-          <div className="eyebrow">Workflow Snapshot</div>
+          <div className="eyebrow">Daily Workflow Snapshot</div>
           <div className="section-title">Assignment To Completion</div>
           <p className="section-subtitle">
-            Keep schedule clarity, attendance risk, closeout, and mileage review in one compact workflow lane.
+            Home keeps the daily briefing compact. Open Project Tracking when you need the source-of-truth work spine.
           </p>
         </div>
         <div className="page-intro-actions page-intro-actions--compact">

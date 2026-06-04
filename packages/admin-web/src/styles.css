@@ -3320,7 +3320,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .project-tracking-metric-grid {
-  grid-template-columns: repeat(7, minmax(88px, 1fr));
+  grid-template-columns: repeat(5, minmax(118px, 1fr));
   gap: 6px;
 }
 
@@ -3521,10 +3521,10 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 .project-tracking-job-list__header,
 .project-tracking-job-row__summary {
   display: grid;
-  grid-template-columns: minmax(136px, 1.08fr) minmax(158px, 1.16fr) minmax(140px, 1.08fr) minmax(96px, 0.72fr) minmax(108px, 0.76fr) minmax(94px, 0.66fr) minmax(94px, 0.66fr) minmax(78px, 0.52fr) minmax(104px, 0.62fr);
+  grid-template-columns: minmax(132px, 1fr) minmax(154px, 1.08fr) minmax(132px, 1fr) minmax(96px, 0.76fr) minmax(98px, 0.68fr) minmax(94px, 0.66fr) minmax(110px, 0.76fr) minmax(86px, 0.58fr) minmax(78px, 0.52fr) minmax(92px, 0.58fr);
   gap: 5px;
   align-items: center;
-  min-width: 1110px;
+  min-width: 1180px;
 }
 
 .project-tracking-job-list__header {
@@ -3548,7 +3548,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   border-left: 4px solid var(--project-row-accent);
   border-radius: 0;
   background: #ffffff;
-  min-width: 1110px;
+  min-width: 1180px;
 }
 
 .project-tracking-job-row--phase-intake {
