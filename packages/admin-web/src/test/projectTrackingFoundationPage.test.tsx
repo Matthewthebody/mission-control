@@ -402,10 +402,11 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: /Active Work/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Waiting on Review/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Review Required/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Recently Changed/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Use Needs Attention for the review queue; use this page to inspect the work record.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
-    expect(screen.getAllByText("Active Work").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Work Spine").length).toBeGreaterThan(0);
     expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Saved views planned/i })).toBeDisabled();
@@ -432,6 +433,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("School Portraits Workflow")).not.toBeInTheDocument();
     expect(screen.queryByText("mission_control_demo_school_portraits")).not.toBeInTheDocument();
+    expect(screen.queryByText("No workflow linked")).not.toBeInTheDocument();
     expect(screen.queryByText("Job record")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Expand Maple Grove Senior High Retakes/i }));

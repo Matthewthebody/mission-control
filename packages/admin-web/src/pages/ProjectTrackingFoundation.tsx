@@ -171,7 +171,7 @@ function healthLabel(health: ProjectWorkflowJobHealth) {
     blocked: "Blocked",
     at_risk: "Needs attention",
     complete: "Complete",
-    no_workflow: "No workflow linked",
+    no_workflow: "Work record not connected",
     unknown: "Needs review"
   };
   return labels[health];
@@ -207,7 +207,7 @@ function currentStepLabel(row: ProjectWorkflowJobRow) {
     return row.current_step.name;
   }
   if (row.health === "no_workflow") {
-    return "No workflow linked";
+    return "Work record not connected";
   }
   if (row.health === "complete") {
     return "Complete";
@@ -230,7 +230,7 @@ function deadlineLabel(row: ProjectWorkflowJobRow) {
     return "Complete";
   }
   if (!row.next_deadline_at) {
-    return row.workflow_run_id ? "Deadline not set" : "No workflow linked";
+    return row.workflow_run_id ? "Deadline not set" : "Work record not connected";
   }
   const date = dateLabel(row.next_deadline_at) ?? "Deadline not set";
   if (row.deadline_state === "running_late") {
@@ -563,8 +563,8 @@ function ProjectTrackingJobBoard({
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Active Work</div>
-          <p className="section-subtitle">Project Tracking is the shared work spine. Home, My Work, queues, and Needs Attention point back to this same live work state.</p>
+          <div className="section-title">Work Spine</div>
+          <p className="section-subtitle">Start here to see what work exists, who owns the next step, what is blocked, what is due soon, and what changed recently.</p>
         </div>
         <div className="project-tracking-board-meta">
           <span className="badge">Showing {filteredRows.length} of {rows.length}</span>
@@ -734,7 +734,7 @@ function ProjectTrackingJobBoard({
                         Open work
                       </button>
                     ) : (
-                      <span className="project-tracking-progress-link project-tracking-progress-link--disabled">No workflow yet</span>
+                      <span className="project-tracking-progress-link project-tracking-progress-link--disabled">Not connected yet</span>
                     )}
                   </span>
                 </div>
@@ -751,7 +751,7 @@ function ProjectTrackingJobBoard({
                           Open work
                         </button>
                       ) : (
-                        <strong>No workflow linked yet.</strong>
+                        <strong>This job is not connected to a work record yet.</strong>
                       )}
                     </div>
                     <div>
@@ -873,9 +873,9 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     { filter: "blocked", label: "Blocked", value: globalSummary.total_blocked },
     {
       filter: "waiting_review",
-      label: "Waiting on Review",
-      value: globalSummary.total_returned_for_fixes,
-      title: "Closest existing count: work returned for fixes or review."
+      label: "Review Required",
+      value: globalSummary.total_needs_attention,
+      title: "Closest existing count: blocked, late, due-soon, or at-risk work that should be reviewed before it drifts."
     },
     {
       filter: "recently_changed",
@@ -968,6 +968,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             <div className="project-tracking-summary-strip__label">
               <strong>Operating Summary</strong>
               <span>{globalSummary.source === "true_totals" ? "True totals before row limits" : "Shown rows only"}</span>
+              <small>Use Needs Attention for the review queue; use this page to inspect the work record.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (

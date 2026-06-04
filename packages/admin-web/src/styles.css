@@ -3311,6 +3311,12 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   font-size: 0.68rem;
 }
 
+.project-tracking-summary-strip__label small {
+  color: var(--pt-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
 .project-tracking-metric-grid .metric-label {
   min-width: 0;
   overflow: hidden;
