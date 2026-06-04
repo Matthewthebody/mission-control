@@ -302,6 +302,7 @@ export function AttendanceOperationsPanel({ token, currentUser, socket, date }: 
                         type="button"
                         className="secondary-button"
                         disabled={!detail.item.scheduling_hash}
+                        title={detail.item.scheduling_hash ? "Open the scheduling record for this attendance item." : "No scheduling record is linked to this attendance item yet."}
                         onClick={() => {
                           if (detail.item.scheduling_hash) {
                             window.location.hash = detail.item.scheduling_hash;
@@ -310,6 +311,9 @@ export function AttendanceOperationsPanel({ token, currentUser, socket, date }: 
                       >
                         Open Scheduling
                       </button>
+                      {!detail.item.scheduling_hash ? (
+                        <span className="muted">No scheduling record is linked yet, so this stays in attendance detail.</span>
+                      ) : null}
                     </div>
                   </OperationalDetailSection>
 

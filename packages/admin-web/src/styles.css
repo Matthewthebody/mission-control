@@ -11096,6 +11096,18 @@ html[data-theme="light"] .shoot-priority-chip {
   margin-bottom: 18px;
 }
 
+.employee-day-command {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.employee-day-command__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .employee-summary-tile {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -15418,7 +15430,7 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
 
 .home-operational__header-actions {
   display: grid;
-  grid-template-columns: minmax(260px, 420px) auto;
+  grid-template-columns: minmax(280px, 1fr) auto auto;
   gap: 10px;
   align-items: stretch;
 }
@@ -15429,10 +15441,16 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
   border-radius: 12px;
 }
 
+.home-operational__primary-clock-action {
+  min-width: 132px;
+  white-space: normal;
+}
+
 .home-operational__top-panel,
 .home-operational__clock-panel,
 .home-operational__attendance-panel,
 .home-operational__summary-panel,
+.home-operational__briefing-panel,
 .home-operational__urgent-panel,
 .home-operational__moving-panel {
   padding: 18px;
@@ -15449,10 +15467,10 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
   width: 100%;
   min-height: 88px;
   padding: 16px 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(110, 140, 176, 0.28);
+  border-radius: 14px;
+  border: 1px solid rgba(126, 162, 198, 0.42);
   background:
-    radial-gradient(circle at top right, rgba(69, 108, 155, 0.18), transparent 32%),
+    linear-gradient(90deg, rgba(126, 162, 198, 0.08), transparent 22%),
     linear-gradient(180deg, rgba(11, 20, 34, 0.96), rgba(9, 16, 28, 0.98));
   display: grid;
   gap: 6px;
@@ -15462,11 +15480,12 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
   text-transform: none;
   letter-spacing: 0;
   box-shadow: none;
+  cursor: text;
 }
 
 html[data-theme="light"] .home-operational__search-launcher {
   background:
-    radial-gradient(circle at top right, rgba(87, 129, 178, 0.12), transparent 32%),
+    linear-gradient(90deg, rgba(87, 129, 178, 0.1), transparent 22%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(245, 248, 252, 0.99));
 }
 
@@ -15512,10 +15531,22 @@ html[data-theme="light"] .home-operational__search-launcher {
 .home-operational__clock-panel,
 .home-operational__attendance-panel,
 .home-operational__summary-panel,
+.home-operational__briefing-panel,
 .home-operational__urgent-panel,
 .home-operational__moving-panel {
   display: grid;
   gap: 14px;
+}
+
+.home-operational__briefing-list {
+  display: grid;
+  gap: 8px;
+}
+
+.home-operational__briefing-list p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.5;
 }
 
 .home-operational__clock-panel--success {
@@ -15610,6 +15641,27 @@ html[data-theme="light"] .home-operational__moving-card {
   line-height: 1.45;
 }
 
+.home-operational__summary-card small,
+.home-operational__issue-explain p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.home-operational__issue-explain {
+  display: grid;
+  gap: 4px;
+}
+
+.home-operational__issue-explain span {
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .home-operational__attendance-card,
 .home-operational__summary-card,
 .home-operational__issue-card,
@@ -15702,6 +15754,7 @@ html[data-theme="light"] .home-operational__moving-card {
 
 @media (max-width: 1180px) {
   .home-operational__search-row,
+  .home-operational__header-actions,
   .home-operational__top-grid,
   .home-operational__action-grid {
     grid-template-columns: 1fr;
@@ -15713,6 +15766,7 @@ html[data-theme="light"] .home-operational__moving-card {
 }
 
 @media (max-width: 900px) {
+  .employee-day-command__cards,
   .home-operational__attendance-grid,
   .home-operational__summary-grid,
   .home-operational__clock-grid {

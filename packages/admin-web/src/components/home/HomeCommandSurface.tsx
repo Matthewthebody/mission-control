@@ -33,6 +33,7 @@ type OperationalSummaryCard = {
   title: string;
   count: number;
   summary: string;
+  explanation: string;
   actionLabel: string;
   hash: string;
   tone: "neutral" | "info" | "success" | "warning" | "danger";
@@ -235,6 +236,10 @@ function buildSummaryCards(input: {
       title: "Today's Shoots",
       count: todayShoots.total,
       summary: "Shoots and field work scheduled for today",
+      explanation:
+        todayShoots.needs_attention_count > 0
+          ? `${todayShoots.needs_attention_count} scheduled item${todayShoots.needs_attention_count === 1 ? "" : "s"} still need readiness follow-through before the day is safe.`
+          : "Today's field work is visible here so the team can confirm timing, readiness, and staffing before jumping into details.",
       actionLabel: "View Today's Jobs",
       hash: "#operations/today",
       tone: todayShoots.needs_attention_count > 0 ? "warning" : "info"
@@ -253,6 +258,10 @@ function buildSummaryCards(input: {
       title: "Staffing Gaps",
       count: staffingWidget?.count ?? fallbackCount,
       summary: "Coverage gaps that could slow down today's work",
+      explanation:
+        (staffingWidget?.count ?? fallbackCount) > 0
+          ? "A staffing gap can delay arrivals, break lead coverage, or force a same-day replacement decision."
+          : "No staffing gap is currently flagged, but this stays one click away for same-day coverage checks.",
       actionLabel: "View Staffing Gaps",
       hash: staffingWidget?.action_hash || "#operations/staffing?area=staffing",
       tone: staffingTone
@@ -265,6 +274,10 @@ function buildSummaryCards(input: {
       title: "Production Work",
       count: productionWidget?.count ?? productionProjects.counts.active_jobs,
       summary: "Jobs currently moving through digital production",
+      explanation:
+        productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
+          ? `${productionProjects.counts.blocked} blocked and ${productionProjects.counts.overdue} overdue production item${productionProjects.counts.blocked + productionProjects.counts.overdue === 1 ? "" : "s"} need owner follow-through.`
+          : "Production is active; open the queue when you need the owner, due state, or release blocker.",
       actionLabel: "View Production Queue",
       hash: productionWidget?.action_hash || buildShellRouteHash("production-workload"),
       tone:
@@ -280,6 +293,10 @@ function buildSummaryCards(input: {
       title: "School Tasks",
       count: input.taskCounts.schools,
       summary: "Open school-related tasks in this scope",
+      explanation:
+        input.taskCounts.schools > 0
+          ? "School tasks can affect photo-day readiness, client follow-up, or field handoff quality."
+          : "No open school task count is currently flagged for this Home view.",
       actionLabel: "View School Tasks",
       hash: "#schools/tasks",
       tone: input.taskCounts.schools > 0 ? "info" : "success"
@@ -292,6 +309,10 @@ function buildSummaryCards(input: {
       title: "Sports Tasks",
       count: input.taskCounts.sports,
       summary: "Open sports-related tasks in this scope",
+      explanation:
+        input.taskCounts.sports > 0
+          ? "Sports tasks can affect roster readiness, shoot prep, graphics, or customer follow-through."
+          : "No open sports task count is currently flagged for this Home view.",
       actionLabel: "View Sports Tasks",
       hash: "#sports/tasks",
       tone: input.taskCounts.sports > 0 ? "info" : "success"
@@ -304,6 +325,10 @@ function buildSummaryCards(input: {
       title: "Production Tasks",
       count: input.taskCounts.production,
       summary: "Open production-related tasks in this scope",
+      explanation:
+        input.taskCounts.production > 0
+          ? "Production tasks can turn into overdue delivery or release blockers if no one clears the next step."
+          : "No open production task count is currently flagged for this Home view.",
       actionLabel: "View Production Tasks",
       hash: "#production/tasks",
       tone: input.taskCounts.production > 0 ? "info" : "success"
@@ -311,6 +336,51 @@ function buildSummaryCards(input: {
   }
 
   return cards.slice(0, 6);
+}
+
+function buildDailyBriefing(input: {
+  payload: HomeDashboardResponse | null;
+  summaryCards: OperationalSummaryCard[];
+  urgentItems: HomeUrgentWatchItem[];
+  movingItems: MovingItem[];
+  timeBand: HomeSurfaceTimeBand | null;
+  attendanceAttentionMetric: ReturnType<typeof getAttendanceMetrics>[number] | null;
+}) {
+  const lines: string[] = [];
+  const todayShoots = input.payload?.widgets.today_shoots ?? null;
+  const urgentSummary = input.payload?.home_surface?.urgent_attention?.summary_line ?? null;
+  const myDaySummary = input.payload?.home_surface?.my_day?.summary_line ?? null;
+  const todayAndNextSummary = input.payload?.home_surface?.today_and_next_up?.summary_line ?? null;
+
+  if (input.timeBand?.visible) {
+    lines.push(`${getTimeClockHeadline(input.timeBand)}: ${input.timeBand.summary_line}`);
+  }
+  if (todayShoots) {
+    lines.push(
+      todayShoots.needs_attention_count > 0
+        ? `${todayShoots.total} shoot${todayShoots.total === 1 ? "" : "s"} today, with ${todayShoots.needs_attention_count} needing readiness attention.`
+        : `${todayShoots.total} shoot${todayShoots.total === 1 ? "" : "s"} today; no shoot readiness count is red right now.`
+    );
+  }
+  if (input.attendanceAttentionMetric) {
+    lines.push(`${input.attendanceAttentionMetric.count} expected team member${input.attendanceAttentionMetric.count === 1 ? "" : "s"} still need attendance follow-up.`);
+  }
+  if (input.urgentItems.length) {
+    lines.push(urgentSummary || `${input.urgentItems.length} urgent item${input.urgentItems.length === 1 ? "" : "s"} need action now.`);
+  }
+  if (!input.urgentItems.length && todayAndNextSummary) {
+    lines.push(todayAndNextSummary);
+  }
+  if (!input.urgentItems.length && !todayAndNextSummary && myDaySummary) {
+    lines.push(myDaySummary);
+  }
+  if (!lines.length && input.summaryCards.length) {
+    lines.push("Home is ready. Use the cards below to open the exact area that needs attention.");
+  }
+  if (!lines.length && input.movingItems.length) {
+    lines.push(`${input.movingItems.length} active work item${input.movingItems.length === 1 ? "" : "s"} are ready for follow-through.`);
+  }
+  return lines.slice(0, 4);
 }
 
 export function HomeCommandSurface({
@@ -429,6 +499,18 @@ export function HomeCommandSurface({
     : [];
   const visibleUrgentItems = urgentExpanded ? urgentItems : urgentItems.slice(0, 2);
   const movingItems = useMemo(() => buildMovingItems(dashboard), [dashboard]);
+  const briefingLines = useMemo(
+    () =>
+      buildDailyBriefing({
+        payload: dashboard,
+        summaryCards,
+        urgentItems,
+        movingItems,
+        timeBand,
+        attendanceAttentionMetric
+      }),
+    [attendanceAttentionMetric, dashboard, movingItems, summaryCards, timeBand, urgentItems]
+  );
   const updatedLabel = dashboard ? `Updated ${formatHomeTimestamp(dashboard.generated_at)}` : null;
 
   if (loading && dashboard == null) {
@@ -450,13 +532,18 @@ export function HomeCommandSurface({
         actions={
           <div className="home-operational__header-actions">
             <button type="button" className="home-operational__search-launcher" onClick={() => onOpenConcierge()}>
-              <span className="home-operational__search-label">Search or ask Concierge</span>
-              <strong>Search jobs, people, schedules, and alerts</strong>
-              <span>{updatedLabel ?? "Ask Concierge anything from Home."}</span>
+              <span className="home-operational__search-label">Concierge</span>
+              <strong>Ask Concierge or search jobs, people, schools, tasks...</strong>
+              <span>{updatedLabel ?? "Focus or click to open Concierge search."}</span>
             </button>
+            {timeBand?.visible ? (
+              <button type="button" className="primary-button home-operational__primary-clock-action" onClick={() => navigateToHash(timeBand.action_hash)}>
+                {getTimeClockActionLabel(timeBand)}
+              </button>
+            ) : null}
             {canCreateTask ? (
-              <button type="button" onClick={() => navigateToHash(createTaskHash)}>
-                New Task
+              <button type="button" className="secondary-button" onClick={() => navigateToHash(createTaskHash)} title="Open the task form. This is secondary to the daily clock and briefing actions.">
+                Add Task
               </button>
             ) : null}
           </div>
@@ -464,6 +551,21 @@ export function HomeCommandSurface({
       />
 
       {error ? <div className="error-banner">{error}</div> : null}
+
+      {briefingLines.length ? (
+        <section className="panel home-operational__briefing-panel">
+          <WorkspaceSectionHeader
+            title="Today's Briefing"
+            summary="The daily command center starts with what matters, why it matters, and where to act next."
+            compact
+          />
+          <div className="home-operational__briefing-list">
+            {briefingLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="home-operational__top-grid">
         {timeBand?.visible ? (
@@ -543,6 +645,7 @@ export function HomeCommandSurface({
                 <span>{card.title}</span>
                 <strong>{card.count}</strong>
                 <p>{card.summary}</p>
+                <small>{card.explanation}</small>
                 <em>{card.actionLabel}</em>
               </button>
             ))}
@@ -588,9 +691,13 @@ export function HomeCommandSurface({
                     <strong>{item.title}</strong>
                     <p>{item.summary}</p>
                   </div>
+                  <div className="home-operational__issue-explain">
+                    <span>Why it matters</span>
+                    <p>{item.urgency_label} items need same-day owner follow-through before they drift into delivery, staffing, or customer impact.</p>
+                  </div>
                   <div className="home-operational__issue-meta">
-                    <span>{item.supporting_label ?? "Needs attention"}</span>
-                    <em>{item.action_label}</em>
+                    <span>Owner/context: {item.supporting_label ?? "Unassigned or context pending"}</span>
+                    <em>Next: {item.action_label}</em>
                   </div>
                 </button>
               ))}
