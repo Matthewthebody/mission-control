@@ -11,6 +11,7 @@ import { buildGoogleMapsLink, estimateDriveMinutesFromStudio, getStudioLocation 
 import { seedTrainingState } from "../src/services/training.js";
 
 const LOCAL_DEMO_PASSWORD = "LocalDemo123!";
+const REDACT_SENSITIVE_OUTPUT = process.argv.includes("--redact-sensitive-output");
 
 type SeedUser = {
   email: string;
@@ -20,6 +21,13 @@ type SeedUser = {
   status: "active" | "pending_approval" | "suspended";
   phoneNumber: string;
 };
+
+function localDemoAccountSummary(email: string) {
+  if (REDACT_SENSITIVE_OUTPUT) {
+    return { email, password_redacted: true };
+  }
+  return { email, password: LOCAL_DEMO_PASSWORD };
+}
 
 async function seedAuthorityPermissionCatalog(client: PoolClient) {
   const catalog = getAuthorityGrantCatalog();
@@ -3638,20 +3646,22 @@ async function run() {
           seed_reused_existing_demo_tenant: existingDemoTenants.rows.length > 0,
           duplicate_demo_tenants_detected: Math.max(existingDemoTenants.rows.length - 1, 0),
           studio,
-          owner_admin: { email: matthew.email, password: LOCAL_DEMO_PASSWORD },
-          admin: { email: admin.email, password: LOCAL_DEMO_PASSWORD },
-          leadership: { email: leadership.email, password: LOCAL_DEMO_PASSWORD },
-          senior_photographer: { email: senior.email, password: LOCAL_DEMO_PASSWORD },
-          photographer: { email: photographer.email, password: LOCAL_DEMO_PASSWORD },
-          associate_photographer: { email: associate.email, password: LOCAL_DEMO_PASSWORD },
-          office_employee: { email: office.email, password: LOCAL_DEMO_PASSWORD },
-          schools_client_success: { email: schoolsClientSuccess.email, password: LOCAL_DEMO_PASSWORD },
-          sports_client_success: { email: sportsClientSuccess.email, password: LOCAL_DEMO_PASSWORD },
-          graphic_artist: { email: graphicArtist.email, password: LOCAL_DEMO_PASSWORD },
-          new_hire: { email: newHire.email, password: LOCAL_DEMO_PASSWORD },
-          pending_approval: { email: pending.email, password: LOCAL_DEMO_PASSWORD },
-          suspended: { email: suspended.email, password: LOCAL_DEMO_PASSWORD },
-          outstanding_invite: { email: "invitee@example.com", invite_token: outstandingInviteToken },
+          owner_admin: localDemoAccountSummary(matthew.email),
+          admin: localDemoAccountSummary(admin.email),
+          leadership: localDemoAccountSummary(leadership.email),
+          senior_photographer: localDemoAccountSummary(senior.email),
+          photographer: localDemoAccountSummary(photographer.email),
+          associate_photographer: localDemoAccountSummary(associate.email),
+          office_employee: localDemoAccountSummary(office.email),
+          schools_client_success: localDemoAccountSummary(schoolsClientSuccess.email),
+          sports_client_success: localDemoAccountSummary(sportsClientSuccess.email),
+          graphic_artist: localDemoAccountSummary(graphicArtist.email),
+          new_hire: localDemoAccountSummary(newHire.email),
+          pending_approval: localDemoAccountSummary(pending.email),
+          suspended: localDemoAccountSummary(suspended.email),
+          outstanding_invite: REDACT_SENSITIVE_OUTPUT
+            ? { email: "invitee@example.com", invite_token_redacted: true }
+            : { email: "invitee@example.com", invite_token: outstandingInviteToken },
           shoots: [
             { code: demoShoot.shoot_code, title: demoShoot.title },
             { code: sportsShoot.shoot_code, title: sportsShoot.title }

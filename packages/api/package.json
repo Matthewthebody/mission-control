@@ -8,6 +8,7 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "migrate": "tsx scripts/migrate.ts",
+    "reset:demo": "tsx scripts/reset-local-demo-db.ts --yes-reset-local-demo-db",
     "production-board:backfill-legacy": "tsx scripts/backfill-production-board-legacy.ts",
     "checklists:seed": "tsx scripts/seed-workflow-checklists.ts",
     "seed": "tsx scripts/seed.ts",

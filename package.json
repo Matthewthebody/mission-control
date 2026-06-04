@@ -11,6 +11,7 @@
     "dev": "concurrently -n api,worker,web \"npm run dev -w packages/api\" \"npm run dev -w packages/worker\" \"npm run dev -w packages/admin-web\"",
     "db:migrate": "npm run migrate -w packages/api",
     "db:seed": "npm run seed -w packages/api",
+    "db:reset:demo": "npm run reset:demo -w packages/api",
     "verify:fresh-db-contract": "npm run verify:fresh-db-contract -w packages/api",
     "seed:mission-control-demo": "npm run seed:mission-control-demo -w packages/api",
     "project-tracking:seed-demo": "npm run project-tracking:seed-demo -w packages/api",
