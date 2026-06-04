@@ -1,6 +1,6 @@
 import http from "node:http";
 import { Server } from "socket.io";
-import { createApp } from "./app.js";
+import { createApp, getAllowedCorsOrigins } from "./app.js";
 import { config } from "./config.js";
 import { resolveAuthenticatedUser } from "./services/auth.js";
 
@@ -9,7 +9,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: config.SOCKET_IO_CORS_ORIGIN
+    origin: [...getAllowedCorsOrigins()]
   }
 });
 

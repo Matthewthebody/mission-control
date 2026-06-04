@@ -38,6 +38,24 @@ npm run db:seed
 
 If Docker Desktop is unavailable locally, do not block release decisions on that machine alone. Use the Linux CI workflow instead.
 
+## Local Demo Browser Smoke
+For a local browser smoke, start the API and admin web with:
+
+```powershell
+npm run dev
+```
+
+Vite normally opens the admin web on `http://localhost:5173`. If that port is already occupied, Vite may move to the next available local port, such as `http://localhost:5174` or `http://localhost:5175`. Use the `Local:` URL printed by Vite, then sign in with the local demo flow and verify:
+
+```text
+#home
+#my-work
+#needs-attention
+#employees/attendance
+```
+
+The API allows known local Vite fallback origins in non-production environments only, so this smoke path should work without disabling browser security.
+
 ## Release Rule
 - Windows local: developer feedback
 - Linux CI: release truth

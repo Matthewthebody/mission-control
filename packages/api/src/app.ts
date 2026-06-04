@@ -98,6 +98,7 @@ import { assertReleaseDisciplineStartup, getPublicReleaseDisciplineSummary } fro
 import { requestContextMiddleware } from "./services/requestContext.js";
 
 const httpLogger = pinoHttp as unknown as (options?: Record<string, unknown>) => express.RequestHandler;
+const LOCAL_DEV_ADMIN_WEB_PORTS = [5173, 5174, 5175, 5176, 5177, 5178, 5179];
 
 export function createApp() {
   if (config.MICROSOFT_OUTLOOK_SYNC_ENABLED) {
@@ -257,7 +258,7 @@ function parseTrustProxyValue(value: string) {
   return value;
 }
 
-function getAllowedCorsOrigins() {
+export function getAllowedCorsOrigins() {
   const origins = new Set<string>();
   for (const value of [config.SOCKET_IO_CORS_ORIGIN, config.ADMIN_WEB_URL]) {
     if (!value) {
@@ -275,6 +276,12 @@ function getAllowedCorsOrigins() {
       }
     } catch {
       // Ignore malformed optional origins and keep the explicit value only.
+    }
+  }
+  if (config.NODE_ENV !== "production") {
+    for (const port of LOCAL_DEV_ADMIN_WEB_PORTS) {
+      origins.add(`http://localhost:${port}`);
+      origins.add(`http://127.0.0.1:${port}`);
     }
   }
   return origins;
