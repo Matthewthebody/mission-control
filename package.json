@@ -9,6 +9,7 @@
   "scripts": {
     "prepare": "node tools/install-git-hooks.mjs",
     "dev": "concurrently -n api,worker,web \"npm run dev -w packages/api\" \"npm run dev -w packages/worker\" \"npm run dev -w packages/admin-web\"",
+    "dev:smoke": "concurrently -n api,web \"npm run dev -w packages/api\" \"npm run dev:smoke -w packages/admin-web\"",
     "db:migrate": "npm run migrate -w packages/api",
     "db:seed": "npm run seed -w packages/api",
     "db:reset:demo": "npm run reset:demo -w packages/api",

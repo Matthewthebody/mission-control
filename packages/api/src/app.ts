@@ -98,7 +98,7 @@ import { assertReleaseDisciplineStartup, getPublicReleaseDisciplineSummary } fro
 import { requestContextMiddleware } from "./services/requestContext.js";
 
 const httpLogger = pinoHttp as unknown as (options?: Record<string, unknown>) => express.RequestHandler;
-const LOCAL_DEV_ADMIN_WEB_PORTS = [5173, 5174, 5175, 5176, 5177, 5178, 5179];
+const LOCAL_DEV_ADMIN_WEB_PORTS = Array.from({ length: 27 }, (_, index) => 5173 + index);
 
 export function createApp() {
   if (config.MICROSOFT_OUTLOOK_SYNC_ENABLED) {
