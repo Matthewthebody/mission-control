@@ -58,6 +58,10 @@ const currentUser: SessionUser = {
 
 const availableTabs: TabKey[] = ["dashboard", "calendar", "shoots", "projects", "time", "alerts"];
 
+function localDateKeyForTest(now = new Date()) {
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
 const cleanIntegration: ScheduleRecordIntegrationState = {
   provider: "outlook",
   link_state: "not_linked",
@@ -547,7 +551,7 @@ describe("StudiosWorkspace", () => {
   });
 
   it("renders a today-first studios homepage without redundant quick actions", async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKeyForTest();
     listSharedJobsMock.mockResolvedValue({
       jobs: [
         buildSharedJob({
@@ -570,6 +574,7 @@ describe("StudiosWorkspace", () => {
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} />);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Photography Today" })).toBeInTheDocument();
+    expect(listSharedJobsMock).toHaveBeenCalledWith("token-demo", { day_date: today });
     expect(screen.getByRole("heading", { level: 3, name: "Today's Photography Shoots" })).toBeInTheDocument();
     expect(screen.getByText("North Metro Stadium Media Day")).toBeInTheDocument();
     expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
@@ -664,7 +669,7 @@ describe("StudiosWorkspace", () => {
   });
 
   it("renders a Photography-specific Day at a Glance route without generic create-task actions", async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKeyForTest();
     listSharedJobsMock.mockResolvedValue({
       jobs: [
         buildSharedJob({

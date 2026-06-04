@@ -805,7 +805,7 @@ function humanizeTravelValue(value: string) {
 }
 
 function PhotographyTodayShootsPanel({ token }: { token: string }) {
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => getLocalDateKey(), []);
   const [jobs, setJobs] = useState<SharedJobListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -939,6 +939,10 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
       )}
     </section>
   );
+}
+
+function getLocalDateKey(now = new Date()) {
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 
 function buildDayAtGlanceSummary(jobs: SharedJobListItem[]) {
