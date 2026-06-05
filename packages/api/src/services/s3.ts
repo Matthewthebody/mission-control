@@ -5,7 +5,7 @@ import { extname } from "node:path";
 import { ApiError } from "../errors/apiError.js";
 import { config } from "../config.js";
 
-const enabled = Boolean(config.S3_BUCKET && config.AWS_ACCESS_KEY_ID && config.AWS_SECRET_ACCESS_KEY);
+const enabled = [config.S3_BUCKET, config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY].every(isConfiguredStorageValue);
 const ALLOWED_UPLOAD_TYPES = new Map<string, { extension: string; maxBytes: number }>([
   ["image/jpeg", { extension: ".jpg", maxBytes: 15_000_000 }],
   ["image/png", { extension: ".png", maxBytes: 15_000_000 }],
@@ -89,4 +89,9 @@ function sanitizePathSegment(value: string) {
 
 function buildObjectUrl(baseUrl: string, storageKey: string) {
   return `${baseUrl.replace(/\/+$/, "")}/${storageKey}`;
+}
+
+function isConfiguredStorageValue(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && !normalized.startsWith("replace_me");
 }
