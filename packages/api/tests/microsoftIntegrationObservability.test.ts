@@ -1,17 +1,56 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import request from "supertest";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
+import { OUTLOOK_PILOT_SCOPE_STRING } from "../src/config/outlook.js";
 import { pool } from "../src/db/pool.js";
 import { setActiveProviderMode, upsertConnection } from "../src/services/outlookStore.js";
 import { devLogin } from "./helpers.js";
 
 const app = createApp();
+const outlookOauthEnvKeys = [
+  "OUTLOOK_TENANT_ID",
+  "OUTLOOK_CLIENT_ID",
+  "OUTLOOK_CLIENT_SECRET",
+  "OUTLOOK_REDIRECT_URI",
+  "OUTLOOK_SCOPES"
+] as const;
+const originalOutlookOauthEnv = Object.fromEntries(
+  outlookOauthEnvKeys.map((key) => [key, process.env[key]])
+) as Record<(typeof outlookOauthEnvKeys)[number], string | undefined>;
 
 let leadershipToken = "";
 let tenantId = "";
+
+function configureOutlookOauthEnvForTest() {
+  process.env.OUTLOOK_TENANT_ID = "tenant";
+  process.env.OUTLOOK_CLIENT_ID = "client";
+  process.env.OUTLOOK_CLIENT_SECRET = "secret";
+  process.env.OUTLOOK_REDIRECT_URI = "http://localhost:4000/api/integrations/outlook/oauth/callback";
+  process.env.OUTLOOK_SCOPES = OUTLOOK_PILOT_SCOPE_STRING;
+}
+
+function restoreOutlookOauthEnv() {
+  for (const key of outlookOauthEnvKeys) {
+    const value = originalOutlookOauthEnv[key];
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+}
+
+function enableOutlookSyncForTest() {
+  configureOutlookOauthEnvForTest();
+  Object.assign(config, {
+    MICROSOFT_OUTLOOK_SYNC_ENABLED: true,
+    OUTLOOK_APP_PERMISSION_FEATURES_ENABLED: false,
+    OUTLOOK_TOKEN_ENCRYPTION_SECRET: "phase1-local-secret"
+  });
+}
 
 beforeAll(async () => {
   const migrationSql = await readFile(
@@ -35,6 +74,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  configureOutlookOauthEnvForTest();
   config.MICROSOFT_ENTRA_AUTH_ENABLED = false;
   config.MICROSOFT_OUTLOOK_SYNC_ENABLED = false;
   config.TEAMS_OPERATIONAL_ALERTS_ENABLED = false;
@@ -46,10 +86,13 @@ beforeEach(async () => {
   config.MICROSOFT_GRAPH_CLIENT_ID = "";
   config.MICROSOFT_GRAPH_CLIENT_SECRET = "";
   config.MICROSOFT_GRAPH_TENANT_ID = "";
+  config.MICROSOFT_GRAPH_WEBHOOK_CLIENT_STATE = "";
   config.MICROSOFT_ENTRA_REDIRECT_URI = "";
   config.MICROSOFT_ENTRA_POST_LOGOUT_REDIRECT_URI = "";
+  config.WEBHOOK_SHARED_SECRET = "";
   config.ADMIN_WEB_URL = "http://localhost:5173";
   config.API_PUBLIC_URL = "http://localhost:4000";
+  config.OUTLOOK_GRAPH_TIMEOUT_MS = 5000;
 
   await pool.query("DELETE FROM microsoft_integration_event WHERE tenant_id = $1 OR tenant_id IS NULL", [tenantId]);
   await pool.query("DELETE FROM integration_sync_operation WHERE tenant_id = $1", [tenantId]);
@@ -60,6 +103,10 @@ beforeEach(async () => {
   await pool.query("DELETE FROM microsoft_sms_consent WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM outlook_connection WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM outlook_tenant_state WHERE tenant_id = $1", [tenantId]);
+});
+
+afterEach(() => {
+  restoreOutlookOauthEnv();
 });
 
 describe("Microsoft integration observability", () => {
@@ -88,14 +135,7 @@ describe("Microsoft integration observability", () => {
   });
 
   it("warns when Outlook webhook verification is not configured for pilot-safe change tracking", async () => {
-    config.MICROSOFT_OUTLOOK_SYNC_ENABLED = true;
-    config.OUTLOOK_APP_PERMISSION_FEATURES_ENABLED = false;
-    config.OUTLOOK_TENANT_ID = "tenant";
-    config.OUTLOOK_CLIENT_ID = "client";
-    config.OUTLOOK_CLIENT_SECRET = "secret";
-    config.OUTLOOK_REDIRECT_URI = "http://localhost:4000/api/integrations/outlook/oauth/callback";
-    config.OUTLOOK_SCOPES = "offline_access User.Read Calendars.Read";
-    config.OUTLOOK_TOKEN_ENCRYPTION_SECRET = "phase1-local-secret";
+    enableOutlookSyncForTest();
     config.MICROSOFT_GRAPH_WEBHOOK_CLIENT_STATE = "";
     config.WEBHOOK_SHARED_SECRET = "";
 
@@ -166,14 +206,7 @@ describe("Microsoft integration observability", () => {
   });
 
   it("marks delegated Outlook health as warning when the live connection is disconnected", async () => {
-    config.MICROSOFT_OUTLOOK_SYNC_ENABLED = true;
-    config.OUTLOOK_APP_PERMISSION_FEATURES_ENABLED = false;
-    config.OUTLOOK_TENANT_ID = "tenant";
-    config.OUTLOOK_CLIENT_ID = "client";
-    config.OUTLOOK_CLIENT_SECRET = "secret";
-    config.OUTLOOK_REDIRECT_URI = "http://localhost:4000/api/integrations/outlook/oauth/callback";
-    config.OUTLOOK_SCOPES = "offline_access User.Read Calendars.Read";
-    config.OUTLOOK_TOKEN_ENCRYPTION_SECRET = "phase1-local-secret";
+    enableOutlookSyncForTest();
 
     const client = await pool.connect();
     try {
@@ -208,14 +241,7 @@ describe("Microsoft integration observability", () => {
   });
 
   it("marks delegated Outlook health as warning when only mock preview is connected", async () => {
-    config.MICROSOFT_OUTLOOK_SYNC_ENABLED = true;
-    config.OUTLOOK_APP_PERMISSION_FEATURES_ENABLED = false;
-    config.OUTLOOK_TENANT_ID = "tenant";
-    config.OUTLOOK_CLIENT_ID = "client";
-    config.OUTLOOK_CLIENT_SECRET = "secret";
-    config.OUTLOOK_REDIRECT_URI = "http://localhost:4000/api/integrations/outlook/oauth/callback";
-    config.OUTLOOK_SCOPES = "offline_access User.Read Calendars.Read";
-    config.OUTLOOK_TOKEN_ENCRYPTION_SECRET = "phase1-local-secret";
+    enableOutlookSyncForTest();
 
     const client = await pool.connect();
     try {
@@ -249,14 +275,7 @@ describe("Microsoft integration observability", () => {
   });
 
   it("keeps observability pinned to the active provider so mock preview cannot mask live disconnection", async () => {
-    config.MICROSOFT_OUTLOOK_SYNC_ENABLED = true;
-    config.OUTLOOK_APP_PERMISSION_FEATURES_ENABLED = false;
-    config.OUTLOOK_TENANT_ID = "tenant";
-    config.OUTLOOK_CLIENT_ID = "client";
-    config.OUTLOOK_CLIENT_SECRET = "secret";
-    config.OUTLOOK_REDIRECT_URI = "http://localhost:4000/api/integrations/outlook/oauth/callback";
-    config.OUTLOOK_SCOPES = "offline_access User.Read Calendars.Read";
-    config.OUTLOOK_TOKEN_ENCRYPTION_SECRET = "phase1-local-secret";
+    enableOutlookSyncForTest();
 
     const client = await pool.connect();
     try {
