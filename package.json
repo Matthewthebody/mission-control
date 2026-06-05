@@ -30,6 +30,7 @@
     "smoke:portal": "npm run test:smoke:portal -w packages/api",
     "smoke:microsoft": "npm run test:smoke:microsoft -w packages/api && npm run test:smoke:microsoft -w packages/worker && npm run test:smoke:microsoft -w packages/admin-web",
     "smoke:pilot": "npm run smoke:jobs && npm run smoke:workflow && npm run smoke:exceptions && npm run smoke:my-work && npm run smoke:portal && npm run smoke:microsoft",
+    "check:phase1-freeze": "node tools/check-phase1-freeze.mjs",
     "verify:release:clean": "node tools/check-clean-git-state.mjs",
     "verify:release:build": "npm run build -w packages/api && npm run build -w packages/worker && npm run build -w packages/admin-web && npm run verify:mobile",
     "verify:release:test": "npm run test -w packages/api && npm run test -w packages/worker && npm run test -w packages/admin-web",
