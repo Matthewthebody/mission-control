@@ -1524,9 +1524,12 @@ export function SchoolsHub({ token, currentUser }: Props) {
           <ProjectTrackingDepartmentQueue
             token={token}
             department="schools"
-            title="Schools workflow queue"
-            summary="Live Project Tracking rows where the next step belongs to Schools. Open Project Tracking for the full work spine."
+            title="Schools Active Work"
+            summary="Live Project Tracking work for roster/data issues, gallery releases, retakes, waiting-on-school items, and at-risk school jobs."
             limit={8}
+            variant="compact"
+            maxItems={6}
+            emptyStateLabel="No active Schools workflow steps"
           />
           <section className="panel schools-department__work-panel">
             <WorkspaceSectionHeader

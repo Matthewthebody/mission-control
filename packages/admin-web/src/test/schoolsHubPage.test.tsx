@@ -503,9 +503,10 @@ describe("SchoolsHub", () => {
     expect(await screen.findByRole("heading", { name: "Schools" })).toBeInTheDocument();
     expect(screen.getByText("School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner.")).toBeInTheDocument();
     expect(screen.getByText("Schools Command Hub")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Schools workflow queue" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Schools Active Work" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();
-    expect(screen.getByText("Here by current step department")).toBeInTheDocument();
+    expect(screen.getByLabelText("Schools Active Work summary")).toBeInTheDocument();
+    expect(screen.getByText("View Workflow")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Schools department command list" })).toBeInTheDocument();
     expect(screen.getByText("Active School Work")).toBeInTheDocument();
     expect(screen.getByText("Due Soon")).toBeInTheDocument();

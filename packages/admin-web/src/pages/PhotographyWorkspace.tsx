@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
 import { CompactActiveWorkPanel } from "../components/workspace/CompactActiveWorkPanel";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState";
@@ -184,6 +185,19 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
       {isPrepFocus ? <PhotographyJobPrepPanel token={token} compatibilityNotice={focus === "readiness"} /> : null}
 
       {isTravelFocus ? <PhotographyTravelPanel token={token} /> : null}
+
+      {isOverview || focus === "workload" ? (
+        <ProjectTrackingDepartmentQueue
+          token={token}
+          department="photography"
+          title="Photography Active Work"
+          summary="Live Project Tracking work for shoot readiness, staffing, post-shoot evaluations, setup-photo issues, and senior photographer follow-ups."
+          limit={6}
+          variant="compact"
+          maxItems={6}
+          emptyStateLabel="No active Photography workflow steps"
+        />
+      ) : null}
 
       {isTodayFocus || isOverview || isTravelFocus || isPrepFocus ? null : (
         <CompactActiveWorkPanel

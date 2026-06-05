@@ -837,8 +837,11 @@ export function SportsOverview({ token, currentUser }: Props) {
       <ProjectTrackingDepartmentQueue
         token={token}
         department="sports"
-        title="Sports workflow queue"
-        summary="Live Project Tracking rows where the next step belongs to Sports. Open Project Tracking for the full work spine."
+        title="Sports Active Work"
+        summary="Live Project Tracking work for upcoming jobs, QR/data prep, production state, release queues, and association follow-ups."
+        variant="compact"
+        maxItems={6}
+        emptyStateLabel="No active Sports workflow steps"
       />
 
       {featureFlags.centralJobIntakeV1 ? (

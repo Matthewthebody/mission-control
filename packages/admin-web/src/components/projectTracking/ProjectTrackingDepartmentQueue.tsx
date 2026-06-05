@@ -5,6 +5,7 @@ import { WorkspaceEmptyState } from "../workspace/WorkspaceEmptyState";
 import { WorkspaceLoadingBlock } from "../workspace/WorkspaceLoadingBlock";
 import { WorkspaceSectionHeader } from "../workspace/WorkspaceSectionHeader";
 import { buildSharedJobHash } from "../jobs/sharedJobRouting";
+import { resolveWorkSpineActionHref } from "../../workSpineRouting";
 import { QuickWorkflowStepEditor } from "./QuickWorkflowStepEditor";
 import { QuickWorkflowNextStepMover } from "./QuickWorkflowNextStepMover";
 
@@ -16,6 +17,11 @@ type Props = {
   title: string;
   summary: string;
   limit?: number;
+  variant?: "table" | "compact";
+  showSummary?: boolean;
+  maxItems?: number;
+  emptyStateLabel?: string;
+  actionLabel?: string;
 };
 
 function friendlyName(value: string | null | undefined) {
@@ -136,6 +142,51 @@ function waitingLabel(row: ProjectWorkflowJobRow) {
   return friendlyName(waiting);
 }
 
+function compactDateLabel(value: string | null) {
+  if (!value) {
+    return "No due date";
+  }
+  return `Due ${dateLabel(value)}`;
+}
+
+function isDueThisWeek(row: ProjectWorkflowJobRow) {
+  if (!row.next_deadline_at) {
+    return false;
+  }
+  const dueAt = new Date(row.next_deadline_at).getTime();
+  if (Number.isNaN(dueAt)) {
+    return false;
+  }
+  const now = Date.now();
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+  return dueAt >= now && dueAt <= now + sevenDays;
+}
+
+function workflowHref(row: ProjectWorkflowJobRow) {
+  return resolveWorkSpineActionHref({
+    workflowRunId: row.workflow_run_id,
+    fallbackHash: "#project-tracking",
+    fallbackKind: "project_tracking"
+  });
+}
+
+function rowIsAtRisk(row: ProjectWorkflowJobRow) {
+  return row.health === "at_risk" || row.health === "running_late" || row.health === "unknown";
+}
+
+function rowIsBlocked(row: ProjectWorkflowJobRow) {
+  return row.health === "blocked" || row.queue_intelligence.operational_status === "blocked";
+}
+
+function summarySignals(rows: ProjectWorkflowJobRow[]) {
+  return [
+    { label: "Open", value: rows.length },
+    { label: "At Risk", value: rows.filter(rowIsAtRisk).length },
+    { label: "Due This Week", value: rows.filter(isDueThisWeek).length },
+    { label: "Blocked", value: rows.filter(rowIsBlocked).length }
+  ];
+}
+
 function stepTeamLabel(row: ProjectWorkflowJobRow) {
   const department = row.current_step?.department;
   const assignedQueue = row.current_step?.assigned_queue;
@@ -194,7 +245,18 @@ function jobDetailHash(row: ProjectWorkflowJobRow, department: ProjectTrackingDe
   return buildSharedJobHash("#jobs", row.job_id);
 }
 
-export function ProjectTrackingDepartmentQueue({ token, department, title, summary, limit = 6 }: Props) {
+export function ProjectTrackingDepartmentQueue({
+  token,
+  department,
+  title,
+  summary,
+  limit = 6,
+  variant = "table",
+  showSummary = variant === "compact",
+  maxItems,
+  emptyStateLabel = "No active Project Tracking steps here",
+  actionLabel = "View Workflow"
+}: Props) {
   const [payload, setPayload] = useState<ProjectWorkflowCommandCenter | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -234,19 +296,114 @@ export function ProjectTrackingDepartmentQueue({ token, department, title, summa
   }
 
   const rows = (payload?.job_rows ?? []).filter((row) => rowBelongsToDepartment(row, department));
+  const visibleRows = rows.slice(0, maxItems ?? rows.length);
 
   return (
-    <section className="panel project-tracking-department-queue">
+    <section className={`panel project-tracking-department-queue project-tracking-department-queue--${variant}`}>
       <WorkspaceSectionHeader
-        eyebrow="Project Dashboard"
+        eyebrow="Project Tracking"
         title={title}
         summary={summary}
         compact
         badge={<span className="metric-pill">{rows.length} in queue</span>}
       />
       {error ? (
-        <WorkspaceEmptyState title="Project Dashboard queue unavailable" summary={error} compact />
+        <WorkspaceEmptyState title="Project Tracking queue unavailable" summary={error} compact />
       ) : rows.length ? (
+        variant === "compact" ? (
+        <>
+          {showSummary ? (
+            <div className="project-tracking-department-queue__summary" aria-label={`${title} summary`}>
+              {summarySignals(rows).map((signal) => (
+                <div className="project-tracking-department-queue__summary-card" key={signal.label}>
+                  <span>{signal.label}</span>
+                  <strong>{signal.value}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="project-tracking-department-queue__cards" aria-label={title}>
+            {visibleRows.map((row) => {
+              const expanded = expandedRowId === row.job_id;
+              const href = workflowHref(row);
+              return (
+                <article className="project-tracking-department-queue__card" key={row.job_id}>
+                  <div className="project-tracking-department-queue__card-main">
+                    <div className="project-tracking-department-queue__card-title">
+                      <span>{row.organization_name ?? row.account_name ?? "Account not connected yet"}</span>
+                      <h4 title={row.job_title}>{row.job_title || "Untitled job"}</h4>
+                    </div>
+                    <div className="project-tracking-department-queue__card-badges">
+                      <span className={`project-tracking-department-queue__risk project-tracking-department-queue__risk--${healthTone(row)}`}>
+                        {healthLabel(row)}
+                      </span>
+                      {row.current_step?.waiting_on_party && row.current_step.waiting_on_party !== "none" ? (
+                        <span className="project-tracking-department-queue__wait">Waiting on {waitingLabel(row)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <dl className="project-tracking-department-queue__facts">
+                    <div>
+                      <dt>Department</dt>
+                      <dd>{stepTeamLabel(row)}</dd>
+                    </div>
+                    <div>
+                      <dt>Phase</dt>
+                      <dd>{friendlyName(row.phase || row.current_step?.phase)}</dd>
+                    </div>
+                    <div>
+                      <dt>Step</dt>
+                      <dd>{currentStepLabel(row)}</dd>
+                    </div>
+                    <div>
+                      <dt>Owner</dt>
+                      <dd>{ownerLabel(row)}</dd>
+                    </div>
+                    <div>
+                      <dt>Due</dt>
+                      <dd>{compactDateLabel(row.next_deadline_at)}</dd>
+                    </div>
+                  </dl>
+                  <div className="project-tracking-department-queue__next">
+                    <span>Next action</span>
+                    <strong>{row.queue_intelligence.next_action || row.queue_intelligence.reason || "Review the workflow status"}</strong>
+                  </div>
+                  <div className="project-tracking-department-queue__workflow-actions">
+                    {row.workflow_run_id ? <a href={href}>{actionLabel}</a> : <a href="#project-tracking">Open in Project Tracking</a>}
+                    <button type="button" aria-expanded={expanded} onClick={() => setExpandedRowId(expanded ? null : row.job_id)}>
+                      Details
+                    </button>
+                  </div>
+                  {expanded ? (
+                    <div className="project-tracking-department-queue__details">
+                      <div>
+                        <span>Job date</span>
+                        <strong>{jobDateLabel(row.job_date)}</strong>
+                      </div>
+                      <div>
+                        <span>Department</span>
+                        <strong>{stepTeamLabel(row)}</strong>
+                      </div>
+                      <div>
+                        <span>Why here</span>
+                        <strong>{row.queue_intelligence.reason}</strong>
+                      </div>
+                      <div>
+                        <span>Clear condition</span>
+                        <strong>{row.queue_intelligence.clear_condition}</strong>
+                      </div>
+                      <div>
+                        <span>Job record</span>
+                        <a href={jobDetailHash(row, department)}>Open Job</a>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </>
+        ) : (
         <div className="project-tracking-department-queue__table" role="table" aria-label={title}>
           <div className="project-tracking-department-queue__row project-tracking-department-queue__row--head" role="row">
             <span role="columnheader">Organization / account</span>
@@ -298,7 +455,7 @@ export function ProjectTrackingDepartmentQueue({ token, department, title, summa
                   <button type="button" onClick={() => setEditingStepId(editingStepId === row.current_step?.id ? null : row.current_step?.id ?? null)}>
                     Assign / Status
                   </button>
-                  <a href={`#project-tracking/workflows/${row.workflow_run_id}`}>Open Workflow</a>
+                  <a href={workflowHref(row)}>Open Workflow</a>
                   <button type="button" aria-expanded={expanded} onClick={() => setExpandedRowId(expanded ? null : row.job_id)}>
                     Details
                   </button>
@@ -366,10 +523,11 @@ export function ProjectTrackingDepartmentQueue({ token, department, title, summa
             );
           })}
         </div>
+        )
       ) : (
         <WorkspaceEmptyState
-          title="No active Project Dashboard steps here"
-          summary="When a workflow reaches this department, it will appear here automatically from the same job-row source as Project Dashboard."
+          title={emptyStateLabel}
+          summary="When a workflow reaches this department, it will appear here automatically from the same Project Tracking source."
           compact
         />
       )}

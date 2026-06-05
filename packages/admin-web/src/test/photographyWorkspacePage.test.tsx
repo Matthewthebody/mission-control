@@ -6,11 +6,13 @@ import { getRouteById, getVisibleChildRoutes, resolveRouteId, type TabKey } from
 import { StudiosWorkspace } from "../pages/PhotographyWorkspace";
 import { Schedule } from "../pages/Schedule";
 import type { SharedJobDetailResponse, SharedJobListItem } from "../jobTruthTypes";
+import type { ProjectWorkflowJobRow } from "../projectTrackingTypes";
 import type { ScheduleRecordIntegrationState, SessionUser, UnifiedScheduleShootItem } from "../types";
 
 const listSharedJobsMock = vi.fn();
 const getSharedJobDetailMock = vi.fn();
 const apiFetchMock = vi.fn();
+const getProjectWorkflowCommandCenterMock = vi.fn();
 
 vi.mock("../services/jobsApi", () => ({
   getSharedJobDetail: (...args: unknown[]) => getSharedJobDetailMock(...args),
@@ -19,6 +21,10 @@ vi.mock("../services/jobsApi", () => ({
 
 vi.mock("../api", () => ({
   apiFetch: (...args: unknown[]) => apiFetchMock(...args)
+}));
+
+vi.mock("../services/projectTracking", () => ({
+  getProjectWorkflowCommandCenter: (...args: unknown[]) => getProjectWorkflowCommandCenterMock(...args)
 }));
 
 const currentUser: SessionUser = {
@@ -57,6 +63,86 @@ const currentUser: SessionUser = {
 };
 
 const availableTabs: TabKey[] = ["dashboard", "calendar", "shoots", "projects", "time", "alerts"];
+
+const photographyWorkflowRow = {
+  job_id: "job-photo-workflow",
+  job_number: "PHO-2001",
+  job_code: "PHO-2001",
+  job_title: "North Metro Stadium Media Day",
+  organization_id: "org-photo",
+  organization_name: "North Metro Athletics",
+  account_id: "account-photo",
+  account_name: "North Metro Athletics",
+  workflow_run_id: "workflow-photo-1",
+  workflow_template_id: "template-photo",
+  workflow_template_name: "Photography readiness",
+  workflow_template_version: "v1",
+  current_step: {
+    id: "step-photo-1",
+    workflow_run_id: "workflow-photo-1",
+    job_id: "job-photo-workflow",
+    milestone_key: "field_readiness",
+    step_key: "post_shoot_eval",
+    name: "Post-shoot evaluation follow-up",
+    description: null,
+    department: "photography",
+    role_key: "senior_photographer",
+    assigned_user_id: "user-photo",
+    assigned_user_name: "Photo Lead",
+    assignment_status: "assigned",
+    assigned_queue: "photography",
+    assigned_by_user_id: null,
+    assigned_by_user_name: null,
+    assigned_at: null,
+    waiting_on_party: "none",
+    waiting_detail: null,
+    status: "IN_PROGRESS",
+    required: true,
+    skippable: false,
+    blocking: false,
+    expected_duration_minutes: 120,
+    started_at: null,
+    completed_at: null,
+    completed_by_user_id: null,
+    notes: "Check setup reference and post-shoot notes.",
+    exception_reason: null,
+    rework_count: 0,
+    dependency_step_ids: [],
+    timing: {
+      elapsed_minutes: 0,
+      remaining_minutes: 120,
+      overdue_minutes: 0,
+      idle_minutes: 0,
+      sla_percent: 0,
+      alert_level: "early_warning",
+      health_state: "yellow"
+    },
+    updated_at: "2026-06-05T12:00:00.000Z",
+    phase: "field_follow_up"
+  },
+  phase: "field_follow_up",
+  owner_display: "Photo Lead",
+  owner_type: "user",
+  job_date: "2026-06-05",
+  next_deadline_at: "2026-06-08T12:00:00.000Z",
+  deadline_state: "due_soon",
+  waiting_on_party: "none",
+  health: "due_soon",
+  health_reasons: ["Post-shoot evaluation needs review"],
+  file_status: "qa_review",
+  missing_info_flags: [],
+  rework_count: 0,
+  blocked_reason: null,
+  queue_intelligence: {
+    reason: "Photography follow-up is due soon.",
+    trigger: "due_soon",
+    owner_lane: "Photography",
+    next_action: "Review post-shoot evaluation and setup references.",
+    clear_condition: "Evaluation is complete and references are attached.",
+    operational_status: "needs_action"
+  },
+  updated_at: "2026-06-05T12:00:00.000Z"
+} as unknown as ProjectWorkflowJobRow;
 
 function localDateKeyForTest(now = new Date()) {
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -543,6 +629,15 @@ describe("StudiosWorkspace", () => {
     listSharedJobsMock.mockReset();
     getSharedJobDetailMock.mockReset();
     apiFetchMock.mockReset();
+    getProjectWorkflowCommandCenterMock.mockReset();
+    getProjectWorkflowCommandCenterMock.mockResolvedValue({
+      generated_at: "2026-06-05T12:00:00.000Z",
+      view: "department",
+      summary: {},
+      alerts: [],
+      steps: [],
+      job_rows: [photographyWorkflowRow]
+    });
     window.location.hash = "#studios";
   });
 
@@ -583,7 +678,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Travel Notes")).toBeInTheDocument();
     expect(screen.getByText("Post-Shoot Evals")).toBeInTheDocument();
     expect(screen.getByText("Recently Changed")).toBeInTheDocument();
-    expect(screen.getByText("North Metro Stadium Media Day")).toBeInTheDocument();
+    expect(screen.getAllByText("North Metro Stadium Media Day").length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
     expect(screen.getByText("Carisa Lead")).toBeInTheDocument();
     expect(screen.getByText("3 assigned / 2 active")).toBeInTheDocument();
@@ -596,6 +691,10 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Senior Photographer View" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30-Day Planning Calendar" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "Photography Active Work" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Photography Active Work summary")).toBeInTheDocument();
+    expect(screen.getByText("Review post-shoot evaluation and setup references.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Workflow" })).toHaveAttribute("href", "#project-tracking/workflows/workflow-photo-1");
 
     fireEvent.click(screen.getByRole("button", { name: "30-Day Planning Calendar" }));
     await waitFor(() => {
