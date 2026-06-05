@@ -294,7 +294,7 @@ describe("dashboard home command surface", () => {
             status_label: "Awaiting release",
             tone: "heads_up",
             next_action: "Open production queue",
-            action_hash: "#production/digital"
+            action_hash: "#project-tracking/workflows/workflow-gallery-release"
           }
         ]
       },
@@ -391,6 +391,7 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText(/Owner\/context: Owner: Demo Leadership/i)).toBeInTheDocument();
     expect(screen.getByText(/Next: Open Attendance Review/i)).toBeInTheDocument();
     expect(screen.getByText("Work moving now")).toBeInTheDocument();
+    expect(screen.getAllByText("View in Project Tracking").length).toBeGreaterThanOrEqual(1);
 
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
     expect(screen.queryByText("Operational Modules")).not.toBeInTheDocument();
@@ -410,7 +411,10 @@ describe("dashboard home command surface", () => {
     expect(window.location.hash).toBe("#project-tracking");
 
     fireEvent.click(screen.getByRole("button", { name: /Lead still missing/i }));
-    expect(window.location.hash).toBe("#operations/attendance");
+    expect(window.location.hash).toBe("#employees/attendance");
+
+    fireEvent.click(screen.getByRole("button", { name: /Gallery release review/i }));
+    expect(window.location.hash).toBe("#project-tracking/workflows/workflow-gallery-release");
   });
 
   it("keeps the employee home simple, action-oriented, and free of the old placeholder language", async () => {

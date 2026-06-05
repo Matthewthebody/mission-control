@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Compliance } from "../pages/Compliance";
@@ -248,6 +249,7 @@ const listResponse: ComplianceWorkspaceListPayload = {
 const flagDetail: ComplianceWorkspaceDetailPayload = {
   item: listResponse.rows[0],
   available_actions: [
+    { id: "open_work_record", label: "Open Compliance Workflow", kind: "drill_out", hash: "#project-tracking/workflows/workflow-closeout-1" },
     { id: "open_compliance", label: "Open Compliance Workspace", kind: "drill_out", hash: "#employees/compliance" }
   ],
   deep_links: [
@@ -563,6 +565,12 @@ describe("Compliance page", () => {
     expect(screen.getAllByText("Missing Setup Photo").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Fix in Attendance").length).toBeGreaterThan(0);
     expect(screen.queryByText("missing_setup_photo")).toBeNull();
+    expect(await screen.findByRole("link", { name: "View in Project Tracking" })).toHaveAttribute(
+      "href",
+      "#project-tracking/workflows/workflow-closeout-1"
+    );
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
+    expect(screen.queryByText("Open Compliance Workflow")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /No-Lunch Challenge/i }));
     expect(await screen.findByRole("button", { name: "Approve Challenge" })).toBeTruthy();
@@ -573,8 +581,8 @@ describe("Compliance page", () => {
     expect(screen.getByText("Blocker Summary")).toBeTruthy();
     expect(screen.getByText("Best next action")).toBeTruthy();
     expect(screen.getByText("Correction Request")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open Attendance Review" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Attendance Review" })).toHaveAttribute("href", "#employees/attendance");
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
     expect(screen.queryByText(/#employees\/compliance/i)).toBeNull();
     expect(screen.getByText("History")).toBeTruthy();
 

@@ -14,6 +14,7 @@ import type {
   HomeWidgetTone,
   SessionUser
 } from "../../types";
+import { resolveWorkSpineActionHref } from "../../workSpineRouting";
 import { WorkspaceActionBar } from "../workspace/WorkspaceActionBar";
 import { WorkspaceLoadingBlock } from "../workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader } from "../workspace/WorkspacePageHeader";
@@ -96,14 +97,12 @@ function mapTone(tone: HomeWidgetTone | undefined): "neutral" | "info" | "succes
   }
 }
 
-function normalizeNeedsAttentionHash(hash: string) {
-  return hash === "#employees/compliance" || hash === "#compliance" || hash === "#review-desk" || hash === "#production/review"
-    ? buildShellRouteHash("people-ops-compliance")
-    : hash;
+function resolveHomeActionHash(hash: string | null | undefined) {
+  return resolveWorkSpineActionHref({ actionHash: hash, fallbackHash: hash });
 }
 
-function getPlainActionLabel(label: string, hash: string) {
-  const normalizedHash = normalizeNeedsAttentionHash(hash);
+function getPlainActionLabel(label: string, hash: string | null | undefined) {
+  const normalizedHash = resolveHomeActionHash(hash);
   const lowerHash = normalizedHash.toLowerCase();
   const lowerLabel = label.toLowerCase();
 
@@ -753,7 +752,7 @@ export function HomeCommandSurface({
                   key={item.id}
                   type="button"
                   className={`home-operational__issue-card home-operational__issue-card--${mapTone(item.tone)}`}
-                  onClick={() => navigateToHash(normalizeNeedsAttentionHash(item.action_hash))}
+                  onClick={() => navigateToHash(resolveHomeActionHash(item.action_hash))}
                 >
                   <div className="home-operational__issue-top">
                     <span>{item.kind_label}</span>
@@ -790,7 +789,7 @@ export function HomeCommandSurface({
                   key={item.id}
                   type="button"
                   className={`home-operational__moving-card home-operational__moving-card--${item.tone}`}
-                  onClick={() => navigateToHash(normalizeNeedsAttentionHash(item.actionHash))}
+                  onClick={() => navigateToHash(resolveHomeActionHash(item.actionHash))}
                 >
                   <div className="home-operational__moving-top">
                     <span>{item.eyebrow}</span>

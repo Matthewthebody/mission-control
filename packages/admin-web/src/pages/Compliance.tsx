@@ -21,6 +21,7 @@ import {
   reviewComplianceMissedClockIn
 } from "../services/complianceApi";
 import type { SessionUser } from "../types";
+import { isProjectTrackingWorkflowHash, resolveWorkSpineActionHref } from "../workSpineRouting";
 
 type Props = {
   token: string;
@@ -489,8 +490,8 @@ export function Compliance({ token, currentUser, socket }: Props) {
                     {detail.available_actions
                       .filter((action) => action.hash)
                       .map((action) => (
-                        <a key={action.id} className="secondary-button" href={normalizeNeedsAttentionHash(action.hash)}>
-                          {displayActionLabel(action.label)}
+                        <a key={action.id} className="secondary-button" href={resolveComplianceActionHash(action.hash)}>
+                          {displayActionLabel(action.label, action.hash)}
                         </a>
                       ))}
                   </div>
@@ -501,7 +502,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                       .filter((action) => !action.hash)
                       .map((action) => (
                         <span key={action.id} className="detail-chip">
-                          {displayActionLabel(action.label)}
+                          {displayActionLabel(action.label, action.hash)}
                         </span>
                       ))}
                   </div>
@@ -972,7 +973,10 @@ function displayWorkspaceLabel(label: string) {
   return label === "Compliance" ? "Needs Attention" : label;
 }
 
-function displayActionLabel(label: string) {
+function displayActionLabel(label: string, hash?: string | null) {
+  if (isProjectTrackingWorkflowHash(hash)) {
+    return "View in Project Tracking";
+  }
   return label
     .replace(/Open Compliance Workspace/g, "Open Needs Attention")
     .replace(/Open Compliance/g, "Open Needs Attention")
@@ -981,10 +985,8 @@ function displayActionLabel(label: string) {
     .replace(/Compliance/g, "Needs Attention");
 }
 
-function normalizeNeedsAttentionHash(hash: string | null | undefined) {
-  return hash === "#employees/compliance" || hash === "#compliance" || hash === "#review-desk" || hash === "#production/review"
-    ? "#needs-attention"
-    : hash ?? "#needs-attention";
+function resolveComplianceActionHash(hash: string | null | undefined) {
+  return resolveWorkSpineActionHref({ actionHash: hash, fallbackKind: "review" });
 }
 
 function formatDateTime(value: string) {
