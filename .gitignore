@@ -9,7 +9,12 @@ CODEX_DISCOVERY/
 CODEX_EXPORT/
 CODEX_RUNS/
 apps/
-ops/
+ops/*
+!ops/microsoft365/
+ops/microsoft365/*
+!ops/microsoft365/phase*/
+ops/microsoft365/phase*/*
+!ops/microsoft365/phase*/*-baseline.*.json
 reference/
 review-platform/
 teams/

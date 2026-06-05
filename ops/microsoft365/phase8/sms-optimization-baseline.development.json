@@ -1,0 +1,225 @@
+{
+  "phase": "phase8_sms_analytics_optimization_layer",
+  "baseline_version": "2026.04.03",
+  "environment": "development",
+  "tenant_tier": "sandbox",
+  "sms_policy": {
+    "sms_scope_rule": "Reminder-only SMS is allowed for dashboard-linked jobs and required items with explicit contact linkage.",
+    "sensitive_content_rule": "Do not include documents, approvals, private notes, staff names, or operational detail beyond the reminder purpose.",
+    "secure_link_rule": "Only share the governed dashboard or request-files link that already maps to the required item.",
+    "opt_in_rule": "Only opted-in contacts with a valid normalized phone number are eligible for sends.",
+    "opt_out_rule": "Any provider or manual opt-out immediately blocks future reminder sends until re-consented.",
+    "manual_override_rule": "Manual SMS sends are allowed only through governed templates and remain fully logged.",
+    "consent_retention_rule": "Consent changes and opt-out reasons remain durable for audit and compliance review."
+  },
+  "sender_profiles": [
+    {
+      "sender_key": "ops_default_sms",
+      "display_name": "PMC Ops SMS",
+      "provider": "azure_communication_services",
+      "sender_number": "+15555550101",
+      "department_scope": null,
+      "related_record_types": ["job", "job_readiness_item"],
+      "trigger_types": ["reminder", "overdue", "manual"],
+      "notes": "Default reminder line for development and local validation."
+    }
+  ],
+  "template_schema": [
+    {
+      "template_key": "required_items_reminder_sms",
+      "trigger_type": "reminder",
+      "department_scope": null,
+      "sender_key": "ops_default_sms",
+      "body_template": "Reminder from PMC: {{required_item_label}} for {{project_label}} is still needed{{due_date_phrase}}. Upload here: {{secure_link}} Reply STOP to opt out.",
+      "allowed_tokens": ["required_item_label", "project_label", "due_date_phrase", "secure_link"],
+      "max_length": 320,
+      "forbidden_content_rules": ["Do not include internal notes.", "Do not include sensitive personal or financial information."],
+      "notes": "Standard reminder for incomplete required items."
+    },
+    {
+      "template_key": "required_items_overdue_sms",
+      "trigger_type": "overdue",
+      "department_scope": null,
+      "sender_key": "ops_default_sms",
+      "body_template": "PMC follow-up: {{required_item_label}} for {{project_label}} is overdue. Please upload here: {{secure_link}} or call {{support_phone}}. Reply STOP to opt out.",
+      "allowed_tokens": ["required_item_label", "project_label", "secure_link", "support_phone"],
+      "max_length": 320,
+      "forbidden_content_rules": ["Do not include internal notes.", "Do not include sensitive personal or financial information."],
+      "notes": "Escalated reminder for overdue required items."
+    },
+    {
+      "template_key": "manual_follow_up_sms",
+      "trigger_type": "manual",
+      "department_scope": null,
+      "sender_key": "ops_default_sms",
+      "body_template": "PMC update for {{project_label}}: please review this secure link {{secure_link}}. Questions? Call {{support_phone}}. Reply STOP to opt out.",
+      "allowed_tokens": ["project_label", "secure_link", "support_phone"],
+      "max_length": 320,
+      "forbidden_content_rules": ["Do not include internal notes.", "Do not include sensitive personal or financial information."],
+      "notes": "Operator-triggered reminder-only follow-up."
+    }
+  ],
+  "flow_inventory": [
+    {
+      "flow_key": "required_items_reminder_sms_flow",
+      "trigger_type": "reminder",
+      "template_key": "required_items_reminder_sms",
+      "provider": "azure_communication_services",
+      "callback_required": true,
+      "failure_alert_target": "Teams Automation Alerts",
+      "retry_rule": "Replay only from the dashboard after confirming phone, consent, and link validity.",
+      "notes": "Primary reminder send path."
+    },
+    {
+      "flow_key": "required_items_overdue_sms_flow",
+      "trigger_type": "overdue",
+      "template_key": "required_items_overdue_sms",
+      "provider": "azure_communication_services",
+      "callback_required": true,
+      "failure_alert_target": "Teams Automation Alerts",
+      "retry_rule": "Replay only from the dashboard after confirming phone, consent, and link validity.",
+      "notes": "Overdue reminder send path."
+    },
+    {
+      "flow_key": "manual_follow_up_sms_flow",
+      "trigger_type": "manual",
+      "template_key": "manual_follow_up_sms",
+      "provider": "azure_communication_services",
+      "callback_required": true,
+      "failure_alert_target": "Teams Automation Alerts",
+      "retry_rule": "Manual follow-up must remain tied to a dashboard record and use an approved sender profile.",
+      "notes": "Manual reminder send path."
+    }
+  ],
+  "kpi_definitions": [
+    {
+      "key": "overdue_items",
+      "title": "Overdue Items",
+      "description": "Count of incomplete required items past due and still in active intake flow.",
+      "target_rule": "Keep overdue items at or below the current operational threshold.",
+      "data_rule": "Count incomplete required items with due_at earlier than now."
+    },
+    {
+      "key": "review_cycle_hours",
+      "title": "Review Cycle Hours",
+      "description": "Median review time from submission receipt to approval or rejection.",
+      "target_rule": "Keep review cycle inside the review SLA threshold.",
+      "data_rule": "Use submission timestamps and final reviewer decision timestamps."
+    },
+    {
+      "key": "upload_turnaround_hours",
+      "title": "Upload Turnaround Hours",
+      "description": "Average time from reminder send to matched upload receipt.",
+      "target_rule": "Reduce upload turnaround by improving reminders and request clarity.",
+      "data_rule": "Compare reminder delivery timestamp to next matched submission timestamp."
+    },
+    {
+      "key": "reminder_effectiveness_rate",
+      "title": "Reminder Effectiveness",
+      "description": "Percent of reminder sends that lead to a matched upload within the configured effectiveness window.",
+      "target_rule": "Track effectiveness trend and retire low-signal reminder patterns.",
+      "data_rule": "Matched upload within the effectiveness window divided by reminder sends."
+    },
+    {
+      "key": "backlog_count",
+      "title": "Operational Backlog",
+      "description": "Open intake items that remain incomplete and still require client action or review.",
+      "target_rule": "Keep backlog visible and below the weekly operational limit.",
+      "data_rule": "Count active mappings with incomplete work and no terminal submission outcome."
+    }
+  ],
+  "sla_definitions": [
+    {
+      "key": "review_sla",
+      "title": "Submission Review SLA",
+      "description": "Submission review should be completed within the defined hours after receipt.",
+      "threshold_hours": 48,
+      "breach_rule": "A breach occurs when a submission stays open for review past 48 hours."
+    },
+    {
+      "key": "upload_sla",
+      "title": "Client Upload SLA",
+      "description": "Required item uploads should arrive within the expected follow-up window.",
+      "threshold_hours": 72,
+      "breach_rule": "A breach occurs when required items remain incomplete more than 72 hours past due."
+    }
+  ],
+  "optimization_rules": {
+    "reminder_effectiveness_window_hours": 72,
+    "overdue_backlog_warning_threshold": 10,
+    "review_cycle_warning_hours": 36,
+    "upload_turnaround_warning_hours": 48,
+    "bottleneck_grouping_rule": "Group by department scope first, then by reminder flow and required-item record type."
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Validate SMS compliance policy and approved sender numbers.",
+      "owner": "Security and compliance",
+      "requires_tenant_admin": true,
+      "rollback": "Disable outbound SMS endpoints before removing numbers from the baseline."
+    },
+    {
+      "order": 2,
+      "title": "Configure flow endpoints and callback secret in the target environment.",
+      "owner": "Platform engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Clear the SMS endpoint configuration and disable the feature flag."
+    },
+    {
+      "order": 3,
+      "title": "Pilot opt-in capture and manual consent import for target contacts.",
+      "owner": "Operations",
+      "requires_tenant_admin": false,
+      "rollback": "Set consent status to opted_out or suppressed for the pilot contacts."
+    },
+    {
+      "order": 4,
+      "title": "Enable reminder sweep and validate callbacks and failure alerts.",
+      "owner": "Platform engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Disable reminder sweeps and callback processing while preserving delivery logs."
+    }
+  ],
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Approve the reminder-only SMS policy and verify the sender number is licensed for the environment.",
+      "portal": "Azure Communication Services",
+      "requires_tenant_admin": true,
+      "owner": "Security admin"
+    },
+    {
+      "order": 2,
+      "step": "Create or validate the flow endpoints used for reminder, overdue, and manual reminder sends.",
+      "portal": "Power Automate or provider bridge",
+      "requires_tenant_admin": true,
+      "owner": "Platform admin"
+    },
+    {
+      "order": 3,
+      "step": "Route provider failures into the Teams Automation Alerts channel.",
+      "portal": "Teams and alert routing",
+      "requires_tenant_admin": false,
+      "owner": "Operations lead"
+    },
+    {
+      "order": 4,
+      "step": "Run the Phase 8 validation script before enabling the feature flag.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Platform engineering"
+    }
+  ],
+  "validation_checklist": [
+    "Confirm SMS templates never expose sensitive content.",
+    "Confirm only opted-in contacts can be queued for SMS delivery.",
+    "Confirm failed provider callbacks surface in diagnostics and Teams Automation Alerts.",
+    "Confirm KPI and SLA summaries map back to dashboard-linked records."
+  ],
+  "rollback_principles": [
+    "Disable outbound SMS before changing sender numbers or callback routes.",
+    "Preserve consent and delivery history even when the feature is rolled back.",
+    "Pause reminder sweeps instead of deleting mappings or delivery records."
+  ]
+}

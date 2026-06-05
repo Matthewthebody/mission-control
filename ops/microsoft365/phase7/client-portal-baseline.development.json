@@ -1,0 +1,176 @@
+{
+  "phase": "phase7_power_pages_client_portal",
+  "baseline_version": "1.0.0",
+  "environment": "development",
+  "tenant_tier": "sandbox",
+  "portal_information_architecture": {
+    "site_strategy": "Use one governed Power Pages site for the external client portal and scope all project visibility through explicit dashboard-owned access grants.",
+    "home_route": "/projects",
+    "page_map": [
+      {
+        "key": "project_overview",
+        "title": "Project Overview",
+        "route": "/projects/{portal_project_key}",
+        "purpose": "Show the client-safe project summary, due dates, open required items, and the primary next action.",
+        "security_rule": "Visible only when the signed-in external identity has an active organization or job-level grant for the linked dashboard project.",
+        "components": ["project summary card", "due date banner", "open required items snapshot", "submission status summary"]
+      },
+      {
+        "key": "required_items",
+        "title": "Required Items",
+        "route": "/projects/{portal_project_key}/required-items",
+        "purpose": "List every required item with due dates, completion state, upload availability, and latest submission state.",
+        "security_rule": "Visible only for the scoped project; hidden internal fields and reviewer notes must never render here.",
+        "components": ["required items table", "status badges", "due date column", "upload call to action"]
+      },
+      {
+        "key": "upload",
+        "title": "Upload Documents",
+        "route": "/projects/{portal_project_key}/upload",
+        "purpose": "Provide the secure upload path for a project or required item using the governed Phase 5 request-link mapping.",
+        "security_rule": "Show only upload destinations mapped to the signed-in client scope; never expose browse access to the underlying library.",
+        "components": ["upload instructions", "required item selector", "secure upload link", "traceability note"]
+      },
+      {
+        "key": "submission_history",
+        "title": "Submission History",
+        "route": "/projects/{portal_project_key}/history",
+        "purpose": "Let the client confirm what has been uploaded and how the submission is currently being handled.",
+        "security_rule": "Display only client-safe submission metadata and statuses tied to the scoped project.",
+        "components": ["submission timeline", "file name", "submitted at", "submission status"]
+      },
+      {
+        "key": "help",
+        "title": "Help And Contact",
+        "route": "/help",
+        "purpose": "Tell clients how to get help, what the response expectations are, and how upload or access issues are handled.",
+        "security_rule": "General help content is available after sign-in; it must never reveal internal teams, escalation channels, or hidden record details.",
+        "components": ["contact card", "support mailbox guidance", "response expectations", "access troubleshooting"]
+      }
+    ]
+  },
+  "authentication_model": {
+    "provider": "entra_external_id",
+    "invitation_rule": "Every external user must be invited through an app-owned access grant before they can sign in to Power Pages.",
+    "identity_binding_rule": "Bind portal access to the explicit external email on the access grant and store the resulting subject/contact references back in the dashboard contract.",
+    "mfa_rule": "Require Entra External ID MFA for every portal sign-in in production and pilot environments.",
+    "session_rule": "Keep external sessions short-lived and revoke access by disabling or revoking the underlying dashboard grant.",
+    "least_privilege_rule": "Grant only the minimum web roles needed for the scoped organization or project."
+  },
+  "scoping_rules": {
+    "organization_scope_rule": "Organization-scoped grants can view only projects and required items tied to that organization.",
+    "project_scope_rule": "Job-scoped grants can view only the one linked dashboard project and its portal-safe children.",
+    "upload_scope_rule": "Upload actions must resolve through the mapped request-link for the current project or required item and must never expose unrelated destinations.",
+    "hidden_internal_data_rule": "Internal notes, reviewer commentary, staffing details, and operational-only statuses remain hidden unless a future shareable-content layer explicitly marks them client-safe.",
+    "shareable_content_rule": "Only curated project summary, due dates, required items, client-safe submission history, and approved help content may appear in the portal.",
+    "revocation_rule": "Revoking or disabling the grant removes access immediately without changing dashboard record ownership or workflow history."
+  },
+  "ui_specification": {
+    "project_overview_cards": ["project title", "job number", "due date", "primary contact", "open required items", "latest submission"],
+    "required_item_status_fields": ["label", "status", "due date", "blocker flag", "latest submission", "upload action"],
+    "upload_page_fields": ["project summary", "required item selector", "upload guidance", "secure upload link", "confirmation expectations"],
+    "submission_history_fields": ["file name", "required item", "submitted at", "status", "uploaded by"],
+    "help_page_sections": ["contact support", "upload troubleshooting", "access problems", "what happens next"]
+  },
+  "data_integration": {
+    "dashboard_source_of_truth_rule": "The dashboard remains authoritative for project state, required-item status, reviewer decisions, and approvals.",
+    "portal_mirror_rule": "Power Pages displays a portal-safe mirror built from the dashboard and the existing intake submission contract.",
+    "upload_handling_rule": "Uploads continue through the Phase 5 secure intake mappings so receipt, review, and reminders stay unified.",
+    "dashboard_id_traceability_rule": "Every portal grant, project link, upload, and confirmation must store or resolve the canonical dashboard ids.",
+    "approval_status_rule": "Portal history can show receipt and review state, but only the dashboard can mark an item complete or approved."
+  },
+  "support_model": {
+    "support_mailbox_key": "support_ops",
+    "help_page_rule": "The help page must route clients to the governed support mailbox and reference only client-safe instructions.",
+    "escalation_rule": "Portal support incidents escalate through the existing dashboard and Microsoft alerting layers, not through ad hoc site-owner intervention.",
+    "maintenance_rule": "Portal content, access grants, project links, and upload mappings must be reviewed together before each release or tenant change.",
+    "audit_rule": "Every access grant change, project link update, and client-facing portal event must remain traceable to dashboard ids."
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Validate Phase 1 through Phase 6 baselines and confirm secure intake plus mail automation are healthy.",
+      "owner": "Platform Engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Do not enable the Phase 7 portal flag until all prerequisite diagnostics are green."
+    },
+    {
+      "order": 2,
+      "title": "Create the governed Power Pages site, web roles, and Entra External ID identity provider configuration for the pilot environment.",
+      "owner": "Power Platform Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable external sign-in and remove site visibility before widening access."
+    },
+    {
+      "order": 3,
+      "title": "Create dashboard-owned access grants and project links for pilot organizations and projects.",
+      "owner": "Operations Leadership",
+      "requires_tenant_admin": false,
+      "rollback": "Disable or revoke the grants and archive the project links."
+    },
+    {
+      "order": 4,
+      "title": "Validate scoped project visibility, required-item history, secure upload routing, and help-mailbox support flow.",
+      "owner": "Client Operations",
+      "requires_tenant_admin": false,
+      "rollback": "Pause portal rollout and keep clients on the existing Phase 5 request-link workflow."
+    },
+    {
+      "order": 5,
+      "title": "Turn on the portal for the pilot cohort only after traceability, revocation, and upload review paths all pass validation.",
+      "owner": "Operations Leadership",
+      "requires_tenant_admin": false,
+      "rollback": "Disable MICROSOFT_365_CLIENT_PORTAL_ENABLED and revoke pilot grants."
+    }
+  ],
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Create or validate the Power Pages site and connect it to the governed Power Platform environment.",
+      "portal": "Power Pages Design Studio",
+      "requires_tenant_admin": true,
+      "owner": "Power Platform Admin"
+    },
+    {
+      "order": 2,
+      "step": "Configure Entra External ID sign-in, invitation flows, and MFA enforcement for the portal site.",
+      "portal": "Entra Admin Center",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 3,
+      "step": "Create the minimal portal web roles that align with the dashboard grant model and confirm they do not expose internal tables or pages.",
+      "portal": "Power Pages / Power Platform Admin Center",
+      "requires_tenant_admin": true,
+      "owner": "Power Platform Admin"
+    },
+    {
+      "order": 4,
+      "step": "Set MICROSOFT_365_CLIENT_PORTAL_SITE_URL, MICROSOFT_365_CLIENT_PORTAL_AUTH_PROVIDER, and MICROSOFT_365_CLIENT_PORTAL_DEFAULT_HELP_MAILBOX_KEY for the target environment.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Platform Engineering"
+    },
+    {
+      "order": 5,
+      "step": "Create pilot access grants and portal project links, then review /api/admin/system/microsoft-client-portal before inviting external users.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Operations Leadership"
+    }
+  ],
+  "validation_checklist": [
+    "External users can sign in only through Entra External ID and only after a matching active dashboard grant exists.",
+    "Organization-scoped users cannot see projects outside their organization, and job-scoped users cannot see sibling projects.",
+    "Required-item status and submission history resolve from existing dashboard and intake data with dashboard ids intact.",
+    "Upload actions route to the correct Phase 5 secure intake mapping and never expose unrelated files or folders.",
+    "Revoking a grant removes portal access without changing internal workflow ownership or submission audit history."
+  ],
+  "rollback_principles": [
+    "Disable MICROSOFT_365_CLIENT_PORTAL_ENABLED before changing portal access rules in a live environment.",
+    "Revoke or disable grants instead of widening Power Pages table permissions when access drift is suspected.",
+    "Keep help and upload flows operational even when project links are paused so support can triage impacted clients.",
+    "Never copy internal operational notes into portal content as a workaround for missing shareable fields."
+  ]
+}

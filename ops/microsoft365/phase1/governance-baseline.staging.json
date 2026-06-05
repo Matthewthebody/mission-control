@@ -1,0 +1,175 @@
+{
+  "phase": "phase1_security_governance_foundation",
+  "baseline_version": "2026-04-03",
+  "environment": "staging",
+  "tenant_tier": "preproduction",
+  "principal_settings": {
+    "group_prefix": "PMC-STG",
+    "require_managed_devices_for_admin_portals": true,
+    "require_phishing_resistant_mfa_for_admins": true,
+    "sharepoint_external_sharing_mode": "specific_people_allowlist",
+    "onedrive_external_sharing_mode": "specific_people_allowlist",
+    "power_automate_managed_environment_required": true
+  },
+  "current_state_targets": {
+    "enforce_entra_auth_for_admins": true,
+    "permit_local_password_for_break_glass_only": true,
+    "tenant_admin_actions_required": true
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Create staging Entra groups and assign least-privilege ownership",
+      "owner": "Platform Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Remove staging assignments and delete unused staging groups."
+    },
+    {
+      "order": 2,
+      "title": "Enforce admin MFA and managed-device Conditional Access in pilot scope",
+      "owner": "Security Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable staging pilot policies and re-enable report-only evaluation."
+    },
+    {
+      "order": 3,
+      "title": "Publish staging sensitivity labels and DLP policy set",
+      "owner": "Compliance Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Unpublish staging label policies and disable staging DLP policies."
+    },
+    {
+      "order": 4,
+      "title": "Enable Power Automate managed environment and connector governance",
+      "owner": "Power Platform Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Move flows back to sandbox ownership and disable managed-environment controls."
+    }
+  ],
+  "permissions_matrix": [
+    {
+      "persona": "platform_admin",
+      "dashboard_access": ["system diagnostics", "integrations", "admin settings", "access policy"],
+      "m365_admin_roles": ["Cloud Application Administrator", "Teams Administrator", "SharePoint Administrator"],
+      "allowed_actions": ["manage app registrations", "manage Teams app package", "manage site templates", "read diagnostics"],
+      "restrictions": ["no compliance content search by default", "no standing Global Administrator access"]
+    },
+    {
+      "persona": "security_admin",
+      "dashboard_access": ["system diagnostics", "access policy", "security center"],
+      "m365_admin_roles": ["Conditional Access Administrator", "Intune Administrator", "Compliance Administrator", "Reports Reader"],
+      "allowed_actions": ["enforce MFA", "publish labels", "manage DLP", "review audit"],
+      "restrictions": ["no business-record editing", "no project ownership changes through M365"]
+    },
+    {
+      "persona": "department_lead",
+      "dashboard_access": ["department workspace", "reporting", "approvals", "communications"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["approve shared mailbox membership", "own department collaboration sites", "approve specific-people sharing"],
+      "restrictions": ["no tenant-wide sharing changes", "no Conditional Access or Intune policy editing"]
+    },
+    {
+      "persona": "project_owner",
+      "dashboard_access": ["assigned jobs", "communications", "record resources", "tasks"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["use governed Teams and Outlook actions", "request approved sharing", "use approved libraries"],
+      "restrictions": ["no label policy changes", "no mailbox delegation changes"]
+    },
+    {
+      "persona": "reviewer",
+      "dashboard_access": ["approvals", "review queues", "activity history"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["review governed content", "join governed meetings", "use reviewer libraries"],
+      "restrictions": ["no guest invitation rights", "no site ownership"]
+    },
+    {
+      "persona": "staff",
+      "dashboard_access": ["my work", "assigned tasks", "teams communication actions"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["access governed collaboration tools on assigned records only"],
+      "restrictions": ["no admin center access", "no unmanaged device admin access", "no guest sharing"]
+    },
+    {
+      "persona": "external_user",
+      "dashboard_access": [],
+      "m365_admin_roles": [],
+      "allowed_actions": ["none in Phase 1"],
+      "restrictions": ["no dashboard access", "no standing guest access until later phases"]
+    }
+  ],
+  "governance_models": {
+    "shared_mailboxes": [
+      "Department shared mailboxes require two business owners and one security-reviewed access group.",
+      "Auto-forwarding to external addresses is disabled.",
+      "Shared mailbox use is for collaboration and support routing, not project workflow state."
+    ],
+    "external_sharing": [
+      "Allow only Specific People links for approved pilot sites.",
+      "Guest sharing requires department lead approval and named external owner justification.",
+      "Sharing expiration and review are mandatory for pilot guests."
+    ],
+    "sensitivity_labels": [
+      "Publish Internal, Internal Restricted, Client Controlled, and Legal Hold labels in staging.",
+      "Admin and reviewer personas must test label visibility and protection behavior before production.",
+      "Use staged auto-label simulation before production enforcement."
+    ],
+    "audit_and_retention": [
+      "Enable unified audit and advanced audit where licensed.",
+      "Retain audit events for admin, sharing, and automation actions long enough to validate rollout.",
+      "Define who reviews audit exceptions weekly."
+    ],
+    "automation_ownership": [
+      "Power Automate uses a managed environment with connector restrictions and flow owner review.",
+      "Every flow needs named business owner, technical owner, and dashboard record reference.",
+      "No flow may own workflow state independently of the dashboard."
+    ]
+  },
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Create PMC-STG groups and assign owners for platform, security, and department governance.",
+      "portal": "Microsoft Entra admin center",
+      "requires_tenant_admin": true,
+      "owner": "Platform Admin"
+    },
+    {
+      "order": 2,
+      "step": "Enable phishing-resistant MFA for admin pilot users and require compliant devices for admin portals.",
+      "portal": "Entra Conditional Access / Intune",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 3,
+      "step": "Configure staging SharePoint and OneDrive sharing to Specific People with approval-owned guest access.",
+      "portal": "SharePoint admin center",
+      "requires_tenant_admin": true,
+      "owner": "SharePoint Admin"
+    },
+    {
+      "order": 4,
+      "step": "Publish staging labels, enable pilot DLP, and confirm audit retention coverage.",
+      "portal": "Microsoft Purview",
+      "requires_tenant_admin": true,
+      "owner": "Compliance Admin"
+    },
+    {
+      "order": 5,
+      "step": "Create the managed Power Automate environment and enforce connector approval.",
+      "portal": "Power Platform admin center",
+      "requires_tenant_admin": true,
+      "owner": "Power Platform Admin"
+    }
+  ],
+  "validation_checklist": [
+    "Confirm admin pilot access fails on unmanaged devices.",
+    "Confirm shared mailboxes use group-based access and no direct user sprawl.",
+    "Confirm staging guests expire and require reapproval.",
+    "Confirm every flow has both business and technical ownership and points back to dashboard context."
+  ],
+  "rollback_principles": [
+    "Move Conditional Access policies back to report-only before removing group assignments.",
+    "Disable DLP and label publication before deleting label definitions.",
+    "Disable guest access before removing external collaboration sites."
+  ]
+}
