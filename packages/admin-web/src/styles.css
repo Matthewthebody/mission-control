@@ -3180,11 +3180,15 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   border-radius: 16px;
   background: var(--pt-bg);
   color: var(--pt-text);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .project-tracking-panel,
 .project-workflow-map {
   border: 1px solid rgba(174, 143, 85, 0.2);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .project-tracking-foundation-page .project-workflow-map {
@@ -4126,7 +4130,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .project-workflow-progress-editor__grid {
-  grid-template-columns: minmax(130px, 0.8fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(160px, 0.9fr) minmax(160px, 0.9fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   align-items: end;
 }
 
@@ -15477,6 +15481,13 @@ html[data-theme="light"] .reports-history-focus {
   align-content: start;
 }
 
+.app-shell--desktop-sidebar .shell-topbar,
+.app-shell--desktop-sidebar .shell-context-bar--sidebar-layout,
+.app-shell--desktop-sidebar .app-main {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .app-shell--desktop-sidebar .shell-sidebar {
   position: sticky;
   top: 12px;
@@ -15905,7 +15916,7 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
   opacity: 0.48;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1420px) {
   .app-shell--desktop-sidebar .shell-topbar,
   .app-shell--desktop-sidebar .shell-context-bar--sidebar-layout {
     grid-template-columns: 1fr;
