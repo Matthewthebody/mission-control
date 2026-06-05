@@ -83,7 +83,7 @@ const schoolWorkItem: SchoolWorkItemRecord = {
   organization_id: "org-1",
   school_name: "North High",
   school_logo_url: null,
-  school_job_id: "school-job-1",
+  school_job_id: "job-1",
   school_job_title: "North High Spring Portraits",
   school_job_type: "fall_portraits",
   linked_shoot_id: null,
@@ -253,6 +253,42 @@ const jobs: SharedJobListItem[] = [
     ready_present_count: 0
   }
 ];
+
+const westMiddleJob: SharedJobListItem = {
+  ...jobs[0],
+  id: "job-2",
+  job_number: "SCH-1002",
+  organization_id: "org-2",
+  title: "West Middle Retake Day",
+  job_status: "ready_to_staff",
+  production_status: "awaiting_approval",
+  staffing_status: "gap_flagged",
+  risk_status: "medium",
+  primary_day_date: "2026-04-11",
+  scheduled_start_at: "2026-04-11T14:00:00.000Z",
+  client_deadline_at: "2026-04-14T12:00:00.000Z",
+  production_deadline_at: "2026-04-13T12:00:00.000Z",
+  organization_name: "West Middle",
+  primary_contact_name: "Taylor Morgan",
+  account_owner_user_id: "csr-2",
+  account_owner_name: "Jessica",
+  lead_owner_user_id: "director-2",
+  lead_owner_name: "Spencer",
+  proof_status: "requested",
+  open_watch_flag_count: 0,
+  blocker_count: 0,
+  readiness_percent: 64,
+  assigned_staff_count: 1,
+  checked_in_staff_count: 0,
+  ready_present_count: 0,
+  school_profile: {
+    ...jobs[0].school_profile!,
+    job_id: "job-2",
+    id_cards_required: false,
+    yearbook_required: false,
+    submission_deadline: "2026-04-19"
+  }
+};
 
 const schoolsWorkflowRow = {
   job_id: "job-1",
@@ -454,30 +490,52 @@ beforeEach(() => {
     job_rows: [schoolsWorkflowRow]
   });
   getSchoolsHubWorkspaceMock.mockResolvedValue(workspace);
-  listSharedJobsMock.mockResolvedValue({ jobs });
+  listSharedJobsMock.mockResolvedValue({ jobs: [...jobs, westMiddleJob] });
   listSharedTasksMock.mockResolvedValue({ items: tasks });
   listSharedWatchlistMock.mockResolvedValue({ items: watchlist, summary: { total_count: 1, critical_count: 0, high_count: 1, snoozed_count: 0, ownerless_count: 0, next_24_hours_count: 1 }, saved_views: [] });
   getSharedDashboardMock.mockResolvedValue(dashboard);
 });
 
 describe("SchoolsHub", () => {
-  it("renders the operational schools overview without placeholder shell copy", async () => {
+  it("renders Schools as a department command hub with work-spine and blocker links", async () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
-    expect(await screen.findByText("Schools Department")).toBeInTheDocument();
-    expect(screen.getByText("Everything the schools team owns, in one place")).toBeInTheDocument();
-    expect(screen.getByText("Schools Dashboard")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Schools" })).toBeInTheDocument();
+    expect(screen.getByText("School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner.")).toBeInTheDocument();
+    expect(screen.getByText("Schools Command Hub")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Schools workflow queue" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();
     expect(screen.getByText("Here by current step department")).toBeInTheDocument();
-    expect(screen.getByText("Total active school jobs")).toBeInTheDocument();
-    expect(screen.getByText("Due today")).toBeInTheDocument();
-    expect(screen.getAllByText("Overdue").length).toBeGreaterThan(0);
-    expect(screen.getByText("Jobs Due in the Next 7 Days")).toBeInTheDocument();
-    expect(screen.getByText("ID Card Tracker")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Schools department command list" })).toBeInTheDocument();
+    expect(screen.getByText("Active School Work")).toBeInTheDocument();
+    expect(screen.getByText("Due Soon")).toBeInTheDocument();
+    expect(screen.getByText("Waiting on School")).toBeInTheDocument();
+    expect(screen.getByText("Blocked / Needs Review")).toBeInTheDocument();
+    expect(screen.getByText("Recently Changed")).toBeInTheDocument();
+    expect(screen.getByText("What needs attention")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Department work" })).toBeInTheDocument();
+    expect(screen.getByText("ID jobs")).toBeInTheDocument();
     expect(screen.getAllByText("North High").length).toBeGreaterThan(0);
+    expect(screen.getByText("West Middle")).toBeInTheDocument();
     expect(screen.getAllByText("Confirm roster upload").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Open Job Workflow").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "View in Project Tracking" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open details" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Proof approvals")).toBeInTheDocument();
+    expect(screen.getByText("Staffing issues")).toBeInTheDocument();
+    expect(screen.getByText("Production blockers")).toBeInTheDocument();
+    expect(screen.getByText("Missing info / client")).toBeInTheDocument();
+    expect(screen.getByText("Proof")).toBeInTheDocument();
+    expect(screen.getAllByText("Staffing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
+    expect(screen.getByText("Client/info")).toBeInTheDocument();
+    expect(screen.getByText("Contact: Jamie Carlson")).toBeInTheDocument();
+    expect(screen.getByText("Contact: Taylor Morgan")).toBeInTheDocument();
+    expect(screen.queryByText("Schools Dashboard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Schools Operating Board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Board rows")).not.toBeInTheDocument();
     expect(screen.queryByText("Board / workflow status")).not.toBeInTheDocument();
     expect(screen.queryByText("School operations board")).not.toBeInTheDocument();
     expect(screen.queryByText("Schools operational workspace")).not.toBeInTheDocument();
@@ -505,15 +563,18 @@ describe("SchoolsHub", () => {
   it("opens due-soon rows into the live job workflow when connected", async () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
-    fireEvent.click(await screen.findByRole("row", { name: /North High.*Confirm roster upload/i }));
+    const workflowButtons = await screen.findAllByRole("button", { name: "Open work" });
+    fireEvent.click(workflowButtons[0]);
     expect(window.location.hash).toBe("#project-tracking/workflows/workflow-school-1");
   });
 
   it("shows the direct dashboard language and quick access a schools user needs", async () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
-    expect(await screen.findByText("Next Action")).toBeInTheDocument();
-    expect(screen.getByText("Current Department")).toBeInTheDocument();
+    expect(await screen.findByText("Next action")).toBeInTheDocument();
+    expect(screen.getByText("Next owner")).toBeInTheDocument();
+    expect(screen.getByText("Blocker / review")).toBeInTheDocument();
+    expect(screen.getByText("Open next")).toBeInTheDocument();
     expect(screen.queryByText("Queue")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "My Schedule" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();

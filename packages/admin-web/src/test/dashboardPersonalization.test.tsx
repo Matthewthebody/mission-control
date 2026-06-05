@@ -294,7 +294,7 @@ describe("dashboard home command surface", () => {
             status_label: "Awaiting release",
             tone: "heads_up",
             next_action: "Open production queue",
-            action_hash: "#production/digital"
+            action_hash: "#project-tracking/workflows/workflow-gallery-release"
           }
         ]
       },
@@ -356,47 +356,65 @@ describe("dashboard home command surface", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByText("Today's work, alerts, and schedule")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Search or ask Concierge/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Event" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Task" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Schedule" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Alerts" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Tasks" })).toBeInTheDocument();
+    expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Task" })).toBeInTheDocument();
+    expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create Event" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create Task" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();
 
     expect(screen.getByText("Time Clock")).toBeInTheDocument();
     expect(screen.getByText("Ready to clock in")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Clock In" }).length).toBeGreaterThan(0);
 
-    expect(screen.getByText("Clocked In - Field")).toBeInTheDocument();
-    expect(screen.getByText("Clocked In - Office")).toBeInTheDocument();
+    expect(screen.getByText("Attendance needs attention")).toBeInTheDocument();
     expect(screen.getByText("Expected In, Not Clocked In")).toBeInTheDocument();
+    expect(screen.queryByText("Clocked In - Field")).not.toBeInTheDocument();
+    expect(screen.queryByText("Clocked In - Office")).not.toBeInTheDocument();
 
     expect(screen.getByText("Today at a glance")).toBeInTheDocument();
-    expect(screen.getByText("Shoots Today")).toBeInTheDocument();
+    expect(screen.getByText("Today's Shoots")).toBeInTheDocument();
+    expect(screen.getByText(/scheduled item.*still need readiness follow-through/i)).toBeInTheDocument();
     expect(screen.getByText("Staffing Gaps")).toBeInTheDocument();
-    expect(screen.getByText("Jobs in Digital Production")).toBeInTheDocument();
+    expect(screen.getByText("Production Work")).toBeInTheDocument();
     expect(screen.getByText("School Tasks")).toBeInTheDocument();
     expect(screen.getByText("Sports Tasks")).toBeInTheDocument();
     expect(screen.getByText("Production Tasks")).toBeInTheDocument();
 
     expect(screen.getByText("Urgent Issues")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
     expect(screen.getByText("Lead still missing")).toBeInTheDocument();
+    expect(screen.getByText("Why it matters")).toBeInTheDocument();
+    expect(screen.getByText(/Owner\/context: Owner: Demo Leadership/i)).toBeInTheDocument();
+    expect(screen.getByText(/Next: Open Attendance Review/i)).toBeInTheDocument();
     expect(screen.getByText("Work moving now")).toBeInTheDocument();
+    expect(screen.getAllByText("View in Project Tracking").length).toBeGreaterThanOrEqual(1);
 
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
     expect(screen.queryByText("Operational Modules")).not.toBeInTheDocument();
     expect(screen.queryByText("Widget Snapshot")).not.toBeInTheDocument();
     expect(screen.queryByText("Watchlist")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Search or ask Concierge/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i }));
     expect(onOpenConcierge).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Today's Shoots/i }));
+    expect(window.location.hash).toBe("#studios/shoots");
 
     fireEvent.click(screen.getByRole("button", { name: /Staffing Gaps/i }));
     expect(window.location.hash).toBe("#operations/staffing?area=staffing");
 
+    fireEvent.click(screen.getByRole("button", { name: /Production Work/i }));
+    expect(window.location.hash).toBe("#project-tracking");
+
     fireEvent.click(screen.getByRole("button", { name: /Lead still missing/i }));
-    expect(window.location.hash).toBe("#operations/attendance");
+    expect(window.location.hash).toBe("#employees/attendance");
+
+    fireEvent.click(screen.getByRole("button", { name: /Gallery release review/i }));
+    expect(window.location.hash).toBe("#project-tracking/workflows/workflow-gallery-release");
   });
 
   it("keeps the employee home simple, action-oriented, and free of the old placeholder language", async () => {
@@ -507,10 +525,12 @@ describe("dashboard home command surface", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByText("Today's work, alerts, and schedule")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Schedule" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Alerts" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Tasks" })).toBeInTheDocument();
+    expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
+    expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();
     expect(screen.getByText("Time Clock")).toBeInTheDocument();
     expect(screen.getByText("Clock-in needed")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Clock In" }).length).toBeGreaterThan(0);

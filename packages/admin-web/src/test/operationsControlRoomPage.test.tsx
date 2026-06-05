@@ -294,8 +294,8 @@ describe("Operations control room", () => {
     fireEvent.click(screen.getByRole("button", { name: /shoots queue/i }));
     expect(window.location.hash).toBe("#operations/shoots");
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Compliance" }));
-    expect(window.location.hash).toBe("#employees/compliance");
+    fireEvent.click(screen.getByRole("button", { name: "Open Needs Attention" }));
+    expect(window.location.hash).toBe("#needs-attention");
   });
 
   it("shows an employee-safe fallback instead of a manager control room", async () => {

@@ -101,7 +101,7 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
         label: "Follow-Through",
         value: followThroughCount,
         detail: followThroughCount ? "Closeout, setup, or end-of-day work is still open." : "No missing closeout items are blocking the day.",
-        actionHash: "#employees/compliance"
+        actionHash: "#needs-attention"
       },
       {
         label: "Mileage / Payroll",
@@ -146,10 +146,10 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
     <section className="panel dashboard-panel dashboard-panel--compact">
       <div className="dashboard-panel__header">
         <div>
-          <div className="eyebrow">Workflow Snapshot</div>
+          <div className="eyebrow">Daily Workflow Snapshot</div>
           <div className="section-title">Assignment To Completion</div>
           <p className="section-subtitle">
-            Keep schedule clarity, attendance risk, closeout, and mileage review in one compact workflow lane.
+            Home keeps the daily briefing compact. Open Project Tracking when you need the source-of-truth work spine.
           </p>
         </div>
         <div className="page-intro-actions page-intro-actions--compact">
@@ -242,9 +242,9 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
                       ...(row.payroll_blocking ? [{ label: "Payroll blocking", tone: "critical" as const }] : []),
                       ...(row.mileage_blocking ? [{ label: "Mileage blocking", tone: "warning" as const }] : [])
                     ]}
-                    nextAction="Open compliance review"
+                    nextAction="Open Needs Attention"
                     onClick={() => {
-                      window.location.hash = "#employees/compliance";
+                      window.location.hash = "#needs-attention";
                     }}
                   />
                 ))}

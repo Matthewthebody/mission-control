@@ -1,0 +1,488 @@
+{
+  "phase": "phase3_dashboard_integration_contract_and_provisioning",
+  "baseline_version": "1.0.0",
+  "environment": "development",
+  "tenant_tier": "sandbox",
+  "sync_architecture": {
+    "provider": "microsoft365_workspace",
+    "outbound_queue": "integration_sync_operation",
+    "sync_mode": "scheduled_reconcile_with_optional_webhook_ingest",
+    "idempotency_rule": "Every outbound operation must key idempotency from canonical_dashboard_id, operation_type, and source_change_key.",
+    "retry_rule": "Failed provisioning and mirror operations are retried only through integration_sync_operation replay, never through ad hoc reruns.",
+    "reconciliation_rule": "Scheduled reconciliation compares canonical dashboard ids, stored Microsoft backlinks, and live Microsoft object ids before updating mirror state.",
+    "failure_queue_rule": "Failed and conflict operations remain in integration_sync_operation as the operator-facing failure queue."
+  },
+  "canonical_entities": [
+    {
+      "entity_family": "client",
+      "dashboard_entity_type": "organization",
+      "canonical_id_prefix": "client",
+      "canonical_id_pattern": "client:{dashboard_entity_id}",
+      "dashboard_route_hash": "#directory/organizations/{dashboard_entity_id}",
+      "source_of_truth_rule": "Organization is the canonical client/account master in the dashboard.",
+      "mirror_scope_rule": "Microsoft may mirror client/account context but must not own lifecycle or relationship state.",
+      "microsoft_targets": ["microsoft_list_item", "sharepoint_folder", "shared_mailbox"],
+      "notes": "Backlinks should open the organization workspace, not a Microsoft-authored record."
+    },
+    {
+      "entity_family": "project",
+      "dashboard_entity_type": "job",
+      "canonical_id_prefix": "project",
+      "canonical_id_pattern": "project:{dashboard_entity_id}",
+      "dashboard_route_hash": "#jobs/{dashboard_entity_id}",
+      "source_of_truth_rule": "Jobs are the canonical project/work package in the dashboard.",
+      "mirror_scope_rule": "Microsoft mirrors project metadata, collaboration space, and coordination artifacts only.",
+      "microsoft_targets": ["team", "channel", "sharepoint_folder", "microsoft_list_item"],
+      "notes": "Project workspace provisioning should be one idempotent flow anchored to the canonical job id."
+    },
+    {
+      "entity_family": "required_item",
+      "dashboard_entity_type": "job_readiness_item",
+      "canonical_id_prefix": "required_item",
+      "canonical_id_pattern": "required_item:{dashboard_entity_id}",
+      "dashboard_route_hash": "#jobs/{job_id}",
+      "source_of_truth_rule": "Job readiness items remain authoritative in the dashboard.",
+      "mirror_scope_rule": "Microsoft may mirror requirement state for visibility, but completion/blocker rules stay in the dashboard.",
+      "microsoft_targets": ["microsoft_list_item"],
+      "notes": "The dashboard backlink should land on the parent job because required items do not have a standalone shell route."
+    },
+    {
+      "entity_family": "submission",
+      "dashboard_entity_type": "post_shoot_evaluation",
+      "canonical_id_prefix": "submission",
+      "canonical_id_pattern": "submission:{dashboard_entity_id}",
+      "dashboard_route_hash": null,
+      "source_of_truth_rule": "Post-shoot evaluations are the first concrete submission family supported by this contract.",
+      "mirror_scope_rule": "Microsoft may mirror submission metadata and files, but submitted content state remains dashboard-owned.",
+      "microsoft_targets": ["microsoft_list_item", "sharepoint_folder"],
+      "notes": "A broader submission aggregate can replace this family later without changing the provider contract shape."
+    },
+    {
+      "entity_family": "task",
+      "dashboard_entity_type": "work_task",
+      "canonical_id_prefix": "task",
+      "canonical_id_pattern": "task:{dashboard_entity_id}",
+      "dashboard_route_hash": "#tasks/{dashboard_entity_id}",
+      "source_of_truth_rule": "Work tasks are canonical execution tasks in the dashboard.",
+      "mirror_scope_rule": "Planner and Lists may mirror coordination state, but task status ownership remains dashboard-side.",
+      "microsoft_targets": ["planner_task", "microsoft_list_item"],
+      "notes": "Planner completion never completes the dashboard task."
+    },
+    {
+      "entity_family": "communication_event",
+      "dashboard_entity_type": "communication_event",
+      "canonical_id_prefix": "communication_event",
+      "canonical_id_pattern": "communication_event:{dashboard_entity_id}",
+      "dashboard_route_hash": null,
+      "source_of_truth_rule": "Communication events are projected from dashboard-owned messaging, meetings, and post-call outcomes.",
+      "mirror_scope_rule": "Microsoft may mirror event summaries, not become the communication audit source.",
+      "microsoft_targets": ["microsoft_list_item"],
+      "notes": "Communication event ids may come from a future unified projection instead of one source table."
+    }
+  ],
+  "field_mappings": [
+    {
+      "entity_family": "client",
+      "microsoft_target": "microsoft_list_item",
+      "container_name": "Dashboard Clients",
+      "fields": [
+        {
+          "dashboard_field": "organization.id",
+          "microsoft_field": "DashboardRecordId",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Primary canonical dashboard id field."
+        },
+        {
+          "dashboard_field": "organization.display_name",
+          "microsoft_field": "Title",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Read-only display name mirror."
+        },
+        {
+          "dashboard_field": "dashboard_url",
+          "microsoft_field": "DashboardUrl",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Opens the authoritative dashboard record."
+        }
+      ]
+    },
+    {
+      "entity_family": "project",
+      "microsoft_target": "microsoft_list_item",
+      "container_name": "Dashboard Projects",
+      "fields": [
+        {
+          "dashboard_field": "jobs.id",
+          "microsoft_field": "DashboardRecordId",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Canonical project/job id."
+        },
+        {
+          "dashboard_field": "jobs.title",
+          "microsoft_field": "Title",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Project title mirror."
+        },
+        {
+          "dashboard_field": "jobs.job_status",
+          "microsoft_field": "DashboardStatus",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Read-only status mirror."
+        },
+        {
+          "dashboard_field": "dashboard_url",
+          "microsoft_field": "DashboardUrl",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Primary operator backlink."
+        }
+      ]
+    },
+    {
+      "entity_family": "required_item",
+      "microsoft_target": "microsoft_list_item",
+      "container_name": "Dashboard Required Items",
+      "fields": [
+        {
+          "dashboard_field": "job_readiness_items.id",
+          "microsoft_field": "DashboardRecordId",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Canonical required item id."
+        },
+        {
+          "dashboard_field": "job_readiness_items.label",
+          "microsoft_field": "Title",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Required item label mirror."
+        },
+        {
+          "dashboard_field": "job_readiness_items.is_complete",
+          "microsoft_field": "DashboardComplete",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Read-only completion mirror."
+        }
+      ]
+    },
+    {
+      "entity_family": "submission",
+      "microsoft_target": "sharepoint_folder",
+      "container_name": "Project Documents",
+      "fields": [
+        {
+          "dashboard_field": "post_shoot_evaluation.id",
+          "microsoft_field": "DashboardRecordId",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Canonical submission id."
+        },
+        {
+          "dashboard_field": "dashboard_url",
+          "microsoft_field": "DashboardUrl",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Backlink to the dashboard context that owns the submission."
+        }
+      ]
+    },
+    {
+      "entity_family": "task",
+      "microsoft_target": "planner_task",
+      "container_name": "Department Planner",
+      "fields": [
+        {
+          "dashboard_field": "work_task.id",
+          "microsoft_field": "DashboardRecordId",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Canonical task id."
+        },
+        {
+          "dashboard_field": "work_task.title",
+          "microsoft_field": "Title",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Planner title mirror."
+        },
+        {
+          "dashboard_field": "work_task.status",
+          "microsoft_field": "DashboardStatus",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Dashboard task status remains authoritative."
+        }
+      ]
+    },
+    {
+      "entity_family": "communication_event",
+      "microsoft_target": "microsoft_list_item",
+      "container_name": "Dashboard Communication Events",
+      "fields": [
+        {
+          "dashboard_field": "communication_event.id",
+          "microsoft_field": "DashboardRecordId",
+          "owner": "dashboard",
+          "sync_behavior": "backlink_only",
+          "notes": "Canonical communication event id."
+        },
+        {
+          "dashboard_field": "communication_event.summary",
+          "microsoft_field": "Title",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Readable event summary."
+        },
+        {
+          "dashboard_field": "communication_event.status",
+          "microsoft_field": "DashboardStatus",
+          "owner": "dashboard",
+          "sync_behavior": "mirror_on_change",
+          "notes": "Read-only outcome mirror."
+        }
+      ]
+    }
+  ],
+  "provisioning_flows": [
+    {
+      "key": "client_reference_mirror",
+      "dashboard_entity_type": "organization",
+      "operation_type": "mirror_client_reference",
+      "source_trigger": "Organization record is created or materially updated.",
+      "target_objects": [
+        {
+          "microsoft_object_type": "microsoft_list_item",
+          "logical_name": "client_list_item",
+          "naming_pattern": "Dashboard Client {dashboard_entity_id}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "MicrosoftUrl",
+          "notes": "Create or update a read-only client/account list item."
+        }
+      ],
+      "notes": "Client mirrors exist to support lookup, not to move client ownership into Microsoft."
+    },
+    {
+      "key": "project_workspace_provision",
+      "dashboard_entity_type": "job",
+      "operation_type": "provision_project_workspace",
+      "source_trigger": "Job is published or manually queued for workspace provisioning.",
+      "target_objects": [
+        {
+          "microsoft_object_type": "channel",
+          "logical_name": "project_channel",
+          "naming_pattern": "{job_number}_{job_title}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "ChannelUrl",
+          "notes": "Provision or link the primary collaboration channel for the job."
+        },
+        {
+          "microsoft_object_type": "sharepoint_folder",
+          "logical_name": "project_documents_folder",
+          "naming_pattern": "{job_number}_{job_title}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "FolderUrl",
+          "notes": "Provision or link the project document folder."
+        },
+        {
+          "microsoft_object_type": "microsoft_list_item",
+          "logical_name": "project_list_item",
+          "naming_pattern": "{job_number}_{job_title}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "ListItemUrl",
+          "notes": "Mirror project metadata into the governed project list."
+        }
+      ],
+      "notes": "The dashboard remains authoritative for project lifecycle and workflow state."
+    },
+    {
+      "key": "required_item_mirror",
+      "dashboard_entity_type": "job_readiness_item",
+      "operation_type": "mirror_required_item",
+      "source_trigger": "Required item state changes or a record is manually reconciled.",
+      "target_objects": [
+        {
+          "microsoft_object_type": "microsoft_list_item",
+          "logical_name": "required_item_list_item",
+          "naming_pattern": "{required_item_label}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "ListItemUrl",
+          "notes": "Mirror required item state for governed department visibility."
+        }
+      ],
+      "notes": "Completion and blocker logic remain dashboard-owned."
+    },
+    {
+      "key": "submission_mirror",
+      "dashboard_entity_type": "post_shoot_evaluation",
+      "operation_type": "mirror_submission",
+      "source_trigger": "Submission is created or moved to submitted/reviewed state.",
+      "target_objects": [
+        {
+          "microsoft_object_type": "sharepoint_folder",
+          "logical_name": "submission_documents_folder",
+          "naming_pattern": "submission_{dashboard_entity_id}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "FolderUrl",
+          "notes": "Link the governed document folder tied to the submission."
+        },
+        {
+          "microsoft_object_type": "microsoft_list_item",
+          "logical_name": "submission_list_item",
+          "naming_pattern": "submission_{dashboard_entity_id}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "ListItemUrl",
+          "notes": "Mirror submission state and review summary only."
+        }
+      ],
+      "notes": "Phase 3 treats post-shoot evaluations as the first submission family."
+    },
+    {
+      "key": "task_mirror",
+      "dashboard_entity_type": "work_task",
+      "operation_type": "mirror_task",
+      "source_trigger": "Task is created or materially updated.",
+      "target_objects": [
+        {
+          "microsoft_object_type": "planner_task",
+          "logical_name": "planner_task",
+          "naming_pattern": "{task_number}_{task_title}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "PlannerTaskUrl",
+          "notes": "Mirror dashboard task into Planner for coordination only."
+        }
+      ],
+      "notes": "Planner bucket movement must not mutate authoritative dashboard task state."
+    },
+    {
+      "key": "communication_event_mirror",
+      "dashboard_entity_type": "communication_event",
+      "operation_type": "mirror_communication_event",
+      "source_trigger": "Communication event projection is emitted from dashboard communications.",
+      "target_objects": [
+        {
+          "microsoft_object_type": "microsoft_list_item",
+          "logical_name": "communication_event_list_item",
+          "naming_pattern": "communication_{dashboard_entity_id}",
+          "backlink_field": "DashboardUrl",
+          "microsoft_url_field": "ListItemUrl",
+          "notes": "Mirror a readable event summary for operational visibility."
+        }
+      ],
+      "notes": "The communication event mirror is read-only and depends on the dashboard projection layer."
+    }
+  ],
+  "retry_and_reconciliation": {
+    "queue_of_record": "integration_sync_operation",
+    "replay_entrypoint": "POST /api/integrations/sync-operations/:id/replay",
+    "reconciliation_jobs": [
+      "scheduled Microsoft link reconciliation against canonical dashboard ids",
+      "manual replay of failed provisioning operations",
+      "manual link upsert when tenant provisioning finishes outside the app"
+    ],
+    "failure_states": [
+      "pending",
+      "failed",
+      "conflict",
+      "drifted"
+    ],
+    "operator_recovery": [
+      "Replay the sync operation from the integration sync queue.",
+      "Record resolved Microsoft object ids and URLs through the provisioning link contract.",
+      "Mark stale links drifted instead of silently overwriting mismatched Microsoft objects."
+    ]
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Apply the Phase 3 migration and deploy the API/worker code.",
+      "owner": "platform_engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Disable strict validation and roll back the app deployment before removing the new table."
+    },
+    {
+      "order": 2,
+      "title": "Validate Phase 1 and Phase 2 diagnostics are clean before queueing provisioning work.",
+      "owner": "platform_engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Stop rollout and clear baseline/config issues before proceeding."
+    },
+    {
+      "order": 3,
+      "title": "Generate and review the provisioning plan for one pilot project and one pilot task.",
+      "owner": "platform_engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Delete the queued pilot operations if naming or ownership is wrong."
+    },
+    {
+      "order": 4,
+      "title": "Provision or link the pilot Microsoft objects in the governed tenant structure.",
+      "owner": "tenant_admin",
+      "requires_tenant_admin": true,
+      "rollback": "Remove pilot links from the app and archive the pilot Microsoft artifacts."
+    },
+    {
+      "order": 5,
+      "title": "Record resolved Microsoft object ids and URLs back into the dashboard link contract.",
+      "owner": "platform_engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Mark the links archived or drifted rather than deleting audit history."
+    },
+    {
+      "order": 6,
+      "title": "Validate replay, backlink, and reconciliation behavior on the pilot records.",
+      "owner": "platform_engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Stop before wider rollout if replay or backlink integrity is unstable."
+    }
+  ],
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Confirm the department Teams, SharePoint, Lists, and Planner topology from Phase 2 already exists for the target environment.",
+      "portal": "Microsoft Teams / SharePoint / Planner",
+      "requires_tenant_admin": true,
+      "owner": "tenant_admin"
+    },
+    {
+      "order": 2,
+      "step": "Approve the canonical naming patterns and provisioning scope for pilot organizations, jobs, and tasks before any live links are stored.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "platform_engineering"
+    },
+    {
+      "order": 3,
+      "step": "Provision or identify the actual Microsoft objects for the pilot records and capture their final URLs and ids.",
+      "portal": "Microsoft 365 admin surfaces",
+      "requires_tenant_admin": true,
+      "owner": "tenant_admin"
+    },
+    {
+      "order": 4,
+      "step": "Record those resolved ids/URLs into the dashboard provisioning link endpoint so backlinks and replay are traceable.",
+      "portal": "Mission Control integrations API",
+      "requires_tenant_admin": false,
+      "owner": "platform_engineering"
+    }
+  ],
+  "validation_checklist": [
+    "The admin diagnostics endpoint returns the expected canonical entity contract and startup validation output.",
+    "A queued Microsoft workspace scaffold operation produces one integration_sync_operation row with a stable source_change_key.",
+    "Replaying a failed microsoft365_workspace operation produces a new queued operation instead of mutating the original row.",
+    "Recording resolved Microsoft ids creates or updates microsoft_workspace_link rows idempotently.",
+    "external_object_map rows are written for resolved Microsoft object ids to preserve cross-provider traceability.",
+    "Dashboard backlinks point to the authoritative dashboard record, not to a synthetic Microsoft-owned workflow."
+  ],
+  "rollback_principles": [
+    "Do not delete integration_sync_operation history during rollback; mark links archived or drifted instead.",
+    "Remove or disable newly linked Microsoft artifacts before widening the provisioning scope.",
+    "If a canonical id or field map is wrong, update the version-controlled baseline first, then replay with a new source_change_key."
+  ]
+}

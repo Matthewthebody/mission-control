@@ -95,15 +95,107 @@ jobs:
         run: npm run verify:release:clean
 
       - name: Wait for Postgres and Redis readiness
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "5432"
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: "6379"
         run: |
           set -euo pipefail
-          for attempt in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U postgres -d pmc >/dev/null 2>&1 && redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; then
+
+          find_container() {
+            local image_pattern="$1"
+            docker ps --format '{{.ID}} {{.Image}} {{.Names}}' 2>/dev/null | awk -v pattern="$image_pattern" 'BEGIN { pattern = tolower(pattern) } { line = tolower($0); if (index(line, pattern) > 0) { print $1; exit } }' || true
+          }
+
+          check_postgres() {
+            if command -v pg_isready >/dev/null 2>&1; then
+              pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U postgres -d pmc >/dev/null 2>&1
+              return $?
+            fi
+
+            local container
+            container="$(find_container postgres)"
+            if [ -n "$container" ]; then
+              docker exec "$container" pg_isready -U postgres -d pmc >/dev/null 2>&1
+              return $?
+            fi
+
+            return 1
+          }
+
+          check_redis() {
+            if command -v redis-cli >/dev/null 2>&1; then
+              redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping 2>/dev/null | grep -q PONG
+              return $?
+            fi
+
+            local container
+            container="$(find_container redis)"
+            if [ -n "$container" ]; then
+              docker exec "$container" redis-cli ping 2>/dev/null | grep -q PONG
+              return $?
+            fi
+
+            return 1
+          }
+
+          print_readiness_diagnostics() {
+            echo "Postgres and Redis were not ready in time." >&2
+            echo "Client availability:" >&2
+            if command -v pg_isready >/dev/null 2>&1; then
+              pg_isready --version >&2 || true
+            else
+              echo "- pg_isready is not available on the runner PATH." >&2
+            fi
+
+            if command -v redis-cli >/dev/null 2>&1; then
+              redis-cli --version >&2 || true
+            else
+              echo "- redis-cli is not available on the runner PATH." >&2
+            fi
+
+            echo "Docker containers:" >&2
+            docker ps -a --format 'table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}' >&2 || true
+
+            for container in "$(find_container postgres)" "$(find_container redis)"; do
+              if [ -n "$container" ]; then
+                echo "Container ${container} health:" >&2
+                docker inspect --format '{{.Name}} {{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container" >&2 || true
+                echo "Container ${container} recent logs:" >&2
+                docker logs --tail 80 "$container" >&2 || true
+              fi
+            done
+
+            echo "Listening sockets:" >&2
+            (ss -ltnp || netstat -ltnp || true) 2>&1 | grep -E ':(5432|6379)\b' >&2 || true
+          }
+
+          for attempt in {1..90}; do
+            postgres_ready=false
+            redis_ready=false
+
+            if check_postgres; then
+              postgres_ready=true
+            fi
+
+            if check_redis; then
+              redis_ready=true
+            fi
+
+            if [ "$postgres_ready" = "true" ] && [ "$redis_ready" = "true" ]; then
+              echo "Postgres and Redis are ready after ${attempt} attempt(s)."
               exit 0
             fi
+
+            if (( attempt % 10 == 0 )); then
+              echo "Waiting for services: attempt ${attempt}/90 (postgres=${postgres_ready}, redis=${redis_ready})"
+            fi
+
             sleep 2
           done
-          echo "Postgres and Redis were not ready in time." >&2
+
+          print_readiness_diagnostics
           exit 1
 
       - name: Run migrations

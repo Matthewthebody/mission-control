@@ -1,0 +1,168 @@
+{
+  "phase": "phase1_security_governance_foundation",
+  "baseline_version": "2026-04-03",
+  "environment": "development",
+  "tenant_tier": "sandbox",
+  "principal_settings": {
+    "group_prefix": "PMC-DEV",
+    "require_managed_devices_for_admin_portals": false,
+    "require_phishing_resistant_mfa_for_admins": false,
+    "sharepoint_external_sharing_mode": "internal_only",
+    "onedrive_external_sharing_mode": "internal_only",
+    "power_automate_managed_environment_required": false
+  },
+  "current_state_targets": {
+    "enforce_entra_auth_for_admins": false,
+    "permit_local_password_for_break_glass_only": false,
+    "tenant_admin_actions_required": true
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Create sandbox Entra security groups aligned to dashboard personas",
+      "owner": "Platform Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Delete sandbox-only groups and remove test assignments."
+    },
+    {
+      "order": 2,
+      "title": "Enable sandbox MFA and report-only Conditional Access for admin personas",
+      "owner": "Security Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable the report-only policies and revert pilot assignments."
+    },
+    {
+      "order": 3,
+      "title": "Create SharePoint sandbox site and disable external sharing by default",
+      "owner": "SharePoint Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Remove the sandbox site collection and restore default sharing values."
+    },
+    {
+      "order": 4,
+      "title": "Publish test-only sensitivity labels and audit baseline",
+      "owner": "Security Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Unpublish the test labels and remove test DLP rules."
+    }
+  ],
+  "permissions_matrix": [
+    {
+      "persona": "platform_admin",
+      "dashboard_access": ["system diagnostics", "integrations", "admin settings", "access policy"],
+      "m365_admin_roles": ["Cloud Application Administrator", "Teams Administrator"],
+      "allowed_actions": ["manage app registrations", "manage Teams app package", "manage integration secrets", "read diagnostics"],
+      "restrictions": ["no compliance role by default", "no permanent Global Administrator standing access"]
+    },
+    {
+      "persona": "security_admin",
+      "dashboard_access": ["system diagnostics", "access policy", "security center"],
+      "m365_admin_roles": ["Conditional Access Administrator", "Intune Administrator", "Compliance Administrator"],
+      "allowed_actions": ["manage MFA", "manage Conditional Access", "publish labels", "review audit"],
+      "restrictions": ["no workflow editing", "no project data ownership changes through M365"]
+    },
+    {
+      "persona": "department_lead",
+      "dashboard_access": ["department workspace", "reporting", "approvals"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["own shared mailbox membership", "approve guest collaboration requests", "own department sites"],
+      "restrictions": ["no tenant admin", "no DLP or CA policy editing"]
+    },
+    {
+      "persona": "project_owner",
+      "dashboard_access": ["assigned jobs", "communications", "record resources"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["use approved Teams/Outlook actions", "upload to approved project libraries"],
+      "restrictions": ["no mailbox delegation changes", "no external sharing policy changes"]
+    },
+    {
+      "persona": "reviewer",
+      "dashboard_access": ["approvals", "review queues", "activity history"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["review shared content in approved locations", "join governed meetings"],
+      "restrictions": ["no external sharing", "no site ownership"]
+    },
+    {
+      "persona": "staff",
+      "dashboard_access": ["my work", "assigned tasks", "teams communication actions"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["access internal collaboration tools from assigned records"],
+      "restrictions": ["no admin center access", "no guest sharing", "no mailbox access"]
+    },
+    {
+      "persona": "external_user",
+      "dashboard_access": [],
+      "m365_admin_roles": [],
+      "allowed_actions": ["none in Phase 1"],
+      "restrictions": ["no dashboard account", "no tenant-wide guest access", "no external sharing rollout in development"]
+    }
+  ],
+  "governance_models": {
+    "shared_mailboxes": [
+      "Use role mailboxes for departments only, never as the system of record for project state.",
+      "Each shared mailbox must have two named business owners and one technical owner.",
+      "Mailbox access must be group-based and quarterly reviewed."
+    ],
+    "external_sharing": [
+      "Development remains internal-only for SharePoint and OneDrive.",
+      "Do not test external guest flows in the primary dev tenant without security approval.",
+      "Use dedicated sandbox guests if external behavior must be validated later."
+    ],
+    "sensitivity_labels": [
+      "Publish sandbox labels only: Internal, Internal Restricted, Client Controlled.",
+      "Do not auto-apply encryption in development unless testing a specific label workflow.",
+      "Use labels to prove taxonomy and publishing logic before production enforcement."
+    ],
+    "audit_and_retention": [
+      "Keep Microsoft unified audit enabled for all supported workloads.",
+      "Retain sandbox audit logs long enough to validate integrations and admin actions.",
+      "Review audit ownership with security before staging promotion."
+    ],
+    "automation_ownership": [
+      "All Power Automate flows in development must use named owners, not personal-only ownership.",
+      "Custom connectors require platform admin review before creation.",
+      "Development flows cannot become the workflow source of truth."
+    ]
+  },
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Create sandbox security groups using the PMC-DEV prefix.",
+      "portal": "Microsoft Entra admin center",
+      "requires_tenant_admin": true,
+      "owner": "Platform Admin"
+    },
+    {
+      "order": 2,
+      "step": "Configure report-only MFA and admin Conditional Access pilot for security admins and platform admins.",
+      "portal": "Entra Conditional Access",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 3,
+      "step": "Set SharePoint and OneDrive external sharing to internal-only.",
+      "portal": "SharePoint admin center",
+      "requires_tenant_admin": true,
+      "owner": "SharePoint Admin"
+    },
+    {
+      "order": 4,
+      "step": "Enable unified audit and confirm mailbox/site auditing is on.",
+      "portal": "Microsoft Purview",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    }
+  ],
+  "validation_checklist": [
+    "Confirm development tenant uses sandbox-only groups and site naming.",
+    "Confirm no external sharing is available in SharePoint or OneDrive.",
+    "Confirm admin personas can pass MFA and staff do not receive admin center access.",
+    "Confirm Power Automate flows are tagged as development-owned and non-production."
+  ],
+  "rollback_principles": [
+    "Roll back by unassigning pilot groups before deleting policies.",
+    "Revert report-only policies before removing supporting groups and labels.",
+    "Never leave orphaned shared mailbox or site owners after rollback."
+  ]
+}

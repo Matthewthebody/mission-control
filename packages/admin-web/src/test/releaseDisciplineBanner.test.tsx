@@ -88,7 +88,7 @@ describe("release discipline banner", () => {
       if (path === "/auth/session") {
         return { user };
       }
-      if (path === "/health") {
+      if (path.startsWith("/health")) {
         return {
           ok: true,
           release_discipline: {

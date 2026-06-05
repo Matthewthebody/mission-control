@@ -10,9 +10,11 @@ import { TodayOperationsBoard } from "../components/jobs/SharedJobOperations";
 import { DepartmentProductionOverviewPanel } from "../components/jobs/SharedJobProduction";
 import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
 import {
+  formatDate,
   KpiStatCard,
   OverviewListCard,
   SavedViewBar,
+  StatusPill,
   humanizeToken,
   useHashRouteSnapshot
 } from "../components/sports/SportsPrimitives";
@@ -61,6 +63,46 @@ const EMPTY_ERRORS: SourceErrors = {
   peerQa: ""
 };
 
+type SportsOperatingBoardRow = {
+  id: string;
+  jobId: string;
+  accountLabel: string;
+  contactLabel: string;
+  jobTypeLabel: string;
+  dateLabel: string;
+  statusLabel: string;
+  statusDetail: string;
+  nextAction: string;
+  ownerLabel: string;
+  riskLabel: string;
+  riskTone: "success" | "info" | "warning" | "danger";
+  taskCount: number;
+  exceptionCount: number;
+  proofApproval: boolean;
+  clientInfoIssue: boolean;
+  staffingIssue: boolean;
+  productionIssue: boolean;
+  productionAttention: boolean;
+  jobHash: string;
+  accountHash: string | null;
+  productionHash: string | null;
+  exceptionsHash: string | null;
+};
+
+const SPORTS_OPERATING_BOARD_ROW_LIMIT = 14;
+
+function groupByJobId<T>(items: T[], getJobId: (item: T) => string | null | undefined) {
+  const grouped = new Map<string, T[]>();
+  for (const item of items) {
+    const jobId = getJobId(item);
+    if (!jobId) {
+      continue;
+    }
+    grouped.set(jobId, [...(grouped.get(jobId) ?? []), item]);
+  }
+  return grouped;
+}
+
 function filterItems(items: SportsOverviewListItem[], query: string) {
   if (!query.trim()) {
     return items;
@@ -95,6 +137,181 @@ function startOfToday() {
 function isBeforeToday(value: string | null | undefined) {
   const parsed = parseDate(value);
   return parsed ? parsed.getTime() < startOfToday().getTime() : false;
+}
+
+function isWithinNextSevenDays(value: string | null | undefined) {
+  const parsed = parseDate(value);
+  if (!parsed) {
+    return false;
+  }
+  const diffDays = (parsed.getTime() - startOfToday().getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays >= 0 && diffDays <= 7;
+}
+
+function dueDateForSportsJob(job: SharedJobListItem) {
+  return job.production_deadline_at ?? job.client_deadline_at ?? job.primary_day_date ?? job.scheduled_start_at;
+}
+
+function boardDateLabel(job: SharedJobListItem) {
+  return formatDate(job.primary_day_date ?? job.scheduled_start_at ?? job.client_deadline_at ?? job.production_deadline_at);
+}
+
+function hasSportsProofApproval(job: SharedJobListItem, workflowItems: SharedProductionQueueItem[]) {
+  const proofStatus = (job.proof_status ?? "").toLowerCase();
+  return (
+    proofStatus === "requested" ||
+    proofStatus === "overdue" ||
+    proofStatus === "revisions_requested" ||
+    job.production_status === "awaiting_approval" ||
+    job.production_status === "proof_sent" ||
+    workflowItems.some((item) => item.proof_required || item.approval_required || item.overdue_approval_count > 0 || item.approval_status === "overdue")
+  );
+}
+
+function hasSportsClientInfoIssue(job: SharedJobListItem, exceptions: SharedExceptionListItem[]) {
+  return (
+    !job.primary_contact_id ||
+    !job.primary_contact_name ||
+    exceptions.some((item) => {
+      const haystack = `${item.flag_type} ${item.title} ${item.description ?? ""}`.toLowerCase();
+      return haystack.includes("client") || haystack.includes("contact") || haystack.includes("team") || haystack.includes("missing");
+    })
+  );
+}
+
+function hasSportsStaffingIssue(job: SharedJobListItem, exceptions: SharedExceptionListItem[]) {
+  return (
+    job.staffing_status === "unassigned" ||
+    job.staffing_status === "partially_staffed" ||
+    job.staffing_status === "gap_flagged" ||
+    exceptions.some((item) => item.flag_type.toLowerCase().includes("staff"))
+  );
+}
+
+function hasSportsProductionIssue(job: SharedJobListItem, workflowItems: SharedProductionQueueItem[]) {
+  return (
+    job.production_status === "blocked" ||
+    workflowItems.some((item) => item.blocking_issue_count > 0 || Boolean(item.blocked_reason) || item.health_state === "BLOCKED" || item.health_state === "OVERDUE")
+  );
+}
+
+function sportsRiskForRow(job: SharedJobListItem, exceptions: SharedExceptionListItem[], workflowItems: SharedProductionQueueItem[]) {
+  if (
+    job.risk_status === "critical" ||
+    job.blocker_count > 0 ||
+    job.open_watch_flag_count > 0 ||
+    hasSportsProductionIssue(job, workflowItems) ||
+    exceptions.some((item) => item.severity === "critical")
+  ) {
+    return { label: "Critical", tone: "danger" as const };
+  }
+  if (
+    job.risk_status === "high" ||
+    isBeforeToday(job.client_deadline_at) ||
+    isBeforeToday(job.production_deadline_at) ||
+    exceptions.some((item) => item.severity === "high")
+  ) {
+    return { label: "High / overdue", tone: "danger" as const };
+  }
+  if (job.readiness_status === "at_risk" || job.readiness_status === "off_track" || job.risk_status === "medium") {
+    return { label: "Needs attention", tone: "warning" as const };
+  }
+  if (job.job_status === "ready_to_execute" || job.readiness_status === "ready") {
+    return { label: "Ready", tone: "success" as const };
+  }
+  return { label: "On watch", tone: "info" as const };
+}
+
+function nextActionForSportsRow(
+  job: SharedJobListItem,
+  tasksForJob: SharedTaskListItem[],
+  exceptionsForJob: SharedExceptionListItem[],
+  workflowItems: SharedProductionQueueItem[]
+) {
+  const urgentException = exceptionsForJob.find((item) => item.status === "open");
+  if (urgentException?.next_action_label) {
+    return urgentException.next_action_label;
+  }
+  if (hasSportsClientInfoIssue(job, exceptionsForJob)) {
+    return "Confirm account, contact, or team info before the next milestone.";
+  }
+  if (hasSportsStaffingIssue(job, exceptionsForJob)) {
+    return "Resolve staffing or lead coverage before game-day work.";
+  }
+  if (hasSportsProofApproval(job, workflowItems)) {
+    return "Follow up on proof approval without mixing it into staffing.";
+  }
+  if (hasSportsProductionIssue(job, workflowItems)) {
+    return "Unblock production or graphics before delivery slips.";
+  }
+  const openTask = tasksForJob.find((task) => task.status !== "completed");
+  if (openTask) {
+    return openTask.title;
+  }
+  return "Open the job and confirm the next operational milestone.";
+}
+
+function buildSportsOperatingBoardRows(
+  jobs: SharedJobListItem[],
+  tasks: SharedTaskListItem[],
+  exceptions: SharedExceptionListItem[],
+  workflowItems: SharedProductionQueueItem[]
+) {
+  const tasksByJob = groupByJobId(tasks, (task) => task.related_job_id);
+  const exceptionsByJob = groupByJobId(exceptions, (item) => item.job_id);
+  const workflowByJob = groupByJobId(workflowItems, (item) => item.job_id);
+
+  return jobs
+    .map((job) => {
+      const tasksForJob = tasksByJob.get(job.id) ?? [];
+      const exceptionsForJob = exceptionsByJob.get(job.id) ?? [];
+      const workflowForJob = workflowByJob.get(job.id) ?? [];
+      const risk = sportsRiskForRow(job, exceptionsForJob, workflowForJob);
+      const proofApproval = hasSportsProofApproval(job, workflowForJob);
+      const clientInfoIssue = hasSportsClientInfoIssue(job, exceptionsForJob);
+      const staffingIssue = hasSportsStaffingIssue(job, exceptionsForJob);
+      const productionIssue = hasSportsProductionIssue(job, workflowForJob);
+      const productionAttention = productionIssue || job.production_required || workflowForJob.length > 0 || job.production_status !== "not_created";
+      const workflowItemId = workflowForJob[0]?.id;
+
+      return {
+        id: job.id,
+        jobId: job.id,
+        accountLabel: job.organization_name ?? "Sports account pending",
+        contactLabel: job.primary_contact_name ?? "Contact pending",
+        jobTypeLabel: humanizeToken(job.job_category),
+        dateLabel: boardDateLabel(job),
+        statusLabel: humanizeToken(job.job_status),
+        statusDetail: `${humanizeToken(job.readiness_status)} | ${humanizeToken(job.production_status)}`,
+        nextAction: nextActionForSportsRow(job, tasksForJob, exceptionsForJob, workflowForJob),
+        ownerLabel: job.lead_owner_name ?? job.account_owner_name ?? tasksForJob[0]?.assigned_to_name ?? exceptionsForJob[0]?.owner_name ?? "Unassigned",
+        riskLabel: risk.label,
+        riskTone: risk.tone,
+        taskCount: tasksForJob.length,
+        exceptionCount: exceptionsForJob.length,
+        proofApproval,
+        clientInfoIssue,
+        staffingIssue,
+        productionIssue,
+        productionAttention,
+        jobHash: buildSharedJobHash("#sports/jobs", job.id),
+        accountHash: job.organization_id ? `#sports/accounts?organization=${encodeURIComponent(job.organization_id)}` : null,
+        productionHash: productionAttention
+          ? workflowItemId
+            ? `#sports/graphics?item=${encodeURIComponent(workflowItemId)}`
+            : "#sports/graphics"
+          : null,
+        exceptionsHash: exceptionsForJob.length ? "#sports/exceptions" : null
+      } satisfies SportsOperatingBoardRow;
+    })
+    .sort((a, b) => {
+      const toneRank = { danger: 0, warning: 1, info: 2, success: 3 };
+      const toneDelta = toneRank[a.riskTone] - toneRank[b.riskTone];
+      if (toneDelta !== 0) {
+        return toneDelta;
+      }
+      return a.dateLabel.localeCompare(b.dateLabel);
+    });
 }
 
 function toneForJob(job: SharedJobListItem): SportsOverviewListItem["tone"] {
@@ -302,14 +519,72 @@ export function SportsOverview({ token, currentUser }: Props) {
   const sharedJobCards = useMemo(() => sharedJobs.slice(0, 6).map(toJobCard), [sharedJobs]);
   const sharedTaskCards = useMemo(() => tasks.slice(0, 6).map(toTaskCard), [tasks]);
   const sharedExceptionCards = useMemo(() => exceptions.slice(0, 6).map(toExceptionCard), [exceptions]);
+  const sharedWorkflowItems = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [
+            ...(dashboard?.blocked_production ?? []),
+            ...(dashboard?.overdue_approvals ?? []),
+            ...(dashboard?.delivery_risks ?? [])
+          ].map((item) => [item.id, item])
+        ).values()
+      ),
+    [dashboard?.blocked_production, dashboard?.delivery_risks, dashboard?.overdue_approvals]
+  );
   const sharedWorkflowCards = useMemo(() => {
-    const workflowItems = [
-      ...(dashboard?.blocked_production ?? []),
-      ...(dashboard?.overdue_approvals ?? []),
-      ...(dashboard?.delivery_risks ?? [])
-    ];
-    return Array.from(new Map(workflowItems.map((item) => [item.id, item])).values()).slice(0, 6).map(toWorkflowCard);
-  }, [dashboard?.blocked_production, dashboard?.delivery_risks, dashboard?.overdue_approvals]);
+    return sharedWorkflowItems.slice(0, 6).map(toWorkflowCard);
+  }, [sharedWorkflowItems]);
+  const sportsOperatingRows = useMemo(
+    () => buildSportsOperatingBoardRows(sharedJobs, tasks, exceptions, sharedWorkflowItems).slice(0, SPORTS_OPERATING_BOARD_ROW_LIMIT),
+    [exceptions, sharedJobs, sharedWorkflowItems, tasks]
+  );
+  const sportsBoardIssueCounts = useMemo(
+    () => ({
+      proofApprovals: sportsOperatingRows.filter((row) => row.proofApproval).length,
+      clientInfo: sportsOperatingRows.filter((row) => row.clientInfoIssue).length,
+      staffing: sportsOperatingRows.filter((row) => row.staffingIssue).length,
+      production: sportsOperatingRows.filter((row) => row.productionIssue).length,
+      exceptions: sportsOperatingRows.reduce((sum, row) => sum + row.exceptionCount, 0),
+      tasks: sportsOperatingRows.reduce((sum, row) => sum + row.taskCount, 0)
+    }),
+    [sportsOperatingRows]
+  );
+  const sportsCommandSummaryCards = useMemo(
+    () => [
+      {
+        label: "Active Sports Work",
+        value: sportsOperatingRows.length,
+        detail: "Open sports jobs in the current command view.",
+        hash: "#sports/jobs"
+      },
+      {
+        label: "Photo Days / Events",
+        value: overview?.upcoming_shoots.length ?? sharedJobs.filter((job) => Boolean(job.primary_day_date || job.scheduled_start_at)).length,
+        detail: "Upcoming shoots and sports events already visible from existing data.",
+        hash: "#sports/jobs"
+      },
+      {
+        label: "Due Soon",
+        value: sharedJobs.filter((job) => isWithinNextSevenDays(dueDateForSportsJob(job))).length,
+        detail: "Sports work with a date or deadline inside the next seven days.",
+        hash: "#sports/jobs"
+      },
+      {
+        label: "Blocked / Needs Review",
+        value: sportsOperatingRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length,
+        detail: "Blocked, high-risk, staffing, proof, production, or review-needed work.",
+        hash: "#needs-attention"
+      },
+      {
+        label: "Recently Changed",
+        value: sharedJobs.filter((job) => Boolean(job.updated_at)).length,
+        detail: "Current sports jobs with update timestamps.",
+        hash: "#project-tracking"
+      }
+    ],
+    [overview?.upcoming_shoots.length, sharedJobs, sportsOperatingRows]
+  );
 
   const allErrors = Object.values(errors).filter(Boolean);
 
@@ -323,7 +598,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <WorkspacePageHeader
           eyebrow="Sports"
           title="Sports"
-          summary="Sports uses the same shared jobs, tasks, exceptions, and workflow contract as the rest of the operating system."
+          summary="Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner."
           meta={[{ label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "info" }]}
         />
         <section className="panel">
@@ -346,25 +621,178 @@ export function SportsOverview({ token, currentUser }: Props) {
       <WorkspacePageHeader
         eyebrow="Sports"
         title="Sports"
-        summary="Sports now runs on the same shared jobs, tasks, exceptions, and workflow contract as Schools, with sports-specific pressure shown only as read-model projections."
+        summary="Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner."
         meta={[
           { label: overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Shared contract view", tone: "info" },
           { label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "success" }
         ]}
         actions={
           <WorkspaceActionBar align="end">
-            <button type="button" onClick={() => setQuickCreateOpen(true)} disabled={!canCreate}>
+            <button type="button" onClick={() => (window.location.hash = "#sports/jobs/new")} disabled={!canCreate}>
               New Sports Job
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/jobs/import")} disabled={!canCreate}>
               Import Sports Jobs
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/exceptions")}>
-              View Exceptions
+              Review blockers
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
+              View full work spine
             </button>
           </WorkspaceActionBar>
         }
       />
+
+      <section className="panel sports-operating-board">
+        <div className="sports-operating-board__top">
+          <WorkspaceSectionHeader
+            title="Sports Command Hub"
+            summary="Summary-first view of sports work, photo days, due dates, blockers, next owners, and where to inspect the full work record."
+          />
+          <WorkspaceActionBar align="end">
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/jobs")}>
+              All Jobs
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/accounts")}>
+              Accounts
+            </button>
+            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/contacts")}>
+              Contacts
+            </button>
+          </WorkspaceActionBar>
+        </div>
+
+        <div className="sports-operating-board__kpis" aria-label="Sports operating summary cards">
+          {sportsCommandSummaryCards.map((card) => (
+            <button key={card.label} type="button" className="sports-operating-board__summary-card" onClick={() => (window.location.hash = card.hash)}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+            </button>
+          ))}
+        </div>
+
+        <div className="sports-operating-board__signals" aria-label="Sports attention preview">
+          <div className="sports-operating-board__signal-label">
+            <strong>What needs attention</strong>
+            <span>Preview only. Use Needs Attention for cross-operational blockers.</span>
+          </div>
+          <button type="button" onClick={() => (window.location.hash = "#sports/graphics")}>
+            <span>Proof approvals</span>
+            <strong>{sportsBoardIssueCounts.proofApprovals}</strong>
+          </button>
+          <button type="button" onClick={() => (window.location.hash = "#sports/contacts")}>
+            <span>Missing client/team info</span>
+            <strong>{sportsBoardIssueCounts.clientInfo}</strong>
+          </button>
+          <button type="button" onClick={() => (window.location.hash = "#sports/exceptions")}>
+            <span>Staffing / coverage</span>
+            <strong>{sportsBoardIssueCounts.staffing}</strong>
+          </button>
+          <button type="button" onClick={() => (window.location.hash = "#sports/graphics")}>
+            <span>Production blockers</span>
+            <strong>{sportsBoardIssueCounts.production}</strong>
+          </button>
+          <button type="button" onClick={() => (window.location.hash = "#tasks?department=sports")}>
+            <span>Open tasks</span>
+            <strong>{sportsBoardIssueCounts.tasks}</strong>
+          </button>
+          <button type="button" onClick={() => (window.location.hash = "#sports/exceptions")}>
+            <span>Exceptions</span>
+            <strong>{sportsBoardIssueCounts.exceptions}</strong>
+          </button>
+        </div>
+
+        {sportsOperatingRows.length ? (
+          <div className="sports-operating-board__table" role="table" aria-label="Sports department command list">
+            <div className="sports-operating-board__row sports-operating-board__row--head" role="row">
+              <span role="columnheader">Team / account</span>
+              <span role="columnheader">Department work</span>
+              <span role="columnheader">Due / event</span>
+              <span role="columnheader">Status</span>
+              <span role="columnheader">Next action</span>
+              <span role="columnheader">Next owner</span>
+              <span role="columnheader">Blocker / review</span>
+              <span role="columnheader">Open next</span>
+            </div>
+            {sportsOperatingRows.map((row) => (
+              <div key={row.id} className="sports-operating-board__row" role="row">
+                <div>
+                  <strong title={row.accountLabel}>{row.accountLabel}</strong>
+                  <span title={row.contactLabel}>Contact: {row.contactLabel}</span>
+                </div>
+                <div>
+                  <strong>{row.jobTypeLabel}</strong>
+                  <span>{row.taskCount} tasks | {row.exceptionCount} exceptions</span>
+                </div>
+                <div>
+                  <strong>{row.dateLabel}</strong>
+                  <span>Event date or deadline</span>
+                </div>
+                <div>
+                  <strong>{row.statusLabel}</strong>
+                  <span>{row.statusDetail}</span>
+                </div>
+                <div>
+                  <strong title={row.nextAction}>{row.nextAction}</strong>
+                  <div className="sports-operating-board__flags" aria-label={`Issue types for ${row.accountLabel}`}>
+                    {row.proofApproval ? <span>Proof</span> : null}
+                    {row.clientInfoIssue ? <span>Client/info</span> : null}
+                    {row.staffingIssue ? <span>Staffing</span> : null}
+                    {row.productionIssue ? <span>Production</span> : null}
+                  </div>
+                </div>
+                <div>
+                  <strong>{row.ownerLabel}</strong>
+                  <span>Next owner</span>
+                </div>
+                <div>
+                  <StatusPill label={row.riskLabel} tone={row.riskTone} />
+                </div>
+                <div className="sports-operating-board__actions">
+                  <button type="button" onClick={() => (window.location.hash = row.jobHash)}>
+                    Open work
+                  </button>
+                  <button type="button" onClick={() => (window.location.hash = "#project-tracking")}>
+                    View in Project Tracking
+                  </button>
+                  {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
+                    <button type="button" onClick={() => (window.location.hash = "#needs-attention")}>
+                      Open Needs Attention
+                    </button>
+                  ) : null}
+                  {row.accountHash ? (
+                    <button type="button" onClick={() => (window.location.hash = row.accountHash ?? "#sports/accounts")}>
+                      Account
+                    </button>
+                  ) : null}
+                  {row.productionHash ? (
+                    <button type="button" onClick={() => (window.location.hash = row.productionHash ?? "#sports/graphics")}>
+                      Production
+                    </button>
+                  ) : null}
+                  {row.exceptionsHash ? (
+                    <button type="button" onClick={() => (window.location.hash = row.exceptionsHash ?? "#sports/exceptions")}>
+                      Exceptions
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <WorkspaceEmptyState
+            title="No active sports work is showing here yet"
+            summary="Published sports jobs appear here when the shared job queue has team, owner, event, and risk context."
+            actions={
+              <button type="button" onClick={() => (window.location.hash = "#sports/jobs/new")} disabled={!canCreate}>
+                Start Sports Job
+              </button>
+            }
+          />
+        )}
+      </section>
 
       <DepartmentDashboardPanel
         token={token}
@@ -399,7 +827,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         token={token}
         currentUser={currentUser}
         title="Sports Active Work"
-        summary="Dense sports workload strip for event pressure, owner clarity, next action, and risk before the full department contract view takes over."
+        summary="Compact sports workload strip for event pressure, owner clarity, next action, and risk before opening the full work spine."
         defaultDepartment="sports"
         routeHash="#sports/jobs"
         focus="overview"
@@ -410,7 +838,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         token={token}
         department="sports"
         title="Sports workflow queue"
-        summary="Live Project Dashboard rows where the current workflow step belongs to Sports. Open the job workflow to update progress."
+        summary="Live Project Tracking rows where the next step belongs to Sports. Open Project Tracking for the full work spine."
       />
 
       {featureFlags.centralJobIntakeV1 ? (
@@ -564,7 +992,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <section className="sports-read-model-block">
           <WorkspaceSectionHeader
             title="Sports read-model projections"
-            summary="These signals stay sports-specific, but they are projections over the same shared jobs, tasks, exceptions, and workflow runtime."
+            summary="These signals stay sports-specific while Project Tracking remains the shared work spine for full inspection."
           />
           <div className="sports-grid sports-grid--two">
             <OverviewListCard

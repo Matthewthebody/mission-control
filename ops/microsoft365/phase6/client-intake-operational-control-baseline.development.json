@@ -1,0 +1,141 @@
+{
+  "phase": "phase6_approvals_escalations_alerts_operational_control",
+  "baseline_version": "1.0.0",
+  "environment": "development",
+  "tenant_tier": "sandbox",
+  "reviewer_assignment": {
+    "default_reviewer_rule": "Use the mapped reviewer list first, then fall back to the dashboard owner if no reviewer is explicitly configured.",
+    "manager_escalation_rule": "Escalate first to the mapping manager list; if none is configured, fall back to the assigned reviewer.",
+    "department_lead_escalation_rule": "Escalate second to the mapping department-lead list; if none is configured, fall back to the manager list.",
+    "default_review_due_hours": 24,
+    "default_first_escalation_hours": 12,
+    "default_second_escalation_hours": 24
+  },
+  "approval_workflow": {
+    "approve_rule": "Approval keeps the dashboard as source of truth and may complete the related required item only through the dashboard-controlled review action.",
+    "reject_rule": "Rejection is durable and visible, but it does not delete the upload receipt or hide the reviewer decision.",
+    "revision_request_rule": "Revision requests move the submission into waiting_on_client so reminders and escalations stay suppressed until the next valid receipt arrives.",
+    "completion_rule": "Only approved or rejected submissions are terminal. Under review, unmatched, and revision-requested submissions stay in the operational backlog.",
+    "audit_rule": "Every reviewer assignment, exception-state change, escalation, and decision records audit plus intake-event history."
+  },
+  "exception_states": [
+    {
+      "key": "none",
+      "label": "Active Review",
+      "suppression_rule": "No suppression; reminders and escalations can continue normally.",
+      "operator_use": "Use when the submission still needs normal reviewer handling."
+    },
+    {
+      "key": "waiting_on_client",
+      "label": "Waiting On Client",
+      "suppression_rule": "Suppress reminder and escalation automation for the current submission until a new receipt or reviewer action changes the state.",
+      "operator_use": "Use after a revision request or any known client follow-up delay."
+    },
+    {
+      "key": "paused",
+      "label": "Paused",
+      "suppression_rule": "Suppress reminders and escalations while the record is intentionally paused for internal reasons.",
+      "operator_use": "Use when staffing or scheduling needs a temporary hold."
+    },
+    {
+      "key": "manually_overridden",
+      "label": "Manual Override",
+      "suppression_rule": "Suppress automation and require an explicit operator note describing the exception path.",
+      "operator_use": "Use only when leadership or platform operations has approved a manual workaround."
+    }
+  ],
+  "alerting_and_digests": {
+    "teams_alerts_channel_rule": "Use the governed Teams Automation Alerts routes for overdue-review alerts, escalations, and daily summary visibility.",
+    "immediate_alert_types": [
+      "client_intake_review_overdue",
+      "client_intake_escalated"
+    ],
+    "daily_digest": {
+      "enabled": true,
+      "timezone": "America/Chicago",
+      "local_hour": 7,
+      "window_minutes": 30,
+      "rule": "Queue one digest per tenant day with open backlog, overdue, and escalated counts when any open intake risk exists."
+    },
+    "failure_visibility_rule": "Escalation or digest failures must remain visible in intake events, diagnostics, and Microsoft integration diagnostics."
+  },
+  "backlog_views": {
+    "review_queue_rule": "Show all non-terminal submissions that are not in an exception state.",
+    "overdue_rule": "Show non-terminal submissions past their review_due_at while exception state is none.",
+    "exception_queue_rule": "Show waiting_on_client, paused, and manually_overridden submissions separately from the normal review queue.",
+    "escalation_queue_rule": "Show submissions with escalation_level greater than zero in a dedicated escalation lane."
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Apply the Phase 6 migration and confirm Phase 5 intake plus Phase 4 mail automation diagnostics are healthy.",
+      "owner": "Platform Engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Disable the Phase 6 feature flag if the migration or validation fails."
+    },
+    {
+      "order": 2,
+      "title": "Configure reviewer, manager, and department-lead ownership on pilot mappings.",
+      "owner": "Operations Leadership",
+      "requires_tenant_admin": false,
+      "rollback": "Clear escalation ownership and keep using manual review until assignments are corrected."
+    },
+    {
+      "order": 3,
+      "title": "Validate Teams Automation Alerts routes for overdue-review and daily-digest alert types.",
+      "owner": "Platform Automation Owners",
+      "requires_tenant_admin": true,
+      "rollback": "Disable Teams alerts and rely on in-app backlog visibility until routes are corrected."
+    },
+    {
+      "order": 4,
+      "title": "Run the internal operational-control sweep and verify backlog, overdue, exception, and escalation views.",
+      "owner": "Platform Engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Disable the operational-control worker path and resolve schema or recipient issues."
+    }
+  ],
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Create or validate Teams Automation Alerts routes for client_intake_review_overdue, client_intake_escalated, and client_intake_daily_digest.",
+      "portal": "Admin / Integrations / Teams Alerts",
+      "requires_tenant_admin": true,
+      "owner": "Platform Automation Owners"
+    },
+    {
+      "order": 2,
+      "step": "Enable MICROSOFT_365_CLIENT_INTAKE_OPERATIONS_ENABLED for the target environment.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Platform Engineering"
+    },
+    {
+      "order": 3,
+      "step": "Populate manager and department-lead escalation owners on active intake mappings.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Operations Leadership"
+    },
+    {
+      "order": 4,
+      "step": "Review the new operational diagnostics endpoint before opening broader reviewer rollout.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Leadership"
+    }
+  ],
+  "validation_checklist": [
+    "Non-terminal submissions appear in the operational backlog view with stable dashboard links.",
+    "Waiting_on_client, paused, and manually_overridden states suppress escalation and reminder automation.",
+    "Overdue submissions escalate first to managers, then to department leads.",
+    "Teams Automation Alerts receives overdue and digest summaries when routes are configured.",
+    "Approval, rejection, revision request, assignment, and exception changes are durable and auditable."
+  ],
+  "rollback_principles": [
+    "Disable MICROSOFT_365_CLIENT_INTAKE_OPERATIONS_ENABLED before changing escalation ownership or baseline thresholds in a live incident.",
+    "Do not clear exception states to hide backlog; use explicit reviewer decisions or notes.",
+    "Keep escalation failures visible in diagnostics until routes or recipients are fixed.",
+    "Pause mappings rather than widening automation when reviewer capacity is constrained."
+  ]
+}

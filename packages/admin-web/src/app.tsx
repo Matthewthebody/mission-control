@@ -1764,23 +1764,24 @@ function renderRouteContent({
 function buildDesktopNavGroups(sections: ShellSection[]) {
   return [
     {
-      id: "primary",
-      label: "Navigate",
-      keys: [
-        "home",
-        "my-work",
-        "schools",
-        "sports",
-        "photography",
-        "production",
-        "project-tracking",
-        "jobs",
-        "contacts",
-        "schedule",
-        "hr-admin",
-        "leadership",
-        "settings"
-      ] as const
+      id: "start",
+      label: "Start Here",
+      keys: ["home", "my-work", "needs-attention"] as const
+    },
+    {
+      id: "spine",
+      label: "Work Spine",
+      keys: ["project-tracking", "schedule", "contacts", "jobs"] as const
+    },
+    {
+      id: "departments",
+      label: "Departments",
+      keys: ["schools", "sports", "photography", "production"] as const
+    },
+    {
+      id: "company",
+      label: "Company",
+      keys: ["hr-admin", "leadership", "settings"] as const
     }
   ]
     .map((group) => ({
@@ -1814,6 +1815,7 @@ function ShellSidebarIcon({ sectionKey }: { sectionKey: ShellSection["key"] }) {
         </svg>
       );
     case "my-work":
+    case "needs-attention":
       return (
         <svg {...iconProps}>
           <path d="M5 4.75h10v10.5H5z" />

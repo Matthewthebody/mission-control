@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Socket } from "socket.io-client";
 import { EmployeeShiftDetailPanel } from "../components/EmployeeShiftDetailPanel";
+import { GlobalPunchControl } from "../components/GlobalPunchControl";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
 import { QuickWorkflowStepEditor } from "../components/projectTracking/QuickWorkflowStepEditor";
 import {
@@ -114,11 +115,12 @@ export function MyWork({ token, currentUser, socket }: Props) {
     <>
       <section className="page-intro page-intro--compact">
         <div>
-          <div className="eyebrow">My Work</div>
-          <h2>Execution Center</h2>
-          <p>Track assigned jobs, events, tasks, acknowledgements, exceptions, approvals, and recent changes across every department from one place.</p>
+          <div className="eyebrow">Daily Cockpit</div>
+          <h2>Your Day</h2>
+          <p>Start with your schedule, time clock, assigned work, acknowledgements, and approvals without opening a leadership attendance desk.</p>
         </div>
         <div className="page-intro-actions">
+          <GlobalPunchControl token={token} currentUser={currentUser} />
           <div className="metric-pill">{currentUser.fullName}</div>
           <label className="filter-field">
             <span>Anchor Date</span>
@@ -134,6 +136,29 @@ export function MyWork({ token, currentUser, socket }: Props) {
       {error ? <div className="error-banner">{error}</div> : null}
       {liveMessage ? <div className="feedback-strip feedback-strip--info">{liveMessage}</div> : null}
 
+      <section className="panel employee-day-command">
+        <div>
+          <div className="section-title">Today</div>
+          <p className="section-subtitle">{buildDaySummary(payload)}</p>
+        </div>
+        <div className="employee-day-command__cards">
+          <ScheduleContextCard
+            label="Now"
+            event={payload?.schedule_context.current_event ?? null}
+            emptyLabel={payload?.schedule_context.active_now_count ? "Active work is in progress." : "You are not inside a scheduled event right now."}
+          />
+          <ScheduleContextCard
+            label="Next"
+            event={payload?.schedule_context.next_event ?? null}
+            emptyLabel="No next event is published in this work window."
+          />
+          <article className="notification-card notification-card--normal">
+            <strong>Lookahead</strong>
+            <div className="muted">{buildLookaheadSummary(payload)}</div>
+          </article>
+        </div>
+      </section>
+
       <section className="employee-summary-strip">
         <SummaryTile eyebrow="Jobs" value={payload?.summary.assigned_job_count ?? 0} detail="Assigned jobs linked to your work." />
         <SummaryTile eyebrow="Current Steps" value={payload?.summary.live_workflow_step_count ?? 0} detail="Workflow steps assigned directly to you." />
@@ -147,8 +172,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
       <section className="employee-work-layout">
         <div className="panel employee-shift-rail">
-          <div className="section-title">Immediate Schedule</div>
-          <p className="section-subtitle">Your next live execution windows, with the old field-detail console demoted behind selected event detail.</p>
+          <div className="section-title">Schedule</div>
+          <p className="section-subtitle">Choose an event when you need the detailed field workflow, contacts, closeout, or shoot-specific actions.</p>
 
           <div className="ops-preview-list">
             <ScheduleContextCard
@@ -212,7 +237,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
         <div className="panel employee-detail-panel">
           <PanelList
             title="Assigned Tasks"
-            subtitle="Work items pulled from the shared task layer, not a local page-only checklist."
+            subtitle="Open work assigned to you. Blocked or overdue items should show the reason and the next useful place to act."
             items={payload?.tasks ?? []}
             getKey={(task) => task.id}
             empty="No open assigned tasks are in your queue."
@@ -241,7 +266,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
           <PanelList
             title="Required Acknowledgements"
-            subtitle="Meaningful changes that need an explicit acknowledgement."
+            subtitle="Changes that can affect today's work and need you to explicitly notice them."
             items={payload?.acknowledgements ?? []}
             getKey={(item) => item.id}
             empty="No acknowledgements are waiting on you."
@@ -259,7 +284,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
           <PanelList
             title="Approvals Waiting On You"
-            subtitle="Operational approvals that currently need your decision."
+            subtitle="Decisions waiting on you. Blocking or overdue approvals should be cleared before work stalls."
             items={payload?.approvals ?? []}
             getKey={(item) => item.id}
             empty="No approvals are waiting on you."
@@ -279,7 +304,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
       <section className="panel employee-detail-panel">
         <div className="section-title">Selected Event Detail</div>
-        <p className="section-subtitle">Detailed field actions are still available here, but they are now a secondary surface under the shared My Work execution model.</p>
+        <p className="section-subtitle">Detailed field actions stay here after you pick a schedule item, so the daily cockpit stays calm until you need the full workflow.</p>
         {detailLoading && !selectedEventDetail ? <div className="empty-state empty-state--panel">Loading event detail...</div> : null}
         {!detailLoading && !selectedEventDetail ? (
           <div className="empty-state empty-state--panel">Choose an event from Immediate Schedule to open its detailed field workflow.</div>
@@ -310,6 +335,36 @@ function SummaryTile({ eyebrow, value, detail }: { eyebrow: string; value: numbe
       <p>{detail}</p>
     </article>
   );
+}
+
+function buildDaySummary(payload: EmployeeMyWorkResponse | null) {
+  if (!payload) {
+    return "Loading your schedule, assigned work, approvals, acknowledgements, and exceptions.";
+  }
+  const parts = [
+    `${payload.summary.events_today} event${payload.summary.events_today === 1 ? "" : "s"} today`,
+    `${payload.summary.assigned_task_count} assigned task${payload.summary.assigned_task_count === 1 ? "" : "s"}`,
+    `${payload.summary.approval_waiting_count} approval${payload.summary.approval_waiting_count === 1 ? "" : "s"} waiting`,
+    `${payload.summary.acknowledgement_count} acknowledgement${payload.summary.acknowledgement_count === 1 ? "" : "s"}`
+  ];
+  if (payload.summary.attention_needed_count > 0 || payload.summary.owned_exception_count > 0) {
+    parts.push(`${payload.summary.attention_needed_count + payload.summary.owned_exception_count} item${payload.summary.attention_needed_count + payload.summary.owned_exception_count === 1 ? "" : "s"} needing follow-through`);
+  }
+  return `${parts.join(", ")}.`;
+}
+
+function buildLookaheadSummary(payload: EmployeeMyWorkResponse | null) {
+  if (!payload) {
+    return "Checking the next few days of published work.";
+  }
+  const end = new Date(`${payload.window_end_date}T12:00:00`);
+  const endLabel = Number.isNaN(end.getTime())
+    ? payload.window_end_date
+    : end.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (payload.summary.upcoming_events > 0) {
+    return `${payload.summary.upcoming_events} upcoming event${payload.summary.upcoming_events === 1 ? " is" : "s are"} visible through ${endLabel}.`;
+  }
+  return `No additional published events are visible through ${endLabel}.`;
 }
 
 function PanelList<T>({
@@ -505,6 +560,7 @@ function AcknowledgementCard({ item }: { item: EmployeeMyWorkAcknowledgementReco
       <strong>{item.title}</strong>
       <div className="muted">{formatDepartmentLabel(item.department)} · {item.action_label}</div>
       <div className="muted">{item.summary}</div>
+      <div className="muted">Why it matters: this change may affect how you arrive, set up, communicate, or close out the linked work.</div>
       {item.linked_job_number || item.linked_job_title ? (
         <div className="muted">
           {item.linked_job_number ? `${item.linked_job_number} · ` : ""}
@@ -512,6 +568,9 @@ function AcknowledgementCard({ item }: { item: EmployeeMyWorkAcknowledgementReco
         </div>
       ) : null}
       {item.due_at ? <div className="muted">Before {formatDateTime(item.due_at)}</div> : null}
+      <div className="employee-shift-card__flags">
+        <span className="meta-pill">Next: {item.action_label}</span>
+      </div>
     </article>
   );
 }
@@ -539,10 +598,16 @@ function ApprovalCard({ item }: { item: EmployeeMyWorkApprovalRecord }) {
       <strong>{item.request_title}</strong>
       <div className="muted">{item.request_type_label}</div>
       <div className="muted">{item.request_summary ?? item.source_entity_label ?? "Approval is waiting on your decision."}</div>
+      <div className="muted">
+        Why it matters: {item.blocking ? "this is blocking downstream work until someone reviews it." : "this decision keeps the shared work record moving cleanly."}
+      </div>
+      <div className="muted">Context: {item.source_entity_label ?? humanizeLabel(item.source_entity_type)}</div>
+      <div className="muted">Owner/requester: {item.current_approver_role_group_label ?? "Approver group pending"}</div>
       <div className="employee-shift-card__flags">
         {item.blocking ? <span className="meta-pill">Blocking</span> : null}
         {item.overdue ? <span className="meta-pill">Overdue</span> : null}
         {item.escalated ? <span className="meta-pill">Escalated</span> : null}
+        <span className="meta-pill">Next: Review approval</span>
       </div>
       {item.due_at ? <div className="muted">Due {formatDateTime(item.due_at)}</div> : null}
     </article>

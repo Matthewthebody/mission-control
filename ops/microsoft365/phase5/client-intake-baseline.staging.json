@@ -1,0 +1,192 @@
+{
+  "phase": "phase5_secure_client_intake_mvp",
+  "baseline_version": "1.0.0",
+  "environment": "staging",
+  "tenant_tier": "preproduction",
+  "upload_architecture": {
+    "upload_pattern": "Use SharePoint or OneDrive Request Files links as the secure upload-only entry point for clients.",
+    "forms_policy": "Microsoft Forms is allowed only for optional non-file metadata and must never replace the secure upload link for documents.",
+    "source_of_truth_rule": "The dashboard owns required-item status, reviewer decisions, and project state.",
+    "external_access_rule": "External users can upload only to the scoped request destination and must not browse unrelated files or folders.",
+    "traceability_rule": "Every mapping and submission stores dashboard canonical ids, Microsoft folder references, and durable callback metadata.",
+    "review_gate_rule": "Receipt detection creates a matched or unmatched submission record, but it does not automatically mark work complete."
+  },
+  "mapping_defaults": {
+    "default_record_strategy": "Prefer item-level mappings for job_readiness_item records and fall back to job-level intake only when the requested item is intentionally grouped.",
+    "sharepoint_site_url": "https://pmcstaging.sharepoint.com/sites/pmc-staging-client-intake",
+    "library_name": "Client Intake",
+    "folder_path_pattern": "Projects/{job_id}/Requested Items/{required_item_id_or_job}",
+    "request_link_policy": "Every active mapping must resolve to one governed Request Files link with a stable external id when available.",
+    "reviewer_resolution_rule": "Use configured reviewers first, then fall back to the dashboard record owner.",
+    "default_reminder_cadence_hours": 48,
+    "default_request_mode": "request_files"
+  },
+  "matching_rules": [
+    {
+      "order": 1,
+      "key": "mapping_id",
+      "description": "Match directly on a dashboard-issued mapping id from the callback payload.",
+      "confidence": "high",
+      "escalation_rule": "If the mapping id is archived or not found, place the submission in the unmatched queue."
+    },
+    {
+      "order": 2,
+      "key": "request_link_external_id",
+      "description": "Match on the external Request Files identifier stored on the intake mapping.",
+      "confidence": "high",
+      "escalation_rule": "If multiple mappings resolve, route to human review instead of auto-matching."
+    },
+    {
+      "order": 3,
+      "key": "request_link_url",
+      "description": "Match on the exact request-link URL when the provider sends it back.",
+      "confidence": "high",
+      "escalation_rule": "If the URL is missing or ambiguous, continue to the next rule."
+    },
+    {
+      "order": 4,
+      "key": "folder_coordinates",
+      "description": "Match on SharePoint site, library, folder path, or folder URL when the request link metadata is absent.",
+      "confidence": "medium",
+      "escalation_rule": "If folder coordinates resolve to more than one mapping, require human review."
+    },
+    {
+      "order": 5,
+      "key": "dashboard_hints",
+      "description": "Use dashboard record type and id hints when they are explicitly included in the callback metadata.",
+      "confidence": "medium",
+      "escalation_rule": "Hints can narrow candidates but should not override explicit mapping identifiers."
+    },
+    {
+      "order": 6,
+      "key": "filename_label_match",
+      "description": "Compare normalized file names to required-item labels for human-assisted review hints only.",
+      "confidence": "low",
+      "escalation_rule": "Never auto-complete from filename-only matching; keep the submission in review."
+    }
+  ],
+  "notification_flows": {
+    "client_confirmation": {
+      "provider": "mail_automation",
+      "template_key": "submission_confirmation",
+      "trigger_type": "confirmation",
+      "recipient_rule": "Send to the uploader email when a matched submission has a valid uploader address.",
+      "suppression_rule": "Suppress when the submission has no uploader email or a confirmation delivery is already recorded."
+    },
+    "reviewer_notification": {
+      "provider": "operational_event",
+      "event_type": "client_intake.review_required",
+      "channel": "in_app",
+      "deep_link_rule": "Link reviewers back to the originating dashboard record and submission review surface.",
+      "suppression_rule": "Suppress duplicate notifications when the submission is already approved, rejected, or archived."
+    },
+    "reminder_email": {
+      "provider": "mail_automation",
+      "template_key": "required_items_reminder",
+      "overdue_template_key": "required_items_overdue",
+      "trigger_type": "reminder",
+      "overdue_trigger_type": "overdue",
+      "recipient_rule": "Resolve the client recipient from the mapped record context or explicit override fields on the mapping.",
+      "suppression_rule": "Suppress when the related required item is complete, the record is approved, the mapping is paused, or the reminder cadence window has not elapsed."
+    },
+    "failure_alerting": {
+      "provider": "microsoft_diagnostics",
+      "target": "Teams: Automation Alerts",
+      "suppression_rule": "Never suppress unmatched submissions or callback failures from the diagnostics layer; surface and replay them explicitly."
+    }
+  },
+  "exception_handling": {
+    "unmatched_queue_rule": "Any submission that cannot be matched with high confidence stays durable in the unmatched queue until a reviewer resolves it.",
+    "review_handling_rule": "Reviewers can match, approve, reject, or create a new mapping from a real submission, but the dashboard still owns completion state.",
+    "retry_rule": "Retry only through the dashboard-controlled replay and reminder sweep paths after fixing mappings, recipients, or template issues.",
+    "audit_rule": "Every mapping change, submission receipt, reviewer action, reminder, and failure records both audit and diagnostics events.",
+    "reconciliation_rule": "Reconcile Microsoft folder metadata and dashboard mappings before reprocessing failures; do not silently overwrite drift."
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Validate Phase 1 through Phase 4 Microsoft baselines and ensure mail automation is healthy.",
+      "owner": "Platform Engineering",
+      "requires_tenant_admin": false,
+      "rollback": "Do not enable Phase 5 until prerequisite diagnostics are green."
+    },
+    {
+      "order": 2,
+      "title": "Create or validate the governed SharePoint Request Files destinations for the pilot intake mappings.",
+      "owner": "SharePoint Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable or regenerate the request links before broader rollout."
+    },
+    {
+      "order": 3,
+      "title": "Create dashboard intake mappings for the pilot jobs and required items.",
+      "owner": "Operations Leadership",
+      "requires_tenant_admin": false,
+      "rollback": "Pause or archive the mappings if reviewers are not ready."
+    },
+    {
+      "order": 4,
+      "title": "Configure the upload receipt callback flow and validate the callback secret.",
+      "owner": "Platform Automation Owners",
+      "requires_tenant_admin": true,
+      "rollback": "Disable the callback flow and rotate the callback secret."
+    },
+    {
+      "order": 5,
+      "title": "Pilot matched, unmatched, reviewer notification, confirmation, and reminder scenarios.",
+      "owner": "Operations Leadership",
+      "requires_tenant_admin": false,
+      "rollback": "Disable client intake and work the unmatched queue before reopening."
+    }
+  ],
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Create the SharePoint or OneDrive Request Files destinations for the pilot intake mappings.",
+      "portal": "SharePoint Site",
+      "requires_tenant_admin": true,
+      "owner": "SharePoint Admin"
+    },
+    {
+      "order": 2,
+      "step": "Confirm external users cannot browse the destination library or sibling folders.",
+      "portal": "SharePoint Admin Center",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 3,
+      "step": "Configure the callback flow to post upload receipts into /api/integrations/microsoft/client-intake/callback.",
+      "portal": "Power Automate",
+      "requires_tenant_admin": true,
+      "owner": "Platform Automation Owners"
+    },
+    {
+      "order": 4,
+      "step": "Set MICROSOFT_365_CLIENT_INTAKE_CALLBACK_SECRET and confirm the worker can call the internal reminder sweep.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Platform Engineering"
+    },
+    {
+      "order": 5,
+      "step": "Create pilot mappings and review /api/admin/system/microsoft-client-intake before any external send.",
+      "portal": null,
+      "requires_tenant_admin": false,
+      "owner": "Operations Leadership"
+    }
+  ],
+  "validation_checklist": [
+    "Every intake mapping resolves to a single governed upload destination and request link.",
+    "Matched uploads create durable submission records with dashboard and Microsoft references.",
+    "Unmatched uploads remain visible in diagnostics until a reviewer resolves them.",
+    "Confirmation sends, reviewer notifications, and reminder sends all leave durable logs.",
+    "Required-item completion remains dashboard-controlled and is never inferred from receipt alone."
+  ],
+  "rollback_principles": [
+    "Disable MICROSOFT_365_CLIENT_INTAKE_ENABLED before changing request-link topology in a live environment.",
+    "Never delete unmatched submissions to hide failures; review or archive them explicitly.",
+    "Rotate callback secrets before reopening intake after a misrouted or untrusted callback.",
+    "Pause mappings instead of widening external access when reviewer capacity is constrained."
+  ]
+}

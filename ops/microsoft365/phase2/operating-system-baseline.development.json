@@ -1,0 +1,395 @@
+{
+  "phase": "phase2_internal_microsoft_operating_system",
+  "baseline_version": "2026-04-03",
+  "environment": "development",
+  "tenant_tier": "sandbox",
+  "supported_departments": [
+    "schools",
+    "sports",
+    "production",
+    "customer_service",
+    "sales",
+    "leadership",
+    "it_systems"
+  ],
+  "workspace_settings": {
+    "workspace_name_prefix": "PMC DEV",
+    "team_name_pattern": "{prefix} - {department_label} Ops",
+    "sharepoint_site_path_pattern": "/sites/{prefix_slug}-{department_slug}-ops",
+    "planner_plan_name_pattern": "{prefix} - {department_label} Work Management",
+    "default_team_visibility": "private",
+    "dashboard_source_of_truth_rule": "The dashboard remains the source of truth for project lifecycle, required items, ownership, approvals, and communication state. Teams, SharePoint, Lists, and Planner are operational mirrors and collaboration surfaces only.",
+    "read_only_mirror_fields_rule": "Lifecycle, due, approval, and status fields may appear in Lists or Planner only as read-only mirrors sourced from dashboard IDs and sync timestamps."
+  },
+  "department_workspaces": [
+    {
+      "department_key": "schools",
+      "department_label": "Schools",
+      "team_name": "PMC DEV - Schools Ops",
+      "mail_nickname": "pmcdevschoolsops",
+      "sharepoint_site_path": "/sites/pmc-dev-schools-ops",
+      "planner_plan_name": "PMC DEV - Schools Work Management",
+      "owner_groups": ["PMC-DEV-Schools-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-Schools-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    },
+    {
+      "department_key": "sports",
+      "department_label": "Sports",
+      "team_name": "PMC DEV - Sports Ops",
+      "mail_nickname": "pmcdevsportsops",
+      "sharepoint_site_path": "/sites/pmc-dev-sports-ops",
+      "planner_plan_name": "PMC DEV - Sports Work Management",
+      "owner_groups": ["PMC-DEV-Sports-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-Sports-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    },
+    {
+      "department_key": "production",
+      "department_label": "Production",
+      "team_name": "PMC DEV - Production Ops",
+      "mail_nickname": "pmcdevproductionops",
+      "sharepoint_site_path": "/sites/pmc-dev-production-ops",
+      "planner_plan_name": "PMC DEV - Production Work Management",
+      "owner_groups": ["PMC-DEV-Production-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-Production-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    },
+    {
+      "department_key": "customer_service",
+      "department_label": "Customer Service",
+      "team_name": "PMC DEV - Customer Service Ops",
+      "mail_nickname": "pmcdevcustomerserviceops",
+      "sharepoint_site_path": "/sites/pmc-dev-customer-service-ops",
+      "planner_plan_name": "PMC DEV - Customer Service Work Management",
+      "owner_groups": ["PMC-DEV-Customer-Service-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-Customer-Service-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    },
+    {
+      "department_key": "sales",
+      "department_label": "Sales",
+      "team_name": "PMC DEV - Sales Ops",
+      "mail_nickname": "pmcdevsalesops",
+      "sharepoint_site_path": "/sites/pmc-dev-sales-ops",
+      "planner_plan_name": "PMC DEV - Sales Work Management",
+      "owner_groups": ["PMC-DEV-Sales-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-Sales-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    },
+    {
+      "department_key": "leadership",
+      "department_label": "Leadership",
+      "team_name": "PMC DEV - Leadership Ops",
+      "mail_nickname": "pmcdevleadershipops",
+      "sharepoint_site_path": "/sites/pmc-dev-leadership-ops",
+      "planner_plan_name": "PMC DEV - Leadership Work Management",
+      "owner_groups": ["PMC-DEV-Leadership-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-Leadership-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    },
+    {
+      "department_key": "it_systems",
+      "department_label": "IT Systems",
+      "team_name": "PMC DEV - IT Systems Ops",
+      "mail_nickname": "pmcdevitsystemsops",
+      "sharepoint_site_path": "/sites/pmc-dev-it-systems-ops",
+      "planner_plan_name": "PMC DEV - IT Systems Work Management",
+      "owner_groups": ["PMC-DEV-IT-Systems-Leads", "PMC-DEV-Platform-Admins"],
+      "member_groups": ["PMC-DEV-IT-Systems-Staff"],
+      "channels": [
+        { "key": "general", "name": "General", "membership_type": "standard", "purpose": "Department-wide landing channel for dashboard home, queue context, and files." },
+        { "key": "active_projects", "name": "Active Projects", "membership_type": "standard", "purpose": "Mirrored project lists, required items, and the working Planner board for active work." },
+        { "key": "escalations", "name": "Escalations", "membership_type": "standard", "purpose": "Operational blockers, conflicts, and urgent project escalations tied back to dashboard records." },
+        { "key": "templates_sops", "name": "Templates-SOPs", "membership_type": "standard", "purpose": "Read-mostly department SOPs, templates, and controlled references." },
+        { "key": "automation_alerts", "name": "Automation Alerts", "membership_type": "standard", "purpose": "System and flow alert posts plus links back to diagnostics and repair workflows." },
+        { "key": "approvals", "name": "Approvals", "membership_type": "standard", "purpose": "Dashboard approvals queue mirrors and controlled review coordination." }
+      ]
+    }
+  ],
+  "sharepoint_architecture": {
+    "site_strategy": "One team-connected SharePoint site per department workspace, all associated to the internal operations hub site.",
+    "hub_site_url": "https://pmcdev.sharepoint.com/sites/pmc-dev-operations-hub",
+    "libraries": [
+      {
+        "key": "project_documents",
+        "name": "Project Documents",
+        "purpose": "Controlled project and job support files tied back to dashboard records.",
+        "default_folder_pattern": "{DashboardDepartment}/{DashboardProjectCode} - {DashboardProjectTitle}",
+        "metadata_columns": [
+          { "internal_name": "DashboardRecordId", "display_name": "Dashboard Record ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "record.id", "notes": "Primary dashboard object ID for every mirrored project or task document." },
+          { "internal_name": "DashboardRecordType", "display_name": "Dashboard Record Type", "field_type": "choice", "required": true, "dashboard_source_field": "record.type", "notes": "Expected values: job, task, organization, location, production_item." },
+          { "internal_name": "DashboardDepartment", "display_name": "Dashboard Department", "field_type": "choice", "required": true, "dashboard_source_field": "record.department_type", "notes": "Used for filtering and compliance scoping inside the department site." },
+          { "internal_name": "DashboardProjectCode", "display_name": "Dashboard Project Code", "field_type": "single_line_text", "required": false, "dashboard_source_field": "record.code", "notes": "Readable code mirror for operators; does not replace the dashboard ID." },
+          { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "record.deep_link", "notes": "Opens the canonical dashboard record from SharePoint and Teams tabs." }
+        ]
+      },
+      {
+        "key": "templates_sops",
+        "name": "Templates and SOPs",
+        "purpose": "Read-mostly department SOPs, templates, playbooks, and governed reusable assets.",
+        "default_folder_pattern": "{DashboardDepartment}/{DocumentCategory}",
+        "metadata_columns": [
+          { "internal_name": "DashboardDepartment", "display_name": "Dashboard Department", "field_type": "choice", "required": true, "dashboard_source_field": "resource.department_type", "notes": "Limits templates and SOP filters to the correct department workspace." },
+          { "internal_name": "DocumentOwnerGroup", "display_name": "Document Owner Group", "field_type": "single_line_text", "required": true, "dashboard_source_field": "resource.owner_group", "notes": "Named group owner for change control and review." },
+          { "internal_name": "EffectiveDate", "display_name": "Effective Date", "field_type": "date_time", "required": true, "dashboard_source_field": "resource.effective_at", "notes": "Used to manage live vs superseded SOP guidance." },
+          { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": false, "dashboard_source_field": "resource.deep_link", "notes": "Optional link back to the dashboard resource entry when one exists." }
+        ]
+      },
+      {
+        "key": "approvals_archive",
+        "name": "Approvals Archive",
+        "purpose": "Attachment storage and record packets for governed approvals, never the approval state source of truth.",
+        "default_folder_pattern": "{DashboardDepartment}/Approval {DashboardApprovalId}",
+        "metadata_columns": [
+          { "internal_name": "DashboardApprovalId", "display_name": "Dashboard Approval ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "approval.id", "notes": "Canonical approval ID from the dashboard." },
+          { "internal_name": "DashboardRecordId", "display_name": "Dashboard Record ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "approval.record_id", "notes": "Links the approval document set back to the governed record." },
+          { "internal_name": "DashboardApprovalType", "display_name": "Dashboard Approval Type", "field_type": "choice", "required": true, "dashboard_source_field": "approval.type", "notes": "Readable approval classification for reviewers." },
+          { "internal_name": "DashboardStatus", "display_name": "Dashboard Status", "field_type": "choice", "required": true, "dashboard_source_field": "approval.status", "notes": "Read-only approval status mirror." },
+          { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "approval.deep_link", "notes": "Opens the dashboard approval workspace." }
+        ]
+      },
+      {
+        "key": "automation_working_files",
+        "name": "Automation Working Files",
+        "purpose": "Small controlled files that support governed flows and reports without becoming the workflow engine.",
+        "default_folder_pattern": "{DashboardDepartment}/{AutomationName}",
+        "metadata_columns": [
+          { "internal_name": "DashboardAutomationKey", "display_name": "Dashboard Automation Key", "field_type": "single_line_text", "required": true, "dashboard_source_field": "automation.key", "notes": "References the governing automation or diagnostics rule." },
+          { "internal_name": "DashboardDepartment", "display_name": "Dashboard Department", "field_type": "choice", "required": true, "dashboard_source_field": "automation.department_type", "notes": "Scopes automation working files to the correct team." },
+          { "internal_name": "RetentionClass", "display_name": "Retention Class", "field_type": "choice", "required": true, "dashboard_source_field": "automation.retention_class", "notes": "Controls cleanup and review expectations." },
+          { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": false, "dashboard_source_field": "automation.deep_link", "notes": "Optional jump back to the governing dashboard diagnostics screen." }
+        ]
+      }
+    ]
+  },
+  "lists": [
+    {
+      "key": "project_records",
+      "name": "Dashboard Projects",
+      "purpose": "Read-only mirror of active project and job coordination records for channel tabs and quick filtering.",
+      "read_only_mirror": true,
+      "fields": [
+        { "internal_name": "DashboardRecordId", "display_name": "Dashboard Record ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "job.id", "read_only_mirror": true, "notes": "Primary key mirrored from the dashboard." },
+        { "internal_name": "DashboardDepartment", "display_name": "Department", "field_type": "choice", "required": true, "dashboard_source_field": "job.department_type", "read_only_mirror": true, "notes": "Used to partition department team views." },
+        { "internal_name": "DashboardProjectTitle", "display_name": "Project Title", "field_type": "single_line_text", "required": true, "dashboard_source_field": "job.title", "read_only_mirror": true, "notes": "Human-friendly project label." },
+        { "internal_name": "DashboardStatus", "display_name": "Status", "field_type": "choice", "required": true, "dashboard_source_field": "job.status", "read_only_mirror": true, "notes": "Read-only lifecycle status mirror." },
+        { "internal_name": "ScheduledStartAt", "display_name": "Scheduled Start", "field_type": "date_time", "required": false, "dashboard_source_field": "job.scheduled_start_at", "read_only_mirror": true, "notes": "Read-only schedule mirror." },
+        { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "job.deep_link", "read_only_mirror": true, "notes": "Opens the source-of-truth job record." },
+        { "internal_name": "LastDashboardSyncAt", "display_name": "Last Dashboard Sync", "field_type": "date_time", "required": true, "dashboard_source_field": "sync.updated_at", "read_only_mirror": true, "notes": "Operational indicator for sync freshness." }
+      ]
+    },
+    {
+      "key": "required_items",
+      "name": "Dashboard Required Items",
+      "purpose": "Read-only mirror of required items and missing-readiness context for channel tabs and filters.",
+      "read_only_mirror": true,
+      "fields": [
+        { "internal_name": "DashboardRequiredItemId", "display_name": "Dashboard Required Item ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "required_item.id", "read_only_mirror": true, "notes": "Canonical required item identity from the dashboard." },
+        { "internal_name": "DashboardRecordId", "display_name": "Dashboard Record ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "required_item.record_id", "read_only_mirror": true, "notes": "Parent record ID for the requirement." },
+        { "internal_name": "RequiredItemLabel", "display_name": "Required Item", "field_type": "single_line_text", "required": true, "dashboard_source_field": "required_item.label", "read_only_mirror": true, "notes": "Readable requirement label." },
+        { "internal_name": "CompletionState", "display_name": "Completion State", "field_type": "choice", "required": true, "dashboard_source_field": "required_item.status", "read_only_mirror": true, "notes": "Read-only completion mirror." },
+        { "internal_name": "DueAt", "display_name": "Due At", "field_type": "date_time", "required": false, "dashboard_source_field": "required_item.due_at", "read_only_mirror": true, "notes": "Read-only due-date mirror." },
+        { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "required_item.deep_link", "read_only_mirror": true, "notes": "Opens the source-of-truth dashboard record." }
+      ]
+    },
+    {
+      "key": "contacts",
+      "name": "Dashboard Contacts",
+      "purpose": "Read-only mirror of operational contact context used by departments inside Teams and SharePoint.",
+      "read_only_mirror": true,
+      "fields": [
+        { "internal_name": "DashboardContactId", "display_name": "Dashboard Contact ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "contact.id", "read_only_mirror": true, "notes": "Canonical contact ID from the dashboard." },
+        { "internal_name": "DashboardOrganizationId", "display_name": "Dashboard Organization ID", "field_type": "single_line_text", "required": false, "dashboard_source_field": "contact.organization_id", "read_only_mirror": true, "notes": "Links the mirrored contact back to the parent organization." },
+        { "internal_name": "DisplayName", "display_name": "Display Name", "field_type": "single_line_text", "required": true, "dashboard_source_field": "contact.full_name", "read_only_mirror": true, "notes": "Human-readable contact label." },
+        { "internal_name": "RoleLabel", "display_name": "Role", "field_type": "single_line_text", "required": false, "dashboard_source_field": "contact.role_label", "read_only_mirror": true, "notes": "Readable contact function label." },
+        { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "contact.deep_link", "read_only_mirror": true, "notes": "Opens the canonical organization/contact view." }
+      ]
+    },
+    {
+      "key": "approvals",
+      "name": "Dashboard Approvals",
+      "purpose": "Read-only approval mirror for the Approvals channel and governed review coordination.",
+      "read_only_mirror": true,
+      "fields": [
+        { "internal_name": "DashboardApprovalId", "display_name": "Dashboard Approval ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "approval.id", "read_only_mirror": true, "notes": "Primary approval identifier from the dashboard." },
+        { "internal_name": "DashboardRecordId", "display_name": "Dashboard Record ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "approval.record_id", "read_only_mirror": true, "notes": "Canonical governed record ID." },
+        { "internal_name": "ApprovalType", "display_name": "Approval Type", "field_type": "choice", "required": true, "dashboard_source_field": "approval.type", "read_only_mirror": true, "notes": "Readable approval classification." },
+        { "internal_name": "Status", "display_name": "Status", "field_type": "choice", "required": true, "dashboard_source_field": "approval.status", "read_only_mirror": true, "notes": "Read-only approval status mirror." },
+        { "internal_name": "RequestedAt", "display_name": "Requested At", "field_type": "date_time", "required": true, "dashboard_source_field": "approval.requested_at", "read_only_mirror": true, "notes": "Read-only request time mirror." },
+        { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "approval.deep_link", "read_only_mirror": true, "notes": "Opens the canonical approval workspace." }
+      ]
+    },
+    {
+      "key": "communication_events",
+      "name": "Dashboard Communication Events",
+      "purpose": "Readable mirror of communication actions and outcomes for Teams coordination and troubleshooting context.",
+      "read_only_mirror": true,
+      "fields": [
+        { "internal_name": "DashboardCommunicationEventId", "display_name": "Dashboard Communication Event ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "communication_event.id", "read_only_mirror": true, "notes": "Canonical communication event identity." },
+        { "internal_name": "RelatedRecordType", "display_name": "Related Record Type", "field_type": "choice", "required": true, "dashboard_source_field": "communication_event.record_type", "read_only_mirror": true, "notes": "Mirrored business object type for the communication." },
+        { "internal_name": "RelatedRecordId", "display_name": "Related Record ID", "field_type": "single_line_text", "required": true, "dashboard_source_field": "communication_event.record_id", "read_only_mirror": true, "notes": "Canonical business object ID." },
+        { "internal_name": "EventType", "display_name": "Event Type", "field_type": "choice", "required": true, "dashboard_source_field": "communication_event.event_type", "read_only_mirror": true, "notes": "Message send, meeting create, join, fail, and similar high-signal actions." },
+        { "internal_name": "Status", "display_name": "Status", "field_type": "choice", "required": true, "dashboard_source_field": "communication_event.status", "read_only_mirror": true, "notes": "Read-only communication outcome state." },
+        { "internal_name": "OccurredAt", "display_name": "Occurred At", "field_type": "date_time", "required": true, "dashboard_source_field": "communication_event.created_at", "read_only_mirror": true, "notes": "Primary event timestamp mirror." },
+        { "internal_name": "DashboardDeepLink", "display_name": "Dashboard Deep Link", "field_type": "hyperlink", "required": true, "dashboard_source_field": "communication_event.deep_link", "read_only_mirror": true, "notes": "Opens the source-of-truth record or diagnostics view." }
+      ]
+    }
+  ],
+  "planner": {
+    "plan_strategy": "One Planner plan per department workspace, used as a coordination board for active department work rather than a second task system.",
+    "task_source_rule": "Create Planner tasks only for work that already has a dashboard ID and a meaningful department coordination reason. Every Planner task must include the dashboard ID in the title or description and a dashboard deep link in the references.",
+    "ownership_rule": "Primary task owner comes from the dashboard owner or assignee when one exists. If no individual owner exists, assign the department lead group for triage and preserve the dashboard record as the source of responsibility.",
+    "completion_rule": "Completing a Planner task does not complete the dashboard record. Planner completion only marks the collaboration card complete after the source-of-truth dashboard work is already handled or explicitly mirrored as handled.",
+    "buckets": [
+      { "key": "new_intake", "name": "New Intake", "purpose": "Fresh work that needs department review before it is actively routed." },
+      { "key": "ready_to_schedule", "name": "Ready to Schedule", "purpose": "Work that is operationally ready and waiting for calendar or assignment handling." },
+      { "key": "waiting_on_required_items", "name": "Waiting on Required Items", "purpose": "Work blocked on missing required items or record readiness gaps." },
+      { "key": "approvals_review", "name": "Approvals / Review", "purpose": "Work currently gated by approvals, escalation review, or quality checkpoints." },
+      { "key": "active_this_week", "name": "Active This Week", "purpose": "Current active work with department execution underway." },
+      { "key": "blocked_escalated", "name": "Blocked / Escalated", "purpose": "Work requiring escalation, leadership, or cross-functional help." },
+      { "key": "completed_recently", "name": "Completed Recently", "purpose": "Short-lived completion bucket before archival cleanup or automatic removal." }
+    ]
+  },
+  "teams_tabs": {
+    "channel_defaults": [
+      {
+        "channel_key": "general",
+        "channel_name": "General",
+        "tabs": [
+          { "title": "Employee Home", "tab_type": "website", "target": "/?teams=1#teams/home", "dashboard_deep_link": "#teams/home", "notes": "Primary dashboard entry point inside Teams." },
+          { "title": "Department Jobs", "tab_type": "website", "target": "/?teams=1#jobs", "dashboard_deep_link": "#jobs", "notes": "Jumps into the dashboard jobs view for the department." },
+          { "title": "Planner", "tab_type": "planner", "target": "Department Planner Plan", "dashboard_deep_link": null, "notes": "Planner board for team coordination only." },
+          { "title": "Files", "tab_type": "files", "target": "General channel files", "dashboard_deep_link": null, "notes": "Default Teams files view for quick collaboration." }
+        ]
+      },
+      {
+        "channel_key": "active_projects",
+        "channel_name": "Active Projects",
+        "tabs": [
+          { "title": "Dashboard Projects", "tab_type": "list", "target": "Dashboard Projects", "dashboard_deep_link": "#jobs", "notes": "Read-only project mirror list anchored to dashboard IDs." },
+          { "title": "Required Items", "tab_type": "list", "target": "Dashboard Required Items", "dashboard_deep_link": "#jobs", "notes": "Read-only required-items mirror for triage." },
+          { "title": "Planner", "tab_type": "planner", "target": "Department Planner Plan", "dashboard_deep_link": null, "notes": "Active coordination board for current work." },
+          { "title": "Project Documents", "tab_type": "document_library", "target": "Project Documents", "dashboard_deep_link": null, "notes": "Project files governed by dashboard metadata columns." }
+        ]
+      },
+      {
+        "channel_key": "escalations",
+        "channel_name": "Escalations",
+        "tabs": [
+          { "title": "Escalation Queue", "tab_type": "website", "target": "/?teams=1#jobs", "dashboard_deep_link": "#jobs", "notes": "Use dashboard-filtered escalations or watch queue views." },
+          { "title": "Communication Events", "tab_type": "list", "target": "Dashboard Communication Events", "dashboard_deep_link": "#teams/communications", "notes": "Shows recent message and meeting outcomes tied back to source records." },
+          { "title": "Files", "tab_type": "files", "target": "Escalations channel files", "dashboard_deep_link": null, "notes": "Short-lived escalation attachments only." }
+        ]
+      },
+      {
+        "channel_key": "templates_sops",
+        "channel_name": "Templates-SOPs",
+        "tabs": [
+          { "title": "Templates and SOPs", "tab_type": "document_library", "target": "Templates and SOPs", "dashboard_deep_link": null, "notes": "Controlled library for department SOPs and templates." },
+          { "title": "Resource Library", "tab_type": "website", "target": "/?teams=1#resource-library", "dashboard_deep_link": "#resource-library", "notes": "Dashboard resource library for governed references." },
+          { "title": "Files", "tab_type": "files", "target": "Templates-SOPs channel files", "dashboard_deep_link": null, "notes": "Default files surface for channel collaboration." }
+        ]
+      },
+      {
+        "channel_key": "automation_alerts",
+        "channel_name": "Automation Alerts",
+        "tabs": [
+          { "title": "Diagnostics", "tab_type": "website", "target": "/?teams=1#admin/system/communications", "dashboard_deep_link": "#admin/system/communications", "notes": "Dashboard diagnostics and operator context for automation-driven alerts." },
+          { "title": "Automation Files", "tab_type": "document_library", "target": "Automation Working Files", "dashboard_deep_link": null, "notes": "Automation working files and exports under governance." },
+          { "title": "Files", "tab_type": "files", "target": "Automation Alerts channel files", "dashboard_deep_link": null, "notes": "Default files surface for alert attachments when needed." }
+        ]
+      },
+      {
+        "channel_key": "approvals",
+        "channel_name": "Approvals",
+        "tabs": [
+          { "title": "Approval Queue", "tab_type": "website", "target": "/?teams=1#approvals", "dashboard_deep_link": "#approvals", "notes": "Primary source-of-truth approval queue stays in the dashboard." },
+          { "title": "Dashboard Approvals", "tab_type": "list", "target": "Dashboard Approvals", "dashboard_deep_link": "#approvals", "notes": "Read-only approval mirror for channel filtering and quick review context." },
+          { "title": "Approvals Archive", "tab_type": "document_library", "target": "Approvals Archive", "dashboard_deep_link": null, "notes": "Approval attachments and packets only, never the approval state source." }
+        ]
+      }
+    ],
+    "dashboard_deep_links": [
+      { "label": "Teams Employee Home", "route_hash": "#teams/home", "usage": "Personal app or General channel launch point." },
+      { "label": "Teams Communications", "route_hash": "#teams/communications", "usage": "Communication quick-open surface for embedded Teams workflows." },
+      { "label": "Jobs Workspace", "route_hash": "#jobs", "usage": "Primary source-of-truth project and job workspace." },
+      { "label": "Approvals Queue", "route_hash": "#approvals", "usage": "Primary source-of-truth approvals queue." },
+      { "label": "Resource Library", "route_hash": "#resource-library", "usage": "Dashboard-managed resource and template library." },
+      { "label": "System Communications Diagnostics", "route_hash": "#admin/system/communications", "usage": "Operator diagnostics target for automation or communication alerts." }
+    ]
+  },
+  "execution_order": [
+    { "order": 1, "title": "Approve Phase 2 workspace topology and naming conventions", "owner": "Platform Admin", "requires_tenant_admin": false, "rollback": "Reject the baseline and do not provision any new teams, sites, or lists." },
+    { "order": 2, "title": "Create or validate the SharePoint operations hub site and department workspace naming prefix", "owner": "SharePoint Admin", "requires_tenant_admin": true, "rollback": "Remove the hub association and revert new site naming before content migration." },
+    { "order": 3, "title": "Provision one pilot department team-connected site and Planner plan from the reusable template", "owner": "Platform Admin", "requires_tenant_admin": true, "rollback": "Archive the pilot team/site/plan and clear its group memberships." },
+    { "order": 4, "title": "Create the standard read-only Microsoft Lists mirrors with dashboard ID fields first", "owner": "Platform Admin", "requires_tenant_admin": true, "rollback": "Delete the pilot lists and remove corresponding tabs before broader rollout." },
+    { "order": 5, "title": "Add standard Teams tabs and dashboard deep links to the pilot department channels", "owner": "Teams Admin", "requires_tenant_admin": true, "rollback": "Remove the pilot tabs and restore the default channel tab set." },
+    { "order": 6, "title": "Validate Planner ownership and read-only mirror rules with department leads", "owner": "Department Lead", "requires_tenant_admin": false, "rollback": "Disable Planner usage for that department until ownership rules are corrected." },
+    { "order": 7, "title": "Roll the template across remaining departments after pilot validation", "owner": "Platform Admin", "requires_tenant_admin": true, "rollback": "Stop rollout after the last healthy department and keep non-migrated departments on the old structure." }
+  ],
+  "manual_admin_checklist": [
+    { "order": 1, "step": "Confirm Phase 1 security/governance validation is clean for the target environment.", "portal": null, "requires_tenant_admin": false, "owner": "Platform Admin" },
+    { "order": 2, "step": "Create or validate the operations hub site URL and department site naming standard.", "portal": "SharePoint admin center", "requires_tenant_admin": true, "owner": "SharePoint Admin" },
+    { "order": 3, "step": "Provision the pilot department team and connect it to the matching SharePoint site.", "portal": "Teams admin center", "requires_tenant_admin": true, "owner": "Teams Admin" },
+    { "order": 4, "step": "Create the standard document libraries and metadata columns in the pilot workspace.", "portal": "SharePoint site settings", "requires_tenant_admin": true, "owner": "SharePoint Admin" },
+    { "order": 5, "step": "Create the five read-only mirror lists using the baseline field definitions.", "portal": "Microsoft Lists / SharePoint", "requires_tenant_admin": true, "owner": "Platform Admin" },
+    { "order": 6, "step": "Create the department Planner plan and standard buckets.", "portal": "Planner", "requires_tenant_admin": false, "owner": "Department Lead" },
+    { "order": 7, "step": "Add the standard tabs and dashboard links to each default channel in the pilot team.", "portal": "Microsoft Teams", "requires_tenant_admin": false, "owner": "Platform Admin" }
+  ],
+  "validation_checklist": [
+    "Confirm every list item, folder, or Planner card created from the template stores a dashboard ID and deep link.",
+    "Confirm Lists and Planner do not introduce editable lifecycle truth that conflicts with dashboard workflow state.",
+    "Confirm the pilot department can navigate from Teams tabs back to the correct dashboard screens.",
+    "Confirm SharePoint libraries and metadata columns support read-only filtering and document lookup without duplicating record ownership.",
+    "Confirm all departments can reuse the same channel, tab, library, list, and bucket structure with only naming differences."
+  ],
+  "rollback_principles": [
+    "Roll back by department workspace, not tenant-wide, so unaffected departments keep working.",
+    "Remove or archive pilot tabs, lists, and plans before deleting the connected team or site.",
+    "Do not migrate existing business files into the new structure until pilot validation is complete.",
+    "Never preserve a mirror list or Planner board without its dashboard ID fields and deep links."
+  ]
+}

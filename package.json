@@ -9,8 +9,10 @@
   "scripts": {
     "prepare": "node tools/install-git-hooks.mjs",
     "dev": "concurrently -n api,worker,web \"npm run dev -w packages/api\" \"npm run dev -w packages/worker\" \"npm run dev -w packages/admin-web\"",
+    "dev:smoke": "concurrently -n api,web \"npm run dev -w packages/api\" \"npm run dev:smoke -w packages/admin-web\"",
     "db:migrate": "npm run migrate -w packages/api",
     "db:seed": "npm run seed -w packages/api",
+    "db:reset:demo": "npm run reset:demo -w packages/api",
     "verify:fresh-db-contract": "npm run verify:fresh-db-contract -w packages/api",
     "seed:mission-control-demo": "npm run seed:mission-control-demo -w packages/api",
     "project-tracking:seed-demo": "npm run project-tracking:seed-demo -w packages/api",
@@ -28,6 +30,7 @@
     "smoke:portal": "npm run test:smoke:portal -w packages/api",
     "smoke:microsoft": "npm run test:smoke:microsoft -w packages/api && npm run test:smoke:microsoft -w packages/worker && npm run test:smoke:microsoft -w packages/admin-web",
     "smoke:pilot": "npm run smoke:jobs && npm run smoke:workflow && npm run smoke:exceptions && npm run smoke:my-work && npm run smoke:portal && npm run smoke:microsoft",
+    "check:phase1-freeze": "node tools/check-phase1-freeze.mjs",
     "verify:release:clean": "node tools/check-clean-git-state.mjs",
     "verify:release:build": "npm run build -w packages/api && npm run build -w packages/worker && npm run build -w packages/admin-web && npm run verify:mobile",
     "verify:release:test": "npm run test -w packages/api && npm run test -w packages/worker && npm run test -w packages/admin-web",

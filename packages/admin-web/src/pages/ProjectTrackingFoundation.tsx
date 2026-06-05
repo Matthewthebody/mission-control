@@ -24,10 +24,13 @@ type Props = {
 type LoadState = "loading" | "ready" | "error";
 type ProjectTrackingFilter =
   | "all"
+  | "mine"
   | "attention"
   | "blocked"
   | "running_late"
   | "due_soon"
+  | "waiting_review"
+  | "recently_changed"
   | "waiting_school"
   | "waiting_kp"
   | "missing_info"
@@ -62,10 +65,13 @@ const EMPTY_SUMMARY = {
 };
 const FILTER_LABELS: Record<ProjectTrackingFilter, string> = {
   all: "All",
+  mine: "Mine",
   attention: "Needs Attention",
   blocked: "Blocked",
-  running_late: "Running Late",
-  due_soon: "Due Soon",
+  running_late: "Running late",
+  due_soon: "Due soon",
+  waiting_review: "Waiting on review",
+  recently_changed: "Recently changed",
   waiting_school: "Waiting on School",
   waiting_kp: "Waiting on KP",
   missing_info: "Missing Info",
@@ -73,16 +79,17 @@ const FILTER_LABELS: Record<ProjectTrackingFilter, string> = {
   complete: "Complete",
   no_workflow: "No Workflow Linked"
 };
+const PRIMARY_FILTERS: ProjectTrackingFilter[] = ["all", "due_soon", "blocked", "waiting_review", "mine", "recently_changed"];
 
 const SORT_LABELS: Record<ProjectTrackingSort, string> = {
   priority: "Priority",
   organization: "Organization / School",
-  job: "Job",
-  stage: "Current step",
-  owner: "Assigned person",
+  job: "Work",
+  stage: "Next step",
+  owner: "Next owner",
   deadline: "Due",
-  risk: "Late / At Risk",
-  updated: "Last Updated"
+  risk: "Blocked / due",
+  updated: "Recently changed"
 };
 const DEPARTMENT_FILTER_LABELS: Record<ProjectTrackingDepartmentFilter, string> = {
   all: "All departments",
@@ -164,7 +171,7 @@ function healthLabel(health: ProjectWorkflowJobHealth) {
     blocked: "Blocked",
     at_risk: "Needs attention",
     complete: "Complete",
-    no_workflow: "No workflow linked",
+    no_workflow: "Work record not connected",
     unknown: "Needs review"
   };
   return labels[health];
@@ -200,7 +207,7 @@ function currentStepLabel(row: ProjectWorkflowJobRow) {
     return row.current_step.name;
   }
   if (row.health === "no_workflow") {
-    return "No workflow linked";
+    return "Work record not connected";
   }
   if (row.health === "complete") {
     return "Complete";
@@ -223,7 +230,7 @@ function deadlineLabel(row: ProjectWorkflowJobRow) {
     return "Complete";
   }
   if (!row.next_deadline_at) {
-    return row.workflow_run_id ? "Deadline not set" : "No workflow linked";
+    return row.workflow_run_id ? "Deadline not set" : "Work record not connected";
   }
   const date = dateLabel(row.next_deadline_at) ?? "Deadline not set";
   if (row.deadline_state === "running_late") {
@@ -337,6 +344,9 @@ function matchesFilter(row: ProjectWorkflowJobRow, filter: ProjectTrackingFilter
   if (filter === "all") {
     return true;
   }
+  if (filter === "mine") {
+    return false;
+  }
   if (filter === "blocked") {
     return row.health === "blocked";
   }
@@ -345,6 +355,12 @@ function matchesFilter(row: ProjectWorkflowJobRow, filter: ProjectTrackingFilter
   }
   if (filter === "due_soon") {
     return row.health === "due_soon";
+  }
+  if (filter === "waiting_review") {
+    return row.rework_count > 0 || row.health === "at_risk" || row.health === "unknown" || row.queue_intelligence.operational_status === "needs_action";
+  }
+  if (filter === "recently_changed") {
+    return Boolean(row.updated_at);
   }
   if (filter === "waiting_school") {
     return row.waiting_on_party === "school";
@@ -365,6 +381,20 @@ function matchesFilter(row: ProjectWorkflowJobRow, filter: ProjectTrackingFilter
     return row.health === "no_workflow";
   }
   return ["blocked", "running_late", "due_soon", "at_risk", "unknown"].includes(row.health);
+}
+
+function isOwnedByCurrentUser(row: ProjectWorkflowJobRow, currentUser: SessionUser) {
+  if (row.current_step?.assigned_user_id && row.current_step.assigned_user_id === currentUser.id) {
+    return true;
+  }
+  return row.owner_display.trim().toLowerCase() === currentUser.fullName.trim().toLowerCase();
+}
+
+function matchesFilterForUser(row: ProjectWorkflowJobRow, filter: ProjectTrackingFilter, currentUser: SessionUser) {
+  if (filter === "mine") {
+    return isOwnedByCurrentUser(row, currentUser);
+  }
+  return matchesFilter(row, filter);
 }
 
 function searchableTextForJob(row: ProjectWorkflowJobRow) {
@@ -465,6 +495,10 @@ function sortRows(rows: ProjectWorkflowJobRow[], sortKey: ProjectTrackingSort) {
   });
 }
 
+function summaryRecentlyChangedCount(payload: ProjectWorkflowCommandCenter | null) {
+  return buildJobBoardRows(payload).filter((row) => Boolean(row.updated_at)).length;
+}
+
 function isGeneratedDemoNoise(row: ProjectWorkflowJobRow) {
   const text = [row.job_title, row.job_number, row.job_code, row.organization_name, row.account_name]
     .filter(Boolean)
@@ -488,6 +522,7 @@ function summaryFor(payload: ProjectWorkflowCommandCenter | null) {
 function ProjectTrackingJobBoard({
   token,
   payload,
+  currentUser,
   activeFilter,
   departmentFilter,
   searchQuery,
@@ -504,6 +539,7 @@ function ProjectTrackingJobBoard({
 }: {
   token: string;
   payload: ProjectWorkflowCommandCenter | null;
+  currentUser: SessionUser;
   activeFilter: ProjectTrackingFilter;
   departmentFilter: ProjectTrackingDepartmentFilter;
   searchQuery: string;
@@ -519,7 +555,7 @@ function ProjectTrackingJobBoard({
   onWorkflowRowUpdated: () => Promise<void> | void;
 }) {
   const rows = buildJobBoardRows(payload);
-  const filteredRows = sortRows(rows.filter((row) => matchesDepartmentFilter(row, departmentFilter) && matchesFilter(row, activeFilter) && matchesSearch(row, searchQuery)), sortKey);
+  const filteredRows = sortRows(rows.filter((row) => matchesDepartmentFilter(row, departmentFilter) && matchesFilterForUser(row, activeFilter, currentUser) && matchesSearch(row, searchQuery)), sortKey);
   const hasActiveControls = activeFilter !== "all" || departmentFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
   const filterSummary = activeFilter === "all" ? "all work" : FILTER_LABELS[activeFilter].toLowerCase();
   const departmentSummary = departmentFilter === "all" ? "all departments" : DEPARTMENT_FILTER_LABELS[departmentFilter];
@@ -527,8 +563,8 @@ function ProjectTrackingJobBoard({
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Live Jobs</div>
-          <p className="section-subtitle">Project Dashboard is the company-wide map. Queues, My Work, and Open Workflow all read from the same live workflow state.</p>
+          <div className="section-title">Work Spine</div>
+          <p className="section-subtitle">Start here to see what work exists, who owns the next step, what is blocked, what is due soon, and what changed recently.</p>
         </div>
         <div className="project-tracking-board-meta">
           <span className="badge">Showing {filteredRows.length} of {rows.length}</span>
@@ -541,7 +577,7 @@ function ProjectTrackingJobBoard({
           <input
             type="search"
             value={searchQuery}
-            placeholder="Search jobs, schools, owners, steps..."
+            placeholder="Search work, schools, owners, next steps..."
             onChange={(event) => onSearchQueryChange(event.target.value)}
           />
         </label>
@@ -574,7 +610,7 @@ function ProjectTrackingJobBoard({
         </button>
       </div>
       <div className="project-tracking-filter-row" aria-label="Project tracking filters">
-        {(Object.keys(FILTER_LABELS) as ProjectTrackingFilter[]).map((filter) => (
+        {PRIMARY_FILTERS.map((filter) => (
           <button
             className={`project-tracking-filter-button ${activeFilter === filter ? "is-active" : ""}`}
             type="button"
@@ -587,7 +623,7 @@ function ProjectTrackingJobBoard({
       </div>
       <div className="project-tracking-active-filter">
         <span>
-          Showing {filteredRows.length} of {rows.length} jobs - {departmentSummary} - Filtered by {filterSummary}
+          Showing {filteredRows.length} of {rows.length} work items - {departmentSummary} - Filtered by {filterSummary}
           {searchQuery.trim() ? ` - Search: "${searchQuery.trim()}"` : ""}
         </span>
         {hasActiveControls ? (
@@ -597,16 +633,17 @@ function ProjectTrackingJobBoard({
         ) : null}
       </div>
       {filteredRows.length ? (
-        <div className="project-tracking-job-list" role="table" aria-label="Project tracking jobs operations grid">
+        <div className="project-tracking-job-list" role="table" aria-label="Project Tracking active work list">
           <div className="project-tracking-job-list__header" aria-hidden="true">
-            <span>Organization / School</span>
-            <span>Job</span>
-            <span>Current step</span>
-            <span>Assigned person</span>
+            <span>Area</span>
+            <span>Work</span>
+            <span>Next step</span>
+            <span>Next owner</span>
             <span>Due</span>
-            <span>Late / At Risk</span>
-            <span>Waiting</span>
+            <span>Blocked / due</span>
+            <span>Review state</span>
             <span>Status</span>
+            <span>Changed</span>
             <span>Open</span>
           </div>
           {filteredRows.map((row) => {
@@ -630,13 +667,13 @@ function ProjectTrackingJobBoard({
                     }
                   }}
                 >
-                  <span className="project-tracking-job-row__cell" data-label="Organization / School">
+                  <span className="project-tracking-job-row__cell" data-label="Area">
                     <strong title={row.organization_name ?? undefined}>{row.organization_name ?? "No account linked"}</strong>
                   </span>
-                  <span className="project-tracking-job-row__cell" data-label="Job">
+                  <span className="project-tracking-job-row__cell" data-label="Work">
                     <strong title={row.job_title}>{row.job_title || "Untitled job"}</strong>
                   </span>
-                  <span className="project-tracking-job-row__cell" data-label="Current step">
+                  <span className="project-tracking-job-row__cell" data-label="Next step">
                     {row.workflow_run_id && row.current_step ? (
                       <QuickWorkflowNextStepMover
                         token={token}
@@ -659,24 +696,29 @@ function ProjectTrackingJobBoard({
                       </span>
                     )}
                   </span>
-                  <span className="project-tracking-job-row__cell" data-label="Assigned person">
+                  <span className="project-tracking-job-row__cell" data-label="Next owner">
                     <strong className={owner.className} title={`${owner.primary} - ${owner.secondary}`}>{owner.primary}</strong>
                     <small>{owner.secondary}</small>
                   </span>
                   <span className="project-tracking-job-row__cell" data-label="Due">
                     <strong title={row.next_deadline_at ?? undefined}>{deadlineLabel(row)}</strong>
                   </span>
-                  <span className="project-tracking-job-row__cell" data-label="Late / At Risk">
+                  <span className="project-tracking-job-row__cell" data-label="Blocked / due">
                     <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
                   </span>
-                  <span className="project-tracking-job-row__cell" data-label="Waiting">
-                    <strong title={row.waiting_on_party === "unknown" ? "Waiting party is not explicit yet." : waitingOnLabel(row)}>{waitingOnLabel(row)}</strong>
+                  <span className="project-tracking-job-row__cell" data-label="Review state">
+                    <strong title={row.blocked_reason || row.queue_intelligence.reason}>
+                      {row.blocked_reason || (row.rework_count ? "Waiting on review" : waitingOnLabel(row))}
+                    </strong>
                   </span>
                   <span className="project-tracking-job-row__cell" data-label="Status">
                     <strong title={`${phase.label} - ${row.current_step ? statusLabel(row.current_step.status) : healthLabel(row.health)}`}>{row.current_step ? statusLabel(row.current_step.status) : phase.label}</strong>
                     <small className={`project-tracking-operational-status project-tracking-operational-status--${operationalToneForJob(row)}`}>
                       {operationalStatusLabel(row)}
                     </small>
+                  </span>
+                  <span className="project-tracking-job-row__cell" data-label="Changed">
+                    <strong title={row.updated_at}>{dateLabel(row.updated_at) ?? "Not tracked"}</strong>
                   </span>
                   <span className="project-tracking-job-row__cell project-tracking-job-row__action" data-label="Open">
                     {row.workflow_run_id ? (
@@ -689,10 +731,10 @@ function ProjectTrackingJobBoard({
                         }}
                         onKeyDown={(event) => event.stopPropagation()}
                       >
-                        Open Workflow
+                        Open work
                       </button>
                     ) : (
-                      <span className="project-tracking-progress-link project-tracking-progress-link--disabled">No workflow yet</span>
+                      <span className="project-tracking-progress-link project-tracking-progress-link--disabled">Not connected yet</span>
                     )}
                   </span>
                 </div>
@@ -703,13 +745,13 @@ function ProjectTrackingJobBoard({
                       <strong title={row.job_id}>{row.job_number ?? row.job_code ?? row.job_id}</strong>
                     </div>
                     <div>
-                      <span>Linked workflow</span>
+                      <span>Linked work record</span>
                       {row.workflow_run_id ? (
                         <button className="project-tracking-progress-link" type="button" onClick={() => onOpenWorkflow(row.workflow_run_id!)}>
-                          Open Workflow
+                          Open work
                         </button>
                       ) : (
-                        <strong>No workflow linked yet.</strong>
+                        <strong>This job is not connected to a work record yet.</strong>
                       )}
                     </div>
                     <div>
@@ -741,7 +783,7 @@ function ProjectTrackingJobBoard({
                       <strong>{row.blocked_reason || waitingOnLabel(row)}</strong>
                     </div>
                     <div>
-                      <span>Recent activity</span>
+                      <span>What changed</span>
                       <strong>{new Date(row.updated_at).toLocaleString()}</strong>
                     </div>
                     <div>
@@ -770,7 +812,7 @@ function ProjectTrackingJobBoard({
         </div>
       ) : (
         <p className="section-subtitle">
-          {rows.length ? `No jobs match ${FILTER_LABELS[activeFilter].toLowerCase()} right now.` : "No active project-tracking workflows are currently returned."}
+          {rows.length ? `No work items match ${FILTER_LABELS[activeFilter].toLowerCase()} right now.` : "No active work is showing here yet."}
         </p>
       )}
     </section>
@@ -821,27 +863,25 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   }, [token, workflowRunId]);
 
   if (status === "loading") {
-    return <WorkspaceLoadingBlock title="Loading project dashboard" summary="Building the live jobs overview from workflow data." />;
+    return <WorkspaceLoadingBlock title="Loading Project Tracking" summary="Building the active work spine from live work data." />;
   }
 
   const globalSummary = summaryFor(globalCommandCenter);
   const summaryMetrics: Array<{ filter: ProjectTrackingFilter; label: string; value: number; title?: string }> = [
-    { filter: "all", label: "Total Active", value: globalSummary.total_active_workflows },
-    { filter: "attention", label: "Needs Attention", value: globalSummary.total_needs_attention },
-    { filter: "running_late", label: "Running Late", value: globalSummary.total_running_late },
+    { filter: "all", label: "Active Work", value: globalSummary.total_active_workflows },
     { filter: "due_soon", label: "Due Soon", value: globalSummary.total_due_soon },
     { filter: "blocked", label: "Blocked", value: globalSummary.total_blocked },
     {
-      filter: "waiting_school",
-      label: "Waiting on School",
-      value: globalSummary.total_waiting_on_school,
-      title: "Only counts rows where the backend has an explicit waiting-on-school value."
+      filter: "waiting_review",
+      label: "Review Required",
+      value: globalSummary.total_needs_attention,
+      title: "Closest existing count: blocked, late, due-soon, or at-risk work that should be reviewed before it drifts."
     },
     {
-      filter: "waiting_kp",
-      label: "Waiting on KP",
-      value: globalSummary.total_waiting_on_kp,
-      title: "Only counts rows where the backend has an explicit waiting-on-KP value."
+      filter: "recently_changed",
+      label: "Recently Changed",
+      value: summaryRecentlyChangedCount(globalCommandCenter),
+      title: "Rows in the current response that include a recent activity timestamp."
     }
   ];
   const toggleExpandedRow = (rowId: string) => {
@@ -881,13 +921,16 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   return (
     <main className="workspace-page project-tracking-foundation-page">
       {!isWorkflowRoute ? (
-        <section className="project-tracking-board-header" aria-label="Project Dashboard">
+        <section className="project-tracking-board-header" aria-label="Project Tracking">
           <div>
-            <p className="section-kicker">Project Dashboard</p>
-            <h1>Project Dashboard</h1>
-            <p>Company-wide operating view of live jobs. Jobs are the shoots/events; Open Workflow for the deep job workflow view.</p>
+            <p className="section-kicker">Work Spine</p>
+            <h1>Project Tracking</h1>
+            <p>Source of truth for active work, next owners, due dates, blockers, and recent changes.</p>
           </div>
           <div className="project-tracking-board-header__actions">
+            <a className="button button-secondary" href="#needs-attention">
+              Open Needs Attention
+            </a>
             <a className="button button-secondary" href="#prep-readiness">
               Prep Readiness
             </a>
@@ -903,7 +946,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
       {status === "error" ? (
         <section className="panel">
           <div className="section-title">Project dashboard is unavailable</div>
-          <p className="section-subtitle">The workflow API did not respond. Try again before using this page for live decisions.</p>
+          <p className="section-subtitle">The work spine did not load. Try again before using this page for live decisions.</p>
         </section>
       ) : null}
 
@@ -913,9 +956,9 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         ) : (
           <section className="panel">
             <div className="section-title">Live job workflow unavailable</div>
-            <p className="section-subtitle">This workflow could not be loaded. Return to Project Dashboard and try another job.</p>
+            <p className="section-subtitle">This work record could not be loaded. Return to Project Tracking and try another item.</p>
             <a className="button button-secondary" href="#project-tracking">
-              Back to Project Dashboard
+              Back to Project Tracking
             </a>
           </section>
         )
@@ -923,8 +966,9 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         <>
           <section className="project-tracking-summary-strip" aria-label="Project tracking summary filters">
             <div className="project-tracking-summary-strip__label">
-              <strong>Work Status</strong>
+              <strong>Operating Summary</strong>
               <span>{globalSummary.source === "true_totals" ? "True totals before row limits" : "Shown rows only"}</span>
+              <small>Use Needs Attention for the review queue; use this page to inspect the work record.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (
@@ -933,7 +977,12 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
                   key={`${metric.filter}:${metric.label}`}
                   type="button"
                   title={metric.title}
-                  onClick={() => setActiveFilter(metric.filter)}
+                  onClick={() => {
+                    setActiveFilter(metric.filter);
+                    if (metric.filter === "recently_changed") {
+                      setSortKey("updated");
+                    }
+                  }}
                 >
                   <span className="metric-label">{metric.label}</span>
                   <strong>{metric.value}</strong>
@@ -945,6 +994,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
           <ProjectTrackingJobBoard
             token={token}
             payload={globalCommandCenter}
+            currentUser={currentUser}
             activeFilter={activeFilter}
             departmentFilter={departmentFilter}
             searchQuery={searchQuery}

@@ -343,11 +343,11 @@ export function Operations({ token, currentUser, socket }: Props) {
               {canViewCompliance ? (
                 <div className="operations-boundary-callout">
                   <div>
-                    <strong>Compliance belongs beside Operations, not buried inside it.</strong>
-                    <div className="muted">Payroll confidence, mileage blockers, off-clock uploads, and end-of-day accountability now belong in Compliance.</div>
+                    <strong>Needs Attention belongs beside Operations, not buried inside it.</strong>
+                    <div className="muted">Payroll confidence, mileage blockers, off-clock uploads, and end-of-day accountability belong in the shared review queue.</div>
                   </div>
-                  <button className="secondary-button" type="button" onClick={() => (window.location.hash = "#employees/compliance")}>
-                    Open Compliance
+                  <button className="secondary-button" type="button" onClick={() => (window.location.hash = "#needs-attention")}>
+                    Open Needs Attention
                   </button>
                 </div>
               ) : null}

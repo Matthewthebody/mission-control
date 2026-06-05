@@ -412,7 +412,11 @@ describe("app auth bootstrap", () => {
       expect(trigger).toHaveTextContent("Punch In Needed");
     });
     expect(apiFetchMock).toHaveBeenCalledWith("/api/attendance/time-clock/state", "shell-token");
-    expect(screen.getByText("Navigate")).toBeInTheDocument();
+    expect(screen.getByText("Start Here")).toBeInTheDocument();
+    expect(screen.getByText("Work Spine")).toBeInTheDocument();
+    expect(screen.getByText("Departments")).toBeInTheDocument();
+    expect(screen.getByText("Company")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Needs Attention" })).toBeInTheDocument();
     expect(screen.queryByText("System")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Operations" })).not.toBeInTheDocument();
     const homeButton = screen.getByRole("button", { name: "Home" });
@@ -973,6 +977,7 @@ describe("app auth bootstrap", () => {
     expect(tabs).not.toContain("projects");
     expect(sectionKeys).toContain("home");
     expect(sectionKeys).toContain("my-work");
+    expect(sectionKeys).not.toContain("needs-attention");
     expect(sectionKeys).toContain("schools");
     expect(sectionKeys).toContain("photography");
     expect(sectionKeys).toContain("contacts");
@@ -983,7 +988,7 @@ describe("app auth bootstrap", () => {
     expect(sectionKeys).not.toContain("admin");
   });
 
-  it("keeps Accounts inside Contacts instead of exposing Directory as a top-level shell", () => {
+  it("keeps Accounts as a Directory alias while exposing Directory as the relationship spine", () => {
     const leadershipUser: SessionUser = {
       id: "user-leadership",
       tenantId: "tenant-demo",
@@ -1027,6 +1032,7 @@ describe("app auth bootstrap", () => {
     expect(tabs).toContain("organizations");
     expect(tabs).toContain("contacts");
     expect(sectionKeys).toContain("contacts");
+    expect(sections.find((section) => section.key === "contacts")?.label).toBe("Directory");
     expect(sectionKeys).not.toContain("operations");
     expect(sectionKeys).not.toContain("directory");
     expect(contactsTabs).toContain("organizations");
@@ -1050,6 +1056,7 @@ describe("app auth bootstrap", () => {
     expect(buildShellRouteHash("admin-checklists")).toBe("#admin/templates");
     expect(buildShellRouteHash("dashboard-my-schedule")).toBe("#my-schedule");
     expect(buildShellRouteHash("dashboard-alerts")).toBe("#notifications");
+    expect(buildShellRouteHash("people-ops-compliance")).toBe("#needs-attention");
     expect(buildShellRouteHash("sports-shoots")).toBe("#sports/jobs");
     expect(buildShellRouteHash("task-new")).toBe("#tasks/new");
     expect(resolveRouteId("#home", availableTabs, false)).toBe("dashboard");
@@ -1093,6 +1100,7 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#employees/attendance", availableTabs, false)).toBe("operations-attendance");
     expect(resolveRouteId("#employees/exceptions", availableTabs, false)).toBe("people-exceptions");
     expect(resolveRouteId("#employees/requests", availableTabs, false)).toBe("people-ops-requests");
+    expect(resolveRouteId("#needs-attention", availableTabs, false)).toBe("people-ops-compliance");
     expect(resolveRouteId("#compliance", availableTabs, false)).toBe("people-ops-compliance");
     expect(resolveRouteId("#employees/compliance", availableTabs, false)).toBe("people-ops-compliance");
     expect(resolveRouteId("#people-ops/approvals", availableTabs, false)).toBe("people-ops-approvals");
@@ -1187,6 +1195,7 @@ describe("app auth bootstrap", () => {
     expect(sectionKeys).toEqual([
       "home",
       "my-work",
+      "needs-attention",
       "schools",
       "sports",
       "photography",
@@ -1201,6 +1210,8 @@ describe("app auth bootstrap", () => {
     ]);
     expect(photographySection?.label).toBe("Photography");
     expect(productionSection?.label).toBe("Production");
+    expect(sections.find((section) => section.key === "needs-attention")?.label).toBe("Needs Attention");
+    expect(sections.find((section) => section.key === "contacts")?.label).toBe("Directory");
     expect(leadershipSection?.childRouteIds).toContain("growth");
     expect(leadershipSection?.childRouteIds).toContain("business-health-reports");
     expect(leadershipSection?.childRouteIds).not.toContain("people-ops-performance");
@@ -1233,6 +1244,7 @@ describe("app auth bootstrap", () => {
     expect(sections).toEqual([
       "home",
       "my-work",
+      "needs-attention",
       "schools",
       "sports",
       "photography",

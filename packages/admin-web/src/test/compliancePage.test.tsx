@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Compliance } from "../pages/Compliance";
@@ -248,6 +249,7 @@ const listResponse: ComplianceWorkspaceListPayload = {
 const flagDetail: ComplianceWorkspaceDetailPayload = {
   item: listResponse.rows[0],
   available_actions: [
+    { id: "open_work_record", label: "Open Compliance Workflow", kind: "drill_out", hash: "#project-tracking/workflows/workflow-closeout-1" },
     { id: "open_compliance", label: "Open Compliance Workspace", kind: "drill_out", hash: "#employees/compliance" }
   ],
   deep_links: [
@@ -521,10 +523,10 @@ const missedDetail: ComplianceWorkspaceDetailPayload = {
 describe("Compliance page", () => {
   beforeEach(() => {
     apiFetchMock.mockReset();
-    window.history.replaceState(null, "", "#employees/compliance");
+    window.history.replaceState(null, "", "#needs-attention");
   });
 
-  it("renders the unified compliance queue and routes missed clock-in approval through the existing review endpoint", async () => {
+  it("renders the Needs Attention queue and routes missed clock-in approval through the existing review endpoint", async () => {
     const reviewBodies: unknown[] = [];
 
     apiFetchMock.mockImplementation(async (path: string, _token?: string, init?: RequestInit) => {
@@ -553,13 +555,22 @@ describe("Compliance page", () => {
 
     render(<Compliance token="token" currentUser={leadershipUser} socket={null} />);
 
-    expect(await screen.findByText("Compliance review")).toBeTruthy();
-    expect(screen.getByText("Unresolved Blockers")).toBeTruthy();
-    expect(screen.getByText("Payroll Blockers")).toBeTruthy();
-    expect(screen.getByText("Missed Punch Review")).toBeTruthy();
-    expect(screen.getByText("No-Lunch Review")).toBeTruthy();
+    expect(await screen.findByText("Needs Attention")).toBeTruthy();
+    expect(screen.getByText("Leadership review queue for blocked, missing, overdue, or approval-required work.")).toBeTruthy();
+    expect(screen.getByText(/Home previews what matters/i)).toBeTruthy();
+    expect(screen.getByText("Open Items")).toBeTruthy();
+    expect(screen.getByText("Overdue / Urgent")).toBeTruthy();
+    expect(screen.getByText("Blocking Payroll or Mileage")).toBeTruthy();
+    expect(screen.getByText("Waiting on Review")).toBeTruthy();
     expect(screen.getAllByText("Missing Setup Photo").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Fix in Attendance").length).toBeGreaterThan(0);
+    expect(screen.queryByText("missing_setup_photo")).toBeNull();
+    expect(await screen.findByRole("link", { name: "View in Project Tracking" })).toHaveAttribute(
+      "href",
+      "#project-tracking/workflows/workflow-closeout-1"
+    );
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
+    expect(screen.queryByText("Open Compliance Workflow")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /No-Lunch Challenge/i }));
     expect(await screen.findByRole("button", { name: "Approve Challenge" })).toBeTruthy();
@@ -568,8 +579,11 @@ describe("Compliance page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Missed Clock-In Request/i }));
     expect(await screen.findByRole("button", { name: "Approve Request" })).toBeTruthy();
     expect(screen.getByText("Blocker Summary")).toBeTruthy();
+    expect(screen.getByText("Best next action")).toBeTruthy();
     expect(screen.getByText("Correction Request")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open Attendance" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Attendance Review" })).toHaveAttribute("href", "#employees/attendance");
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
+    expect(screen.queryByText(/#employees\/compliance/i)).toBeNull();
     expect(screen.getByText("History")).toBeTruthy();
 
     const correctedInput = screen.getByLabelText("Corrected clock-in time");
@@ -598,9 +612,37 @@ describe("Compliance page", () => {
   it("keeps the workspace restricted for users without compliance access", async () => {
     render(<Compliance token="token" currentUser={photographerUser} socket={null} />);
 
-    expect(screen.getByText("Compliance access is restricted")).toBeTruthy();
+    expect(screen.getByText("Needs Attention access is restricted")).toBeTruthy();
     await waitFor(() => {
       expect(apiFetchMock).not.toHaveBeenCalled();
     });
+  });
+
+  it("shows a calm empty state when nothing needs review", async () => {
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("/api/compliance/workspace?")) {
+        return {
+          ...listResponse,
+          summary: {
+            ...listResponse.summary,
+            open_count: 0,
+            payroll_blocking_count: 0,
+            mileage_blocking_count: 0,
+            missed_clock_in_review_count: 0,
+            no_lunch_review_count: 0,
+            off_clock_upload_review_count: 0,
+            presence_incident_review_count: 0,
+            counts_by_urgency: { urgent: 0, important: 0, watch: 0 }
+          },
+          rows: []
+        } satisfies ComplianceWorkspaceListPayload;
+      }
+      throw new Error(`Unexpected compliance call: ${path}`);
+    });
+
+    render(<Compliance token="token" currentUser={leadershipUser} socket={null} />);
+
+    expect(await screen.findByText("Needs Attention")).toBeTruthy();
+    expect(screen.getByText("Nothing needs review right now.")).toBeTruthy();
   });
 });

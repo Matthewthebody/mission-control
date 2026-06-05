@@ -643,7 +643,14 @@ describe("project tracking foundation", () => {
       .get("/api/workflows/production-queue")
       .set("Authorization", `Bearer ${leadershipToken}`);
     expect(queue.status, JSON.stringify(queue.body)).toBe(200);
-    expect(queue.body.items.some((item: any) => item.handoff_id === sentHandoff.id)).toBe(true);
+    const sentQueueItem = queue.body.items.find((item: any) => item.handoff_id === sentHandoff.id);
+    expect(sentQueueItem).toEqual(
+      expect.objectContaining({
+        handoff_id: sentHandoff.id,
+        organization_id: organizationId,
+        organization_name: expect.any(String)
+      })
+    );
 
     const accepted = await request(app)
       .post(`/api/workflows/handoffs/${sentHandoff.id}/accept`)

@@ -94,17 +94,29 @@ type BoardWorkflowSummary = {
 
 type SchoolsDashboardRow = {
   id: string;
+  jobId: string | null;
   dueDate: string;
   school: string;
+  contactLabel: string;
   jobType: string;
   currentStep: string;
   nextAction: string;
-  currentDepartment: string;
+  owner: string;
   status: string;
+  riskLabel: string;
+  riskTone: "neutral" | "info" | "success" | "warning" | "danger";
   updatedAt: string;
   workflowHash: string;
+  jobHash: string;
+  accountHash: string | null;
   hasWorkflow: boolean;
   actionLabel: string;
+  openTaskCount: number;
+  exceptionCount: number;
+  proofApprovalPending: boolean;
+  staffingIssue: boolean;
+  productionIssue: boolean;
+  clientConcern: boolean;
 };
 
 type TaskGroup = {
@@ -127,7 +139,7 @@ const JOBS_PAGE_SIZE = 8;
 const TASKS_PAGE_SIZE = 8;
 const EXCEPTIONS_PAGE_SIZE = 8;
 const WORKSPACE_QUEUE_PAGE_SIZE = 100;
-const SCHOOLS_DASHBOARD_DEMO_ROW_LIMIT = 10;
+const SCHOOLS_OPERATING_BOARD_ROW_LIMIT = 14;
 
 function messageFor(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -515,16 +527,6 @@ function workflowRowStatus(row: ProjectWorkflowJobRow | undefined, fallback: str
   return labels[row.health];
 }
 
-function currentDepartmentForSchoolJob(job: SharedJobListItem, row: ProjectWorkflowJobRow | undefined) {
-  if (row?.current_step?.department) {
-    return humanizeToken(row.current_step.department);
-  }
-  if (job.production_required && !["completed", "delivered", "published"].includes((job.production_status ?? "").toLowerCase())) {
-    return "Production";
-  }
-  return "Schools";
-}
-
 function nextActionForSchoolJob(job: SharedJobListItem, row: ProjectWorkflowJobRow | undefined) {
   if (row?.health_reasons[0]) {
     return row.health_reasons[0];
@@ -536,6 +538,31 @@ function nextActionForSchoolJob(job: SharedJobListItem, row: ProjectWorkflowJobR
     return "Keep production moving.";
   }
   return "Open workflow and move the next step.";
+}
+
+function nextActionForOperatingBoard(input: {
+  job: SharedJobListItem;
+  workflowRow: ProjectWorkflowJobRow | undefined;
+  jobTasks: SharedTaskListItem[];
+  jobExceptions: SharedExceptionListItem[];
+  jobWorkItems: SchoolWorkItemRecord[];
+}) {
+  const urgentException = input.jobExceptions.find((item) => item.severity === "critical" || item.severity === "high");
+  if (urgentException) {
+    return urgentException.next_action_label;
+  }
+
+  const overdueTask = input.jobTasks.find(isTaskOverdue);
+  if (overdueTask) {
+    return overdueTask.title;
+  }
+
+  const waitingWorkItem = input.jobWorkItems.find((item) => item.waiting_on !== "none" || item.stage === "waiting_on_school");
+  if (waitingWorkItem) {
+    return waitingWorkItem.waiting_on_label || waitingWorkItem.title;
+  }
+
+  return input.workflowRow?.queue_intelligence?.next_action || nextActionForSchoolJob(input.job, input.workflowRow);
 }
 
 function isIdRelatedText(...values: Array<string | null | undefined>) {
@@ -566,43 +593,139 @@ function schoolDashboardJobType(job: SharedJobListItem, row: ProjectWorkflowJobR
   return humanizeToken(job.job_category ?? job.school_profile?.school_type ?? job.job_status);
 }
 
+function isProofApprovalPending(job: SharedJobListItem) {
+  const normalized = (job.proof_status ?? "").toLowerCase();
+  return Boolean(normalized) && !["approved", "not_required", "not required", "complete", "completed"].includes(normalized);
+}
+
+function hasStaffingIssue(job: SharedJobListItem) {
+  return ["unassigned", "partially_staffed", "gap_flagged"].includes(job.staffing_status) || job.blocker_count > 0;
+}
+
+function hasProductionIssue(job: SharedJobListItem, exceptions: SharedExceptionListItem[]) {
+  const productionStatus = (job.production_status ?? "").toLowerCase();
+  return (
+    (job.production_required && ["blocked", "awaiting_internal_review", "awaiting_approval", "revisions_requested"].includes(productionStatus)) ||
+    exceptions.some((item) => ["gallery_release", "yearbook", "delivery"].includes(exceptionCategory(item)))
+  );
+}
+
+function hasClientConcern(workItems: SchoolWorkItemRecord[], exceptions: SharedExceptionListItem[]) {
+  return (
+    workItems.some((item) => item.waiting_on === "school" || item.stage === "waiting_on_school" || isSchoolWorkMissingKeyInfo(item)) ||
+    exceptions.some((item) => exceptionCategory(item) === "missing_data")
+  );
+}
+
+function riskForOperatingBoard(input: {
+  job: SharedJobListItem;
+  workflowRow: ProjectWorkflowJobRow | undefined;
+  proofApprovalPending: boolean;
+  staffingIssue: boolean;
+  productionIssue: boolean;
+  clientConcern: boolean;
+}) {
+  if (input.job.risk_status === "critical" || input.job.risk_status === "high" || input.job.blocker_count > 0 || input.workflowRow?.health === "blocked") {
+    return { label: input.job.blocker_count > 0 ? "Blocked" : "High risk", tone: "danger" as const };
+  }
+  if (isJobOverdue(input.job) || input.workflowRow?.health === "running_late") {
+    return { label: "Overdue", tone: "danger" as const };
+  }
+  if (input.staffingIssue) {
+    return { label: "Staffing issue", tone: "warning" as const };
+  }
+  if (input.productionIssue) {
+    return { label: "Production issue", tone: "warning" as const };
+  }
+  if (input.proofApprovalPending) {
+    return { label: "Proof pending", tone: "warning" as const };
+  }
+  if (input.clientConcern) {
+    return { label: "Waiting on school", tone: "warning" as const };
+  }
+  if (input.workflowRow?.health === "due_soon" || input.job.risk_status === "medium") {
+    return { label: "Due soon", tone: "info" as const };
+  }
+  return { label: "On track", tone: "success" as const };
+}
+
+function groupByRelatedJob<T extends { related_job_id?: string | null; job_id?: string | null }>(items: T[]) {
+  const grouped = new Map<string, T[]>();
+  for (const item of items) {
+    const jobId = item.related_job_id ?? item.job_id ?? null;
+    if (!jobId) {
+      continue;
+    }
+    grouped.set(jobId, [...(grouped.get(jobId) ?? []), item]);
+  }
+  return grouped;
+}
+
+function groupWorkItemsBySchoolJob(items: SchoolWorkItemRecord[]) {
+  const grouped = new Map<string, SchoolWorkItemRecord[]>();
+  for (const item of items) {
+    if (!item.school_job_id) {
+      continue;
+    }
+    grouped.set(item.school_job_id, [...(grouped.get(item.school_job_id) ?? []), item]);
+  }
+  return grouped;
+}
+
 function buildSchoolsDashboardRows(
   jobs: SharedJobListItem[],
   queueItems: SchoolWorkItemRecord[],
   workflowRows: ProjectWorkflowJobRow[],
+  tasks: SharedTaskListItem[],
+  exceptions: SharedExceptionListItem[],
   anchorDate: string | null | undefined
 ): SchoolsDashboardRow[] {
   const workflowByJob = new Map(workflowRows.map((row) => [row.job_id, row]));
+  const tasksByJob = groupByRelatedJob(tasks);
+  const exceptionsByJob = groupByRelatedJob(exceptions);
+  const workItemsByJob = groupWorkItemsBySchoolJob(queueItems);
   const rows: SchoolsDashboardRow[] = [];
 
   for (const job of jobs.filter(isOpenJob)) {
     if (!job.organization_name) {
       continue;
     }
-    const dueDate = dueDateForSchoolJob(job);
-    if (!dueDate || !isDueWithinSevenDays(dueDate, anchorDate)) {
-      continue;
-    }
+    const dueDate = dueDateForSchoolJob(job) ?? job.updated_at;
     const workflowRow = workflowByJob.get(job.id);
-    const hasLinkedWorkflow = Boolean(workflowRow?.workflow_run_id);
-    const isIdOrAdminJob = isIdRelatedText(job.title, job.job_category, job.school_profile?.school_type);
-    if (!hasLinkedWorkflow && !isIdOrAdminJob) {
-      continue;
-    }
     const target = toWorkflowTarget(workflowRow, job.id);
+    const jobTasks = tasksByJob.get(job.id) ?? [];
+    const jobExceptions = exceptionsByJob.get(job.id) ?? [];
+    const jobWorkItems = workItemsByJob.get(job.id) ?? [];
+    const proofApprovalPending = isProofApprovalPending(job);
+    const staffingIssue = hasStaffingIssue(job);
+    const productionIssue = hasProductionIssue(job, jobExceptions);
+    const clientConcern = hasClientConcern(jobWorkItems, jobExceptions);
+    const risk = riskForOperatingBoard({ job, workflowRow, proofApprovalPending, staffingIssue, productionIssue, clientConcern });
     rows.push({
       id: `job:${job.id}`,
+      jobId: job.id,
       dueDate,
       school: job.organization_name,
+      contactLabel: job.primary_contact_name ?? "Contact pending",
       jobType: schoolDashboardJobType(job, workflowRow),
       currentStep: workflowRow?.current_step?.name ?? jobCurrentStep(job),
-      nextAction: nextActionForSchoolJob(job, workflowRow),
-      currentDepartment: currentDepartmentForSchoolJob(job, workflowRow),
+      nextAction: nextActionForOperatingBoard({ job, workflowRow, jobTasks, jobExceptions, jobWorkItems }),
+      owner: workflowRow?.owner_display ?? jobOwnerName(job),
       status: workflowRowStatus(workflowRow, job.job_status),
+      riskLabel: risk.label,
+      riskTone: risk.tone,
       updatedAt: workflowRow?.updated_at ?? job.updated_at,
       workflowHash: target.hash,
+      jobHash: toSchoolsJobHash(job.id),
+      accountHash: job.organization_id ? "#schools/accounts" : null,
       hasWorkflow: target.hasWorkflow,
-      actionLabel: target.actionLabel
+      actionLabel: target.actionLabel,
+      openTaskCount: jobTasks.filter((task) => task.status !== "completed" && task.status !== "cancelled").length,
+      exceptionCount: job.open_watch_flag_count || jobExceptions.length,
+      proofApprovalPending,
+      staffingIssue,
+      productionIssue,
+      clientConcern
     });
   }
 
@@ -616,23 +739,43 @@ function buildSchoolsDashboardRows(
     }
     const workflowRow = item.school_job_id ? workflowByJob.get(item.school_job_id) : undefined;
     const target = workflowRow?.workflow_run_id ? toWorkflowTarget(workflowRow, item.school_job_id) : toSchoolsReviewTarget();
+    const riskTone = item.due_state === "overdue" || item.status === "blocked" ? "danger" : item.waiting_on !== "none" ? "warning" : "info";
     rows.push({
       id: `work:${item.id}`,
+      jobId: item.school_job_id,
       dueDate,
       school: item.school_name,
+      contactLabel: item.linked_contact_name ?? "Contact pending",
       jobType: "ID / admin work",
       currentStep: item.title,
       nextAction: item.waiting_on_label ?? "Review ID/admin item.",
-      currentDepartment: item.waiting_on === "internal_production" ? "Production" : "Schools",
+      owner: item.owner_name ?? "Unassigned",
       status: item.status_label ?? humanizeToken(item.status),
+      riskLabel: item.due_state === "overdue" ? "Overdue" : item.waiting_on_label,
+      riskTone,
       updatedAt: item.updated_at,
       workflowHash: target.hash,
+      jobHash: item.school_job_id ? toSchoolsJobHash(item.school_job_id) : "#schools/jobs",
+      accountHash: "#schools/accounts",
       hasWorkflow: target.hasWorkflow,
-      actionLabel: target.actionLabel
+      actionLabel: target.actionLabel,
+      openTaskCount: 0,
+      exceptionCount: item.flags.length,
+      proofApprovalPending: false,
+      staffingIssue: false,
+      productionIssue: item.waiting_on === "internal_production",
+      clientConcern: item.waiting_on === "school" || isSchoolWorkMissingKeyInfo(item)
     });
   }
 
-  return rows.sort((left, right) => (parseDate(left.dueDate)?.getTime() ?? 0) - (parseDate(right.dueDate)?.getTime() ?? 0));
+  return rows.sort((left, right) => {
+    const riskRank = { danger: 0, warning: 1, info: 2, neutral: 3, success: 4 };
+    return (
+      riskRank[left.riskTone] - riskRank[right.riskTone] ||
+      (parseDate(left.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (parseDate(right.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER) ||
+      left.school.localeCompare(right.school)
+    );
+  });
 }
 
 function buildAttentionItems(jobs: SharedJobListItem[], tasks: SharedTaskListItem[], exceptions: SharedExceptionListItem[]): AttentionItem[] {
@@ -1004,16 +1147,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
   const schoolJobs = useMemo(() => jobs.filter((item) => item.department_type === "schools"), [jobs]);
   const anchorDate = workspace?.anchor_date ?? null;
   const schoolDashboardRows = useMemo(
-    () => buildSchoolsDashboardRows(schoolJobs, workspace?.queue_items ?? [], workflowRows, anchorDate).slice(0, SCHOOLS_DASHBOARD_DEMO_ROW_LIMIT),
-    [anchorDate, schoolJobs, workflowRows, workspace?.queue_items]
-  );
-  const dueTodayCount = useMemo(
-    () => schoolDashboardRows.filter((row) => isDueTodayFromAnchor(row.dueDate, anchorDate)).length,
-    [anchorDate, schoolDashboardRows]
-  );
-  const overdueCount = useMemo(
-    () => schoolDashboardRows.filter((row) => isOverdueFromAnchor(row.dueDate, anchorDate)).length,
-    [anchorDate, schoolDashboardRows]
+    () => buildSchoolsDashboardRows(schoolJobs, workspace?.queue_items ?? [], workflowRows, tasks, exceptions, anchorDate).slice(0, SCHOOLS_OPERATING_BOARD_ROW_LIMIT),
+    [anchorDate, exceptions, schoolJobs, tasks, workflowRows, workspace?.queue_items]
   );
   const idTracker = useMemo(() => {
     const idRows = schoolDashboardRows.filter((row) => isIdRelatedText(row.jobType, row.currentStep, row.nextAction));
@@ -1025,7 +1160,53 @@ export function SchoolsHub({ token, currentUser }: Props) {
       readyCompleted: idRows.filter((row) => ["ready", "complete", "completed"].some((token) => row.status.toLowerCase().includes(token))).length
     };
   }, [anchorDate, schoolDashboardRows]);
-  const workflowDataNote = errors.projectTracking ? "Live workflow links are limited until Project Dashboard rows load." : "Rows open the live workflow when a workflow is connected.";
+  const boardIssueCounts = useMemo(
+    () => ({
+      proofApprovals: (dashboard?.summary.overdue_approval_count ?? 0) + schoolDashboardRows.filter((row) => row.proofApprovalPending).length,
+      staffingIssues: schoolDashboardRows.filter((row) => row.staffingIssue).length,
+      productionBlockers: schoolDashboardRows.filter((row) => row.productionIssue).length,
+      clientConcerns: schoolDashboardRows.filter((row) => row.clientConcern).length,
+      exceptions: schoolDashboardRows.reduce((total, row) => total + row.exceptionCount, 0),
+      tasks: schoolDashboardRows.reduce((total, row) => total + row.openTaskCount, 0)
+    }),
+    [dashboard?.summary.overdue_approval_count, schoolDashboardRows]
+  );
+  const commandSummaryCards = useMemo(
+    () => [
+      {
+        label: "Active School Work",
+        value: schoolDashboardRows.length,
+        detail: "Open school jobs and school work in the current view.",
+        hash: "#schools/jobs"
+      },
+      {
+        label: "Due Soon",
+        value: schoolDashboardRows.filter((row) => isDueWithinSevenDays(row.dueDate, anchorDate)).length,
+        detail: "Work with a date or deadline inside the next seven days.",
+        hash: buildSchoolsTabHash("jobs", { focus: "open" })
+      },
+      {
+        label: "Waiting on School",
+        value: (workspace?.summary.waiting_on_school ?? 0) + workflowRows.filter((row) => row.waiting_on_party === "school").length,
+        detail: "Rows explicitly waiting on a school, roster, contact, or approval.",
+        hash: buildSchoolsTabHash("exceptions", { focus: "missing_data" })
+      },
+      {
+        label: "Blocked / Needs Review",
+        value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length,
+        detail: "Blocked, overdue, high-risk, or review-needed work.",
+        hash: "#needs-attention"
+      },
+      {
+        label: "Recently Changed",
+        value: schoolDashboardRows.filter((row) => Boolean(row.updatedAt)).length,
+        detail: "Current rows with live update timestamps.",
+        hash: "#project-tracking"
+      }
+    ],
+    [anchorDate, schoolDashboardRows, workspace?.summary.waiting_on_school, workflowRows]
+  );
+  const workflowDataNote = errors.projectTracking ? "Project Tracking links are limited until work-spine rows load." : "Use Project Tracking for the full work spine when a workflow is connected.";
   const workflowOptions = useMemo(() => buildSelectOptions(schoolJobs.map((job) => ({ value: job.job_status, label: humanizeToken(job.job_status) }))), [schoolJobs]);
   const assigneeOptions = useMemo(
     () => buildSelectOptions(schoolJobs.map((job) => ({ value: job.lead_owner_user_id ?? job.account_owner_user_id ?? "", label: jobOwnerName(job) }))),
@@ -1121,13 +1302,13 @@ export function SchoolsHub({ token, currentUser }: Props) {
   const fullyBlocked = !workspace && !schoolJobs.length && !tasks.length && !exceptions.length && Object.values(errors).some(Boolean);
 
   if (loading) {
-    return <WorkspaceLoadingBlock title="Loading Schools Department" summary="Pulling the jobs, tasks, exceptions, and risk counts the schools team needs today." />;
+    return <WorkspaceLoadingBlock title="Loading Schools" summary="Pulling the school jobs, tasks, exceptions, and work-spine links the team needs today." />;
   }
 
   if (accessScope == null) {
     return (
       <section className="schools-department">
-        <WorkspacePageHeader title="Schools Department" summary="Everything the schools team owns, in one place" />
+        <WorkspacePageHeader title="Schools" summary="School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner." />
         <section className="panel">
           <WorkspaceEmptyState title="Schools access is not enabled for this account" summary="Ask an admin to add the Schools access your role needs before using this department page." />
         </section>
@@ -1138,8 +1319,12 @@ export function SchoolsHub({ token, currentUser }: Props) {
   return (
     <section className="schools-department">
       <WorkspacePageHeader
-        title="Schools Department"
-        summary={accessScope === "own" ? "Your assigned school jobs, tasks, and risks in one place" : "Everything the schools team owns, in one place"}
+        title="Schools"
+        summary={
+          accessScope === "own"
+            ? "Your assigned school jobs, rosters, galleries, yearbooks, account follow-up, and next-owner work."
+            : "School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner."
+        }
         actions={
           <WorkspaceActionBar align="end" compact>
             <button type="button" className="secondary-button" onClick={() => navigateToUtility("#my-schedule")}>
@@ -1160,8 +1345,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
       <section className="panel schools-dashboard-v1">
         <div className="schools-dashboard-v1__top">
           <WorkspaceSectionHeader
-            title="Schools Dashboard"
-            summary="Curated Jessica re-demo view for school jobs due soon. Full Jobs, Tasks, and Exceptions remain available in the tabs below."
+            title="Schools Command Hub"
+            summary="Summary-first view of school work, due dates, blockers, next owners, and where to inspect the full work record."
           />
           <div className="segmented-toggle segmented-toggle--compact schools-department__primary-tabs" role="tablist" aria-label="Schools work modes">
             {([
@@ -1176,97 +1361,147 @@ export function SchoolsHub({ token, currentUser }: Props) {
           </div>
         </div>
 
-        <div className="schools-dashboard-v1__kpis" aria-label="Schools dashboard KPIs">
-          <div>
-            <span>Total active school jobs</span>
-            <strong>{schoolDashboardRows.length}</strong>
-          </div>
-          <div>
-            <span>Due today</span>
-            <strong>{dueTodayCount}</strong>
-          </div>
-          <div>
-            <span>Overdue</span>
-            <strong>{overdueCount}</strong>
-          </div>
+        <div className="schools-dashboard-v1__kpis" aria-label="Schools operating summary cards">
+          {commandSummaryCards.map((card) => (
+            <button key={card.label} type="button" className="schools-dashboard-v1__summary-card" onClick={() => navigateToUtility(card.hash)}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+            </button>
+          ))}
         </div>
 
-        <div className="schools-dashboard-v1__layout">
-          <div className="schools-dashboard-v1__main">
-              <WorkspaceSectionHeader
-              title="Jobs Due in the Next 7 Days"
-              summary={`${workflowDataNote} Workflow-backed rows open the live workflow; selected ID/admin rows without a live workflow stay in Schools review. Sorted oldest due date first.`}
-              compact
-              badge={<span className="workspace-page-header__meta-pill">{schoolDashboardRows.length} due soon</span>}
-            />
-            {schoolDashboardRows.length ? (
-              <div className="schools-dashboard-v1__table" role="table" aria-label="School jobs due in the next 7 days">
-                <div className="schools-dashboard-v1__row schools-dashboard-v1__row--head" role="row">
-                  <span role="columnheader">Due Date</span>
-                  <span role="columnheader">School / Account</span>
-                  <span role="columnheader">Job Type</span>
-                  <span role="columnheader">Current Step</span>
-                  <span role="columnheader">Next Action</span>
-                  <span role="columnheader">Current Department</span>
-                  <span role="columnheader">Status</span>
-                  <span role="columnheader">Last Updated</span>
-                  <span role="columnheader">Open</span>
-                </div>
-                {schoolDashboardRows.map((row) => (
-                  <button
-                    key={row.id}
-                    type="button"
-                    className="schools-dashboard-v1__row schools-dashboard-v1__row--button"
-                    role="row"
-                    aria-label={`${row.actionLabel} for ${row.school} ${row.jobType} ${row.currentStep}`}
-                    onClick={() => (window.location.hash = row.workflowHash)}
-                  >
-                    <span>{formatDate(row.dueDate)}</span>
-                    <strong title={row.school}>{row.school}</strong>
-                    <span>{row.jobType}</span>
-                    <span title={row.currentStep}>{row.currentStep}</span>
-                    <span title={row.nextAction}>{row.nextAction}</span>
-                    <span>{row.currentDepartment}</span>
-                    <StatusPill label={row.status} tone={toneForState(row.status)} />
-                    <span>{formatDateTime(row.updatedAt)}</span>
-                    <span className="schools-dashboard-v1__open-link">{row.actionLabel}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <WorkspaceEmptyState
-                title="No school jobs due in the next 7 days"
-                summary="Active school jobs will appear here when they have a connected due date in this window."
-                compact
-              />
-            )}
+        <div className="schools-dashboard-v1__issue-strip" aria-label="Schools issue lanes">
+          <div className="schools-dashboard-v1__issue-label">
+            <strong>What needs attention</strong>
+            <span>Preview only. Use Needs Attention for cross-operational blockers.</span>
           </div>
+          <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("exceptions", { focus: "gallery_release" })}>
+            <span>Proof approvals</span>
+            <strong>{boardIssueCounts.proofApprovals}</strong>
+          </button>
+          <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("jobs", { focus: "stalled" })}>
+            <span>Staffing issues</span>
+            <strong>{boardIssueCounts.staffingIssues}</strong>
+          </button>
+          <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("exceptions", { focus: "delivery" })}>
+            <span>Production blockers</span>
+            <strong>{boardIssueCounts.productionBlockers}</strong>
+          </button>
+          <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("exceptions", { focus: "missing_data" })}>
+            <span>Missing info / client</span>
+            <strong>{boardIssueCounts.clientConcerns}</strong>
+          </button>
+          <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("tasks", { view: "week" })}>
+            <span>Open tasks on board</span>
+            <strong>{boardIssueCounts.tasks}</strong>
+          </button>
+        </div>
 
-          <aside className="schools-dashboard-v1__sidebar" aria-label="ID Card Tracker">
-            <WorkspaceSectionHeader title="ID Card Tracker" summary="ID/admin work that needs school-team follow-through." compact />
-            <div className="schools-dashboard-v1__id-list">
-              <div>
-                <span>Active ID jobs</span>
-                <strong>{idTracker.active}</strong>
+        <div className="schools-dashboard-v1__main">
+          <WorkspaceSectionHeader
+            title="Department work"
+            summary={`${workflowDataNote} Use Open work for the next safe item, Open details for the job record, and Needs Attention for blockers that cross departments.`}
+            compact
+            badge={<span className="workspace-page-header__meta-pill">{schoolDashboardRows.length} visible items</span>}
+          />
+          {schoolDashboardRows.length ? (
+            <div className="schools-dashboard-v1__table" role="table" aria-label="Schools department command list">
+              <div className="schools-dashboard-v1__row schools-dashboard-v1__row--head" role="row">
+                <span role="columnheader">School / account</span>
+                <span role="columnheader">Department work</span>
+                <span role="columnheader">Due / changed</span>
+                <span role="columnheader">Next step / status</span>
+                <span role="columnheader">Next action</span>
+                <span role="columnheader">Next owner</span>
+                <span role="columnheader">Blocker / review</span>
+                <span role="columnheader">Open next</span>
               </div>
-              <div>
-                <span>Due soon</span>
-                <strong>{idTracker.dueSoon}</strong>
-              </div>
-              <div>
-                <span>Overdue</span>
-                <strong>{idTracker.overdue}</strong>
-              </div>
-              <div>
-                <span>Waiting on info</span>
-                <strong>{idTracker.waitingOnInfo}</strong>
-              </div>
-              <div>
-                <span>Ready / completed</span>
-                <strong>{idTracker.readyCompleted}</strong>
-              </div>
+              {schoolDashboardRows.map((row) => (
+                <div key={row.id} className="schools-dashboard-v1__row" role="row">
+                  <div>
+                    <strong title={row.school}>{row.school}</strong>
+                    <span title={row.contactLabel}>Contact: {row.contactLabel}</span>
+                  </div>
+                  <div>
+                    <strong>{row.jobType}</strong>
+                    <span>{row.jobId ? "Job" : "Work item"}</span>
+                  </div>
+                  <div>
+                    <strong>{formatDate(row.dueDate)}</strong>
+                    <span>Changed {formatDateTime(row.updatedAt)}</span>
+                  </div>
+                  <div>
+                    <strong title={row.currentStep}>{row.currentStep}</strong>
+                    <StatusPill label={row.status} tone={toneForState(row.status)} />
+                  </div>
+                  <div>
+                    <strong title={row.nextAction}>{row.nextAction}</strong>
+                    <span>{row.openTaskCount} tasks | {row.exceptionCount} exceptions</span>
+                  </div>
+                  <div>
+                    <strong>{row.owner}</strong>
+                    <span>{row.hasWorkflow ? "Workflow connected" : "Schools review"}</span>
+                  </div>
+                  <div>
+                    <StatusPill label={row.riskLabel} tone={row.riskTone} />
+                    <div className="schools-dashboard-v1__row-flags" aria-label={`Issue types for ${row.school}`}>
+                      {row.proofApprovalPending ? <span>Proof</span> : null}
+                      {row.staffingIssue ? <span>Staffing</span> : null}
+                      {row.productionIssue ? <span>Production</span> : null}
+                      {row.clientConcern ? <span>Client/info</span> : null}
+                    </div>
+                  </div>
+                  <div className="schools-dashboard-v1__row-actions">
+                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.workflowHash)}>
+                      Open work
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.hasWorkflow ? row.workflowHash : "#project-tracking")}>
+                      View in Project Tracking
+                    </button>
+                    {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
+                      <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
+                        Open Needs Attention
+                      </button>
+                    ) : null}
+                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.jobHash)}>
+                      Open details
+                    </button>
+                    {row.accountHash ? (
+                      <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.accountHash!)}>
+                        Account
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
             </div>
-          </aside>
+          ) : (
+            <WorkspaceEmptyState
+              title="No active school work is showing here yet"
+              summary="Active school jobs appear here when the shared job queue has school, owner, and date context."
+              compact
+            />
+          )}
+        </div>
+
+        <div className="schools-dashboard-v1__id-list schools-dashboard-v1__id-list--inline" aria-label="ID Card Tracker">
+          <div>
+            <span>ID jobs</span>
+            <strong>{idTracker.active}</strong>
+          </div>
+          <div>
+            <span>ID due soon</span>
+            <strong>{idTracker.dueSoon}</strong>
+          </div>
+          <div>
+            <span>ID waiting on info</span>
+            <strong>{idTracker.waitingOnInfo}</strong>
+          </div>
+          <div>
+            <span>ID ready / complete</span>
+            <strong>{idTracker.readyCompleted}</strong>
+          </div>
         </div>
       </section>
 
@@ -1290,7 +1525,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
             token={token}
             department="schools"
             title="Schools workflow queue"
-            summary="Live Project Dashboard rows where the current workflow step belongs to Schools. Use Assign / Status for owner, department, and shared note changes."
+            summary="Live Project Tracking rows where the next step belongs to Schools. Open Project Tracking for the full work spine."
             limit={8}
           />
           <section className="panel schools-department__work-panel">

@@ -97,9 +97,12 @@ describe("Attendance page", () => {
   it("keeps Attendance focused on live operations and does not fetch duplicate compliance review payloads", async () => {
     render(<Attendance token="token" currentUser={currentUser} socket={null} />);
 
-    expect(await screen.findByText("Attendance Desk")).toBeInTheDocument();
+    expect(await screen.findByText("Attendance Operating System")).toBeInTheDocument();
+    expect(screen.getByText("Leadership Attendance Review")).toBeInTheDocument();
+    expect(screen.getByText(/Employees should start from Home or My Work/i)).toBeInTheDocument();
+    expect(screen.getByText(/cross-operational blockers belong in Needs Attention/i)).toBeInTheDocument();
     expect(screen.getByText("Attendance operations panel")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Compliance" })).toHaveAttribute("href", "#employees/compliance");
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
     expect(screen.getByRole("link", { name: "Open Payroll Review" })).toHaveAttribute("href", "#employees/payroll");
 
     expect(screen.queryByText("Compliance Snapshot")).not.toBeInTheDocument();

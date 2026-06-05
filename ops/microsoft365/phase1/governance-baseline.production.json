@@ -1,0 +1,226 @@
+{
+  "phase": "phase1_security_governance_foundation",
+  "baseline_version": "2026-04-03",
+  "environment": "production",
+  "tenant_tier": "production",
+  "principal_settings": {
+    "group_prefix": "PMC",
+    "require_managed_devices_for_admin_portals": true,
+    "require_phishing_resistant_mfa_for_admins": true,
+    "sharepoint_external_sharing_mode": "specific_people_allowlist",
+    "onedrive_external_sharing_mode": "specific_people_allowlist",
+    "power_automate_managed_environment_required": true
+  },
+  "current_state_targets": {
+    "enforce_entra_auth_for_admins": true,
+    "permit_local_password_for_break_glass_only": true,
+    "tenant_admin_actions_required": true
+  },
+  "execution_order": [
+    {
+      "order": 1,
+      "title": "Create production Entra security groups and map them to platform, security, department, and operational personas",
+      "owner": "Platform Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Remove tenant admin role assignments first, then detach group-based access in a change window."
+    },
+    {
+      "order": 2,
+      "title": "Enforce phishing-resistant MFA and admin Conditional Access with managed-device requirements",
+      "owner": "Security Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Move emergency access accounts into documented break-glass mode, then disable newly enforced CA policies if they block operations."
+    },
+    {
+      "order": 3,
+      "title": "Apply SharePoint and OneDrive sharing baseline, guest approval workflow, and site ownership rules",
+      "owner": "SharePoint Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable guest access on affected sites before widening sharing controls."
+    },
+    {
+      "order": 4,
+      "title": "Publish production sensitivity labels, DLP baseline, and audit retention policies",
+      "owner": "Compliance Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable auto-label or block actions first, then remove published policies in a planned sequence."
+    },
+    {
+      "order": 5,
+      "title": "Enable managed Power Automate environment, approved connectors, and ownership review workflow",
+      "owner": "Power Platform Admin",
+      "requires_tenant_admin": true,
+      "rollback": "Disable risky flows, export definitions, and revert connector restrictions in a controlled window."
+    },
+    {
+      "order": 6,
+      "title": "Move dashboard admin personas to Microsoft-auth-first operation and reserve local passwords for audited break-glass only",
+      "owner": "Platform Admin",
+      "requires_tenant_admin": false,
+      "rollback": "Re-enable temporary password access only for named break-glass accounts with time-boxed approvals."
+    }
+  ],
+  "permissions_matrix": [
+    {
+      "persona": "platform_admin",
+      "dashboard_access": ["system diagnostics", "integrations", "admin settings", "access policy", "security center"],
+      "m365_admin_roles": ["Cloud Application Administrator", "Teams Administrator", "SharePoint Administrator"],
+      "allowed_actions": ["manage app registrations", "manage Teams and Outlook integration configuration", "manage governed collaboration sites", "read audit and diagnostics"],
+      "restrictions": ["no standing Global Administrator", "no Purview admin unless separately approved", "no project-state ownership inside M365"]
+    },
+    {
+      "persona": "security_admin",
+      "dashboard_access": ["system diagnostics", "security center", "access policy", "audit"],
+      "m365_admin_roles": ["Conditional Access Administrator", "Intune Administrator", "Compliance Administrator", "Reports Reader"],
+      "allowed_actions": ["enforce MFA", "manage Conditional Access", "publish labels", "manage DLP", "own audit retention"],
+      "restrictions": ["no business workflow editing", "no department content ownership"]
+    },
+    {
+      "persona": "department_lead",
+      "dashboard_access": ["department workspace", "reporting", "approvals", "communications", "record resources"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["approve department guest sharing", "approve shared mailbox access changes", "own department collaboration sites and libraries"],
+      "restrictions": ["no tenant-wide policy changes", "no security admin role"]
+    },
+    {
+      "persona": "project_owner",
+      "dashboard_access": ["assigned jobs", "tasks", "communications", "record resources", "activity history"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["use governed Teams, Outlook, and document actions from dashboard records", "request external share approvals", "create governed project folders where approved"],
+      "restrictions": ["no direct guest invitations", "no mailbox access changes", "no site admin rights"]
+    },
+    {
+      "persona": "reviewer",
+      "dashboard_access": ["approvals", "review queues", "activity history", "communications"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["review governed content and meetings", "approve or reject workflow gates in the dashboard"],
+      "restrictions": ["no external sharing", "no site ownership", "no mailbox delegation"]
+    },
+    {
+      "persona": "staff",
+      "dashboard_access": ["my work", "assigned tasks", "teams communication actions", "approved resources"],
+      "m365_admin_roles": [],
+      "allowed_actions": ["consume governed collaboration tools for assigned work only"],
+      "restrictions": ["no admin center access", "no unmanaged admin access", "no direct external sharing"]
+    },
+    {
+      "persona": "external_user",
+      "dashboard_access": [],
+      "m365_admin_roles": [],
+      "allowed_actions": ["none in Phase 1"],
+      "restrictions": ["no dashboard account", "no guest rollout yet", "no client-facing features in this phase"]
+    }
+  ],
+  "governance_models": {
+    "shared_mailboxes": [
+      "Use shared mailboxes only for department coordination and client-facing mail routing, never as workflow truth.",
+      "Every shared mailbox must have two named business owners, one technical owner, and a group-based membership model.",
+      "Disable auto-forwarding to external addresses and review Send As / Full Access quarterly."
+    ],
+    "external_sharing": [
+      "SharePoint and OneDrive external sharing are restricted to Specific People links with allowlisted domains or approved guest accounts.",
+      "Every external share requires named internal owner, expiration, business justification, and reviewable link scope.",
+      "No Anyone links, anonymous uploads, or uncontrolled personal OneDrive sharing for operational data."
+    ],
+    "sensitivity_labels": [
+      "Publish at least Public, Internal, Internal Restricted, Client Confidential, and Legal Hold labels.",
+      "Default dashboard-linked project artifacts to Internal or Internal Restricted unless the workflow explicitly requires wider access.",
+      "Use encryption and offline access limits only where operationally supportable and documented."
+    ],
+    "audit_and_retention": [
+      "Enable unified audit and retain admin, sharing, mailbox, Teams, SharePoint, OneDrive, and Power Platform events per policy.",
+      "Review privileged admin actions, guest sharing, label overrides, and connector changes on a scheduled cadence.",
+      "Document retention owners and escalation path for audit gaps."
+    ],
+    "automation_ownership": [
+      "Power Automate runs only in a managed environment with approved connectors and DLP boundaries.",
+      "Every flow must have named business owner, named technical owner, environment tag, and dashboard record reference when acting on business context.",
+      "No Power Automate flow may become a second source of truth for projects, required items, approvals, or workflow state."
+    ]
+  },
+  "manual_admin_checklist": [
+    {
+      "order": 1,
+      "step": "Create PMC Entra security groups and assign named owners for platform admins, security admins, department leads, project owners, reviewers, and staff.",
+      "portal": "Microsoft Entra admin center",
+      "requires_tenant_admin": true,
+      "owner": "Platform Admin"
+    },
+    {
+      "order": 2,
+      "step": "Create or confirm emergency access accounts and move local-password usage to audited break-glass only.",
+      "portal": "Microsoft Entra admin center / dashboard admin procedures",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 3,
+      "step": "Enforce phishing-resistant MFA for platform and security admins, standard MFA for all internal users, and block legacy auth.",
+      "portal": "Entra Conditional Access",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 4,
+      "step": "Require compliant managed devices for admin portals and Power Platform administration; stage worker-device requirements separately.",
+      "portal": "Intune / Entra Conditional Access",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 5,
+      "step": "Set SharePoint and OneDrive sharing to Specific People, disable Anyone links, and define allowlisted external collaboration domains.",
+      "portal": "SharePoint admin center",
+      "requires_tenant_admin": true,
+      "owner": "SharePoint Admin"
+    },
+    {
+      "order": 6,
+      "step": "Create shared mailbox governance groups and remove direct user sprawl from shared mailbox access.",
+      "portal": "Exchange admin center",
+      "requires_tenant_admin": true,
+      "owner": "Exchange Admin"
+    },
+    {
+      "order": 7,
+      "step": "Publish sensitivity labels, configure DLP baseline, and confirm label scope for mail, files, and Teams.",
+      "portal": "Microsoft Purview",
+      "requires_tenant_admin": true,
+      "owner": "Compliance Admin"
+    },
+    {
+      "order": 8,
+      "step": "Enable unified audit, set retention baseline, and document review ownership for privileged actions and external sharing.",
+      "portal": "Microsoft Purview",
+      "requires_tenant_admin": true,
+      "owner": "Security Admin"
+    },
+    {
+      "order": 9,
+      "step": "Create the managed Power Automate environment, apply approved connectors, and require ownership metadata for all flows.",
+      "portal": "Power Platform admin center",
+      "requires_tenant_admin": true,
+      "owner": "Power Platform Admin"
+    },
+    {
+      "order": 10,
+      "step": "Validate the dashboard configuration, run the repo validation script, and review the admin diagnostics payload before Phase 2.",
+      "portal": "Dashboard admin / local validation",
+      "requires_tenant_admin": false,
+      "owner": "Platform Admin"
+    }
+  ],
+  "validation_checklist": [
+    "Confirm only named break-glass accounts can bypass normal sign-in flow.",
+    "Confirm platform and security admins are blocked on unmanaged devices and prompted for strong MFA.",
+    "Confirm AnyOne links are disabled and external sharing requires Specific People plus approval.",
+    "Confirm shared mailboxes have group-based access and no orphaned owners.",
+    "Confirm labels and DLP policies cover Exchange, Teams, SharePoint, and OneDrive at minimum.",
+    "Confirm Power Automate environment is managed, owned, and cannot store operational workflow truth outside the dashboard."
+  ],
+  "rollback_principles": [
+    "Roll back by disabling or narrowing policies before deleting groups or content protections.",
+    "Keep emergency access accounts documented and tested before enforcing broad admin Conditional Access.",
+    "Never widen external sharing during rollback without an approved incident record and named owner."
+  ]
+}

@@ -202,7 +202,11 @@ export function Organizations({
   const activeTab = !canManage && route.tab === "duplicates" ? "profile" : route.tab;
 
   useEffect(() => {
-    const sync = () => setRoute(parseOrganizationsHash(entryView));
+    const sync = () => {
+      if (isDirectoryHash(window.location.hash)) {
+        setRoute(parseOrganizationsHash(entryView));
+      }
+    };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [entryView]);
@@ -731,6 +735,48 @@ export function Organizations({
     setDrawerState(nextDrawer);
   }
 
+  const sourceContacts = route.view === "contacts" ? visibleContacts : detail?.contacts ?? [];
+  const visibleRecordCount =
+    route.view === "contacts" ? visibleContacts.length : route.view === "locations" ? locations.length : organizations.length;
+  const visibleRecordLabel = route.view === "contacts" ? "people" : route.view === "locations" ? "locations" : "organizations";
+  const needsReviewCount = sourceContacts.filter((contact) =>
+    contact.contact_status === "needs_review" || contact.freshness_state === "needs_review" || contact.uncertainty_flag
+  ).length;
+  const ownerGapCount = sourceContacts.filter((contact) =>
+    contact.ownership_state === "unassigned" || !contact.primary_internal_owner
+  ).length;
+  const primaryContactCount = sourceContacts.filter((contact) => contact.is_primary).length;
+  const locationCount = route.view === "locations" ? locations.length : detail?.locations.length ?? 0;
+  const selectedRecordLabel =
+    route.view === "contacts"
+      ? contactDetail?.contact.full_name ?? sourceContacts[0]?.full_name ?? "Select a contact"
+      : detail?.organization.display_name ?? organizations[0]?.display_name ?? "Select an organization";
+  const reviewScopeLabel = route.view === "contacts" ? "current people list" : "selected organization";
+
+  function openContactsWithReviewFilter() {
+    setContactAudience("all");
+    setContactStatus("needs_review");
+    pushRoute({
+      view: "contacts",
+      organizationId: activeOrganizationId,
+      contactId: null,
+      locationId: null,
+      tab: "relationships"
+    });
+  }
+
+  function openContactsWithOwnerFilter() {
+    setContactAudience("all");
+    setRelationshipOwnershipState("unassigned");
+    pushRoute({
+      view: "contacts",
+      organizationId: activeOrganizationId,
+      contactId: null,
+      locationId: null,
+      tab: "relationships"
+    });
+  }
+
   return (
     <div className="workspace-shell">
       <section className="request-card page-intro page-intro--workspace">
@@ -738,6 +784,60 @@ export function Organizations({
           <p className="eyebrow">{intro.eyebrow}</p>
           <h2>{intro.title}</h2>
           <p>{intro.body}</p>
+        </div>
+      </section>
+      <section className="directory-command-strip" aria-label="Contacts and Organizations source-of-truth checks">
+        <div className="directory-command-strip__header">
+          <div>
+            <p className="eyebrow">Contacts + Organizations Source of Truth</p>
+            <h3>Confirm the record before work moves</h3>
+          </div>
+          <div className="directory-command-strip__routes" aria-label="Related work routes">
+            <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#project-tracking"; }}>
+              View in Project Tracking
+            </button>
+            <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#needs-attention"; }}>
+              Open Needs Attention
+            </button>
+          </div>
+        </div>
+        <div className="directory-command-strip__grid">
+          <article className="directory-command-tile">
+            <span>Current view</span>
+            <strong>{visibleRecordCount}</strong>
+            <p>{visibleRecordLabel} match the active filters.</p>
+          </article>
+          {needsReviewCount ? (
+            <button type="button" className="directory-command-tile directory-command-tile--button directory-command-tile--warning" onClick={openContactsWithReviewFilter}>
+              <span>Needs follow-up</span>
+              <strong>{needsReviewCount}</strong>
+              <p>Review gaps in the {reviewScopeLabel}: stale, uncertain, or flagged contacts.</p>
+            </button>
+          ) : (
+            <article className="directory-command-tile directory-command-tile--success">
+              <span>Needs follow-up</span>
+              <strong>0</strong>
+              <p>No review gaps are visible in the {reviewScopeLabel}.</p>
+            </article>
+          )}
+          {ownerGapCount ? (
+            <button type="button" className="directory-command-tile directory-command-tile--button directory-command-tile--critical" onClick={openContactsWithOwnerFilter}>
+              <span>Owner gaps</span>
+              <strong>{ownerGapCount}</strong>
+              <p>Show contacts without a relationship owner so the next step has a person.</p>
+            </button>
+          ) : (
+            <article className="directory-command-tile directory-command-tile--success">
+              <span>Owner gaps</span>
+              <strong>0</strong>
+              <p>Visible contacts have a relationship owner.</p>
+            </article>
+          )}
+          <article className="directory-command-tile">
+            <span>Primary contacts</span>
+            <strong>{primaryContactCount}</strong>
+            <p>{locationCount} linked location{locationCount === 1 ? "" : "s"} stay attached to {selectedRecordLabel}.</p>
+          </article>
         </div>
       </section>
       {pageError ? <div className="request-card directory-page-error">{pageError}</div> : null}
@@ -1139,6 +1239,22 @@ function parseOrganizationsHash(defaultView: DirectoryView): RouteState {
             ? "relationships"
             : "profile"
   };
+}
+
+function isDirectoryHash(hash: string) {
+  const root = hash.replace(/^#/, "").split("?")[0] ?? "";
+  return (
+    root === "" ||
+    root === "accounts" ||
+    root === "organizations" ||
+    root === "contacts" ||
+    root === "locations" ||
+    root === "directory/accounts" ||
+    root === "directory/organizations" ||
+    root === "directory/contacts" ||
+    root === "directory/internal" ||
+    root === "directory/locations"
+  );
 }
 
 function getDirectoryRouteRoot(view: DirectoryView, defaultContactAudience: "all" | "company") {

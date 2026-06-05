@@ -22,6 +22,184 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.sports-operating-board {
+  display: grid;
+  gap: 12px;
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #172033;
+}
+
+.sports-operating-board__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sports-operating-board .workspace-section-header__copy h3 {
+  color: #172033;
+}
+
+.sports-operating-board .workspace-section-header__copy p {
+  color: #475569;
+}
+
+.sports-operating-board__kpis,
+.sports-operating-board__signals {
+  display: grid;
+  gap: 8px;
+}
+
+.sports-operating-board__kpis {
+  grid-template-columns: repeat(3, minmax(0, 160px));
+}
+
+.sports-operating-board__signals {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.sports-operating-board__kpis > div,
+.sports-operating-board__signals > button {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.sports-operating-board__kpis > div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+}
+
+.sports-operating-board__signals > button {
+  width: 100%;
+  min-height: 54px;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 8px 10px;
+  color: #172033;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.sports-operating-board__signals > button:hover:not(:disabled),
+.sports-operating-board__signals > button:focus-visible {
+  transform: none;
+  border-color: rgba(37, 99, 235, 0.42);
+  background: #f8fbff;
+}
+
+.sports-operating-board__kpis span,
+.sports-operating-board__signals span,
+.sports-operating-board__row span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sports-operating-board__kpis strong,
+.sports-operating-board__signals strong {
+  font-family: "Barlow Semi Condensed", sans-serif;
+  font-size: 1.3rem;
+}
+
+.sports-operating-board__table {
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.sports-operating-board__row {
+  width: 100%;
+  min-width: 1280px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1.18fr) 122px 116px minmax(150px, 0.95fr) minmax(220px, 1.35fr) 130px 132px 220px;
+  gap: 8px;
+  align-items: stretch;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.94);
+  background: #ffffff;
+  color: #172033;
+}
+
+.sports-operating-board__row--head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sports-operating-board__row:not(.sports-operating-board__row--head):hover {
+  background: #f8fbff;
+}
+
+.sports-operating-board__row:last-child {
+  border-bottom: 0;
+}
+
+.sports-operating-board__row > div,
+.sports-operating-board__row > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  align-content: center;
+}
+
+.sports-operating-board__row strong,
+.sports-operating-board__row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sports-operating-board__row .sports-status-pill {
+  width: fit-content;
+}
+
+.sports-operating-board__flags,
+.sports-operating-board__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sports-operating-board__flags span {
+  padding: 2px 6px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.68rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sports-operating-board__actions {
+  align-content: center;
+}
+
+.sports-operating-board__actions > button {
+  min-height: 30px;
+  padding: 5px 8px;
+  color: #172033;
+  border-color: rgba(148, 163, 184, 0.36);
+  background: #ffffff;
+}
+
 .sports-grid--two,
 .sports-split-pane,
 .sports-detail-grid {
@@ -520,5 +698,10 @@
   .sports-split-pane,
   .sports-detail-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sports-operating-board__kpis,
+  .sports-operating-board__signals {
+    grid-template-columns: 1fr;
   }
 }

@@ -393,24 +393,34 @@ describe("ProjectTrackingFoundation", () => {
     });
   });
 
-  it("renders a dense jobs operations grid with current step first and job record hidden until expanded", async () => {
+  it("renders Project Tracking as the source-of-truth work spine with next owner, blockers, due dates, and changes", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Project Dashboard" })).toBeInTheDocument();
-    expect(screen.getByText("Company-wide operating view of live jobs. Jobs are the shoots/events; Open Workflow for the deep job workflow view.")).toBeInTheDocument();
-    expect(screen.getByText("Work Status")).toBeInTheDocument();
-    expect(screen.getAllByText("Needs Attention").length).toBeGreaterThan(0);
-    expect(screen.getByText("Live Jobs")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search jobs, schools, owners, steps...")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
+    expect(screen.getByText("Source of truth for active work, next owners, due dates, blockers, and recent changes.")).toBeInTheDocument();
+    expect(screen.getByText("Operating Summary")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Active Work/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Review Required/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Recently Changed/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Use Needs Attention for the review queue; use this page to inspect the work record.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
+    expect(screen.getAllByText("Work Spine").length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Saved views planned/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Needs Assignment" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 jobs - all departments - Filtered by all work")).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Project tracking jobs operations grid" })).toBeInTheDocument();
-    expect(screen.getAllByText("Organization / School").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Current step").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Mine" })).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Project Tracking active work list" })).toBeInTheDocument();
+    expect(screen.getAllByText("Area").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Work").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Next step").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Next owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Late / At Risk").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Blocked / due").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Review state").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Changed").length).toBeGreaterThan(0);
     expect(screen.getByText("Open")).toBeInTheDocument();
     expect(screen.queryByText("Job Date")).not.toBeInTheDocument();
     expect(screen.queryByText("Files")).not.toBeInTheDocument();
@@ -418,9 +428,12 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByText("Maple Grove Senior High").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Overdue").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Assigned person").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Next owner").length).toBeGreaterThan(0);
     expect(screen.getByText("Role owner")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Open Workflow" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("School Portraits Workflow")).not.toBeInTheDocument();
+    expect(screen.queryByText("mission_control_demo_school_portraits")).not.toBeInTheDocument();
+    expect(screen.queryByText("No workflow linked")).not.toBeInTheDocument();
     expect(screen.queryByText("Job record")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Expand Maple Grove Senior High Retakes/i }));
@@ -432,43 +445,44 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("Confirm Files Received is overdue.")).toBeInTheDocument();
     expect(screen.getByText("Clear condition")).toBeInTheDocument();
     expect(screen.getByText("Clear when the step completes or the workflow deadline is replanned.")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Open Workflow" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("What changed")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
 
     const mapleRow = screen.getByText("Maple Grove Senior High Retakes").closest("article");
     expect(mapleRow).not.toBeNull();
-    fireEvent.click(within(mapleRow as HTMLElement).getAllByRole("button", { name: "Open Workflow" })[0]);
+    fireEvent.click(within(mapleRow as HTMLElement).getAllByRole("button", { name: "Open work" })[0]);
     expect(window.location.hash).toBe("#project-tracking/workflows/workflow-late");
   });
 
   it("filters, searches, and clears the jobs board from compact controls", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    await screen.findByRole("table", { name: "Project tracking jobs operations grid" });
+    await screen.findByRole("table", { name: "Project Tracking active work list" });
     const departmentSelect = screen.getByRole("combobox", { name: "Department" });
     fireEvent.change(departmentSelect, { target: { value: "schools" } });
 
-    let board = screen.getByRole("table", { name: "Project tracking jobs operations grid" }).closest("section");
+    let board = screen.getByRole("table", { name: "Project Tracking active work list" }).closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 2 jobs - Schools - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 2 work items - Schools - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByText("Showing 2 of 2 jobs - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - all departments - Filtered by all work")).toBeInTheDocument();
 
     const filters = screen.getByLabelText("Project tracking filters");
     fireEvent.click(within(filters).getByRole("button", { name: "Blocked" }));
 
-    board = screen.getByRole("table", { name: "Project tracking jobs operations grid" }).closest("section");
+    board = screen.getByRole("table", { name: "Project Tracking active work list" }).closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 2 jobs - all departments - Filtered by blocked")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 2 work items - all departments - Filtered by blocked")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByText("Showing 2 of 2 jobs - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - all departments - Filtered by all work")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Search jobs, schools, owners, steps..."), { target: { value: "Maple Grove" } });
+    fireEvent.change(screen.getByPlaceholderText("Search work, schools, owners, next steps..."), { target: { value: "Maple Grove" } });
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
@@ -745,6 +759,7 @@ describe("ProjectTrackingFoundation", () => {
           job_id: "job-lakeview",
           job_title: "Lakeview Elementary Retake Day",
           job_type: "photo_day",
+          organization_id: "org-lakeview",
           organization_name: "Lakeview Elementary",
           step_id: "step-production",
           production_step: "Confirm Files Received",
@@ -773,6 +788,7 @@ describe("ProjectTrackingFoundation", () => {
           job_id: "job-queue-only",
           job_title: "Riverside Elementary Spring Portraits",
           job_type: "photo_day",
+          organization_id: "org-riverside",
           organization_name: "Riverside Elementary",
           step_id: "step-queue-only",
           production_step: "Edit proof set",
@@ -802,11 +818,14 @@ describe("ProjectTrackingFoundation", () => {
 
     render(<ProductionWorkflowQueue token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Production Queue" })).toBeInTheDocument();
-    expect(screen.getByText("Filtered view of Production-owned workflow work. Project Dashboard is the company-wide map; this page is the Production department.")).toBeInTheDocument();
-    expect(screen.getByText("Lakeview Elementary")).toBeInTheDocument();
-    expect(screen.getByText("Riverside Elementary")).toBeInTheDocument();
-    expect(screen.getByText("Needs Assignment - Production")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Production Operating Board" })).toBeInTheDocument();
+    expect(screen.getByText("Spencer-facing board for real Production handoffs and queue-owned workflow steps. No fake automation, no synthetic urgency.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What came in" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ready to start" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Blocked / waiting" })).toBeInTheDocument();
+    expect(screen.getAllByText("Lakeview Elementary").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Riverside Elementary").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Needs Assignment - Production").length).toBeGreaterThanOrEqual(2);
     const detailButtons = screen.getAllByRole("button", { name: "Details" });
     fireEvent.click(detailButtons[0]);
     expect(screen.getByText("Here by Production handoff")).toBeInTheDocument();
@@ -816,9 +835,16 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: "Assign / Status" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-lakeview");
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[1]).toHaveAttribute("href", "#project-tracking/workflows/workflow-queue-only");
+    expect(screen.getAllByRole("link", { name: "Open account" })[0]).toHaveAttribute("href", "#client-command-center/accounts/org-lakeview");
+    expect(screen.getAllByRole("link", { name: "Open Account" })[0]).toHaveAttribute("href", "#client-command-center/accounts/org-lakeview");
+    expect(screen.getAllByRole("link", { name: "Open job" })[0]).toHaveAttribute("href", "#jobs/detail?preview=job-lakeview");
+    expect(screen.getAllByRole("link", { name: "Open Job" })[0]).toHaveAttribute("href", "#jobs/detail?preview=job-lakeview");
     expect(screen.queryByText("Use Assign / Status for owner, department, and note changes, or Open Workflow for deeper review and send-back.")).not.toBeInTheDocument();
     expect(window.location.hash).toBe("#project-tracking");
-    const lakeviewRow = screen.getByText("Lakeview Elementary").closest("article");
+    const lakeviewRow = screen
+      .getAllByText("Lakeview Elementary")
+      .map((element) => element.closest(".production-workflow-row"))
+      .find(Boolean);
     expect(lakeviewRow).not.toBeNull();
     getProjectWorkflowInstanceMock.mockResolvedValue({
       workflow_run: {
@@ -874,7 +900,10 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(noNextEditor).getByText("No valid next step is available. Open Workflow for closeout or send-back review.")).toBeInTheDocument();
     expect(within(noNextEditor).getByRole("button", { name: "Move to next step" })).toBeDisabled();
     fireEvent.click(within(noNextEditor).getByRole("button", { name: "Cancel" }));
-    const riversideRow = screen.getByText("Riverside Elementary").closest("article");
+    const riversideRow = screen
+      .getAllByText("Riverside Elementary")
+      .map((element) => element.closest(".production-workflow-row"))
+      .find(Boolean);
     expect(riversideRow).not.toBeNull();
     const workflowBeforeMove = {
       workflow_run: {

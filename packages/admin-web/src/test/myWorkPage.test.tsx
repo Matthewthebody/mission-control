@@ -623,6 +623,54 @@ describe("My Work page", () => {
   beforeEach(() => {
     apiFetchMock.mockReset();
     apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/api/attendance/time-clock/state") {
+        return {
+          generated_at: "2026-03-26T15:00:00.000Z",
+          state: "off_shift",
+          emphasis: "neutral",
+          label: "Time Clock",
+          helper_text: "No punch is needed until the next published event window.",
+          time_clock_state: {
+            session_id: null,
+            session_status: "off_clock",
+            current_state: "off_clock",
+            current_segment_id: null,
+            current_segment_review_status: null,
+            current_linked_shoot_id: null,
+            current_linked_location_id: null,
+            current_segment_started_at: null,
+            needs_end_of_day_confirmation: false,
+            last_clock_event_at: null
+          },
+          active_shift: null,
+          next_shift: {
+            id: "shift-1",
+            shoot_id: "shoot-1",
+            title: "DEMO-001",
+            shift_kind: "shoot",
+            starts_at: "2026-03-26T19:15:00.000Z",
+            ends_at: "2026-03-26T23:00:00.000Z",
+            location_name: "Lincoln Elementary",
+            actionable_now: false,
+            starts_in_minutes: 180,
+            late_by_minutes: null
+          },
+          latest_session: null,
+          review: {
+            has_open_review: false,
+            open_request_count: 0,
+            label: null
+          },
+          action: {
+            direction: null,
+            label: null,
+            enabled: false,
+            shift_id: null,
+            shoot_id: null,
+            work_state: null
+          }
+        };
+      }
       if (path.startsWith("/api/employee/my-work")) {
         return myWorkResponse;
       }
@@ -650,8 +698,11 @@ describe("My Work page", () => {
   it("renders My Work as a shared execution center instead of a shift-first day console", async () => {
     render(<MyWork token="token" currentUser={fieldUser} socket={null} />);
 
-    expect(await screen.findByText("Execution Center")).toBeInTheDocument();
-    expect(screen.getByText("Immediate Schedule")).toBeInTheDocument();
+    expect(await screen.findByText("Your Day")).toBeInTheDocument();
+    expect(screen.getByText("Daily Cockpit")).toBeInTheDocument();
+    expect(screen.getByText("Today")).toBeInTheDocument();
+    expect(screen.getByText("Schedule")).toBeInTheDocument();
+    expect(screen.getByText("Lookahead")).toBeInTheDocument();
     expect(screen.getByText("Assigned Jobs")).toBeInTheDocument();
     expect(screen.getAllByText("Current Steps").length).toBeGreaterThan(0);
     expect(screen.getByText("Assigned Tasks")).toBeInTheDocument();
@@ -673,10 +724,12 @@ describe("My Work page", () => {
     expect(screen.getByLabelText("Assigned person")).toBeInTheDocument();
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
-    expect(screen.getByText(/Acknowledge notes/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Why it matters: this change may affect how you arrive/i)).toBeInTheDocument();
     expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
+    expect(screen.getByText(/Why it matters: this is blocking downstream work/i)).toBeInTheDocument();
+    expect(screen.getByText("Next: Review approval")).toBeInTheDocument();
 
-    expect(screen.queryByText("Your Day")).not.toBeInTheDocument();
     expect(screen.queryByText("My Shifts")).not.toBeInTheDocument();
     expect(screen.queryByText("Attendance Risk")).not.toBeInTheDocument();
   });

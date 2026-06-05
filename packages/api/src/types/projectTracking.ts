@@ -486,6 +486,7 @@ export type ProjectWorkflowProductionQueueItem = {
   job_id: string;
   job_title: string;
   job_type: string | null;
+  organization_id: string | null;
   organization_name: string | null;
   step_id: string;
   production_step: string;

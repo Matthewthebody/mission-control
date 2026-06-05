@@ -187,6 +187,54 @@ const jobs: SharedJobListItem[] = [
   }
 ];
 
+const secondarySportsJob: SharedJobListItem = {
+  ...jobs[0],
+  id: "job-2",
+  job_number: "SPT-1002",
+  title: "Metro United Banner Night",
+  job_category: "banner_day",
+  organization_id: "org-2",
+  organization_name: "Metro United Soccer",
+  primary_contact_id: null,
+  primary_contact_name: null,
+  job_status: "confirmed",
+  production_status: "blocked",
+  staffing_status: "partially_staffed",
+  readiness_status: "at_risk",
+  risk_status: "high",
+  scheduled_start_at: "2026-04-07T09:00:00.000Z",
+  client_deadline_at: "2026-04-09T12:00:00.000Z",
+  production_deadline_at: "2026-04-08T12:00:00.000Z",
+  primary_day_date: "2026-04-07",
+  account_owner_name: "Sports Manager",
+  lead_owner_name: null,
+  proof_status: "requested",
+  blocker_count: 1,
+  assigned_staff_count: 1,
+  sports_profile: {
+    job_id: "job-2",
+    tenant_id: "tenant-demo",
+    sport_type: "soccer",
+    season: "spring",
+    league_name: "Metro United",
+    division: "Varsity",
+    team_structure: "scheduled_slots",
+    estimated_team_count: 4,
+    proof_required: true,
+    approval_contact_id: null,
+    approval_contact_name: null,
+    billing_contact_id: null,
+    billing_contact_name: null,
+    revenue_share_enabled: false,
+    revenue_share_terms_summary: null,
+    banner_work_required: true,
+    specialty_products_required: true,
+    buddy_photos_required: false,
+    sponsor_graphics_required: true,
+    client_expectations_notes: "Client needs banner copy confirmed."
+  }
+};
+
 const tasks: SharedTaskListItem[] = [
   {
     id: "task-1",
@@ -265,6 +313,7 @@ const exceptions: SharedExceptionListItem[] = [
 const workflowItems: SharedProductionQueueItem[] = [
   {
     id: "workflow-1",
+    job_id: "job-1",
     organization_id: "org-1",
     organization_name: "North Metro Athletics",
     title: "Proof gallery build",
@@ -272,10 +321,10 @@ const workflowItems: SharedProductionQueueItem[] = [
     workflow_status: "in_progress",
     assigned_to_name: "Graphics Lead",
     due_at: "2026-04-07T12:00:00.000Z",
-    blocked_reason: null,
-    blocking_issue_count: 0,
+    blocked_reason: "Waiting on sponsor logo package",
+    blocking_issue_count: 1,
     overdue_approval_count: 0,
-    health_state: "ON_TRACK",
+    health_state: "BLOCKED",
     approval_status: "none"
   }
 ] as unknown as SharedProductionQueueItem[];
@@ -318,7 +367,7 @@ describe("SportsOverview", () => {
       },
       items: []
     });
-    listSharedJobsMock.mockResolvedValue({ jobs });
+    listSharedJobsMock.mockResolvedValue({ jobs: [...jobs, secondarySportsJob] });
     listSharedTasksMock.mockResolvedValue({ items: tasks });
     listSharedExceptionsMock.mockResolvedValue({ items: exceptions, summary: {}, saved_views: [] });
     getSharedDashboardMock.mockResolvedValue(dashboard);
@@ -328,11 +377,40 @@ describe("SportsOverview", () => {
     cleanup();
   });
 
-  it("renders sports on the shared jobs/tasks/exceptions/workflow contract", async () => {
+  it("renders Sports as a department command hub with work-spine and blocker links", async () => {
     render(<SportsOverview token="token" currentUser={baseUser} />);
 
     expect(await screen.findByRole("heading", { name: "Sports" })).toBeInTheDocument();
-    expect(screen.getByText(/Sports now runs on the same shared jobs, tasks, exceptions, and workflow contract as Schools/i)).toBeInTheDocument();
+    expect(screen.getByText("Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sports Command Hub" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Sports department command list" })).toBeInTheDocument();
+    expect(screen.getByText("Active Sports Work")).toBeInTheDocument();
+    expect(screen.getByText("Photo Days / Events")).toBeInTheDocument();
+    expect(screen.getByText("Due Soon")).toBeInTheDocument();
+    expect(screen.getByText("Blocked / Needs Review")).toBeInTheDocument();
+    expect(screen.getByText("Recently Changed")).toBeInTheDocument();
+    expect(screen.getByText("What needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Team / account")).toBeInTheDocument();
+    expect(screen.getByText("Open next")).toBeInTheDocument();
+    expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
+    expect(screen.getByText("Metro United Soccer")).toBeInTheDocument();
+    expect(screen.getByText("Contact: Jamie Coach")).toBeInTheDocument();
+    expect(screen.getAllByText("Contact: Contact pending").length).toBeGreaterThan(0);
+    expect(screen.getByText("Proof approvals")).toBeInTheDocument();
+    expect(screen.getByText("Missing client/team info")).toBeInTheDocument();
+    expect(screen.getByText("Staffing / coverage")).toBeInTheDocument();
+    expect(screen.getByText("Production blockers")).toBeInTheDocument();
+    expect(screen.getAllByText("Proof").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Staffing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Client/info").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "View in Project Tracking" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Production" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Sports Operating Board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Board rows")).not.toBeInTheDocument();
     expect(screen.getByText("Shared operational contract")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
@@ -341,6 +419,16 @@ describe("SportsOverview", () => {
     expect(screen.getByText("Sports read-model projections")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Upcoming Shoots" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Staffing Readiness" })).toBeInTheDocument();
+  });
+
+  it("routes the main Sports create and account actions to existing safe pages", async () => {
+    render(<SportsOverview token="token" currentUser={baseUser} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "New Sports Job" }));
+    expect(window.location.hash).toBe("#sports/jobs/new");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Account" })[0]);
+    expect(window.location.hash).toBe("#sports/accounts?organization=org-1");
   });
 
   it("routes workflow items into the canonical sports graphics hash", async () => {
