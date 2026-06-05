@@ -554,7 +554,8 @@ describe("Compliance page", () => {
     render(<Compliance token="token" currentUser={leadershipUser} socket={null} />);
 
     expect(await screen.findByText("Needs Attention")).toBeTruthy();
-    expect(screen.getByText(/blocked, missing, overdue, or approval-required/i)).toBeTruthy();
+    expect(screen.getByText("Leadership review queue for blocked, missing, overdue, or approval-required work.")).toBeTruthy();
+    expect(screen.getByText(/Home previews what matters/i)).toBeTruthy();
     expect(screen.getByText("Open Items")).toBeTruthy();
     expect(screen.getByText("Overdue / Urgent")).toBeTruthy();
     expect(screen.getByText("Blocking Payroll or Mileage")).toBeTruthy();
@@ -570,9 +571,11 @@ describe("Compliance page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Missed Clock-In Request/i }));
     expect(await screen.findByRole("button", { name: "Approve Request" })).toBeTruthy();
     expect(screen.getByText("Blocker Summary")).toBeTruthy();
+    expect(screen.getByText("Best next action")).toBeTruthy();
     expect(screen.getByText("Correction Request")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open Attendance" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Attendance Review" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open Needs Attention" })).toBeTruthy();
+    expect(screen.queryByText(/#employees\/compliance/i)).toBeNull();
     expect(screen.getByText("History")).toBeTruthy();
 
     const correctedInput = screen.getByLabelText("Corrected clock-in time");

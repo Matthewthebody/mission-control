@@ -96,6 +96,66 @@ function mapTone(tone: HomeWidgetTone | undefined): "neutral" | "info" | "succes
   }
 }
 
+function normalizeNeedsAttentionHash(hash: string) {
+  return hash === "#employees/compliance" || hash === "#compliance" || hash === "#review-desk" || hash === "#production/review"
+    ? buildShellRouteHash("people-ops-compliance")
+    : hash;
+}
+
+function getPlainActionLabel(label: string, hash: string) {
+  const normalizedHash = normalizeNeedsAttentionHash(hash);
+  const lowerHash = normalizedHash.toLowerCase();
+  const lowerLabel = label.toLowerCase();
+
+  if (lowerHash.includes("needs-attention") || lowerHash.includes("compliance") || lowerLabel.includes("compliance")) {
+    return "Review in Needs Attention";
+  }
+  if (lowerHash.includes("attendance")) {
+    return "Open Attendance Review";
+  }
+  if (lowerHash.includes("project-tracking")) {
+    return "View in Project Tracking";
+  }
+  if (lowerHash.includes("dashboard/my-day") || lowerHash.includes("my-work")) {
+    return "Open My Work";
+  }
+  if (lowerHash.includes("staffing") || lowerHash.includes("scheduling")) {
+    return "Open work";
+  }
+  if (lowerHash.startsWith("#studios")) {
+    return "Open Photography Command Hub";
+  }
+  if (lowerHash.startsWith("#schools")) {
+    return "Open Schools Command Hub";
+  }
+  if (lowerHash.startsWith("#sports")) {
+    return "Open Sports Command Hub";
+  }
+  if (lowerHash.startsWith("#production")) {
+    return "Open Production hub";
+  }
+  if (lowerLabel === "view" || lowerLabel === "details" || lowerLabel === "review" || lowerLabel === "action") {
+    return "Open work";
+  }
+  return label.replace(/^View\b/i, "Open").replace(/^Open attendance$/i, "Open Attendance Review");
+}
+
+function getUrgentWhy(item: HomeUrgentWatchItem) {
+  if (item.kind === "attendance" || item.kind === "labor") {
+    return "Attendance issues can affect coverage, payroll review, and whether today's work has the right person on site.";
+  }
+  if (item.kind === "approval") {
+    return "Review items can hold payroll, mileage, release, or follow-up until a leader confirms the next step.";
+  }
+  if (item.kind === "project") {
+    return "Project blockers can turn into missed delivery, stalled ownership, or customer follow-up risk if no one opens the work record.";
+  }
+  if (item.kind === "shoot" || item.kind === "scheduling") {
+    return "Shoot and schedule issues can affect field readiness, arrival timing, and same-day customer experience.";
+  }
+  return `${item.urgency_label} items need owner follow-through before they drift into delivery, staffing, payroll, or customer impact.`;
+}
+
 function getTimeClockHeadline(timeBand: HomeSurfaceTimeBand) {
   switch (timeBand.state) {
     case "active":
@@ -262,7 +322,7 @@ function buildSummaryCards(input: {
         (staffingWidget?.count ?? fallbackCount) > 0
           ? "A staffing gap can delay arrivals, break lead coverage, or force a same-day replacement decision."
           : "No staffing gap is currently flagged, but this stays one click away for same-day coverage checks.",
-      actionLabel: "View Staffing Gaps",
+      actionLabel: "Open work",
       hash: staffingWidget?.action_hash || "#operations/staffing?area=staffing",
       tone: staffingTone
     });
@@ -273,13 +333,19 @@ function buildSummaryCards(input: {
       key: "digital_production",
       title: "Production Work",
       count: productionWidget?.count ?? productionProjects.counts.active_jobs,
-      summary: "Jobs currently moving through digital production",
+      summary: "Production work preview from the daily command center",
       explanation:
         productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
-          ? `${productionProjects.counts.blocked} blocked and ${productionProjects.counts.overdue} overdue production item${productionProjects.counts.blocked + productionProjects.counts.overdue === 1 ? "" : "s"} need owner follow-through.`
-          : "Production is active; open the queue when you need the owner, due state, or release blocker.",
-      actionLabel: "View Production Queue",
-      hash: productionWidget?.action_hash || buildShellRouteHash("production-workload"),
+          ? `${productionProjects.counts.blocked} blocked and ${productionProjects.counts.overdue} overdue production item${productionProjects.counts.blocked + productionProjects.counts.overdue === 1 ? "" : "s"} need work-spine inspection.`
+          : "Production is active; open the department hub when you need the owner, due state, or release blocker.",
+      actionLabel:
+        productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
+          ? "View in Project Tracking"
+          : "Open Production hub",
+      hash:
+        productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
+          ? buildShellRouteHash("project-tracking")
+          : productionWidget?.action_hash || buildShellRouteHash("production-workload"),
       tone:
         productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
           ? "warning"
@@ -292,12 +358,12 @@ function buildSummaryCards(input: {
       key: "school_tasks",
       title: "School Tasks",
       count: input.taskCounts.schools,
-      summary: "Open school-related tasks in this scope",
+      summary: "School task preview",
       explanation:
         input.taskCounts.schools > 0
           ? "School tasks can affect photo-day readiness, client follow-up, or field handoff quality."
           : "No open school task count is currently flagged for this Home view.",
-      actionLabel: "View School Tasks",
+      actionLabel: "Open Schools Command Hub",
       hash: "#schools/tasks",
       tone: input.taskCounts.schools > 0 ? "info" : "success"
     });
@@ -308,12 +374,12 @@ function buildSummaryCards(input: {
       key: "sports_tasks",
       title: "Sports Tasks",
       count: input.taskCounts.sports,
-      summary: "Open sports-related tasks in this scope",
+      summary: "Sports task preview",
       explanation:
         input.taskCounts.sports > 0
           ? "Sports tasks can affect roster readiness, shoot prep, graphics, or customer follow-through."
           : "No open sports task count is currently flagged for this Home view.",
-      actionLabel: "View Sports Tasks",
+      actionLabel: "Open Sports Command Hub",
       hash: "#sports/tasks",
       tone: input.taskCounts.sports > 0 ? "info" : "success"
     });
@@ -324,12 +390,12 @@ function buildSummaryCards(input: {
       key: "production_tasks",
       title: "Production Tasks",
       count: input.taskCounts.production,
-      summary: "Open production-related tasks in this scope",
+      summary: "Production task preview",
       explanation:
         input.taskCounts.production > 0
           ? "Production tasks can turn into overdue delivery or release blockers if no one clears the next step."
           : "No open production task count is currently flagged for this Home view.",
-      actionLabel: "View Production Tasks",
+      actionLabel: "Open Production hub",
       hash: "#production/tasks",
       tone: input.taskCounts.production > 0 ? "info" : "success"
     });
@@ -632,7 +698,7 @@ export function HomeCommandSurface({
         <section className="panel home-operational__summary-panel">
           <WorkspaceSectionHeader
             title="Today at a glance"
-            summary="A compact daily operating view: today's shoots, staffing gaps, department tasks, and production work that needs a lane owner."
+            summary="A compact preview of today's shoots, staffing gaps, department tasks, and work-spine risk. Open a card only when you need the full queue."
             compact
           />
           <div className="home-operational__summary-grid">
@@ -670,12 +736,12 @@ export function HomeCommandSurface({
                   ) : null}
                   {canOpenAlerts ? (
                     <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("dashboard-alerts"))}>
-                      View Alerts
+                      Open Alerts
                     </button>
                   ) : null}
                   {canOpenNeedsAttention ? (
                     <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("people-ops-compliance"))}>
-                      View Needs Attention
+                      Open Needs Attention
                     </button>
                   ) : null}
                 </WorkspaceActionBar>
@@ -687,7 +753,7 @@ export function HomeCommandSurface({
                   key={item.id}
                   type="button"
                   className={`home-operational__issue-card home-operational__issue-card--${mapTone(item.tone)}`}
-                  onClick={() => navigateToHash(item.action_hash)}
+                  onClick={() => navigateToHash(normalizeNeedsAttentionHash(item.action_hash))}
                 >
                   <div className="home-operational__issue-top">
                     <span>{item.kind_label}</span>
@@ -699,11 +765,11 @@ export function HomeCommandSurface({
                   </div>
                   <div className="home-operational__issue-explain">
                     <span>Why it matters</span>
-                    <p>{item.urgency_label} items need same-day owner follow-through before they drift into delivery, staffing, or customer impact.</p>
+                    <p>{getUrgentWhy(item)}</p>
                   </div>
                   <div className="home-operational__issue-meta">
                     <span>Owner/context: {item.supporting_label ?? "Unassigned or context pending"}</span>
-                    <em>Next: {item.action_label}</em>
+                    <em>Next: {getPlainActionLabel(item.action_label, item.action_hash)}</em>
                   </div>
                 </button>
               ))}
@@ -724,11 +790,11 @@ export function HomeCommandSurface({
                   key={item.id}
                   type="button"
                   className={`home-operational__moving-card home-operational__moving-card--${item.tone}`}
-                  onClick={() => navigateToHash(item.actionHash)}
+                  onClick={() => navigateToHash(normalizeNeedsAttentionHash(item.actionHash))}
                 >
                   <div className="home-operational__moving-top">
                     <span>{item.eyebrow}</span>
-                    <em>{item.actionLabel}</em>
+                    <em>{getPlainActionLabel(item.actionLabel, item.actionHash)}</em>
                   </div>
                   <strong>{item.title}</strong>
                   <p>{item.summary}</p>

@@ -385,11 +385,11 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText("Production Tasks")).toBeInTheDocument();
 
     expect(screen.getByText("Urgent Issues")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "View Needs Attention" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
     expect(screen.getByText("Lead still missing")).toBeInTheDocument();
     expect(screen.getByText("Why it matters")).toBeInTheDocument();
     expect(screen.getByText(/Owner\/context: Owner: Demo Leadership/i)).toBeInTheDocument();
-    expect(screen.getByText(/Next: Open attendance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Next: Open Attendance Review/i)).toBeInTheDocument();
     expect(screen.getByText("Work moving now")).toBeInTheDocument();
 
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
@@ -405,6 +405,9 @@ describe("dashboard home command surface", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Staffing Gaps/i }));
     expect(window.location.hash).toBe("#operations/staffing?area=staffing");
+
+    fireEvent.click(screen.getByRole("button", { name: /Production Work/i }));
+    expect(window.location.hash).toBe("#project-tracking");
 
     fireEvent.click(screen.getByRole("button", { name: /Lead still missing/i }));
     expect(window.location.hash).toBe("#operations/attendance");

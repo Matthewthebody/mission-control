@@ -261,7 +261,10 @@ export function Compliance({ token, currentUser, socket }: Props) {
             <div className="eyebrow">Leadership Review Queue</div>
             <h1>Needs Attention</h1>
             <p className="section-subtitle">
-              Review blocked, missing, overdue, or approval-required items in one calm queue. Use it to decide the next safe action, not to discipline employees.
+              Leadership review queue for blocked, missing, overdue, or approval-required work.
+            </p>
+            <p className="section-subtitle">
+              Home previews what matters. Needs Attention is the full review queue. Project Tracking is where full work records live.
             </p>
           </div>
         </div>
@@ -400,6 +403,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                       }
                       statusLabel={item.blocker.label}
                       statusTone={getStatusTone(item)}
+                      owner={item.employee_name ?? undefined}
                       meta={[
                         { label: humanizeLabel(item.urgency), tone: getStatusTone(item) },
                         { label: `Fix in ${displayWorkspaceLabel(item.blocker.owning_workspace_label)}` },
@@ -429,7 +433,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
 
           <aside className="preview-detail-panel">
             <div className="section-title">Review Detail</div>
-            <p className="section-subtitle">Review why the item is blocked, who owns the context, and the next supported action.</p>
+            <p className="section-subtitle">Review what is wrong, why it matters, who owns the context, and which existing action is safe to open next.</p>
             {loadingDetail ? <div className="empty-state">Loading review detail...</div> : null}
             {!loadingDetail && detail ? (
               <div className="request-card detail-card">
@@ -450,10 +454,10 @@ export function Compliance({ token, currentUser, socket }: Props) {
                 </div>
                 <div className="preview-detail-panel__actions compliance-actions-row">
                   <button className="secondary-button" type="button" onClick={() => jumpToSection("shift")} disabled={!detail.linked_records.shift}>
-                    Open linked shift
+                    Open shift context
                   </button>
                   <button className="secondary-button" type="button" onClick={() => jumpToSection("shoot")} disabled={!detail.linked_records.shoot}>
-                    Open linked shoot
+                    Open shoot context
                   </button>
                   <button
                     className="secondary-button"
@@ -461,7 +465,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                     onClick={() => jumpToSection("correction")}
                     disabled={!detail.linked_records.correction_request}
                   >
-                    Open linked correction request
+                    Open correction request
                   </button>
                   <button
                     className="secondary-button"
@@ -469,7 +473,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                     onClick={() => jumpToSection("evaluation")}
                     disabled={!detail.linked_records.post_shoot_evaluation}
                   >
-                    Open linked post-shoot evaluation
+                    Open post-shoot evaluation
                   </button>
                   <button
                     className="secondary-button"
@@ -477,7 +481,7 @@ export function Compliance({ token, currentUser, socket }: Props) {
                     onClick={() => jumpToSection("uploads")}
                     disabled={!detail.linked_records.resource_uploads.length}
                   >
-                    Open linked resource uploads
+                    Open resource uploads
                   </button>
                 </div>
                 {detail.available_actions?.length ? (
@@ -522,9 +526,10 @@ export function Compliance({ token, currentUser, socket }: Props) {
                       <SummaryRow label="Issue type" value={detail.item.issue_label} />
                       <SummaryRow label="Blocker" value={detail.item.blocker.label} />
                       <SummaryRow label="Why blocked" value={detail.item.blocker.summary} />
+                      <SummaryRow label="Best next action" value={getNextAction(detail.item)} />
                       <SummaryRow
                         label="Fix workspace"
-                        value={`${displayWorkspaceLabel(detail.item.blocker.owning_workspace_label)} (${normalizeNeedsAttentionHash(detail.item.blocker.owning_workspace_hash)})`}
+                        value={displayWorkspaceLabel(detail.item.blocker.owning_workspace_label)}
                       />
                       <SummaryRow label="Status" value={humanizeLabel(detail.item.source_status)} />
                       <SummaryRow label="Employee" value={detail.item.employee_name ?? "No linked employee"} />
@@ -968,11 +973,18 @@ function displayWorkspaceLabel(label: string) {
 }
 
 function displayActionLabel(label: string) {
-  return label.replace(/Compliance Workspace/g, "Needs Attention").replace(/Compliance/g, "Needs Attention");
+  return label
+    .replace(/Open Compliance Workspace/g, "Open Needs Attention")
+    .replace(/Open Compliance/g, "Open Needs Attention")
+    .replace(/Open Attendance$/g, "Open Attendance Review")
+    .replace(/Compliance Workspace/g, "Needs Attention")
+    .replace(/Compliance/g, "Needs Attention");
 }
 
 function normalizeNeedsAttentionHash(hash: string | null | undefined) {
-  return hash === "#employees/compliance" || hash === "#compliance" ? "#needs-attention" : hash ?? "#needs-attention";
+  return hash === "#employees/compliance" || hash === "#compliance" || hash === "#review-desk" || hash === "#production/review"
+    ? "#needs-attention"
+    : hash ?? "#needs-attention";
 }
 
 function formatDateTime(value: string) {
