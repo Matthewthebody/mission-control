@@ -638,7 +638,7 @@ export function SportsOverview({ token, currentUser }: Props) {
               Review blockers
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
-              View full work spine
+              Open Project Tracking
             </button>
           </WorkspaceActionBar>
         }
@@ -755,7 +755,7 @@ export function SportsOverview({ token, currentUser }: Props) {
                     Open work
                   </button>
                   <button type="button" onClick={() => (window.location.hash = "#project-tracking")}>
-                    View in Project Tracking
+                    Open Project Tracking
                   </button>
                   {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
                     <button type="button" onClick={() => (window.location.hash = "#needs-attention")}>

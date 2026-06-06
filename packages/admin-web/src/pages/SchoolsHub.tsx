@@ -1457,7 +1457,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
                       Open work
                     </button>
                     <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.hasWorkflow ? row.workflowHash : "#project-tracking")}>
-                      View in Project Tracking
+                      {row.hasWorkflow ? "View Workflow" : "Open Project Tracking"}
                     </button>
                     {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
                       <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>

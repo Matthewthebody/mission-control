@@ -359,7 +359,7 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
           Open work
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
-          View in Project Tracking
+          Open Project Tracking
         </button>
         {hasJobPrepAttention(prepContext) ? (
           <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
@@ -651,7 +651,7 @@ function PhotographyTravelPanel({ token }: { token: string }) {
               Open work
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
-              View in Project Tracking
+              Open Project Tracking
             </button>
           </WorkspaceActionBar>
         </div>
@@ -979,7 +979,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                     Open work
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
-                    View in Project Tracking
+                    Open Project Tracking
                   </button>
                   {needsPhotographyAttention(job) ? (
                     <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>

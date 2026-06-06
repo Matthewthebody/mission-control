@@ -506,7 +506,8 @@ describe("SchoolsHub", () => {
     expect(await screen.findByRole("heading", { name: "Schools Active Work" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();
     expect(screen.getByLabelText("Schools Active Work summary")).toBeInTheDocument();
-    expect(screen.getByText("View Workflow")).toBeInTheDocument();
+    expect(screen.getAllByText("View Workflow").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "View Workflow" })).toHaveAttribute("href", "#project-tracking/workflows/workflow-school-1");
     expect(screen.getByRole("table", { name: "Schools department command list" })).toBeInTheDocument();
     expect(screen.getByText("Active School Work")).toBeInTheDocument();
     expect(screen.getByText("Due Soon")).toBeInTheDocument();
@@ -520,7 +521,7 @@ describe("SchoolsHub", () => {
     expect(screen.getByText("West Middle")).toBeInTheDocument();
     expect(screen.getAllByText("Confirm roster upload").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "View in Project Tracking" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "View Workflow" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open details" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);

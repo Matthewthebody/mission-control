@@ -5,7 +5,7 @@ import { WorkspaceEmptyState } from "../workspace/WorkspaceEmptyState";
 import { WorkspaceLoadingBlock } from "../workspace/WorkspaceLoadingBlock";
 import { WorkspaceSectionHeader } from "../workspace/WorkspaceSectionHeader";
 import { buildSharedJobHash } from "../jobs/sharedJobRouting";
-import { resolveWorkSpineActionHref } from "../../workSpineRouting";
+import { isProjectTrackingWorkflowHash, resolveWorkSpineActionHref } from "../../workSpineRouting";
 import { QuickWorkflowStepEditor } from "./QuickWorkflowStepEditor";
 import { QuickWorkflowNextStepMover } from "./QuickWorkflowNextStepMover";
 
@@ -22,6 +22,12 @@ type Props = {
   maxItems?: number;
   emptyStateLabel?: string;
   actionLabel?: string;
+};
+
+type ProjectWorkflowJobRowWithRouteHints = ProjectWorkflowJobRow & {
+  action_hash?: string | null;
+  actionHash?: string | null;
+  workflowRunId?: string | null;
 };
 
 function friendlyName(value: string | null | undefined) {
@@ -162,12 +168,20 @@ function isDueThisWeek(row: ProjectWorkflowJobRow) {
   return dueAt >= now && dueAt <= now + sevenDays;
 }
 
-function workflowHref(row: ProjectWorkflowJobRow) {
-  return resolveWorkSpineActionHref({
-    workflowRunId: row.workflow_run_id,
+function workflowRouteInfo(row: ProjectWorkflowJobRow) {
+  const routeHints = row as ProjectWorkflowJobRowWithRouteHints;
+  const actionHash = routeHints.actionHash ?? routeHints.action_hash ?? null;
+  const workflowRunId = routeHints.workflowRunId ?? row.workflow_run_id;
+  const href = resolveWorkSpineActionHref({
+    actionHash,
+    workflowRunId,
     fallbackHash: "#project-tracking",
     fallbackKind: "project_tracking"
   });
+  return {
+    href,
+    isPrecise: isProjectTrackingWorkflowHash(href)
+  };
 }
 
 function rowIsAtRisk(row: ProjectWorkflowJobRow) {
@@ -306,9 +320,15 @@ export function ProjectTrackingDepartmentQueue({
         summary={summary}
         compact
         badge={<span className="metric-pill">{rows.length} in queue</span>}
+        actions={variant === "compact" ? <a className="secondary-button" href="#project-tracking">Open Project Tracking</a> : null}
       />
       {error ? (
-        <WorkspaceEmptyState title="Project Tracking queue unavailable" summary={error} compact />
+        <WorkspaceEmptyState
+          title="Project Tracking queue unavailable"
+          summary={error}
+          actions={<a className="secondary-button" href="#project-tracking">Open Project Tracking</a>}
+          compact
+        />
       ) : rows.length ? (
         variant === "compact" ? (
         <>
@@ -325,7 +345,7 @@ export function ProjectTrackingDepartmentQueue({
           <div className="project-tracking-department-queue__cards" aria-label={title}>
             {visibleRows.map((row) => {
               const expanded = expandedRowId === row.job_id;
-              const href = workflowHref(row);
+              const routeInfo = workflowRouteInfo(row);
               return (
                 <article className="project-tracking-department-queue__card" key={row.job_id}>
                   <div className="project-tracking-department-queue__card-main">
@@ -369,7 +389,7 @@ export function ProjectTrackingDepartmentQueue({
                     <strong>{row.queue_intelligence.next_action || row.queue_intelligence.reason || "Review the workflow status"}</strong>
                   </div>
                   <div className="project-tracking-department-queue__workflow-actions">
-                    {row.workflow_run_id ? <a href={href}>{actionLabel}</a> : <a href="#project-tracking">Open in Project Tracking</a>}
+                    <a href={routeInfo.href}>{routeInfo.isPrecise ? actionLabel : "Open in Project Tracking"}</a>
                     <button type="button" aria-expanded={expanded} onClick={() => setExpandedRowId(expanded ? null : row.job_id)}>
                       Details
                     </button>
@@ -455,7 +475,7 @@ export function ProjectTrackingDepartmentQueue({
                   <button type="button" onClick={() => setEditingStepId(editingStepId === row.current_step?.id ? null : row.current_step?.id ?? null)}>
                     Assign / Status
                   </button>
-                  <a href={workflowHref(row)}>Open Workflow</a>
+                  <a href={workflowRouteInfo(row).href}>Open Workflow</a>
                   <button type="button" aria-expanded={expanded} onClick={() => setExpandedRowId(expanded ? null : row.job_id)}>
                     Details
                   </button>
@@ -528,6 +548,7 @@ export function ProjectTrackingDepartmentQueue({
         <WorkspaceEmptyState
           title={emptyStateLabel}
           summary="When a workflow reaches this department, it will appear here automatically from the same Project Tracking source."
+          actions={<a className="secondary-button" href="#project-tracking">Open Project Tracking</a>}
           compact
         />
       )}

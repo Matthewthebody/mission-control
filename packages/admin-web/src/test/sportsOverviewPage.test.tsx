@@ -405,7 +405,7 @@ describe("SportsOverview", () => {
     expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Client/info").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "View in Project Tracking" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Project Tracking" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Production" }).length).toBeGreaterThan(0);
