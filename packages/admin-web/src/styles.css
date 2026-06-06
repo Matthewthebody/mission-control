@@ -4562,6 +4562,11 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   background: rgba(236, 201, 75, 0.1);
 }
 
+.workflow-map-step--current {
+  border-color: #4f83c5;
+  background: #eaf3ff;
+}
+
 .project-workflow-map__snapshot {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 16px 0;
@@ -4647,6 +4652,14 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   margin: 0 0 14px;
   color: var(--pt-muted, var(--text-muted));
   font-size: 0.78rem;
+}
+
+.project-workflow-empty-note {
+  margin: 0;
+  border: 1px dashed var(--pt-border, rgba(148, 163, 184, 0.32));
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(248, 250, 252, 0.74);
 }
 
 .project-workflow-progress-editor {
@@ -17309,7 +17322,8 @@ html[data-theme="light"] .home-task-hub__task-card {
   gap: 0.55rem;
 }
 
-.project-workflow-handoff-event {
+.project-workflow-handoff-event,
+.project-workflow-activity-event {
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1.3fr) minmax(180px, 0.9fr);
   gap: 0.8rem;
@@ -17321,18 +17335,24 @@ html[data-theme="light"] .home-task-hub__task-card {
 
 .project-workflow-handoff-event div,
 .project-workflow-handoff-event p,
-.project-workflow-handoff-event small {
+.project-workflow-handoff-event small,
+.project-workflow-activity-event div,
+.project-workflow-activity-event p,
+.project-workflow-activity-event small {
   min-width: 0;
 }
 
 .project-workflow-handoff-event span,
-.project-workflow-handoff-event small {
+.project-workflow-handoff-event small,
+.project-workflow-activity-event span,
+.project-workflow-activity-event small {
   display: block;
   color: #64748b;
   font-size: 0.78rem;
 }
 
-.project-workflow-handoff-event p {
+.project-workflow-handoff-event p,
+.project-workflow-activity-event p {
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -17350,7 +17370,8 @@ html[data-theme="light"] .home-task-hub__task-card {
   font-weight: 700;
 }
 
-.project-workflow-audit-log p {
+.project-workflow-audit-log p,
+.project-workflow-activity-event {
   display: grid;
   grid-template-columns: 150px 1fr 180px;
   gap: 0.75rem;
@@ -17881,7 +17902,8 @@ html[data-theme="light"] .home-task-hub__task-card {
   }
 
   .project-workflow-handoff-event,
-  .project-workflow-audit-log p {
+  .project-workflow-audit-log p,
+  .project-workflow-activity-event {
     grid-template-columns: 1fr;
   }
 

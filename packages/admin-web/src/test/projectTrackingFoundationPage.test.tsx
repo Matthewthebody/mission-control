@@ -746,7 +746,11 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByRole("link", { name: "Edit Workflow Steps" })).toHaveAttribute("href", "#project-tracking/workflow-templates");
     expect(screen.getByText("Edit step names, departments, and order in Workflow Templates.")).toBeInTheDocument();
     expect(screen.getAllByText("Current Step Editor").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Step Editor" })).toBeInTheDocument();
     expect(screen.getAllByText("Workflow Steps").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Current Step: Confirm Files Received")).toBeInTheDocument();
+    expect(screen.getByText("No handoffs recorded yet.")).toBeInTheDocument();
+    expect(screen.getByText("No activity recorded yet.")).toBeInTheDocument();
     expect(await screen.findByText("Assigned person appears in My Work. Department-only work stays in the Production Queue until a person is assigned.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Assign step to me" }));
     await waitFor(() =>

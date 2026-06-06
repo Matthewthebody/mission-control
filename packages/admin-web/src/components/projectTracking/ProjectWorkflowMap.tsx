@@ -322,6 +322,19 @@ function handoffTimestamp(handoff: ProjectWorkflowHandoff) {
   return handoff.returned_at ?? handoff.accepted_at ?? handoff.sent_at ?? handoff.updated_at ?? handoff.created_at;
 }
 
+function handoffActorLabel(handoff: ProjectWorkflowHandoff) {
+  const actors = [
+    handoff.sent_by_user_name ? `Sent by ${handoff.sent_by_user_name}` : null,
+    handoff.accepted_by_user_name ? `Accepted by ${handoff.accepted_by_user_name}` : null,
+    handoff.returned_by_user_name ? `Returned by ${handoff.returned_by_user_name}` : null
+  ].filter(Boolean);
+  return actors.length ? actors.join(" / ") : "No actor recorded";
+}
+
+function handoffNoteLabel(handoff: ProjectWorkflowHandoff) {
+  return handoff.notes ?? handoff.return_reason ?? handoff.reason ?? handoff.expectations ?? "No note recorded yet.";
+}
+
 function nextDeadlineLabel(step: ActiveWorkflowStep | undefined) {
   if (!step) {
     return "No active deadline";
@@ -383,6 +396,19 @@ function workflowHealthChip(step: ActiveWorkflowStep | undefined) {
     return { label: "At Risk", className: "project-workflow-status-chip--risk" };
   }
   return { label: "Ready", className: "project-workflow-status-chip--ready" };
+}
+
+function workflowStepScanLabel(step: ProjectWorkflowStep, activeStep: ActiveWorkflowStep | undefined) {
+  if (activeStep?.id === step.id) {
+    return "Current Step";
+  }
+  if (step.status === "COMPLETE") {
+    return "Complete";
+  }
+  if (["BLOCKED", "OVERDUE", "WAITING"].includes(step.status)) {
+    return statusLabel(step.status);
+  }
+  return "Upcoming";
 }
 
 function deriveReadinessState(workflow: ProjectWorkflowInstance, activeStep: ActiveWorkflowStep | undefined, steps: ActiveWorkflowStep[]): { label: WorkflowReadinessState; detail: string } {
@@ -1007,7 +1033,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         <div>
           <span>Next deadline</span>
           <strong>{nextDeadlineLabel(activeStep)}</strong>
-          <small>Exact due timestamps need durable workflow deadlines.</small>
+          <small>Exact due timestamps need connected workflow deadlines.</small>
         </div>
         <div>
           <span>Last updated</span>
@@ -1025,39 +1051,34 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         Readiness labels come from this job workflow's steps, handoffs, waiting state, and recent updates.
       </p>
 
-      <section className="project-workflow-handoff-history" aria-label="Production handoff history">
+      <section className="project-workflow-handoff-history" aria-label="Handoffs and activity">
         <div className="project-workflow-handoff-history__header">
           <div>
-            <span className="metric-label">Activity</span>
-            <strong>{activeProductionHandoff ? handoffStatusLabel(activeProductionHandoff.status) : "No active Production handoff"}</strong>
+            <span className="metric-label">Handoffs</span>
+            <strong>{productionHandoffs.length ? `${productionHandoffs.length} handoff${productionHandoffs.length === 1 ? "" : "s"} recorded` : "No handoffs yet"}</strong>
           </div>
-          <p>Durable record of Schools sending work to Production and Production returning it to Schools.</p>
+          <p>Record of work moving between Schools and Production.</p>
         </div>
         {productionHandoffs.length > 0 ? (
-          <div className="project-workflow-handoff-timeline">
+          <div className="project-workflow-handoff-timeline" role="list" aria-label="Handoffs">
             {productionHandoffs.map((handoff) => (
-              <article className="project-workflow-handoff-event" key={handoff.id}>
+              <article className="project-workflow-handoff-event" key={handoff.id} role="listitem" aria-label={`${handoffStatusLabel(handoff.status)} handoff`}>
                 <div>
                   <strong>{handoffStatusLabel(handoff.status)}</strong>
                   <span>{departmentLabel(handoff.from_department)} → {departmentLabel(handoff.to_department)}</span>
                 </div>
-                <p>{handoff.notes ?? handoff.return_reason ?? handoff.reason ?? handoff.expectations ?? "No note recorded yet."}</p>
-                <small>
-                  {handoff.sent_by_user_name ? `Sent by ${handoff.sent_by_user_name} · ` : ""}
-                  {handoff.accepted_by_user_name ? `Accepted by ${handoff.accepted_by_user_name} · ` : ""}
-                  {handoff.returned_by_user_name ? `Returned by ${handoff.returned_by_user_name} · ` : ""}
-                  {formatDateTime(handoffTimestamp(handoff))}
-                </small>
+                <p>{handoffNoteLabel(handoff)}</p>
+                <small>{handoffActorLabel(handoff)} - {formatDateTime(handoffTimestamp(handoff))}</small>
               </article>
             ))}
           </div>
         ) : (
-          <p className="section-subtitle">No Production handoff has been created for this workflow yet.</p>
+          <p className="section-subtitle project-workflow-empty-note">No handoffs recorded yet.</p>
         )}
         {workflow.audit_events.length > 0 ? (
-          <details className="project-workflow-audit-log">
-            <summary>Show recent workflow history</summary>
-            <div>
+          <details className="project-workflow-audit-log" open>
+            <summary>Audit Trail</summary>
+            <div role="list" aria-label="Recent Activity">
               {workflow.audit_events.slice(0, 8).map((event, index) => (
                 <p key={`${event.workflow_step_id ?? "workflow"}-${event.created_at ?? index}`}>
                   <strong>{friendlyName(event.transition_type)}</strong>
@@ -1067,7 +1088,9 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
               ))}
             </div>
           </details>
-        ) : null}
+        ) : (
+          <p className="section-subtitle project-workflow-empty-note">No activity recorded yet.</p>
+        )}
       </section>
 
       {reworkCount > 0 ? (
@@ -1075,6 +1098,12 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
           <strong>Rework history:</strong> {reworkCount} send-back or rework action{reworkCount === 1 ? "" : "s"} recorded.
         </div>
       ) : null}
+
+      <div className="project-workflow-section-heading">
+        <span className="metric-label">Editor / Actions</span>
+        <h2>Step Editor</h2>
+        <p>Use the existing controls below to update ownership, status, handoffs, closeout, or clawback.</p>
+      </div>
 
       <form className="project-workflow-progress-editor" onSubmit={(event) => void submitProgressUpdate(event)}>
         <div className="project-workflow-progress-editor__intro">
@@ -1121,7 +1150,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
               <small>
                 {activeStep.assignment_status === "needs_assignment"
                   ? "Needs assignment is a real workflow state. Assign a person, department, or both below."
-                  : "Job workflow ownership updates here; the source Workflow Template recipe is not changed."}
+                  : "Job workflow ownership updates here; the workflow setup is not changed."}
               </small>
             </div>
             <button type="button" disabled={saveState === "saving" || activeStep.assigned_user_id === currentUser.id} onClick={() => void assignCurrentStepToMe()}>
@@ -1243,7 +1272,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
             <div>
               <strong>Claw back / undo last move</strong>
               <p>
-                Use only when the job moved forward too soon. This reopens the most recently completed step on the job workflow; the Workflow Template recipe stays locked.
+                Use only when the job moved forward too soon. This reopens the most recently completed step on this job workflow.
               </p>
             </div>
             <div className="project-workflow-progress-editor__readout">
@@ -1369,8 +1398,14 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
             </summary>
             {milestone.description ? <p>{milestone.description}</p> : null}
             <div className="workflow-map-step-list">
-              {milestone.steps.map((step) => (
-                <div className={`workflow-map-step workflow-map-step--${healthTone(step)}`} key={step.id}>
+              {milestone.steps.map((step) => {
+                const scanLabel = workflowStepScanLabel(step, activeStep);
+                return (
+                <div
+                  className={`workflow-map-step workflow-map-step--${healthTone(step)} ${activeStep?.id === step.id ? "workflow-map-step--current" : ""}`}
+                  key={step.id}
+                  aria-label={`${scanLabel}: ${step.name}`}
+                >
                   <div>
                     <strong title={step.name}>{step.name}</strong>
                     <span title={`${step.department} - ${ownerLabel(step)}`}>{step.department} - {ownerLabel(step)}</span>
@@ -1378,12 +1413,14 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
                     {step.exception_reason ? <span>Reason: {step.exception_reason}</span> : null}
                   </div>
                   <div>
+                    <span>{scanLabel}</span>
                     <span>{statusLabel(step.status)}</span>
                     <span>Timing: {slaLabel(step)}</span>
                     {step.rework_count > 0 ? <span>{step.rework_count} rework action{step.rework_count === 1 ? "" : "s"}</span> : null}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </details>
         ))}
