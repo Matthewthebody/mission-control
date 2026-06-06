@@ -525,6 +525,38 @@ describe("shared command center", () => {
     expect(screen.getByLabelText("Blocked Production")).toBeChecked();
   });
 
+  it("does not refetch the role-aware dashboard for equivalent user object rerenders", async () => {
+    const { rerender } = render(
+      <RoleAwareHomeDashboard
+        token="token-demo"
+        currentUser={managerUser}
+        scope="home"
+        departmentType="sports"
+        title="Sports Command Layer"
+        summary="Shared command layer summary."
+      />
+    );
+
+    expect(await screen.findByText("Sports Command Layer")).toBeInTheDocument();
+    expect(getSharedDashboardMock).toHaveBeenCalledTimes(1);
+    expect(listSharedAlertsMock).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <RoleAwareHomeDashboard
+        token="token-demo"
+        currentUser={{ ...managerUser }}
+        scope="home"
+        departmentType="sports"
+        title="Sports Command Layer"
+        summary="Shared command layer summary."
+      />
+    );
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(getSharedDashboardMock).toHaveBeenCalledTimes(1);
+    expect(listSharedAlertsMock).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the executive dashboard through the shared widget system", async () => {
     const executiveResponse = buildDashboardResponse({ scope: "executive" });
     executiveResponse.widget_layout.supports_personalization = false;

@@ -1020,7 +1020,7 @@ export function RoleAwareHomeDashboard({
     return () => {
       cancelled = true;
     };
-  }, [currentUser, departmentType, scope, token]);
+  }, [departmentType, scope, token]);
 
   if (loading) {
     return <WorkspaceLoadingBlock title={`Loading ${title}`} summary={summary} />;
