@@ -439,7 +439,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(viewModes).getByRole("button", { name: /Command/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "false");
-    expect(within(viewModes).getByRole("button", { name: /Timeline Preview/i })).toHaveAttribute("aria-pressed", "false");
+    expect(within(viewModes).getByRole("button", { name: /Timeline/i })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("list", { name: "Project Tracking active work list" })).toBeInTheDocument();
     expect(screen.getAllByText("Owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due").length).toBeGreaterThan(0);
@@ -462,19 +462,28 @@ describe("ProjectTrackingFoundation", () => {
 
     fireEvent.click(within(viewModes).getByRole("button", { name: /Board/i }));
     expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Flow state by lane. Filters and search still control the work shown here.")).toBeInTheDocument();
     expect(screen.getByLabelText("Project Tracking board lanes")).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /Blocked \/ Needs Action, 2 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Blocked \/ At Risk, 2 items/i })).toBeInTheDocument();
+    expect(screen.getAllByText("Owner / Queue").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Current Step").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /View workflow for/i }).length).toBeGreaterThan(0);
 
     fireEvent.click(within(viewModes).getByRole("button", { name: /Table/i }));
     expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Precision review for owner, status, due date, health, and action.")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Project Tracking table view" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Next Action" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Owner / Queue" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Status / Phase" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Waiting / Blocked" })).toBeInTheDocument();
 
-    fireEvent.click(within(viewModes).getByRole("button", { name: /Timeline Preview/i }));
-    expect(within(viewModes).getByRole("button", { name: /Timeline Preview/i })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Timeline/i }));
+    expect(within(viewModes).getByRole("button", { name: /Timeline/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Date pressure from the same filtered work. Unscheduled work stays visible.")).toBeInTheDocument();
     expect(screen.getByLabelText("Project Tracking timeline preview")).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /Overdue \/ Blocked, 2 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Overdue, 2 items/i })).toBeInTheDocument();
+    expect(screen.getByText("Unscheduled")).toBeInTheDocument();
 
     fireEvent.click(within(viewModes).getByRole("button", { name: /Command/i }));
     expect(within(viewModes).getByRole("button", { name: /Command/i })).toHaveAttribute("aria-pressed", "true");

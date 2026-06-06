@@ -3986,9 +3986,26 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   min-width: 0;
 }
 
+.project-tracking-view-intro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  min-width: 0;
+  margin-bottom: 8px;
+  color: var(--pt-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.project-tracking-view-intro strong {
+  color: var(--pt-text);
+  font-size: 0.86rem;
+}
+
 .project-tracking-board-lanes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -4032,8 +4049,20 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   line-height: 1.35;
 }
 
-.project-tracking-board-lane header strong,
-.project-tracking-timeline-group header strong {
+.project-tracking-lane-count {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-width: 3.2rem;
+  color: var(--pt-muted);
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.project-tracking-lane-count strong,
+.project-tracking-timeline-group header > strong {
   min-width: 1.7rem;
   border-radius: 999px;
   padding: 2px 6px;
@@ -4041,6 +4070,19 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   color: #163d68;
   text-align: center;
   font-size: 0.72rem;
+}
+
+.project-tracking-lane-count em {
+  border-radius: 999px;
+  padding: 2px 5px;
+  background: #fff4df;
+  color: #8a5200;
+  font-style: normal;
+}
+
+.project-tracking-board-lane--blocked .project-tracking-lane-count strong {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .project-tracking-board-lane__cards,
@@ -4093,6 +4135,14 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   overflow-wrap: anywhere;
 }
 
+.project-tracking-board-card__chips,
+.project-tracking-timeline-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
 .project-tracking-board-card dl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4132,6 +4182,10 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   overflow-wrap: anywhere;
 }
 
+.project-tracking-board-card p strong {
+  color: var(--pt-text);
+}
+
 .project-tracking-table-wrap {
   min-width: 0;
   overflow-x: auto;
@@ -4142,17 +4196,17 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .project-tracking-table {
   width: 100%;
-  min-width: 880px;
+  min-width: 1080px;
   border-collapse: collapse;
   color: var(--pt-text);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .project-tracking-table th,
 .project-tracking-table td {
-  max-width: 250px;
+  max-width: 230px;
   border-bottom: 1px solid rgba(201, 211, 224, 0.82);
-  padding: 8px;
+  padding: 7px 8px;
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
@@ -4181,6 +4235,12 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   font-weight: 800;
 }
 
+.project-tracking-table-muted {
+  color: var(--pt-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .project-tracking-timeline-groups {
   display: grid;
   gap: 8px;
@@ -4188,13 +4248,25 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .project-tracking-timeline-item {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(88px, 0.2fr) minmax(0, 1fr) auto;
+  align-items: center;
 }
 
-.project-tracking-timeline-item div {
+.project-tracking-timeline-item__date,
+.project-tracking-timeline-item__main {
   display: grid;
   gap: 2px;
   min-width: 0;
+}
+
+.project-tracking-timeline-item__date {
+  padding-right: 8px;
+  border-right: 1px solid rgba(201, 211, 224, 0.8);
+}
+
+.project-tracking-timeline-item__date span {
+  color: var(--pt-text);
+  font-size: 0.74rem;
 }
 
 .project-tracking-job-list {
@@ -5616,7 +5688,14 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   }
 
   .project-tracking-table {
-    min-width: 760px;
+    min-width: 940px;
+  }
+
+  .project-tracking-timeline-item__date {
+    padding-right: 0;
+    padding-bottom: 6px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(201, 211, 224, 0.8);
   }
 
   .project-tracking-job-list__header {

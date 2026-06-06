@@ -134,21 +134,21 @@ const PROJECT_TRACKING_VIEW_MODES: Array<{ id: ProjectTrackingViewMode; label: s
   { id: "command", label: "Command", summary: "Scan and act from the main work list." },
   { id: "board", label: "Board", summary: "Group the same work by current operating lane." },
   { id: "table", label: "Table", summary: "Review dense work details without extra card chrome." },
-  { id: "timeline", label: "Timeline Preview", summary: "Preview due-date pressure from the same filtered work." }
+  { id: "timeline", label: "Timeline", summary: "Preview date pressure from the same filtered work." }
 ];
 
 const PROJECT_TRACKING_BOARD_LANES: Array<{ id: ProjectTrackingBoardLaneId; label: string; description: string }> = [
-  { id: "blocked", label: "Blocked / Needs Action", description: "Blocked, late, missing owner, or missing next action." },
-  { id: "intake", label: "Intake / Setup", description: "New or not-started work that needs setup." },
+  { id: "blocked", label: "Blocked / At Risk", description: "Blocked, late, missing owner, or missing next action." },
+  { id: "intake", label: "Intake", description: "New or not-started work that needs setup." },
   { id: "ready", label: "Ready / Field Work", description: "Prep, shoot, or field work currently in motion." },
   { id: "production", label: "Production", description: "Production or graphics work underway." },
   { id: "review", label: "Review / QA", description: "Review, proofing, QA, or rework steps." },
   { id: "delivery", label: "Delivery", description: "Gallery, release, delivery, or closeout steps." },
-  { id: "complete", label: "Complete", description: "Completed workflow rows still visible in the current filters." }
+  { id: "complete", label: "Complete", description: "Completed work still visible in the current filters." }
 ];
 
 const PROJECT_TRACKING_TIMELINE_GROUPS: Array<{ id: ProjectTrackingTimelineGroupId; label: string; description: string }> = [
-  { id: "overdue", label: "Overdue / Blocked", description: "Already late or blocked before the next step can move." },
+  { id: "overdue", label: "Overdue", description: "Late or blocked before the next step can move." },
   { id: "today", label: "Today", description: "Due today." },
   { id: "this_week", label: "This Week", description: "Due in the next seven days." },
   { id: "next_week", label: "Next Week", description: "Due in the next eight to fourteen days." },
@@ -649,6 +649,53 @@ function timelineGroupForRow(row: ProjectWorkflowJobRow, referenceDate = new Dat
   return "later";
 }
 
+function departmentDisplayForRow(row: ProjectWorkflowJobRow) {
+  return departmentLabel(row.current_step?.department);
+}
+
+function statusPhaseLabelForRow(row: ProjectWorkflowJobRow) {
+  const phase = phasePresentation(row.phase, row.health);
+  const status = row.current_step ? statusLabel(row.current_step.status) : phase.label;
+  return `${status} / ${phase.label}`;
+}
+
+function waitingOrBlockedLabelForRow(row: ProjectWorkflowJobRow) {
+  if (row.blocked_reason) {
+    return row.blocked_reason;
+  }
+  if (row.waiting_on_party !== "none" && row.waiting_on_party !== "unknown") {
+    return `Waiting on ${waitingOnLabel(row)}`;
+  }
+  if (row.missing_info_flags.includes("missing_owner")) {
+    return "Missing owner";
+  }
+  if (row.missing_info_flags.length) {
+    return "Missing info";
+  }
+  if (row.queue_intelligence.operational_status === "missing_next_action") {
+    return "Missing next action";
+  }
+  if (row.rework_count > 0) {
+    return `${row.rework_count} rework ${row.rework_count === 1 ? "item" : "items"}`;
+  }
+  return null;
+}
+
+function BoardCardMeta({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
 function ownerPresentation(row: ProjectWorkflowJobRow) {
   const department = departmentLabel(row.current_step?.department);
   if (row.owner_type === "user") {
@@ -1009,54 +1056,59 @@ function ProjectTrackingBoardView({
 }) {
   return (
     <section className="project-tracking-view-shell project-tracking-board-view" aria-label="Board View">
+      <div className="project-tracking-view-intro">
+        <strong>Board</strong>
+        <span>Flow state by lane. Filters and search still control the work shown here.</span>
+      </div>
       <div className="project-tracking-board-lanes" role="list" aria-label="Project Tracking board lanes">
         {PROJECT_TRACKING_BOARD_LANES.map((lane) => {
           const laneRows = rows.filter((row) => boardLaneForRow(row) === lane.id);
+          const laneAttentionCount = laneRows.filter((row) => healthToneForJob(row) !== "normal" || waitingOrBlockedLabelForRow(row)).length;
           return (
-            <article className="project-tracking-board-lane" key={lane.id} role="listitem" aria-label={`${lane.label}, ${laneRows.length} ${laneRows.length === 1 ? "item" : "items"}`}>
+            <article className={`project-tracking-board-lane project-tracking-board-lane--${lane.id}`} key={lane.id} role="listitem" aria-label={`${lane.label}, ${laneRows.length} ${laneRows.length === 1 ? "item" : "items"}`}>
               <header>
                 <div>
                   <h3>{lane.label}</h3>
                   <p>{lane.description}</p>
                 </div>
-                <strong>{laneRows.length}</strong>
+                <div className="project-tracking-lane-count">
+                  <strong>{laneRows.length}</strong>
+                  <span>{laneRows.length === 1 ? "item" : "items"}</span>
+                  {laneAttentionCount ? <em>{laneAttentionCount} flagged</em> : null}
+                </div>
               </header>
               {laneRows.length ? (
                 <div className="project-tracking-board-lane__cards" role="list" aria-label={`${lane.label} work`}>
                   {laneRows.map((row) => {
                     const phase = phasePresentation(row.phase, row.health);
                     const owner = ownerPresentation(row);
+                    const waiting = waitingOrBlockedLabelForRow(row);
                     return (
                       <article className={`project-tracking-board-card ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
                         <div className="project-tracking-board-card__top">
                           <div>
-                            <span>{workItemAccountLabel(row)}</span>
+                            <span>{departmentDisplayForRow(row)} / {workItemAccountLabel(row)}</span>
                             <h4 title={row.job_title}>{workItemName(row)}</h4>
                           </div>
                           <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
                         </div>
+                        <div className="project-tracking-board-card__chips">
+                          <span className={`project-tracking-step-pill ${phase.pillClassName}`}>{phase.label}</span>
+                          {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
+                        </div>
                         <dl>
-                          <div>
-                            <dt>Owner</dt>
-                            <dd>{owner.primary}</dd>
-                          </div>
-                          <div>
-                            <dt>Due</dt>
-                            <dd>{deadlineLabel(row)}</dd>
-                          </div>
-                          <div>
-                            <dt>Next Step</dt>
-                            <dd>{currentStepLabel(row)}</dd>
-                          </div>
+                          <BoardCardMeta label="Owner / Queue" value={owner.primary} />
+                          <BoardCardMeta label="Current Step" value={currentStepLabel(row)} />
+                          <BoardCardMeta label="Due" value={deadlineLabel(row)} />
                         </dl>
-                        <p>{row.queue_intelligence.next_action}</p>
+                        <p><strong>Next:</strong> {row.queue_intelligence.next_action}</p>
                         <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                       </article>
                     );
                   })}
                 </div>
               ) : (
-                <p className="project-tracking-view-empty">No work in this lane for the current filters.</p>
+                <p className="project-tracking-view-empty">No work found for this view in this lane.</p>
               )}
             </article>
           );
@@ -1075,35 +1127,48 @@ function ProjectTrackingTableView({
 }) {
   return (
     <section className="project-tracking-view-shell" aria-label="Table View">
+      <div className="project-tracking-view-intro">
+        <strong>Table</strong>
+        <span>Precision review for owner, status, due date, health, and action.</span>
+      </div>
       <div className="project-tracking-table-wrap">
         <table className="project-tracking-table" aria-label="Project Tracking table view">
           <thead>
             <tr>
               <th scope="col">Work</th>
-              <th scope="col">Owner</th>
-              <th scope="col">Next Step</th>
+              <th scope="col">Department</th>
+              <th scope="col">Account</th>
+              <th scope="col">Owner / Queue</th>
+              <th scope="col">Status / Phase</th>
+              <th scope="col">Current Step</th>
               <th scope="col">Due</th>
-              <th scope="col">Risk</th>
-              <th scope="col">Next Action</th>
-              <th scope="col">Open</th>
+              <th scope="col">Health</th>
+              <th scope="col">Waiting / Blocked</th>
+              <th scope="col">Action</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
               const owner = ownerPresentation(row);
+              const waiting = waitingOrBlockedLabelForRow(row) ?? "Clear";
               return (
                 <tr key={row.job_id}>
                   <td>
                     <strong>{workItemName(row)}</strong>
-                    <span>{workItemAccountLabel(row)}</span>
+                    <span>{row.job_number ?? row.job_code ?? row.job_id}</span>
                   </td>
+                  <td>{departmentDisplayForRow(row)}</td>
+                  <td>{workItemAccountLabel(row)}</td>
                   <td>{owner.primary}</td>
+                  <td>{statusPhaseLabelForRow(row)}</td>
                   <td>{currentStepLabel(row)}</td>
                   <td>{deadlineLabel(row)}</td>
                   <td>
                     <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
                   </td>
-                  <td>{row.queue_intelligence.next_action}</td>
+                  <td>
+                    <span className={waiting === "Clear" ? "project-tracking-table-muted" : "project-tracking-attention-chip"}>{waiting}</span>
+                  </td>
                   <td>
                     <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                   </td>
@@ -1128,6 +1193,10 @@ function ProjectTrackingTimelinePreview({
 }) {
   return (
     <section className="project-tracking-view-shell project-tracking-timeline-view" aria-label="Timeline Preview">
+      <div className="project-tracking-view-intro">
+        <strong>Timeline</strong>
+        <span>Date pressure from the same filtered work. Unscheduled work stays visible.</span>
+      </div>
       <div className="project-tracking-timeline-groups" role="list" aria-label="Project Tracking timeline preview">
         {PROJECT_TRACKING_TIMELINE_GROUPS.map((group) => {
           const groupRows = rows.filter((row) => timelineGroupForRow(row, referenceDate) === group.id);
@@ -1144,12 +1213,21 @@ function ProjectTrackingTimelinePreview({
                 <div className="project-tracking-timeline-group__items" role="list" aria-label={`${group.label} timeline items`}>
                   {groupRows.map((row) => {
                     const owner = ownerPresentation(row);
+                    const waiting = waitingOrBlockedLabelForRow(row);
                     return (
                       <article className="project-tracking-timeline-item" key={`${group.id}:${row.job_id}`} role="listitem">
-                        <div>
+                        <div className="project-tracking-timeline-item__date">
                           <span>{deadlineLabel(row)}</span>
+                          <small>{row.next_deadline_at ? dateLabel(row.next_deadline_at) : "No date"}</small>
+                        </div>
+                        <div className="project-tracking-timeline-item__main">
                           <strong>{workItemName(row)}</strong>
-                          <small>{workItemAccountLabel(row)} - {currentStepLabel(row)} - {owner.primary}</small>
+                          <small>{departmentDisplayForRow(row)} / {workItemAccountLabel(row)}</small>
+                          <span>{currentStepLabel(row)} - {owner.primary}</span>
+                          <div className="project-tracking-timeline-item__chips">
+                            <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
+                            {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
+                          </div>
                         </div>
                         <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                       </article>
@@ -1157,7 +1235,7 @@ function ProjectTrackingTimelinePreview({
                   })}
                 </div>
               ) : (
-                <p className="project-tracking-view-empty">No work in this due-date group for the current filters.</p>
+                <p className="project-tracking-view-empty">No work found for this view in this date group.</p>
               )}
             </article>
           );
