@@ -1381,7 +1381,7 @@ function ProjectTrackingJobBoard({
             ))}
           </select>
         </label>
-        <button className="project-tracking-control-button" type="button" disabled title="Saved views need persistence before this becomes a real workflow tool. Planned levels: personal, department default, and company default.">
+        <button className="project-tracking-control-button" type="button" disabled title="Saved views need a setup pass before this becomes a real workflow tool. Planned levels: personal, department default, and company default.">
           Saved views planned
         </button>
       </div>
@@ -1663,7 +1663,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   }, [token, workflowRunId]);
 
   if (status === "loading") {
-    return <WorkspaceLoadingBlock title="Loading Project Tracking" summary="Building the active work spine from live work data." />;
+    return <WorkspaceLoadingBlock title="Loading Project Tracking" summary="Building active work from live project data." />;
   }
 
   const globalSummary = summaryFor(globalCommandCenter);
@@ -1752,7 +1752,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
       {!isWorkflowRoute ? (
         <section className="project-tracking-board-header" aria-label="Project Tracking">
           <div>
-            <p className="section-kicker">Work Spine</p>
+            <p className="section-kicker">Operations</p>
             <h1>Project Tracking</h1>
             <p>Source of truth for active work, next owners, due dates, blockers, and recent changes.</p>
           </div>
@@ -1775,7 +1775,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
       {status === "error" ? (
         <section className="panel" role="alert" aria-label="Project dashboard unavailable">
           <div className="section-title">Project dashboard is unavailable</div>
-          <p className="section-subtitle">The work spine did not load. Try again before using this page for live decisions.</p>
+          <p className="section-subtitle">Project Tracking did not load. Try again before using this page for live decisions.</p>
         </section>
       ) : null}
 

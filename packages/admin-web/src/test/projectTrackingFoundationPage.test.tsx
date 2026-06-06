@@ -406,7 +406,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: /Recently Changed/i }).length).toBeGreaterThan(0);
     expect(screen.getByText("Use Needs Attention for the review queue; use this page to inspect the work record.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
-    expect(screen.getAllByText("Work Spine").length).toBeGreaterThan(0);
+    expect(screen.getByText("Operations")).toBeInTheDocument();
     const commandView = screen.getByLabelText("Project Tracking Command View");
     expect(within(commandView).getByText("Command View")).toBeInTheDocument();
     expect(within(commandView).getByRole("link", { name: "Open in Project Tracking" })).toHaveAttribute("href", "#project-tracking");
