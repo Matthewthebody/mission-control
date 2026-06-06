@@ -519,6 +519,22 @@ function routeForCommandWork(row: ProjectWorkflowJobRow) {
   };
 }
 
+function projectTrackingDomId(prefix: string, value: string) {
+  return `${prefix}-${value.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
+function workItemName(row: ProjectWorkflowJobRow) {
+  return row.job_title || row.organization_name || row.account_name || "Untitled work";
+}
+
+function workItemAccountLabel(row: ProjectWorkflowJobRow) {
+  return row.organization_name ?? row.account_name ?? "No account linked";
+}
+
+function actionLabelForWork(row: ProjectWorkflowJobRow, routeLabel: string) {
+  return routeLabel === "View Workflow" ? `View workflow for ${workItemName(row)}` : `Open Project Tracking for ${workItemName(row)}`;
+}
+
 function ownerPresentation(row: ProjectWorkflowJobRow) {
   const department = departmentLabel(row.current_step?.department);
   if (row.owner_type === "user") {
@@ -784,32 +800,34 @@ function ProjectTrackingCommandView({
       <div className="project-tracking-command-grid">
         {groups.map((group) => {
           const previewRows = group.rows.slice(0, 3);
+          const isSelected = selectedCommandGroup === group.id;
           return (
             <article
-              className={`project-tracking-command-card ${selectedCommandGroup === group.id ? "is-active" : ""}`}
+              className={`project-tracking-command-card ${isSelected ? "is-active" : ""}`}
               key={group.id}
-              aria-label={`${group.label} command group`}
+              aria-label={`${group.label} command group${isSelected ? ", active command filter" : ""}`}
             >
               <div className="project-tracking-command-card__top">
                 <div>
                   <h2>{group.label}</h2>
-                  <small>{group.rows.length ? "Representative work" : "No active items"}</small>
+                  <small>{group.rows.length ? `Representative work, ${group.rows.length} ${group.rows.length === 1 ? "item" : "items"}` : "No active items"}</small>
                 </div>
-                <strong>{group.rows.length}</strong>
+                <strong aria-label={`${group.rows.length} ${group.rows.length === 1 ? "item" : "items"}`}>{group.rows.length}</strong>
               </div>
               {previewRows.length ? (
                 <div className="project-tracking-command-card__items">
                   {previewRows.map((row) => {
                     const route = routeForCommandWork(row);
                     const owner = ownerPresentation(row);
+                    const label = actionLabelForWork(row, route.label);
                     return (
                       <div className="project-tracking-command-item" key={`${group.id}:${row.job_id}`}>
                         <div>
-                          <span>{row.organization_name ?? row.account_name ?? "No account linked"}</span>
-                          <strong>{row.job_title || "Untitled work"}</strong>
+                          <span>{workItemAccountLabel(row)}</span>
+                          <strong>{workItemName(row)}</strong>
                           <small>{currentStepLabel(row)} - {owner.primary} - {deadlineLabel(row)}</small>
                         </div>
-                        <a href={route.href}>{route.label}</a>
+                        <a href={route.href} aria-label={label} title={label}>{route.label}</a>
                       </div>
                     );
                   })}
@@ -818,8 +836,14 @@ function ProjectTrackingCommandView({
                 <p className="project-tracking-command-card__empty">{group.emptyCopy}</p>
               )}
               {group.rows.length ? (
-                <button type="button" onClick={() => onCommandGroupSelect(group)}>
+                <button
+                  type="button"
+                  aria-pressed={isSelected}
+                  aria-label={`${isSelected ? "Active command filter: " : "Review "}${group.label.toLowerCase()} work`}
+                  onClick={() => onCommandGroupSelect(group)}
+                >
                   Review {group.label}
+                  {isSelected ? <span className="project-tracking-active-marker">Active</span> : null}
                 </button>
               ) : null}
             </article>
@@ -881,6 +905,17 @@ function ProjectTrackingJobBoard({
   const presetSummary = PRESET_LABELS[selectedPreset];
   const commandSummary = selectedCommandGroup ? COMMAND_GROUP_ORDER.find((group) => group.id === selectedCommandGroup)?.label : null;
   const departmentSummary = departmentFilter === "all" ? "all departments" : DEPARTMENT_FILTER_LABELS[departmentFilter];
+  const searchSummary = searchQuery.trim();
+  const activeFilterSummaryId = "project-tracking-active-filter-summary";
+  const emptyStateCopy = !rows.length
+    ? "No active work data is available yet. This is not a filtered result."
+    : selectedCommandGroup && !presetRows.length
+      ? `No work items match the ${commandSummary ?? "selected"} command filter. Clear filters to return to all active work.`
+      : searchSummary
+        ? `No work items match "${searchSummary}" inside ${presetSummary}. Clear the search or filters to broaden the view.`
+        : presetRows.length
+          ? `No work items match the current filters inside ${presetSummary}. Clear filters to broaden the view.`
+          : PRESET_EMPTY_STATES[selectedPreset];
   return (
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
@@ -904,11 +939,13 @@ function ProjectTrackingJobBoard({
               className={`project-tracking-preset-button ${selectedPreset === presetOption.preset ? "is-active" : ""}`}
               type="button"
               key={presetOption.preset}
-              aria-label={`${presetOption.label} ${presetOption.count}`}
+              aria-pressed={selectedPreset === presetOption.preset}
+              aria-label={`${presetOption.label}, ${presetOption.count} ${presetOption.count === 1 ? "item" : "items"}${selectedPreset === presetOption.preset ? ", active preset" : ""}`}
               onClick={() => onPresetChange(presetOption.preset)}
             >
               <span>{presetOption.label}</span>
               <strong>{presetOption.count}</strong>
+              {selectedPreset === presetOption.preset ? <em>Active</em> : null}
             </button>
           ))}
         </div>
@@ -957,45 +994,52 @@ function ProjectTrackingJobBoard({
             className={`project-tracking-filter-button ${activeFilter === filter ? "is-active" : ""}`}
             type="button"
             key={filter}
+            aria-pressed={activeFilter === filter}
+            aria-label={`${FILTER_LABELS[filter]} filter${activeFilter === filter ? ", active" : ""}`}
             onClick={() => onFilterChange(filter)}
           >
             {FILTER_LABELS[filter]}
+            {activeFilter === filter ? <span className="project-tracking-active-marker">Active</span> : null}
           </button>
         ))}
       </div>
-      <div className="project-tracking-active-filter">
+      <div className="project-tracking-active-filter" id={activeFilterSummaryId} aria-live="polite">
         <span>
           Showing {filteredRows.length} of {presetRows.length} work items - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}
           {commandSummary ? ` - Command: ${commandSummary}` : ""}
-          {searchQuery.trim() ? ` - Search: "${searchQuery.trim()}"` : ""}
+          {searchSummary ? ` - Search: "${searchSummary}"` : ""}
         </span>
         {hasActiveControls ? (
-          <button type="button" onClick={onClearFilters}>
+          <button type="button" aria-label="Clear Project Tracking filters and return to all active work" onClick={onClearFilters}>
             Clear filters
           </button>
         ) : null}
       </div>
       {filteredRows.length ? (
-        <div className="project-tracking-job-list" role="table" aria-label="Project Tracking active work list">
+        <div className="project-tracking-job-list" role="list" aria-label="Project Tracking active work list" aria-describedby={activeFilterSummaryId}>
           {filteredRows.map((row) => {
             const phase = phasePresentation(row.phase, row.health);
             const expanded = expandedRows.has(row.job_id);
             const currentStep = currentStepLabel(row);
             const owner = ownerPresentation(row);
             const route = routeForCommandWork(row);
+            const rowName = workItemName(row);
+            const detailsId = projectTrackingDomId("project-tracking-work-details", row.job_id);
+            const titleId = projectTrackingDomId("project-tracking-work-title", row.job_id);
+            const actionLabel = actionLabelForWork(row, route.label);
             const waiting = row.blocked_reason || (row.waiting_on_party !== "none" && row.waiting_on_party !== "unknown" ? waitingOnLabel(row) : null);
             return (
-              <article className={`project-tracking-job-row ${phase.className}`} key={row.job_id}>
+              <article className={`project-tracking-job-row ${phase.className}`} key={row.job_id} role="listitem" aria-labelledby={titleId}>
                 <div className="project-tracking-job-row__summary">
                   <div className="project-tracking-work-card__main">
                     <div className="project-tracking-work-card__title-row">
                       <div>
-                        <span className="project-tracking-work-card__eyebrow">{departmentLabel(row.current_step?.department)} / {row.organization_name ?? row.account_name ?? "No account linked"}</span>
-                        <h3 title={row.job_title}>{row.job_title || "Untitled work"}</h3>
+                        <span className="project-tracking-work-card__eyebrow">{departmentLabel(row.current_step?.department)} / {workItemAccountLabel(row)}</span>
+                        <h3 id={titleId} title={row.job_title}>{rowName}</h3>
                       </div>
-                      <span className={`project-tracking-step-pill ${phase.pillClassName}`}>{phase.label}</span>
+                      <span className={`project-tracking-step-pill ${phase.pillClassName}`} aria-label={`Phase: ${phase.label}`}>{phase.label}</span>
                     </div>
-                    <div className="project-tracking-work-card__meta" aria-label={`${row.job_title} summary`}>
+                    <div className="project-tracking-work-card__meta" aria-label={`${rowName} summary`}>
                       <span>
                         <small>Owner</small>
                         <strong className={owner.className} title={`${owner.primary} - ${owner.secondary}`}>{owner.primary}</strong>
@@ -1010,8 +1054,8 @@ function ProjectTrackingJobBoard({
                       </span>
                     </div>
                     <div className="project-tracking-work-card__attention">
-                      <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
-                      <span className={`project-tracking-operational-status project-tracking-operational-status--${operationalToneForJob(row)}`}>
+                      <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`} aria-label={`Risk: ${healthLabel(row.health)}`}>{healthLabel(row.health)}</span>
+                      <span className={`project-tracking-operational-status project-tracking-operational-status--${operationalToneForJob(row)}`} aria-label={`Operational status: ${operationalStatusLabel(row)}`}>
                         {operationalStatusLabel(row)}
                       </span>
                       {waiting ? <span className="project-tracking-attention-chip">Waiting On: {waiting}</span> : null}
@@ -1024,6 +1068,8 @@ function ProjectTrackingJobBoard({
                       <button
                         className="project-tracking-progress-link"
                         type="button"
+                        aria-label={actionLabel}
+                        title={actionLabel}
                         onClick={() => onOpenWorkflow(row.workflow_run_id!)}
                       >
                         View Workflow
@@ -1031,7 +1077,7 @@ function ProjectTrackingJobBoard({
                     ) : route.href === "#project-tracking" ? (
                       <span className="project-tracking-progress-link project-tracking-progress-link--disabled">Not connected yet</span>
                     ) : (
-                      <a className="project-tracking-progress-link" href={route.href}>
+                      <a className="project-tracking-progress-link" href={route.href} aria-label={actionLabel} title={actionLabel}>
                         {route.label}
                       </a>
                     )}
@@ -1039,7 +1085,8 @@ function ProjectTrackingJobBoard({
                       className="project-tracking-details-toggle"
                       type="button"
                       aria-expanded={expanded}
-                      aria-label={`${expanded ? "Collapse" : "Expand"} ${row.job_title}`}
+                      aria-controls={detailsId}
+                      aria-label={`${expanded ? "Collapse details for" : "Expand details for"} ${rowName}`}
                       onClick={() => onToggleRow(row.job_id)}
                     >
                       {expanded ? "Collapse details" : "Details"}
@@ -1047,7 +1094,7 @@ function ProjectTrackingJobBoard({
                   </div>
                 </div>
                 {expanded ? (
-                  <div className="project-tracking-job-row__details">
+                  <div className="project-tracking-job-row__details" id={detailsId} aria-label={`${rowName} details`}>
                     <section>
                       <h4>Workflow Details</h4>
                       <div className="project-tracking-job-row__detail-grid">
@@ -1160,7 +1207,7 @@ function ProjectTrackingJobBoard({
                         <div>
                           <span>Workflow</span>
                           {row.workflow_run_id ? (
-                            <button className="project-tracking-progress-link" type="button" onClick={() => onOpenWorkflow(row.workflow_run_id!)}>
+                            <button className="project-tracking-progress-link" type="button" aria-label={actionLabel} title={actionLabel} onClick={() => onOpenWorkflow(row.workflow_run_id!)}>
                               View Workflow
                             </button>
                           ) : (
@@ -1176,8 +1223,8 @@ function ProjectTrackingJobBoard({
           })}
         </div>
       ) : (
-        <p className="section-subtitle">
-          {rows.length && presetRows.length ? `No work items match the current filters inside ${presetSummary}.` : rows.length ? PRESET_EMPTY_STATES[selectedPreset] : "No active work is showing here yet."}
+        <p className="section-subtitle project-tracking-empty-state" role="status" aria-live="polite">
+          {emptyStateCopy}
         </p>
       )}
     </section>
@@ -1340,7 +1387,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
       ) : null}
 
       {status === "error" ? (
-        <section className="panel">
+        <section className="panel" role="alert" aria-label="Project dashboard unavailable">
           <div className="section-title">Project dashboard is unavailable</div>
           <p className="section-subtitle">The work spine did not load. Try again before using this page for live decisions.</p>
         </section>
@@ -1379,10 +1426,13 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
                   key={`${metric.filter}:${metric.label}`}
                   type="button"
                   title={metric.title}
+                  aria-pressed={activeFilter === metric.filter}
+                  aria-label={`${metric.label}, ${metric.value} ${metric.value === 1 ? "item" : "items"}${activeFilter === metric.filter ? ", active filter" : ""}`}
                   onClick={() => applySummaryMetric(metric.filter)}
                 >
                   <span className="metric-label">{metric.label}</span>
                   <strong>{metric.value}</strong>
+                  {activeFilter === metric.filter ? <span className="project-tracking-active-marker">Active</span> : null}
                 </button>
               ))}
             </div>
