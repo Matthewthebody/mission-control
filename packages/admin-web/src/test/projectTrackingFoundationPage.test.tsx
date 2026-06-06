@@ -407,11 +407,20 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("Use Needs Attention for the review queue; use this page to inspect the work record.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
     expect(screen.getAllByText("Work Spine").length).toBeGreaterThan(0);
+    const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
+    expect(within(presetLenses).getByRole("button", { name: /All Active\s+2/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Leadership Review\s+2/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Schools\s+1/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Sports\s+0/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Photography\s+0/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Blocked\s+1/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Due Soon\s+0/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /At Risk\s+0/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Saved views planned/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Mine" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 work items - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Project Tracking active work list" })).toBeInTheDocument();
     expect(screen.getAllByText("Area").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Work").length).toBeGreaterThan(0);
@@ -465,10 +474,10 @@ describe("ProjectTrackingFoundation", () => {
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 2 work items - Schools - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 2 work items - Preset: All Active - Schools - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByText("Showing 2 of 2 work items - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
     const filters = screen.getByLabelText("Project tracking filters");
     fireEvent.click(within(filters).getByRole("button", { name: "Blocked" }));
@@ -477,15 +486,42 @@ describe("ProjectTrackingFoundation", () => {
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 2 work items - all departments - Filtered by blocked")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 2 work items - Preset: All Active - all departments - Filtered by blocked")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByText("Showing 2 of 2 work items - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Search work, schools, owners, next steps..."), { target: { value: "Maple Grove" } });
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
+  });
+
+  it("applies no-persistence preset lenses with honest counts and calm empty states", async () => {
+    render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
+
+    await screen.findByRole("table", { name: "Project Tracking active work list" });
+    const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
+    fireEvent.click(within(presetLenses).getByRole("button", { name: /Schools\s+1/i }));
+
+    let board = screen.getByRole("table", { name: "Project Tracking active work list" }).closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 work items - Preset: Schools - all departments - Filtered by all work")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Search work, schools, owners, next steps..."), { target: { value: "missing search text" } });
+    expect(screen.getByText("No work items match the current filters inside Schools.")).toBeInTheDocument();
+
+    fireEvent.click(within(presetLenses).getByRole("button", { name: /Photography\s+0/i }));
+    expect(screen.getByText("No Photography active work found.")).toBeInTheDocument();
+
+    fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review\s+2/i }));
+    board = screen.getByRole("table", { name: "Project Tracking active work list" }).closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
   });
 
   it("renders department queues from the current workflow step department only", async () => {

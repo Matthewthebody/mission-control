@@ -39,6 +39,7 @@ type ProjectTrackingFilter =
   | "no_workflow";
 type ProjectTrackingSort = "priority" | "organization" | "job" | "stage" | "owner" | "deadline" | "risk" | "updated";
 type ProjectTrackingDepartmentFilter = "all" | "schools" | "sports" | "sessions" | "production" | "other";
+type ProjectTrackingPreset = "all_active" | "leadership_review" | "schools" | "sports" | "photography" | "blocked" | "due_soon" | "at_risk";
 
 const EMPTY_SUMMARY = {
   open_steps: 0,
@@ -80,6 +81,29 @@ const FILTER_LABELS: Record<ProjectTrackingFilter, string> = {
   no_workflow: "No Workflow Linked"
 };
 const PRIMARY_FILTERS: ProjectTrackingFilter[] = ["all", "due_soon", "blocked", "waiting_review", "mine", "recently_changed"];
+const PRESET_LABELS: Record<ProjectTrackingPreset, string> = {
+  all_active: "All Active",
+  leadership_review: "Leadership Review",
+  schools: "Schools",
+  sports: "Sports",
+  photography: "Photography",
+  blocked: "Blocked",
+  due_soon: "Due Soon",
+  at_risk: "At Risk"
+};
+
+const PRESET_EMPTY_STATES: Record<ProjectTrackingPreset, string> = {
+  all_active: "No active work is showing here yet.",
+  leadership_review: "No Leadership Review items found.",
+  schools: "No Schools active work found.",
+  sports: "No Sports active work found.",
+  photography: "No Photography active work found.",
+  blocked: "No blocked work right now.",
+  due_soon: "No due-soon work found.",
+  at_risk: "No at-risk work found."
+};
+
+const PROJECT_TRACKING_PRESETS: ProjectTrackingPreset[] = ["all_active", "leadership_review", "schools", "sports", "photography", "blocked", "due_soon", "at_risk"];
 
 const SORT_LABELS: Record<ProjectTrackingSort, string> = {
   priority: "Priority",
@@ -277,6 +301,77 @@ function departmentFilterForJob(row: ProjectWorkflowJobRow): ProjectTrackingDepa
 
 function matchesDepartmentFilter(row: ProjectWorkflowJobRow, departmentFilter: ProjectTrackingDepartmentFilter) {
   return departmentFilter === "all" || departmentFilterForJob(row) === departmentFilter;
+}
+
+function isActiveWork(row: ProjectWorkflowJobRow) {
+  return row.health !== "complete";
+}
+
+function isBlockedWork(row: ProjectWorkflowJobRow) {
+  return row.health === "blocked" || row.deadline_state === "blocked" || Boolean(row.blocked_reason) || row.current_step?.status === "BLOCKED" || row.queue_intelligence.operational_status === "blocked";
+}
+
+function isDueSoonWork(row: ProjectWorkflowJobRow) {
+  return row.health === "due_soon" || row.deadline_state === "due_soon";
+}
+
+function isAtRiskWork(row: ProjectWorkflowJobRow) {
+  return (
+    row.health === "at_risk" ||
+    row.health === "unknown" ||
+    row.rework_count > 0 ||
+    row.queue_intelligence.operational_status === "at_risk" ||
+    row.queue_intelligence.operational_status === "needs_action"
+  );
+}
+
+function isWaitingWork(row: ProjectWorkflowJobRow) {
+  return row.waiting_on_party !== "none" && row.waiting_on_party !== "unknown";
+}
+
+function isMissingOwnerOrInfo(row: ProjectWorkflowJobRow) {
+  return row.missing_info_flags.length > 0 || row.current_step?.assignment_status === "needs_assignment";
+}
+
+function matchesPreset(row: ProjectWorkflowJobRow, preset: ProjectTrackingPreset) {
+  if (preset === "all_active") {
+    return isActiveWork(row);
+  }
+  if (preset === "leadership_review") {
+    return (
+      isBlockedWork(row) ||
+      row.health === "running_late" ||
+      isDueSoonWork(row) ||
+      isAtRiskWork(row) ||
+      isWaitingWork(row) ||
+      isMissingOwnerOrInfo(row) ||
+      ["overdue", "missing_owner", "missing_next_action", "waiting"].includes(row.queue_intelligence.operational_status)
+    );
+  }
+  if (preset === "schools") {
+    return departmentFilterForJob(row) === "schools";
+  }
+  if (preset === "sports") {
+    return departmentFilterForJob(row) === "sports";
+  }
+  if (preset === "photography") {
+    return departmentFilterForJob(row) === "sessions";
+  }
+  if (preset === "blocked") {
+    return isBlockedWork(row);
+  }
+  if (preset === "due_soon") {
+    return isDueSoonWork(row);
+  }
+  return isAtRiskWork(row);
+}
+
+function presetCountsFor(rows: ProjectWorkflowJobRow[]) {
+  return PROJECT_TRACKING_PRESETS.map((preset) => ({
+    preset,
+    label: PRESET_LABELS[preset],
+    count: rows.filter((row) => matchesPreset(row, preset)).length
+  }));
 }
 
 function ownerPresentation(row: ProjectWorkflowJobRow) {
@@ -524,12 +619,14 @@ function ProjectTrackingJobBoard({
   payload,
   currentUser,
   activeFilter,
+  selectedPreset,
   departmentFilter,
   searchQuery,
   sortKey,
   expandedRows,
   onFilterChange,
   onDepartmentFilterChange,
+  onPresetChange,
   onSearchQueryChange,
   onSortKeyChange,
   onClearFilters,
@@ -541,12 +638,14 @@ function ProjectTrackingJobBoard({
   payload: ProjectWorkflowCommandCenter | null;
   currentUser: SessionUser;
   activeFilter: ProjectTrackingFilter;
+  selectedPreset: ProjectTrackingPreset;
   departmentFilter: ProjectTrackingDepartmentFilter;
   searchQuery: string;
   sortKey: ProjectTrackingSort;
   expandedRows: Set<string>;
   onFilterChange: (filter: ProjectTrackingFilter) => void;
   onDepartmentFilterChange: (filter: ProjectTrackingDepartmentFilter) => void;
+  onPresetChange: (preset: ProjectTrackingPreset) => void;
   onSearchQueryChange: (query: string) => void;
   onSortKeyChange: (sortKey: ProjectTrackingSort) => void;
   onClearFilters: () => void;
@@ -555,20 +654,43 @@ function ProjectTrackingJobBoard({
   onWorkflowRowUpdated: () => Promise<void> | void;
 }) {
   const rows = buildJobBoardRows(payload);
-  const filteredRows = sortRows(rows.filter((row) => matchesDepartmentFilter(row, departmentFilter) && matchesFilterForUser(row, activeFilter, currentUser) && matchesSearch(row, searchQuery)), sortKey);
-  const hasActiveControls = activeFilter !== "all" || departmentFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
+  const presetRows = rows.filter((row) => matchesPreset(row, selectedPreset));
+  const filteredRows = sortRows(presetRows.filter((row) => matchesDepartmentFilter(row, departmentFilter) && matchesFilterForUser(row, activeFilter, currentUser) && matchesSearch(row, searchQuery)), sortKey);
+  const presetCounts = presetCountsFor(rows);
+  const hasActiveControls = selectedPreset !== "all_active" || activeFilter !== "all" || departmentFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
   const filterSummary = activeFilter === "all" ? "all work" : FILTER_LABELS[activeFilter].toLowerCase();
+  const presetSummary = PRESET_LABELS[selectedPreset];
   const departmentSummary = departmentFilter === "all" ? "all departments" : DEPARTMENT_FILTER_LABELS[departmentFilter];
   return (
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Work Spine</div>
+          <div className="section-title">Active Work</div>
           <p className="section-subtitle">Start here to see what work exists, who owns the next step, what is blocked, what is due soon, and what changed recently.</p>
         </div>
         <div className="project-tracking-board-meta">
-          <span className="badge">Showing {filteredRows.length} of {rows.length}</span>
+          <span className="badge">Showing {filteredRows.length} of {presetRows.length}</span>
           {payload?.generated_at ? <span className="badge">Updated {new Date(payload.generated_at).toLocaleTimeString()}</span> : null}
+        </div>
+      </div>
+      <div className="project-tracking-preset-row" aria-label="Project Tracking preset lenses">
+        <div className="project-tracking-preset-row__label">
+          <strong>Preset lenses</strong>
+          <span>Temporary view only</span>
+        </div>
+        <div className="project-tracking-preset-row__buttons">
+          {presetCounts.map((presetOption) => (
+            <button
+              className={`project-tracking-preset-button ${selectedPreset === presetOption.preset ? "is-active" : ""}`}
+              type="button"
+              key={presetOption.preset}
+              aria-label={`${presetOption.label} ${presetOption.count}`}
+              onClick={() => onPresetChange(presetOption.preset)}
+            >
+              <span>{presetOption.label}</span>
+              <strong>{presetOption.count}</strong>
+            </button>
+          ))}
         </div>
       </div>
       <div className="project-tracking-controls" aria-label="Project tracking search and sorting">
@@ -623,7 +745,7 @@ function ProjectTrackingJobBoard({
       </div>
       <div className="project-tracking-active-filter">
         <span>
-          Showing {filteredRows.length} of {rows.length} work items - {departmentSummary} - Filtered by {filterSummary}
+          Showing {filteredRows.length} of {presetRows.length} work items - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}
           {searchQuery.trim() ? ` - Search: "${searchQuery.trim()}"` : ""}
         </span>
         {hasActiveControls ? (
@@ -812,7 +934,7 @@ function ProjectTrackingJobBoard({
         </div>
       ) : (
         <p className="section-subtitle">
-          {rows.length ? `No work items match ${FILTER_LABELS[activeFilter].toLowerCase()} right now.` : "No active work is showing here yet."}
+          {rows.length && presetRows.length ? `No work items match the current filters inside ${presetSummary}.` : rows.length ? PRESET_EMPTY_STATES[selectedPreset] : "No active work is showing here yet."}
         </p>
       )}
     </section>
@@ -825,6 +947,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   const [workflowRunId, setWorkflowRunId] = useState(() => parseWorkflowRunIdFromHash());
   const [status, setStatus] = useState<LoadState>("loading");
   const [activeFilter, setActiveFilter] = useState<ProjectTrackingFilter>("all");
+  const [selectedPreset, setSelectedPreset] = useState<ProjectTrackingPreset>("all_active");
   const [departmentFilter, setDepartmentFilter] = useState<ProjectTrackingDepartmentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ProjectTrackingSort>("priority");
@@ -896,10 +1019,18 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     });
   };
   const clearFilters = () => {
+    setSelectedPreset("all_active");
     setActiveFilter("all");
     setDepartmentFilter("all");
     setSearchQuery("");
     setSortKey("priority");
+  };
+  const applyPreset = (preset: ProjectTrackingPreset) => {
+    setSelectedPreset(preset);
+    setActiveFilter("all");
+    setDepartmentFilter("all");
+    setSearchQuery("");
+    setSortKey(preset === "due_soon" ? "deadline" : preset === "leadership_review" || preset === "blocked" || preset === "at_risk" ? "risk" : "priority");
   };
   const refreshCommandCenter = async () => {
     const globalResponse = await getProjectWorkflowCommandCenter(token, { view: "global", limit: 100 });
@@ -996,12 +1127,14 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             payload={globalCommandCenter}
             currentUser={currentUser}
             activeFilter={activeFilter}
+            selectedPreset={selectedPreset}
             departmentFilter={departmentFilter}
             searchQuery={searchQuery}
             sortKey={sortKey}
             expandedRows={expandedRows}
             onFilterChange={setActiveFilter}
             onDepartmentFilterChange={setDepartmentFilter}
+            onPresetChange={applyPreset}
             onSearchQueryChange={setSearchQuery}
             onSortKeyChange={setSortKey}
             onClearFilters={clearFilters}

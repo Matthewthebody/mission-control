@@ -3395,6 +3395,76 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   display: none;
 }
 
+.project-tracking-preset-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.project-tracking-preset-row__label {
+  display: grid;
+  gap: 2px;
+  min-width: 118px;
+  color: var(--pt-muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.project-tracking-preset-row__label strong {
+  color: var(--pt-text);
+  font-size: 0.78rem;
+}
+
+.project-tracking-preset-row__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-tracking-preset-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid var(--pt-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #ffffff;
+  color: var(--pt-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.project-tracking-preset-button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-preset-button strong {
+  flex: 0 0 auto;
+  min-width: 1.45rem;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--pt-soft);
+  color: #163d68;
+  text-align: center;
+}
+
+.project-tracking-preset-button.is-active,
+.project-tracking-preset-button:hover {
+  border-color: #4f83c5;
+  color: #163d68;
+  background: #eaf3ff;
+}
+
 .project-tracking-filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -3470,6 +3540,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .project-tracking-search input:focus,
 .project-tracking-sort select:focus,
+.project-tracking-preset-button:focus-visible,
 .project-tracking-filter-button:focus-visible,
 .project-tracking-metric-grid > button:focus-visible,
 .project-tracking-control-button:focus-visible,
@@ -4722,6 +4793,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   }
 
   .project-tracking-summary-strip,
+  .project-tracking-preset-row,
   .project-tracking-controls,
   .project-tracking-board-header,
   .project-workflow-trust-strip,
