@@ -407,6 +407,20 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("Use Needs Attention for the review queue; use this page to inspect the work record.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
     expect(screen.getAllByText("Work Spine").length).toBeGreaterThan(0);
+    const commandView = screen.getByLabelText("Project Tracking Command View");
+    expect(within(commandView).getByText("Command View")).toBeInTheDocument();
+    expect(within(commandView).getByRole("link", { name: "Open in Project Tracking" })).toHaveAttribute("href", "#project-tracking");
+    expect(within(screen.getByLabelText("At Risk command group")).getByText("1")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("At Risk command group")).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("At Risk command group")).getByRole("link", { name: "View Workflow" })).toHaveAttribute("href", "#project-tracking/workflows/workflow-late");
+    expect(within(screen.getByLabelText("Due Today command group")).getByText("1")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Due This Week command group")).getByText("2")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Blocked command group")).getByText("1")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Waiting on School / Client command group")).getByText("1")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Waiting on Internal Team command group")).getByText("0")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Waiting on Internal Team command group")).getByText("No internal handoff blockers found.")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Recently Completed command group")).getByText("0")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Missing Owner / Info command group")).getByText("2")).toBeInTheDocument();
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
     expect(within(presetLenses).getByRole("button", { name: /All Active\s+2/i })).toBeInTheDocument();
     expect(within(presetLenses).getByRole("button", { name: /Leadership Review\s+2/i })).toBeInTheDocument();
@@ -457,7 +471,8 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("What changed")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
 
-    const mapleRow = screen.getByText("Maple Grove Senior High Retakes").closest("article");
+    const activeWorkBoard = screen.getByRole("table", { name: "Project Tracking active work list" });
+    const mapleRow = within(activeWorkBoard).getByText("Maple Grove Senior High Retakes").closest("article");
     expect(mapleRow).not.toBeNull();
     fireEvent.click(within(mapleRow as HTMLElement).getAllByRole("button", { name: "Open work" })[0]);
     expect(window.location.hash).toBe("#project-tracking/workflows/workflow-late");
@@ -495,6 +510,28 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
+  });
+
+  it("uses Command View actions as temporary filters without breaking preset lenses", async () => {
+    render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
+
+    await screen.findByRole("table", { name: "Project Tracking active work list" });
+    fireEvent.click(within(screen.getByLabelText("Blocked command group")).getByRole("button", { name: "Review Blocked" }));
+
+    let board = screen.getByRole("table", { name: "Project Tracking active work list" }).closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 work items - Preset: All Active - all departments - Filtered by all work - Command: Blocked")).toBeInTheDocument();
+
+    const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
+    fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review\s+2/i }));
+    board = screen.getByRole("table", { name: "Project Tracking active work list" }).closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.queryByText(/Command: Blocked/)).not.toBeInTheDocument();
   });
 
   it("applies no-persistence preset lenses with honest counts and calm empty states", async () => {

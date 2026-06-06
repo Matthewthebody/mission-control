@@ -4,6 +4,7 @@ import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickW
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { featureFlags } from "../featureFlags";
 import { canManageWorkflowTemplates } from "../permissions";
+import { isProjectTrackingWorkflowHash, resolveWorkSpineActionHref } from "../workSpineRouting";
 import {
   getProjectWorkflowCommandCenter,
   getProjectWorkflowInstance
@@ -40,6 +41,27 @@ type ProjectTrackingFilter =
 type ProjectTrackingSort = "priority" | "organization" | "job" | "stage" | "owner" | "deadline" | "risk" | "updated";
 type ProjectTrackingDepartmentFilter = "all" | "schools" | "sports" | "sessions" | "production" | "other";
 type ProjectTrackingPreset = "all_active" | "leadership_review" | "schools" | "sports" | "photography" | "blocked" | "due_soon" | "at_risk";
+type ProjectTrackingCommandGroupId =
+  | "at_risk"
+  | "due_today"
+  | "due_this_week"
+  | "blocked"
+  | "waiting_school_client"
+  | "waiting_internal"
+  | "recently_completed"
+  | "missing_owner_info";
+type ProjectWorkflowJobRowWithRouteHints = ProjectWorkflowJobRow & {
+  action_hash?: string | null;
+  actionHash?: string | null;
+  workflowRunId?: string | null;
+};
+type ProjectTrackingCommandGroup = {
+  id: ProjectTrackingCommandGroupId;
+  label: string;
+  emptyCopy: string;
+  rows: ProjectWorkflowJobRow[];
+  sortKey: ProjectTrackingSort;
+};
 
 const EMPTY_SUMMARY = {
   open_steps: 0,
@@ -104,6 +126,22 @@ const PRESET_EMPTY_STATES: Record<ProjectTrackingPreset, string> = {
 };
 
 const PROJECT_TRACKING_PRESETS: ProjectTrackingPreset[] = ["all_active", "leadership_review", "schools", "sports", "photography", "blocked", "due_soon", "at_risk"];
+
+const COMMAND_GROUP_ORDER: Array<{
+  id: ProjectTrackingCommandGroupId;
+  label: string;
+  emptyCopy: string;
+  sortKey: ProjectTrackingSort;
+}> = [
+  { id: "at_risk", label: "At Risk", emptyCopy: "No at-risk work right now.", sortKey: "risk" },
+  { id: "due_today", label: "Due Today", emptyCopy: "Nothing due today.", sortKey: "deadline" },
+  { id: "due_this_week", label: "Due This Week", emptyCopy: "Nothing due this week.", sortKey: "deadline" },
+  { id: "blocked", label: "Blocked", emptyCopy: "No blocked work right now.", sortKey: "risk" },
+  { id: "waiting_school_client", label: "Waiting on School / Client", emptyCopy: "No waiting-on-school items found.", sortKey: "updated" },
+  { id: "waiting_internal", label: "Waiting on Internal Team", emptyCopy: "No internal handoff blockers found.", sortKey: "updated" },
+  { id: "recently_completed", label: "Recently Completed", emptyCopy: "No recently completed work found.", sortKey: "updated" },
+  { id: "missing_owner_info", label: "Missing Owner / Info", emptyCopy: "No missing owner or info flags found.", sortKey: "risk" }
+];
 
 const SORT_LABELS: Record<ProjectTrackingSort, string> = {
   priority: "Priority",
@@ -374,6 +412,113 @@ function presetCountsFor(rows: ProjectWorkflowJobRow[]) {
   }));
 }
 
+function commandReferenceDate(value: string | null | undefined) {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function isSameLocalDay(value: string | null, referenceDate: Date) {
+  if (!value) {
+    return false;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+  return date.getFullYear() === referenceDate.getFullYear() && date.getMonth() === referenceDate.getMonth() && date.getDate() === referenceDate.getDate();
+}
+
+function isDueThisWeek(row: ProjectWorkflowJobRow, referenceDate: Date) {
+  if (!row.next_deadline_at || row.health === "complete") {
+    return false;
+  }
+  const dueAt = new Date(row.next_deadline_at).getTime();
+  if (Number.isNaN(dueAt)) {
+    return false;
+  }
+  const start = new Date(referenceDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+  end.setHours(23, 59, 59, 999);
+  return dueAt >= start.getTime() && dueAt <= end.getTime();
+}
+
+function hasSchoolClientWaitSignal(row: ProjectWorkflowJobRow) {
+  if (["school", "family", "vendor", "other"].includes(row.waiting_on_party)) {
+    return true;
+  }
+  const text = [row.blocked_reason, row.queue_intelligence.reason, row.queue_intelligence.next_action, ...row.health_reasons]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return /\b(school|client|customer|family|vendor)\b/.test(text);
+}
+
+function hasInternalWaitSignal(row: ProjectWorkflowJobRow) {
+  return ["kp", "production", "graphics", "customer_service"].includes(row.waiting_on_party);
+}
+
+function isCommandAtRisk(row: ProjectWorkflowJobRow) {
+  return (
+    row.health === "running_late" ||
+    row.health === "at_risk" ||
+    row.health === "unknown" ||
+    row.deadline_state === "running_late" ||
+    row.queue_intelligence.operational_status === "overdue" ||
+    row.queue_intelligence.operational_status === "at_risk" ||
+    row.queue_intelligence.operational_status === "needs_action" ||
+    row.rework_count > 0
+  );
+}
+
+function matchesCommandGroup(row: ProjectWorkflowJobRow, groupId: ProjectTrackingCommandGroupId, referenceDate: Date) {
+  if (groupId === "at_risk") {
+    return isCommandAtRisk(row);
+  }
+  if (groupId === "due_today") {
+    return row.health !== "complete" && isSameLocalDay(row.next_deadline_at, referenceDate);
+  }
+  if (groupId === "due_this_week") {
+    return isDueThisWeek(row, referenceDate);
+  }
+  if (groupId === "blocked") {
+    return isBlockedWork(row);
+  }
+  if (groupId === "waiting_school_client") {
+    return row.health !== "complete" && hasSchoolClientWaitSignal(row);
+  }
+  if (groupId === "waiting_internal") {
+    return row.health !== "complete" && hasInternalWaitSignal(row);
+  }
+  if (groupId === "recently_completed") {
+    return row.health === "complete";
+  }
+  return isMissingOwnerOrInfo(row);
+}
+
+function commandGroupsFor(rows: ProjectWorkflowJobRow[], generatedAt: string | null | undefined): ProjectTrackingCommandGroup[] {
+  const referenceDate = commandReferenceDate(generatedAt);
+  return COMMAND_GROUP_ORDER.map((group) => ({
+    ...group,
+    rows: sortRows(rows.filter((row) => matchesCommandGroup(row, group.id, referenceDate)), group.sortKey)
+  }));
+}
+
+function routeForCommandWork(row: ProjectWorkflowJobRow) {
+  const routeHints = row as ProjectWorkflowJobRowWithRouteHints;
+  const href = resolveWorkSpineActionHref({
+    actionHash: routeHints.actionHash ?? routeHints.action_hash ?? null,
+    workflowRunId: routeHints.workflowRunId ?? row.workflow_run_id,
+    fallbackHash: "#project-tracking",
+    fallbackKind: "project_tracking"
+  });
+  return {
+    href,
+    label: isProjectTrackingWorkflowHash(href) ? "View Workflow" : "Open in Project Tracking"
+  };
+}
+
 function ownerPresentation(row: ProjectWorkflowJobRow) {
   const department = departmentLabel(row.current_step?.department);
   if (row.owner_type === "user") {
@@ -614,12 +759,84 @@ function summaryFor(payload: ProjectWorkflowCommandCenter | null) {
   return payload?.summary ?? EMPTY_SUMMARY;
 }
 
+function ProjectTrackingCommandView({
+  payload,
+  selectedCommandGroup,
+  onCommandGroupSelect
+}: {
+  payload: ProjectWorkflowCommandCenter | null;
+  selectedCommandGroup: ProjectTrackingCommandGroupId | null;
+  onCommandGroupSelect: (group: ProjectTrackingCommandGroup) => void;
+}) {
+  const rows = buildJobBoardRows(payload);
+  const groups = commandGroupsFor(rows, payload?.generated_at);
+  return (
+    <section className="project-tracking-command-view" aria-label="Project Tracking Command View">
+      <div className="project-tracking-panel__heading">
+        <div>
+          <div className="section-title">Command View</div>
+          <p className="section-subtitle">Start with risk, due dates, blockers, waits, and missing handoff details before opening the full work list.</p>
+        </div>
+        <a className="project-tracking-command-view__broad-link" href="#project-tracking">
+          Open in Project Tracking
+        </a>
+      </div>
+      <div className="project-tracking-command-grid">
+        {groups.map((group) => {
+          const previewRows = group.rows.slice(0, 3);
+          return (
+            <article
+              className={`project-tracking-command-card ${selectedCommandGroup === group.id ? "is-active" : ""}`}
+              key={group.id}
+              aria-label={`${group.label} command group`}
+            >
+              <div className="project-tracking-command-card__top">
+                <div>
+                  <h2>{group.label}</h2>
+                  <small>{group.rows.length ? "Representative work" : "No active items"}</small>
+                </div>
+                <strong>{group.rows.length}</strong>
+              </div>
+              {previewRows.length ? (
+                <div className="project-tracking-command-card__items">
+                  {previewRows.map((row) => {
+                    const route = routeForCommandWork(row);
+                    const owner = ownerPresentation(row);
+                    return (
+                      <div className="project-tracking-command-item" key={`${group.id}:${row.job_id}`}>
+                        <div>
+                          <span>{row.organization_name ?? row.account_name ?? "No account linked"}</span>
+                          <strong>{row.job_title || "Untitled work"}</strong>
+                          <small>{currentStepLabel(row)} - {owner.primary} - {deadlineLabel(row)}</small>
+                        </div>
+                        <a href={route.href}>{route.label}</a>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="project-tracking-command-card__empty">{group.emptyCopy}</p>
+              )}
+              {group.rows.length ? (
+                <button type="button" onClick={() => onCommandGroupSelect(group)}>
+                  Review {group.label}
+                </button>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ProjectTrackingJobBoard({
   token,
   payload,
   currentUser,
   activeFilter,
   selectedPreset,
+  selectedCommandGroup,
   departmentFilter,
   searchQuery,
   sortKey,
@@ -639,6 +856,7 @@ function ProjectTrackingJobBoard({
   currentUser: SessionUser;
   activeFilter: ProjectTrackingFilter;
   selectedPreset: ProjectTrackingPreset;
+  selectedCommandGroup: ProjectTrackingCommandGroupId | null;
   departmentFilter: ProjectTrackingDepartmentFilter;
   searchQuery: string;
   sortKey: ProjectTrackingSort;
@@ -654,12 +872,14 @@ function ProjectTrackingJobBoard({
   onWorkflowRowUpdated: () => Promise<void> | void;
 }) {
   const rows = buildJobBoardRows(payload);
-  const presetRows = rows.filter((row) => matchesPreset(row, selectedPreset));
+  const commandReference = commandReferenceDate(payload?.generated_at);
+  const presetRows = rows.filter((row) => matchesPreset(row, selectedPreset) && (!selectedCommandGroup || matchesCommandGroup(row, selectedCommandGroup, commandReference)));
   const filteredRows = sortRows(presetRows.filter((row) => matchesDepartmentFilter(row, departmentFilter) && matchesFilterForUser(row, activeFilter, currentUser) && matchesSearch(row, searchQuery)), sortKey);
   const presetCounts = presetCountsFor(rows);
-  const hasActiveControls = selectedPreset !== "all_active" || activeFilter !== "all" || departmentFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
+  const hasActiveControls = selectedPreset !== "all_active" || selectedCommandGroup !== null || activeFilter !== "all" || departmentFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
   const filterSummary = activeFilter === "all" ? "all work" : FILTER_LABELS[activeFilter].toLowerCase();
   const presetSummary = PRESET_LABELS[selectedPreset];
+  const commandSummary = selectedCommandGroup ? COMMAND_GROUP_ORDER.find((group) => group.id === selectedCommandGroup)?.label : null;
   const departmentSummary = departmentFilter === "all" ? "all departments" : DEPARTMENT_FILTER_LABELS[departmentFilter];
   return (
     <section className="project-tracking-job-board">
@@ -746,6 +966,7 @@ function ProjectTrackingJobBoard({
       <div className="project-tracking-active-filter">
         <span>
           Showing {filteredRows.length} of {presetRows.length} work items - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}
+          {commandSummary ? ` - Command: ${commandSummary}` : ""}
           {searchQuery.trim() ? ` - Search: "${searchQuery.trim()}"` : ""}
         </span>
         {hasActiveControls ? (
@@ -948,6 +1169,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   const [status, setStatus] = useState<LoadState>("loading");
   const [activeFilter, setActiveFilter] = useState<ProjectTrackingFilter>("all");
   const [selectedPreset, setSelectedPreset] = useState<ProjectTrackingPreset>("all_active");
+  const [selectedCommandGroup, setSelectedCommandGroup] = useState<ProjectTrackingCommandGroupId | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<ProjectTrackingDepartmentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ProjectTrackingSort>("priority");
@@ -1019,6 +1241,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     });
   };
   const clearFilters = () => {
+    setSelectedCommandGroup(null);
     setSelectedPreset("all_active");
     setActiveFilter("all");
     setDepartmentFilter("all");
@@ -1026,11 +1249,31 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     setSortKey("priority");
   };
   const applyPreset = (preset: ProjectTrackingPreset) => {
+    setSelectedCommandGroup(null);
     setSelectedPreset(preset);
     setActiveFilter("all");
     setDepartmentFilter("all");
     setSearchQuery("");
     setSortKey(preset === "due_soon" ? "deadline" : preset === "leadership_review" || preset === "blocked" || preset === "at_risk" ? "risk" : "priority");
+  };
+  const applyCommandGroup = (group: ProjectTrackingCommandGroup) => {
+    setSelectedCommandGroup(group.id);
+    setSelectedPreset("all_active");
+    setActiveFilter("all");
+    setDepartmentFilter("all");
+    setSearchQuery("");
+    setSortKey(group.sortKey);
+  };
+  const applyPrimaryFilter = (filter: ProjectTrackingFilter) => {
+    setSelectedCommandGroup(null);
+    setActiveFilter(filter);
+  };
+  const applySummaryMetric = (filter: ProjectTrackingFilter) => {
+    setSelectedCommandGroup(null);
+    setActiveFilter(filter);
+    if (filter === "recently_changed") {
+      setSortKey("updated");
+    }
   };
   const refreshCommandCenter = async () => {
     const globalResponse = await getProjectWorkflowCommandCenter(token, { view: "global", limit: 100 });
@@ -1095,6 +1338,12 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         )
       ) : (
         <>
+          <ProjectTrackingCommandView
+            payload={globalCommandCenter}
+            selectedCommandGroup={selectedCommandGroup}
+            onCommandGroupSelect={applyCommandGroup}
+          />
+
           <section className="project-tracking-summary-strip" aria-label="Project tracking summary filters">
             <div className="project-tracking-summary-strip__label">
               <strong>Operating Summary</strong>
@@ -1108,12 +1357,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
                   key={`${metric.filter}:${metric.label}`}
                   type="button"
                   title={metric.title}
-                  onClick={() => {
-                    setActiveFilter(metric.filter);
-                    if (metric.filter === "recently_changed") {
-                      setSortKey("updated");
-                    }
-                  }}
+                  onClick={() => applySummaryMetric(metric.filter)}
                 >
                   <span className="metric-label">{metric.label}</span>
                   <strong>{metric.value}</strong>
@@ -1128,11 +1372,12 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             currentUser={currentUser}
             activeFilter={activeFilter}
             selectedPreset={selectedPreset}
+            selectedCommandGroup={selectedCommandGroup}
             departmentFilter={departmentFilter}
             searchQuery={searchQuery}
             sortKey={sortKey}
             expandedRows={expandedRows}
-            onFilterChange={setActiveFilter}
+            onFilterChange={applyPrimaryFilter}
             onDepartmentFilterChange={setDepartmentFilter}
             onPresetChange={applyPreset}
             onSearchQueryChange={setSearchQuery}
