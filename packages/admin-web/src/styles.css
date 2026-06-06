@@ -3696,7 +3696,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 .project-tracking-metric-grid > button:focus-visible,
 .project-tracking-control-button:focus-visible,
 .project-tracking-active-filter button:focus-visible,
-.project-tracking-job-row__summary:focus-visible {
+.project-tracking-details-toggle:focus-visible {
   border-color: #2f70c5;
   box-shadow: 0 0 0 3px rgba(47, 112, 197, 0.18);
 }
@@ -3738,16 +3738,12 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .project-tracking-job-list {
   display: grid;
-  gap: 1px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  border: 1px solid var(--pt-border);
-  border-radius: 8px;
-  background: var(--pt-border);
+  gap: 8px;
+  min-width: 0;
+  overflow-x: visible;
 }
 
-.project-tracking-job-list__header,
-.project-tracking-job-row__summary {
+.project-tracking-job-list__header {
   display: grid;
   grid-template-columns: minmax(132px, 1fr) minmax(154px, 1.08fr) minmax(132px, 1fr) minmax(96px, 0.76fr) minmax(98px, 0.68fr) minmax(94px, 0.66fr) minmax(110px, 0.76fr) minmax(86px, 0.58fr) minmax(78px, 0.52fr) minmax(92px, 0.58fr);
   gap: 5px;
@@ -3771,12 +3767,13 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .project-tracking-job-row {
   --project-row-accent: rgba(148, 163, 184, 0.75);
+  min-width: 0;
   overflow: hidden;
-  border: 0;
+  border: 1px solid var(--pt-border);
   border-left: 4px solid var(--project-row-accent);
-  border-radius: 0;
+  border-radius: 12px;
   background: #ffffff;
-  min-width: 1180px;
+  box-shadow: 0 7px 18px rgba(15, 23, 42, 0.04);
 }
 
 .project-tracking-job-row--phase-intake {
@@ -3804,43 +3801,93 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .project-tracking-job-row__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
   width: 100%;
   border: 0;
-  padding: 5px 9px;
+  padding: 12px;
   background: transparent;
   color: var(--pt-text);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
+  min-width: 0;
 }
 
-.project-tracking-job-row__action {
-  justify-items: start;
+.project-tracking-work-card__main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
-.project-tracking-job-row__summary:hover {
-  background: #f7faff;
+.project-tracking-work-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
 }
 
-.project-tracking-job-row__cell {
+.project-tracking-work-card__title-row > div {
+  min-width: 0;
+}
+
+.project-tracking-work-card__title-row h3 {
+  margin: 2px 0 0;
+  color: var(--pt-text);
+  font-size: 0.95rem;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-work-card__eyebrow {
+  display: block;
+  color: var(--pt-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-work-card__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-tracking-work-card__meta > span {
   display: grid;
   gap: 2px;
   min-width: 0;
+  border: 1px solid rgba(201, 211, 224, 0.82);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #f8fafc;
 }
 
-.project-tracking-job-row__cell strong,
-.project-tracking-job-row__cell small,
+.project-tracking-work-card__meta small,
+.project-tracking-job-row__details span {
+  color: var(--pt-muted);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.project-tracking-work-card__meta strong,
 .project-tracking-job-row__details strong,
 .project-tracking-job-row__details a,
-.project-tracking-job-row__details button {
+.project-tracking-job-row__details button,
+.project-tracking-job-row__details p {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
-.project-tracking-job-row__cell strong {
-  white-space: nowrap;
+.project-tracking-work-card__meta strong {
   font-size: 0.78rem;
+  line-height: 1.25;
 }
 
 .project-tracking-owner--person {
@@ -3885,6 +3932,33 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   cursor: pointer;
 }
 
+.project-tracking-details-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--pt-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.project-tracking-details-toggle:hover {
+  border-color: #9fbce4;
+  background: #f8fbff;
+  color: #174b7d;
+}
+
 .project-tracking-progress-link:hover,
 .project-tracking-progress-link:focus-visible {
   border-color: #2f70c5;
@@ -3898,16 +3972,12 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   color: var(--pt-muted);
 }
 
-.project-tracking-job-row__cell small,
-.project-tracking-job-row__details span {
-  color: var(--pt-muted);
-  font-size: 0.66rem;
-}
-
 .project-tracking-step-pill {
-  display: block;
+  display: inline-flex;
+  align-items: center;
   width: fit-content;
   max-width: 100%;
+  flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 4px 7px;
@@ -4091,17 +4161,56 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .project-tracking-operational-status {
-  display: block;
+  display: inline-flex;
+  align-items: center;
   width: fit-content;
   max-width: 100%;
-  margin-top: 3px;
   border-radius: 999px;
-  padding: 2px 6px;
+  padding: 4px 7px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 900;
+}
+
+.project-tracking-work-card__attention {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.project-tracking-attention-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--pt-border);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: #f8fafc;
+  color: var(--pt-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-work-card__next-action {
+  margin: 0;
+  color: #334155;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-work-card__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  min-width: 130px;
 }
 
 .project-tracking-operational-status--critical {
@@ -4121,17 +4230,48 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .project-tracking-job-row__details {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-  border-top: 1px solid var(--pt-border);
-  padding: 9px 11px;
-  background: #f8fafc;
+  gap: 8px;
+  border-top: 1px solid rgba(201, 211, 224, 0.82);
+  padding: 0 12px 12px;
+  background: #fbfdff;
 }
 
-.project-tracking-job-row__details > div {
+.project-tracking-job-row__details section {
   display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid rgba(201, 211, 224, 0.82);
+  border-radius: 10px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.project-tracking-job-row__details h4 {
+  margin: 0;
+  color: var(--pt-text);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.project-tracking-job-row__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-tracking-job-row__detail-grid > div {
+  display: grid;
+  align-content: start;
   gap: 3px;
   min-width: 0;
+}
+
+.project-tracking-job-row__details p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .project-tracking-job-row__wide {
@@ -4334,6 +4474,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 .project-workflow-progress-editor__grid {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .project-workflow-progress-editor__intro {
@@ -4345,10 +4486,15 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   margin: 4px 0 0;
   color: var(--pt-muted, var(--text-muted));
   font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.project-workflow-progress-editor__intro > div {
+  min-width: 0;
 }
 
 .project-workflow-progress-editor__grid {
-  grid-template-columns: minmax(130px, 0.8fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(160px, 0.9fr) minmax(160px, 0.9fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   align-items: end;
 }
 
@@ -4473,8 +4619,9 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .project-workflow-assignment-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
+  min-width: 0;
   padding: 12px;
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
@@ -4982,6 +5129,29 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   .project-tracking-job-row__summary {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .project-tracking-work-card__title-row,
+  .project-tracking-work-card__actions {
+    align-items: stretch;
+  }
+
+  .project-tracking-work-card__title-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .project-tracking-work-card__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .project-tracking-work-card__actions {
+    min-width: 0;
+  }
+
+  .project-tracking-work-card__actions .project-tracking-progress-link,
+  .project-tracking-work-card__actions .project-tracking-details-toggle {
+    width: 100%;
   }
 
   .project-tracking-job-row__cell {
@@ -15877,6 +16047,7 @@ html[data-theme="light"] .reports-history-focus {
 .app-shell--desktop-sidebar .app-shell__content {
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-content: start;
 }

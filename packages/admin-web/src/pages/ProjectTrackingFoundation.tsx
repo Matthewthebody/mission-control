@@ -977,176 +977,198 @@ function ProjectTrackingJobBoard({
       </div>
       {filteredRows.length ? (
         <div className="project-tracking-job-list" role="table" aria-label="Project Tracking active work list">
-          <div className="project-tracking-job-list__header" aria-hidden="true">
-            <span>Area</span>
-            <span>Work</span>
-            <span>Next step</span>
-            <span>Next owner</span>
-            <span>Due</span>
-            <span>Blocked / due</span>
-            <span>Review state</span>
-            <span>Status</span>
-            <span>Changed</span>
-            <span>Open</span>
-          </div>
           {filteredRows.map((row) => {
             const phase = phasePresentation(row.phase, row.health);
             const expanded = expandedRows.has(row.job_id);
             const currentStep = currentStepLabel(row);
             const owner = ownerPresentation(row);
+            const route = routeForCommandWork(row);
+            const waiting = row.blocked_reason || (row.waiting_on_party !== "none" && row.waiting_on_party !== "unknown" ? waitingOnLabel(row) : null);
             return (
               <article className={`project-tracking-job-row ${phase.className}`} key={row.job_id}>
-                <div
-                  className="project-tracking-job-row__summary"
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={expanded}
-                  aria-label={`${expanded ? "Collapse" : "Expand"} ${row.job_title}`}
-                  onClick={() => onToggleRow(row.job_id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onToggleRow(row.job_id);
-                    }
-                  }}
-                >
-                  <span className="project-tracking-job-row__cell" data-label="Area">
-                    <strong title={row.organization_name ?? undefined}>{row.organization_name ?? "No account linked"}</strong>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Work">
-                    <strong title={row.job_title}>{row.job_title || "Untitled job"}</strong>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Next step">
-                    {row.workflow_run_id && row.current_step ? (
-                      <QuickWorkflowNextStepMover
-                        token={token}
-                        workflowRunId={row.workflow_run_id}
-                        pillClassName={phase.pillClassName}
-                        step={{
-                          id: row.current_step.id,
-                          name: currentStep,
-                          workflow_run_id: row.workflow_run_id,
-                          status: row.current_step.status,
-                          assigned_user_id: row.current_step.assigned_user_id,
-                          assigned_queue: row.current_step.assigned_queue,
-                          updated_at: row.current_step.updated_at
-                        }}
-                        onSaved={onWorkflowRowUpdated}
-                      />
-                    ) : (
-                      <span className={`project-tracking-step-pill ${phase.pillClassName}`} title={currentStep}>
-                        {currentStep}
+                <div className="project-tracking-job-row__summary">
+                  <div className="project-tracking-work-card__main">
+                    <div className="project-tracking-work-card__title-row">
+                      <div>
+                        <span className="project-tracking-work-card__eyebrow">{departmentLabel(row.current_step?.department)} / {row.organization_name ?? row.account_name ?? "No account linked"}</span>
+                        <h3 title={row.job_title}>{row.job_title || "Untitled work"}</h3>
+                      </div>
+                      <span className={`project-tracking-step-pill ${phase.pillClassName}`}>{phase.label}</span>
+                    </div>
+                    <div className="project-tracking-work-card__meta" aria-label={`${row.job_title} summary`}>
+                      <span>
+                        <small>Owner</small>
+                        <strong className={owner.className} title={`${owner.primary} - ${owner.secondary}`}>{owner.primary}</strong>
                       </span>
-                    )}
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Next owner">
-                    <strong className={owner.className} title={`${owner.primary} - ${owner.secondary}`}>{owner.primary}</strong>
-                    <small>{owner.secondary}</small>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Due">
-                    <strong title={row.next_deadline_at ?? undefined}>{deadlineLabel(row)}</strong>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Blocked / due">
-                    <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Review state">
-                    <strong title={row.blocked_reason || row.queue_intelligence.reason}>
-                      {row.blocked_reason || (row.rework_count ? "Waiting on review" : waitingOnLabel(row))}
-                    </strong>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Status">
-                    <strong title={`${phase.label} - ${row.current_step ? statusLabel(row.current_step.status) : healthLabel(row.health)}`}>{row.current_step ? statusLabel(row.current_step.status) : phase.label}</strong>
-                    <small className={`project-tracking-operational-status project-tracking-operational-status--${operationalToneForJob(row)}`}>
-                      {operationalStatusLabel(row)}
-                    </small>
-                  </span>
-                  <span className="project-tracking-job-row__cell" data-label="Changed">
-                    <strong title={row.updated_at}>{dateLabel(row.updated_at) ?? "Not tracked"}</strong>
-                  </span>
-                  <span className="project-tracking-job-row__cell project-tracking-job-row__action" data-label="Open">
+                      <span>
+                        <small>Due</small>
+                        <strong title={row.next_deadline_at ?? undefined}>{deadlineLabel(row)}</strong>
+                      </span>
+                      <span>
+                        <small>Next Step</small>
+                        <strong title={currentStep}>{currentStep}</strong>
+                      </span>
+                    </div>
+                    <div className="project-tracking-work-card__attention">
+                      <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
+                      <span className={`project-tracking-operational-status project-tracking-operational-status--${operationalToneForJob(row)}`}>
+                        {operationalStatusLabel(row)}
+                      </span>
+                      {waiting ? <span className="project-tracking-attention-chip">Waiting On: {waiting}</span> : null}
+                      {row.missing_info_flags.length ? <span className="project-tracking-attention-chip">Missing Info</span> : null}
+                    </div>
+                    <p className="project-tracking-work-card__next-action">{row.queue_intelligence.next_action}</p>
+                  </div>
+                  <div className="project-tracking-work-card__actions">
                     {row.workflow_run_id ? (
                       <button
                         className="project-tracking-progress-link"
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenWorkflow(row.workflow_run_id!);
-                        }}
-                        onKeyDown={(event) => event.stopPropagation()}
+                        onClick={() => onOpenWorkflow(row.workflow_run_id!)}
                       >
-                        Open work
+                        View Workflow
                       </button>
-                    ) : (
+                    ) : route.href === "#project-tracking" ? (
                       <span className="project-tracking-progress-link project-tracking-progress-link--disabled">Not connected yet</span>
+                    ) : (
+                      <a className="project-tracking-progress-link" href={route.href}>
+                        {route.label}
+                      </a>
                     )}
-                  </span>
+                    <button
+                      className="project-tracking-details-toggle"
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} ${row.job_title}`}
+                      onClick={() => onToggleRow(row.job_id)}
+                    >
+                      {expanded ? "Collapse details" : "Details"}
+                    </button>
+                  </div>
                 </div>
                 {expanded ? (
                   <div className="project-tracking-job-row__details">
-                    <div>
-                      <span>Job record</span>
-                      <strong title={row.job_id}>{row.job_number ?? row.job_code ?? row.job_id}</strong>
-                    </div>
-                    <div>
-                      <span>Linked work record</span>
-                      {row.workflow_run_id ? (
-                        <button className="project-tracking-progress-link" type="button" onClick={() => onOpenWorkflow(row.workflow_run_id!)}>
-                          Open work
-                        </button>
-                      ) : (
-                        <strong>This job is not connected to a work record yet.</strong>
-                      )}
-                    </div>
-                    <div>
-                      <span>Step details</span>
-                      <strong>{row.current_step?.description || "No extra step notes yet."}</strong>
-                    </div>
-                    <div>
-                      <span>Shared note</span>
-                      <strong>{row.current_step?.notes || "No shared note yet."}</strong>
-                    </div>
-                    <div>
-                      <span>Next action</span>
-                      <strong>{row.queue_intelligence.next_action}</strong>
-                    </div>
-                    <div>
-                      <span>Why surfaced</span>
-                      <strong>{row.queue_intelligence.reason}</strong>
-                    </div>
-                    <div>
-                      <span>Department</span>
-                      <strong>{row.queue_intelligence.owner_lane}</strong>
-                    </div>
-                    <div>
-                      <span>Clear condition</span>
-                      <strong>{row.queue_intelligence.clear_condition}</strong>
-                    </div>
-                    <div>
-                      <span>Waiting / blocker</span>
-                      <strong>{row.blocked_reason || waitingOnLabel(row)}</strong>
-                    </div>
-                    <div>
-                      <span>What changed</span>
-                      <strong>{new Date(row.updated_at).toLocaleString()}</strong>
-                    </div>
-                    <div>
-                      <span>Assigned person source</span>
-                      <strong>{owner.primary} - {owner.secondary}</strong>
-                    </div>
-                    <div>
-                      <span>Job date</span>
-                      <strong title={row.job_date ?? "Job date is not connected yet."}>{dateLabel(row.job_date) ?? "Job date not connected yet"}</strong>
-                    </div>
-                    <div>
-                      <span>File status</span>
-                      <strong>{fileStatusLabelForJob(row)}</strong>
-                    </div>
-                    {row.missing_info_flags.length ? (
-                      <div className="project-tracking-job-row__wide">
-                        <span>Missing info</span>
-                        <strong>{row.missing_info_flags.map((flag) => friendlyName(flag)).join(", ")}</strong>
+                    <section>
+                      <h4>Workflow Details</h4>
+                      <div className="project-tracking-job-row__detail-grid">
+                        <div>
+                          <span>Current step</span>
+                          <strong>{currentStep}</strong>
+                        </div>
+                        <div>
+                          <span>Step status</span>
+                          <strong>{row.current_step ? statusLabel(row.current_step.status) : phase.label}</strong>
+                        </div>
+                        <div>
+                          <span>Step details</span>
+                          <strong>{row.current_step?.description || "No extra step notes yet."}</strong>
+                        </div>
+                        {row.workflow_run_id && row.current_step ? (
+                          <div>
+                            <span>Move step</span>
+                            <QuickWorkflowNextStepMover
+                              token={token}
+                              workflowRunId={row.workflow_run_id}
+                              pillClassName={phase.pillClassName}
+                              step={{
+                                id: row.current_step.id,
+                                name: currentStep,
+                                workflow_run_id: row.workflow_run_id,
+                                status: row.current_step.status,
+                                assigned_user_id: row.current_step.assigned_user_id,
+                                assigned_queue: row.current_step.assigned_queue,
+                                updated_at: row.current_step.updated_at
+                              }}
+                              onSaved={onWorkflowRowUpdated}
+                            />
+                          </div>
+                        ) : null}
                       </div>
+                    </section>
+                    <section>
+                      <h4>Owner / Queue</h4>
+                      <div className="project-tracking-job-row__detail-grid">
+                        <div>
+                          <span>Owner</span>
+                          <strong>{owner.primary}</strong>
+                        </div>
+                        <div>
+                          <span>Owner source</span>
+                          <strong>{owner.secondary}</strong>
+                        </div>
+                        <div>
+                          <span>Department</span>
+                          <strong>{row.queue_intelligence.owner_lane}</strong>
+                        </div>
+                        <div>
+                          <span>Shared note</span>
+                          <strong>{row.current_step?.notes || "No shared note yet."}</strong>
+                        </div>
+                      </div>
+                    </section>
+                    <section>
+                      <h4>Deadlines</h4>
+                      <div className="project-tracking-job-row__detail-grid">
+                        <div>
+                          <span>Due</span>
+                          <strong>{deadlineLabel(row)}</strong>
+                        </div>
+                        <div>
+                          <span>Job date</span>
+                          <strong title={row.job_date ?? "Job date is not connected yet."}>{dateLabel(row.job_date) ?? "Job date not connected yet"}</strong>
+                        </div>
+                        <div>
+                          <span>Recent activity</span>
+                          <strong>{new Date(row.updated_at).toLocaleString()}</strong>
+                        </div>
+                      </div>
+                    </section>
+                    <section>
+                      <h4>Blockers / Waiting</h4>
+                      <div className="project-tracking-job-row__detail-grid">
+                        <div>
+                          <span>Waiting On</span>
+                          <strong>{row.blocked_reason || waitingOnLabel(row)}</strong>
+                        </div>
+                        <div>
+                          <span>Why it matters</span>
+                          <strong>{row.queue_intelligence.reason}</strong>
+                        </div>
+                        <div>
+                          <span>Clear condition</span>
+                          <strong>{row.queue_intelligence.clear_condition}</strong>
+                        </div>
+                      </div>
+                    </section>
+                    {row.missing_info_flags.length ? (
+                      <section>
+                        <h4>Missing Info</h4>
+                        <p>{row.missing_info_flags.map((flag) => friendlyName(flag)).join(", ")}</p>
+                      </section>
                     ) : null}
+                    <section>
+                      <h4>Related Job / Account</h4>
+                      <div className="project-tracking-job-row__detail-grid">
+                        <div>
+                          <span>Job record</span>
+                          <strong title={row.job_id}>{row.job_number ?? row.job_code ?? row.job_id}</strong>
+                        </div>
+                        <div>
+                          <span>File status</span>
+                          <strong>{fileStatusLabelForJob(row)}</strong>
+                        </div>
+                        <div>
+                          <span>Workflow</span>
+                          {row.workflow_run_id ? (
+                            <button className="project-tracking-progress-link" type="button" onClick={() => onOpenWorkflow(row.workflow_run_id!)}>
+                              View Workflow
+                            </button>
+                          ) : (
+                            <strong>This work is not connected to a workflow yet.</strong>
+                          )}
+                        </div>
+                      </div>
+                    </section>
                   </div>
                 ) : null}
               </article>
