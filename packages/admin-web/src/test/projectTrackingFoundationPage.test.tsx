@@ -736,11 +736,17 @@ describe("ProjectTrackingFoundation", () => {
 
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByText("Job Workflow")).toBeInTheDocument();
-    expect(screen.getByText("Jobs are the actual shoots/events. Workflow Templates are the recipe. This page is the job moving through that workflow.")).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Maple Grove Senior High Retakes" });
+    expect(screen.getAllByText("Workflow Detail").length).toBeGreaterThan(0);
+    expect(screen.getByText("Action surface for the selected job workflow.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Maple Grove Senior High Retakes" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Current State")).toHaveTextContent("Ready");
+    expect(screen.getAllByText("Work the current step: Confirm Files Received.").length).toBeGreaterThan(0);
+    expect(screen.getByText("Owner: Maya. Due: On track; exact deadline not connected yet.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Edit Workflow Steps" })).toHaveAttribute("href", "#project-tracking/workflow-templates");
     expect(screen.getByText("Edit step names, departments, and order in Workflow Templates.")).toBeInTheDocument();
-    expect(screen.getAllByText("Current step editor").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Current Step Editor").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Workflow Steps").length).toBeGreaterThan(0);
     expect(await screen.findByText("Assigned person appears in My Work. Department-only work stays in the Production Queue until a person is assigned.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Assign step to me" }));
     await waitFor(() =>

@@ -285,6 +285,23 @@ function waitingForLabel(step: ActiveWorkflowStep | undefined) {
   return "No wait";
 }
 
+function blockerWaitingLabel(step: ActiveWorkflowStep | undefined) {
+  if (!step) {
+    return "No blocker or wait";
+  }
+  if (step.waiting_on_party && step.waiting_on_party !== "none") {
+    const party = step.waiting_on_party === "unknown" ? "not set yet" : departmentLabel(step.waiting_on_party);
+    return step.waiting_detail ? `Waiting for ${party}: ${step.waiting_detail}` : `Waiting for ${party}`;
+  }
+  if (step.status === "BLOCKED") {
+    return step.exception_reason ? `Blocked: ${step.exception_reason}` : "Blocked";
+  }
+  if (step.status === "WAITING") {
+    return step.exception_reason ? `Waiting for: ${step.exception_reason}` : "Waiting for information";
+  }
+  return "No blocker or wait";
+}
+
 function handoffStatusLabel(status: ProjectWorkflowHandoff["status"]) {
   const labels: Record<ProjectWorkflowHandoff["status"], string> = {
     pending: "Ready for Production",
@@ -314,6 +331,58 @@ function nextDeadlineLabel(step: ActiveWorkflowStep | undefined) {
     return "On track; exact deadline not connected yet";
   }
   return `${state}; exact deadline not connected yet`;
+}
+
+function workflowStatusLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Status not set";
+  }
+  return friendlyName(value);
+}
+
+function jobTypeLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Not classified";
+  }
+  return friendlyName(value);
+}
+
+function currentStateLabel(step: ActiveWorkflowStep | undefined) {
+  if (!step) {
+    return "Complete";
+  }
+  if (step.status === "BLOCKED") {
+    return "Blocked";
+  }
+  if (step.status === "WAITING") {
+    return "Waiting";
+  }
+  if (step.status === "OVERDUE" || step.timing.health_state === "red") {
+    return "At Risk";
+  }
+  if (step.status === "COMPLETE") {
+    return "Complete";
+  }
+  return "Ready";
+}
+
+function workflowHealthChip(step: ActiveWorkflowStep | undefined) {
+  if (!step) {
+    return { label: "Complete", className: "project-workflow-status-chip--complete" };
+  }
+  if (step.status === "BLOCKED") {
+    return { label: "Blocked", className: "project-workflow-status-chip--blocked" };
+  }
+  if (step.status === "WAITING" || step.waiting_on_party) {
+    return { label: "Waiting On", className: "project-workflow-status-chip--waiting" };
+  }
+  if (step.status === "OVERDUE" || step.timing.health_state === "red") {
+    return { label: "At Risk", className: "project-workflow-status-chip--risk" };
+  }
+  if (step.timing.health_state === "yellow") {
+    return { label: "At Risk", className: "project-workflow-status-chip--risk" };
+  }
+  return { label: "Ready", className: "project-workflow-status-chip--ready" };
 }
 
 function deriveReadinessState(workflow: ProjectWorkflowInstance, activeStep: ActiveWorkflowStep | undefined, steps: ActiveWorkflowStep[]): { label: WorkflowReadinessState; detail: string } {
@@ -658,6 +727,15 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
   const recentCompleted = recentlyCompletedStep(allSteps);
   const canClawBackRecentStep = Boolean(activeStep && recentCompleted && recentCompleted.id !== activeStep.id);
   const lastUpdated = lastWorkflowUpdate(workflow, allSteps);
+  const healthChip = workflowHealthChip(activeStep);
+  const waitingLabel = waitingForLabel(activeStep);
+  const blockerWaiting = blockerWaitingLabel(activeStep);
+  const hasWaitingOrBlocker = Boolean(
+    activeStep &&
+      (activeStep.status === "BLOCKED" ||
+        activeStep.status === "WAITING" ||
+        (activeStep.waiting_on_party && activeStep.waiting_on_party !== "none"))
+  );
 
   const assignCurrentStepToMe = async () => {
     if (!activeStep) {
@@ -752,9 +830,9 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
     <section className="panel project-workflow-map">
       <div className="project-workflow-map__header">
         <div>
-          <div className="section-title">Job Workflow</div>
+          <div className="section-title">Workflow Detail</div>
           <p className="section-subtitle">
-            Jobs are the actual shoots/events. Workflow Templates are the recipe. This page is the job moving through that workflow.
+            Action surface for the selected job workflow.
           </p>
         </div>
         <div className="project-tracking-board-header__actions">
@@ -769,27 +847,89 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         </div>
       </div>
 
+      <section className="project-workflow-detail-hero" aria-labelledby="workflow-detail-title">
+        <div className="project-workflow-detail-hero__summary">
+          <span className="metric-label">Workflow Detail</span>
+          <h1 id="workflow-detail-title" title={workflow.job.title}>{workflow.job.title}</h1>
+          <p>
+            {jobTypeLabel(workflow.job.job_type)} for {workflow.job.organization_name ?? "No account linked"}
+          </p>
+          <div className="project-workflow-status-row" aria-label="Current workflow status">
+            <span className={`project-workflow-status-chip ${healthChip.className}`}>{healthChip.label}</span>
+            <span className="project-workflow-status-chip project-workflow-status-chip--neutral">Status: {workflowStatusLabel(workflow.workflow_run.status)}</span>
+            <span className="project-workflow-status-chip project-workflow-status-chip--neutral">Step: {activeStep ? statusLabel(activeStep.status) : "Complete"}</span>
+            {hasWaitingOrBlocker ? <span className="project-workflow-status-chip project-workflow-status-chip--waiting">{waitingLabel}</span> : null}
+          </div>
+        </div>
+        <div className="project-workflow-current-state" aria-label="Current State">
+          <div>
+            <span className="metric-label">Current State</span>
+            <strong>{currentStateLabel(activeStep)}</strong>
+          </div>
+          <div>
+            <span className="metric-label">Current Step</span>
+            <strong>{activeStep?.name ?? "No active step"}</strong>
+            <small>{activeStep?.milestone_name ?? "Workflow complete or waiting for setup"}</small>
+          </div>
+          <div>
+            <span className="metric-label">Owner</span>
+            <strong>{activeStep ? assignmentLabel(activeStep) : "No active owner"}</strong>
+            <small>{activeStep ? departmentLabel(activeStep.department) : "No active department"}</small>
+          </div>
+          <div>
+            <span className="metric-label">Due</span>
+            <strong>{nextDeadlineLabel(activeStep)}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="project-workflow-next-action" aria-labelledby="workflow-next-action-title">
+        <div>
+          <span className="metric-label">Next Action</span>
+          <h2 id="workflow-next-action-title">{nextActionLabel(activeStep)}</h2>
+          <p>
+            {activeStep
+              ? `Owner: ${assignmentLabel(activeStep)}. Due: ${nextDeadlineLabel(activeStep)}.`
+              : "No active workflow step is waiting for action."}
+          </p>
+        </div>
+        <div className="project-workflow-next-action__context">
+          <div>
+            <span>Blocked / Waiting</span>
+            <strong>{blockerWaiting}</strong>
+          </div>
+          <div>
+            <span>Activity</span>
+            <strong>{formatDateTime(lastUpdated)}</strong>
+          </div>
+          <div>
+            <span>Primary Controls</span>
+            <strong>{activeStep ? "Use current step editor and quick actions below" : "No action controls available"}</strong>
+          </div>
+        </div>
+      </section>
+
       <div className="project-workflow-map__context-grid">
         <div>
-          <span className="metric-label">Job</span>
+          <span className="metric-label">Related Job</span>
           <strong title={workflow.job.title}>{workflow.job.title}</strong>
         </div>
         <div>
-          <span className="metric-label">Account</span>
+          <span className="metric-label">Related Account</span>
           <strong title={workflow.job.organization_name ?? undefined}>{workflow.job.organization_name ?? "No account linked"}</strong>
         </div>
         <div>
           <span className="metric-label">Workflow</span>
           <strong title={workflow.workflow_run.template_name ?? workflow.workflow_run.template_key}>{workflow.workflow_run.template_name ?? workflow.workflow_run.template_key}</strong>
-          <small>{canEditWorkflowRecipe ? "Edit step names, departments, and order in Workflow Templates." : "Template recipe copied into this job workflow."}</small>
+          <small>{canEditWorkflowRecipe ? "Edit step names, departments, and order in Workflow Templates." : "Workflow setup copied into this job."}</small>
         </div>
         <div>
-          <span className="metric-label">Organization / District</span>
-          <strong>Not linked on this workflow run</strong>
+          <span className="metric-label">Department</span>
+          <strong>{activeStep ? departmentLabel(activeStep.department) : "No active department"}</strong>
         </div>
         <div>
           <span className="metric-label">Job Type</span>
-          <strong>{workflow.job.job_type?.replace(/_/g, " ") ?? "Not classified"}</strong>
+          <strong>{jobTypeLabel(workflow.job.job_type)}</strong>
         </div>
         <div>
           <span className="metric-label">Template Version</span>
@@ -882,13 +1022,13 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
       </div>
 
       <p className="project-workflow-map__truth-note">
-        V1 readiness labels are derived from this job workflow's steps. Schools-to-Production handoffs, department-first claims, missing-info waits, and returns are now persisted; full staff assignment history is still future work.
+        Readiness labels come from this job workflow's steps, handoffs, waiting state, and recent updates.
       </p>
 
       <section className="project-workflow-handoff-history" aria-label="Production handoff history">
         <div className="project-workflow-handoff-history__header">
           <div>
-            <span className="metric-label">Production handoff</span>
+            <span className="metric-label">Activity</span>
             <strong>{activeProductionHandoff ? handoffStatusLabel(activeProductionHandoff.status) : "No active Production handoff"}</strong>
           </div>
           <p>Durable record of Schools sending work to Production and Production returning it to Schools.</p>
@@ -939,10 +1079,10 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
       <form className="project-workflow-progress-editor" onSubmit={(event) => void submitProgressUpdate(event)}>
         <div className="project-workflow-progress-editor__intro">
           <div>
-            <span className="metric-label">Current step editor</span>
+            <span className="metric-label">Current Step Editor</span>
               <strong>{activeStep?.name ?? "Workflow complete"}</strong>
             <p>
-              Update this job's current step here. These controls do not change the Workflow Template recipe.
+              Update this job's current step here.
             </p>
           </div>
           {saveNotice ? <span className="project-workflow-progress-editor__success">{saveNotice}</span> : null}
@@ -1052,7 +1192,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         <section className="project-workflow-action-panel" aria-label="Job workflow actions">
           <div className="project-workflow-action-panel__header">
             <div>
-              <span className="metric-label">Quick actions</span>
+              <span className="metric-label">Quick Actions</span>
               <strong>Move this job forward</strong>
             </div>
             <p>Use these for common Schools and Production handoffs without leaving this workflow.</p>
@@ -1214,6 +1354,11 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         </section>
       ) : null}
 
+      <div className="project-workflow-section-heading">
+        <span className="metric-label">Workflow Steps</span>
+        <h2>Workflow Steps</h2>
+        <p>Milestones and step state for this workflow.</p>
+      </div>
       <div className="workflow-map-grid">
         {workflow.milestones.map((milestone) => (
           <details className="workflow-map-milestone" key={milestone.id} open={milestone.steps.some((step) => step.id === activeStep?.id)}>
