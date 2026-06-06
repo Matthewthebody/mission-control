@@ -435,6 +435,11 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByRole("button", { name: /Saved views planned/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Mine filter" })).toBeInTheDocument();
     expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+    const viewModes = screen.getByLabelText("Project Tracking view modes");
+    expect(within(viewModes).getByRole("button", { name: /Command/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "false");
+    expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "false");
+    expect(within(viewModes).getByRole("button", { name: /Timeline Preview/i })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("list", { name: "Project Tracking active work list" })).toBeInTheDocument();
     expect(screen.getAllByText("Owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due").length).toBeGreaterThan(0);
@@ -454,6 +459,26 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByText("mission_control_demo_school_portraits")).not.toBeInTheDocument();
     expect(screen.queryByText("No workflow linked")).not.toBeInTheDocument();
     expect(screen.queryByText("Job record")).not.toBeInTheDocument();
+
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Board/i }));
+    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Project Tracking board lanes")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Blocked \/ Needs Action, 2 items/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /View workflow for/i }).length).toBeGreaterThan(0);
+
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Table/i }));
+    expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("table", { name: "Project Tracking table view" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Next Action" })).toBeInTheDocument();
+
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Timeline Preview/i }));
+    expect(within(viewModes).getByRole("button", { name: /Timeline Preview/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Project Tracking timeline preview")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Overdue \/ Blocked, 2 items/i })).toBeInTheDocument();
+
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Command/i }));
+    expect(within(viewModes).getByRole("button", { name: /Command/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("list", { name: "Project Tracking active work list" })).toBeInTheDocument();
 
     const expandMaple = screen.getByRole("button", { name: /Expand details for Maple Grove Senior High Retakes/i });
     expect(expandMaple).toHaveAttribute("aria-expanded", "false");
