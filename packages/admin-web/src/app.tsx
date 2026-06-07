@@ -333,12 +333,14 @@ export default function App() {
   const isScheduleSectionRoute = currentRoute.sectionKey === "schedule";
   const isJobsSectionRoute = currentRoute.sectionKey === "jobs";
   const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
+  const isPhotographySectionRoute = currentRoute.sectionKey === "photography";
+  const isPhotographyOverviewRoute = guardedRouteId === "studios";
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
   const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
   const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
   const visibleContextUtilityRoutes =
-    isHomeRoute || isMyWorkSectionRoute || isScheduleSectionRoute || isJobsSectionRoute || isDirectoryRoute
+    isHomeRoute || isMyWorkSectionRoute || isScheduleSectionRoute || isJobsSectionRoute || isDirectoryRoute || isPhotographySectionRoute
       ? []
       : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
@@ -866,7 +868,7 @@ export default function App() {
           </aside>
 
           <div className="app-shell__content">
-            {!isHomeRoute && !isMyWorkLaunchpadRoute ? (
+            {!isHomeRoute && !isMyWorkLaunchpadRoute && !isPhotographyOverviewRoute ? (
               <header className={`shell-topbar panel${headerCollapsed ? " shell-topbar--collapsed" : ""}`}>
                 <div className="shell-topbar__heading">
                   <div className="eyebrow">{activeSectionDefinition?.label ?? "Mission Control"}</div>

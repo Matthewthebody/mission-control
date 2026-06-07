@@ -16525,15 +16525,86 @@ html[data-theme="light"] .home-command-preview-pill--info {
 .studios-workspace__day-panel,
 .studios-workspace__job-prep-panel,
 .studios-workspace__travel-panel,
-.studios-workspace__focus-card {
+.studios-workspace__focus-card,
+.studios-workspace__open-first,
+.studios-workspace__week-panel {
   display: grid;
   gap: 1rem;
+}
+
+.studios-workspace__open-first-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 0.65rem;
+}
+
+.studios-workspace__open-first-action {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  min-height: 98px;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.studios-workspace__open-first-action:hover,
+.studios-workspace__open-first-action:focus-visible,
+.studios-workspace__week-day-list button:hover,
+.studios-workspace__week-day-list button:focus-visible {
+  border-color: color-mix(in srgb, var(--brand-blue-bright) 42%, var(--border));
+}
+
+.studios-workspace__open-first-action span,
+.studios-workspace__week-day-heading span,
+.studios-workspace__week-day-list button span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.studios-workspace__open-first-action strong {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.studios-workspace__open-first-action small,
+.studios-workspace__week-day p,
+.studios-workspace__week-day-list button small {
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.studios-workspace__open-first-action--danger {
+  border-color: color-mix(in srgb, var(--danger) 48%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-2));
+}
+
+.studios-workspace__open-first-action--warning {
+  border-color: color-mix(in srgb, var(--warm-accent) 48%, transparent);
+  background: color-mix(in srgb, var(--warm-accent) 11%, var(--surface-2));
+}
+
+.studios-workspace__open-first-action--success {
+  border-color: color-mix(in srgb, var(--success) 42%, transparent);
+  background: color-mix(in srgb, var(--success) 11%, var(--surface-2));
+}
+
+.studios-workspace__open-first-action--info {
+  border-color: color-mix(in srgb, var(--brand-blue-bright) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-blue) 11%, var(--surface-2));
 }
 
 .studios-workspace__day-header,
 .studios-workspace__job-prep-header,
 .studios-workspace__travel-header,
-.studios-workspace__travel-location-card {
+.studios-workspace__travel-location-card,
+.studios-workspace__week-header {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -16543,7 +16614,8 @@ html[data-theme="light"] .home-command-preview-pill--info {
 
 .studios-workspace__day-summary,
 .studios-workspace__focus-actions,
-.studios-workspace__travel-header-actions {
+.studios-workspace__travel-header-actions,
+.studios-workspace__week-actions {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
@@ -16606,6 +16678,55 @@ html[data-theme="light"] .home-command-preview-pill--info {
 .studios-workspace__day-details dd {
   margin: 0;
   color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.studios-workspace__week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.studios-workspace__week-day {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.studios-workspace__week-day.is-today {
+  border-color: color-mix(in srgb, var(--brand-blue-bright) 42%, var(--border));
+  background: color-mix(in srgb, var(--brand-blue) 9%, var(--surface-2));
+}
+
+.studios-workspace__week-day-heading {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.studios-workspace__week-day-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.studios-workspace__week-day-list button {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  padding: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  color: var(--text);
+  text-align: left;
+}
+
+.studios-workspace__week-day-list button strong {
+  overflow-wrap: anywhere;
 }
 
 .studios-workspace__prep-summary-grid,
@@ -16619,7 +16740,10 @@ html[data-theme="light"] .home-command-preview-pill--info {
 
 .studios-workspace__prep-info-card,
 .studios-workspace__travel-info-card {
+  min-width: 0;
+  max-width: 100%;
   padding: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .studios-workspace__prep-info-card--wide {
@@ -16628,8 +16752,20 @@ html[data-theme="light"] .home-command-preview-pill--info {
 
 .studios-workspace__prep-info-card ul,
 .studios-workspace__travel-info-card ul {
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 0;
   padding-left: 1.1rem;
+}
+
+.studios-workspace__prep-info-card > *,
+.studios-workspace__travel-info-card > *,
+.studios-workspace__prep-info-card li,
+.studios-workspace__travel-info-card li {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .studios-workspace__job-prep-notice {
@@ -16652,13 +16788,20 @@ html[data-theme="light"] .studios-workspace__launch-card,
 html[data-theme="light"] .studios-workspace__prep-info-card,
 html[data-theme="light"] .studios-workspace__travel-info-card,
 html[data-theme="light"] .studios-workspace__day-card,
-html[data-theme="light"] .studios-workspace__day-summary span {
+html[data-theme="light"] .studios-workspace__day-summary span,
+html[data-theme="light"] .studios-workspace__open-first-action,
+html[data-theme="light"] .studios-workspace__week-day,
+html[data-theme="light"] .studios-workspace__week-day-list button {
   background: var(--surface-raised);
 }
 
 @media (max-width: 900px) {
   .studios-workspace__day-card {
     grid-template-columns: 1fr;
+  }
+
+  .studios-workspace__week-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 
   .studios-workspace__prep-info-card--wide {

@@ -519,6 +519,60 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
   });
 
+  it("keeps the Photography overview free of duplicate shell title and Quick Access clutter", async () => {
+    window.localStorage.setItem("pmc_admin_token", "photography-token");
+    window.location.hash = "#studios";
+
+    const photographyUser: SessionUser = {
+      id: "user-photography",
+      tenantId: "tenant-demo",
+      accountId: "account-photography",
+      sessionId: "session-photography",
+      email: "photography@example.com",
+      fullName: "Photography User",
+      status: "active",
+      department: "photography",
+      isEmailVerified: true,
+      authVersion: 1,
+      roles: ["photographer"],
+      permissions: ["dashboard.read", "shoot.read", "schedule.read", "job.read", "project.read"],
+      authorityTier: "standard_employee",
+      primaryJobFunctionProfile: "lead_photographer",
+      jobFunctionProfiles: ["lead_photographer"],
+      permissionGrants: [],
+      effectiveScopes: ["department_scope"],
+      sessionTrust
+    };
+
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/auth/session") {
+        return { user: photographyUser };
+      }
+      if (path.startsWith("/api/jobs")) {
+        return { jobs: [] };
+      }
+      if (path.startsWith("/api/workflows/command-center")) {
+        return {
+          generated_at: "2026-06-05T12:00:00.000Z",
+          view: "department",
+          summary: {},
+          alerts: [],
+          steps: [],
+          job_rows: []
+        };
+      }
+      throw new Error(`Unexpected app call: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Photography", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Photography", level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.getByText("Open First")).toBeInTheDocument();
+  });
+
   it("keeps the My Work launchpad free of duplicate shell title and Quick Access clutter", async () => {
     window.localStorage.setItem("pmc_admin_token", "my-work-token");
     window.location.hash = "#my-work";

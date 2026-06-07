@@ -398,7 +398,7 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "studios-shoots",
-    label: "Day at a Glance",
+    label: "Today's Shoots",
     sectionKey: "photography",
     description: "Same-day Photography schedule for timing, locations, leads, crew counts, readiness, and field attention flags.",
     canonicalHash: "#studios/shoots",
@@ -528,9 +528,9 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "studios-calendar",
-    label: "30-Day Calendar",
+    label: "Weekly Calendar",
     sectionKey: "photography",
-    description: "30-day Photography planning view over the shared master schedule.",
+    description: "Weekly Photography planning entry point over the shared master schedule.",
     canonicalHash: "#studios/calendar",
     visibleTabs: ["calendar"],
     visibleForEmployeeOnly: true,
