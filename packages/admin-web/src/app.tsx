@@ -330,13 +330,15 @@ export default function App() {
   const isHomeRoute = guardedRouteId === "dashboard";
   const isScheduleSectionRoute = currentRoute.sectionKey === "schedule";
   const isJobsSectionRoute = currentRoute.sectionKey === "jobs";
+  const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
-  const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : currentRoute.label;
+  const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
   const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
   const visibleContextUtilityRoutes =
-    isHomeRoute || isScheduleSectionRoute || isJobsSectionRoute ? [] : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
+    isHomeRoute || isScheduleSectionRoute || isJobsSectionRoute || isDirectoryRoute ? [] : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
+  const showTopbarMeta = !isDirectoryRoute;
   const desktopNavGroups = buildDesktopNavGroups(primarySections);
   const sectionLandingCards =
     currentRoute.sectionKey != null
@@ -886,6 +888,7 @@ export default function App() {
                     <span className="concierge-shell-trigger__shortcut">Cmd/Ctrl + K</span>
                   </button>
                   <GlobalPunchControl token={token} currentUser={currentUser} />
+                  {showTopbarMeta ? (
                   <div className="shell-topbar__meta">
                     <div className={`status-pill status-pill--${realtimeStatus}`}>{getRealtimeStatusLabel(realtimeStatus)}</div>
                     <div
@@ -901,6 +904,7 @@ export default function App() {
                     </div>
                     <div className="metric-pill metric-pill--identity">{getShellRoleLabel(currentUser)}</div>
                   </div>
+                  ) : null}
                 </div>
               </header>
             ) : null}

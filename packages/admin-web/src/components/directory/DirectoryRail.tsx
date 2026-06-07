@@ -223,7 +223,7 @@ export function DirectoryRail({
 
       <div className="directory-rail__filters directory-rail__filters--primary">
         <label className="directory-field directory-field--wide">
-          <span>Search</span>
+          <span>Search clients, organizations, contacts, and locations</span>
           <input
             aria-label="Search directory"
             placeholder={searchPlaceholderForView(view)}
@@ -410,10 +410,10 @@ export function DirectoryRail({
             </strong>
             <span className="muted">
               {view === "organizations"
-                ? "Canonical accounts only"
+                ? "Organization records"
                 : view === "contacts"
-                  ? "People records only"
-                  : "Location records only"}
+                  ? "Contact records"
+                  : "Location records"}
             </span>
           </div>
           {view === "organizations"
@@ -508,32 +508,25 @@ export function DirectoryRail({
 function headingForView(view: DirectoryView) {
   switch (view) {
     case "contacts":
-      return "Find the right person fast";
+      return "Contacts";
     case "locations":
-      return "Find the right place fast";
+      return "Locations";
     default:
-      return "Find the right canonical record";
+      return "Organizations";
   }
 }
 
 function descriptionForView(view: DirectoryView) {
   switch (view) {
     case "contacts":
-      return "Stay in the people slice until you need deeper relationship maintenance. Contact cleanup and ownership stay visible without turning the rail into a giant CRM form.";
+      return "Find a person, see who they belong to, and open the full record only when you need detail.";
     case "locations":
-      return "Browse locations as location records, not as another contact list. Address context stays quick, and deeper maintenance stays in the workspace.";
+      return "Find a place, confirm the related organization, and open the record when location detail matters.";
     default:
-      return "Directory should answer what this record is, who owns it, and how it connects. The rail stays light so the detail view can do the real work.";
+      return "Find the school, sports organization, client, or account before opening the full record.";
   }
 }
 
 function searchPlaceholderForView(view: DirectoryView) {
-  switch (view) {
-    case "contacts":
-      return "Search people";
-    case "locations":
-      return "Search locations";
-    default:
-      return "Search organizations";
-  }
+  return "Search for a school, sports org, contact, or location...";
 }

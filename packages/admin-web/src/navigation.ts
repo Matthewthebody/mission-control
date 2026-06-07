@@ -115,7 +115,7 @@ type RouteRender =
   | { kind: "sports-settings" }
   | { kind: "files-workspace" }
   | { kind: "checklist-templates" }
-  | { kind: "directory"; entryView: "organizations" | "contacts"; defaultContactAudience?: "all" | "company" }
+  | { kind: "directory"; entryView: "organizations" | "contacts" | "locations"; defaultContactAudience?: "all" | "company" }
   | {
       kind: "admin-system";
       view: "overview" | "foundation" | "communications" | "diagnostics" | "audit" | "sync" | "repairs" | "access-debug" | "imports" | "exports" | "trace";
@@ -624,7 +624,7 @@ const ROUTES: RouteDefinition[] = [
     visibleTabs: ["organizations", "contacts"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
-    showInSectionNav: true,
+    showInSectionNav: false,
     render: { kind: "client-command-center" }
   },
   {
@@ -1087,7 +1087,7 @@ const ROUTES: RouteDefinition[] = [
     visibleForEmployeeOnly: true,
     visibleForFullShell: true,
     showInSectionNav: true,
-    render: { kind: "tab", tab: "locations" }
+    render: { kind: "directory", entryView: "locations", defaultContactAudience: "all" }
   },
   {
     id: "directory-accounts",
@@ -1834,7 +1834,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   production: ["production-workflow-queue", "graphics-queue", "graphics-workload", "graphics-qa", "graphics-release", "files"],
   "project-tracking": ["prep-readiness-queue"],
   jobs: [],
-  contacts: ["directory-accounts", "directory-contacts", "client-command-center", "directory-locations"],
+  contacts: ["directory-accounts", "directory-contacts", "directory-locations"],
   schedule: ["operations-schedule", "operations-scheduling"],
   "hr-admin": [
     "people-ops",

@@ -519,6 +519,105 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
   });
 
+  it("keeps the Directory route focused on lookup without generic shell status clutter", async () => {
+    window.localStorage.setItem("pmc_admin_token", "directory-token");
+    window.location.hash = "#accounts";
+
+    const directoryUser: SessionUser = {
+      id: "user-directory",
+      tenantId: "tenant-demo",
+      accountId: "account-directory",
+      sessionId: "session-directory",
+      email: "directory@example.com",
+      fullName: "Directory User",
+      status: "active",
+      department: "operations",
+      isEmailVerified: true,
+      authVersion: 1,
+      roles: ["leadership"],
+      permissions: ["dashboard.read", "directory.read", "organizations.read", "contacts.read", "shoot_locations.view", "user.read"],
+      authorityTier: "leadership",
+      primaryJobFunctionProfile: "leadership_team_member",
+      jobFunctionProfiles: ["leadership_team_member"],
+      permissionGrants: [],
+      effectiveScopes: ["organization_wide_scope"],
+      sessionTrust
+    };
+
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/auth/session") {
+        return { user: directoryUser };
+      }
+      if (path === "/api/organizations/internal-owners") {
+        return { owners: [] };
+      }
+      if (path.startsWith("/api/organizations?")) {
+        return { organizations: [], search: { query: "", total: 0 } };
+      }
+      throw new Error(`Unexpected app call: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
+    expect(screen.queryByText("Standard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Team Member")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Client Command Center" })).not.toBeInTheDocument();
+  });
+
+  it("routes Directory Locations to the address-book lookup surface", async () => {
+    window.localStorage.setItem("pmc_admin_token", "directory-locations-token");
+    window.location.hash = "#directory/locations";
+
+    const directoryUser: SessionUser = {
+      id: "user-directory-locations",
+      tenantId: "tenant-demo",
+      accountId: "account-directory-locations",
+      sessionId: "session-directory-locations",
+      email: "directory.locations@example.com",
+      fullName: "Directory Locations User",
+      status: "active",
+      department: "operations",
+      isEmailVerified: true,
+      authVersion: 1,
+      roles: ["leadership"],
+      permissions: ["dashboard.read", "directory.read", "organizations.read", "contacts.read", "shoot_locations.view", "user.read"],
+      authorityTier: "leadership",
+      primaryJobFunctionProfile: "leadership_team_member",
+      jobFunctionProfiles: ["leadership_team_member"],
+      permissionGrants: [],
+      effectiveScopes: ["organization_wide_scope"],
+      sessionTrust
+    };
+
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/auth/session") {
+        return { user: directoryUser };
+      }
+      if (path === "/api/organizations/internal-owners") {
+        return { owners: [] };
+      }
+      if (path.startsWith("/api/organizations/locations")) {
+        return { locations: [], search: { query: "", total: 0 } };
+      }
+      if (path.startsWith("/api/organizations?")) {
+        return { organizations: [], search: { query: "", total: 0 } };
+      }
+      throw new Error(`Unexpected app call: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Use Locations when the place matters first, then open the connected organization for the full record.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Locations" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
+    expect(screen.queryByText("Kemmetmueller Location Guide")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Client Command Center" })).not.toBeInTheDocument();
+  });
+
   it("renders the communications launcher in the authenticated shell", async () => {
     window.localStorage.setItem("pmc_admin_token", "shell-token");
     window.location.hash = "#dashboard";

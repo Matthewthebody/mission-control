@@ -1946,31 +1946,20 @@ describe("organizations workflow surface", () => {
     expect(screen.getByText("Linked Production (1)")).toBeInTheDocument();
     expect(screen.getByText(/Timeline \(/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Log communication" }).length).toBeGreaterThan(0);
-
-    const relatedWorkPanel = screen.getByLabelText("Directory related work links");
-    expect(within(relatedWorkPanel).getByText("Related Work Links")).toBeInTheDocument();
-    expect(within(relatedWorkPanel).getByText("Post-Shoot Production Wrap")).toBeInTheDocument();
-    expect(within(relatedWorkPanel).getByText("Project Tracking")).toBeInTheDocument();
-
-    fireEvent.click(within(relatedWorkPanel).getByRole("button", { name: "Open in Project Tracking" }));
-    await waitFor(() => {
-      expect(window.location.hash).toBe("#project-tracking/workflows/workflow-related-1");
-    });
+    expect(screen.queryByLabelText("Directory related work links")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open in Project Tracking" })).not.toBeInTheDocument();
   });
 
-  it("keeps contact records honest when no direct work link exists", async () => {
+  it("keeps contact records focused on address-book context when no direct work link exists", async () => {
     createDirectoryHarness();
     window.history.replaceState(null, "", "#directory/contacts");
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    const relatedWorkPanel = await screen.findByLabelText("Directory related work links");
-
-    expect(within(relatedWorkPanel).getByText("Relationship Context")).toBeInTheDocument();
-    expect(within(relatedWorkPanel).getByText("Connected organization: White Bear Lake High School")).toBeInTheDocument();
-    expect(within(relatedWorkPanel).getByText(/does not have a direct work link/i)).toBeInTheDocument();
-    expect(within(relatedWorkPanel).getByRole("button", { name: "Open organization" })).toBeInTheDocument();
-    expect(within(relatedWorkPanel).queryByText(/Active work:/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Operational Role")).toBeInTheDocument();
+    expect(screen.getByText("Contact Record")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Directory related work links")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open organization" })).not.toBeInTheDocument();
   });
 
   it("shows a school-focused detail panel with overview, rules, and timeline context", async () => {
@@ -2060,7 +2049,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     await waitFor(() => {
       expect(
         apiFetchMock.mock.calls.some(
@@ -2075,6 +2064,7 @@ describe("organizations workflow surface", () => {
       apiFetchMock.mock.calls.some(([path]) => typeof path === "string" && path.startsWith("/api/organizations/locations?"))
     ).toBe(false);
     expect(screen.getByRole("button", { name: /Company Directory/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
     expect(await screen.findByText("Operational Role")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Organizations/i }));
@@ -2089,7 +2079,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByText("Find the right canonical record fast")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
     await waitFor(() => {
       expect(
         apiFetchMock.mock.calls.some(([path]) => typeof path === "string" && path.startsWith("/api/organizations?"))
@@ -2103,29 +2093,24 @@ describe("organizations workflow surface", () => {
     ).toBe(false);
   });
 
-  it("surfaces source-of-truth checks and routes work actions to existing hubs", async () => {
+  it("frames Directory as a searchable client lookup instead of a status dashboard", async () => {
     createDirectoryHarness();
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
-    const sourceOfTruthHub = await screen.findByLabelText("Contacts and Organizations source-of-truth checks");
-
-    expect(within(sourceOfTruthHub).getByText("Contacts + Organizations Source of Truth")).toBeInTheDocument();
-    expect(within(sourceOfTruthHub).getByText("Confirm the record before work moves")).toBeInTheDocument();
-    expect(within(sourceOfTruthHub).getByText("Current view")).toBeInTheDocument();
-    expect(within(sourceOfTruthHub).getByText("Needs follow-up")).toBeInTheDocument();
-    expect(within(sourceOfTruthHub).getByText("Owner gaps")).toBeInTheDocument();
-    expect(within(sourceOfTruthHub).getByText("Primary contacts")).toBeInTheDocument();
-
-    fireEvent.click(within(sourceOfTruthHub).getByRole("button", { name: "View in Project Tracking" }));
-    await waitFor(() => {
-      expect(window.location.hash).toBe("#project-tracking");
-    });
-
-    fireEvent.click(within(sourceOfTruthHub).getByRole("button", { name: "Review Relationship Health" }));
-    await waitFor(() => {
-      expect(window.location.hash).toBe("#directory/accounts");
-    });
+    expect(await screen.findByRole("heading", { name: "Directory" })).toBeInTheDocument();
+    expect(screen.getByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Organizations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Contacts" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Locations" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Contacts and Organizations source-of-truth checks")).not.toBeInTheDocument();
+    expect(screen.queryByText("Current view")).not.toBeInTheDocument();
+    expect(screen.queryByText("Needs follow-up")).not.toBeInTheDocument();
+    expect(screen.queryByText("Owner gaps")).not.toBeInTheDocument();
+    expect(screen.queryByText("Primary contacts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View in Project Tracking" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
   });
 
   it("shows a focused import workflow with duplicate warnings from the Contacts workspace", async () => {
@@ -2134,7 +2119,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2161,7 +2146,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2178,7 +2163,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2216,7 +2201,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     expect(await screen.findByText("Relationship History")).toBeInTheDocument();
     expect(screen.getByText("Current Organizations")).toBeInTheDocument();
     expect(screen.getByText("Previous Organizations")).toBeInTheDocument();
@@ -2249,7 +2234,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     await waitFor(() => {
       expect(harness.getContactDetailRequests()).toContain("contact-1");
     });
@@ -2284,7 +2269,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Keep people visible, not buried inside accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Primary owner")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /show advanced filters/i }));
