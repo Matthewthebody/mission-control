@@ -436,6 +436,12 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByText("Running late").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs Attention").length).toBeGreaterThan(0);
+    const runningLateStatusChip = screen.getAllByText("Running late").find((element) => element.classList.contains("project-tracking-status-chip"));
+    expect(runningLateStatusChip).toHaveClass("project-tracking-status-chip--blocked");
+    const blockedStatusChip = screen.getAllByText("Blocked").find((element) => element.classList.contains("project-tracking-status-chip"));
+    expect(blockedStatusChip).toHaveClass("project-tracking-status-chip--blocked");
+    const highPriorityChip = screen.getAllByText("High").find((element) => element.classList.contains("project-tracking-priority-chip"));
+    expect(highPriorityChip).toHaveClass("project-tracking-priority-chip--high");
     expect(screen.getAllByRole("button", { name: /View workflow for/i }).length).toBeGreaterThan(0);
     expect(screen.queryByText("School Portraits Workflow")).not.toBeInTheDocument();
     expect(screen.queryByText("mission_control_demo_school_portraits")).not.toBeInTheDocument();
@@ -545,6 +551,21 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
+  });
+
+  it("shows a calm Project Tracking data notice instead of raw unavailable error copy", async () => {
+    getProjectWorkflowCommandCenterMock.mockRejectedValueOnce(new Error("Internal server error"));
+
+    render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
+
+    expect(await screen.findByRole("status", { name: "Project data notice" })).toBeInTheDocument();
+    expect(screen.getByText("Project data is not available in this demo view. Refresh if this does not resolve.")).toBeInTheDocument();
+    expect(screen.queryByText(/Project Tracking did not load/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Project dashboard is unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Internal server error/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Project Health")).toBeInTheDocument();
+    expect(screen.getByText("Project Board")).toBeInTheDocument();
   });
 
   it("uses Needs Attention Review actions as temporary filters without breaking preset lenses", async () => {

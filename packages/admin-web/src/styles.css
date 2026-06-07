@@ -3770,6 +3770,32 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   line-height: 1.35;
 }
 
+.project-tracking-inline-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #7aa2d6;
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: #f8fbff;
+  color: #334155;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.project-tracking-inline-notice strong {
+  color: #163d68;
+}
+
+.project-tracking-inline-notice p {
+  margin: 0;
+  color: #475569;
+}
+
 .project-tracking-metric-grid .metric-label {
   min-width: 0;
   overflow: hidden;
@@ -4707,6 +4733,63 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   color: #6c4312;
   background: #ffedd2;
   border-color: #f3c17d;
+}
+
+.project-tracking-status-chip,
+.project-tracking-priority-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.project-tracking-status-chip--todo,
+.project-tracking-priority-chip--normal {
+  border-color: #cbd5e1;
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.project-tracking-status-chip--in-progress {
+  border-color: #b8d7fb;
+  color: #16436f;
+  background: #e6f2ff;
+}
+
+.project-tracking-status-chip--in-review {
+  border-color: #d6c3fb;
+  color: #513076;
+  background: #f1eaff;
+}
+
+.project-tracking-status-chip--at-risk,
+.project-tracking-priority-chip--medium {
+  border-color: #e7c86b;
+  color: #6b4b08;
+  background: #fff4c7;
+}
+
+.project-tracking-status-chip--blocked,
+.project-tracking-priority-chip--high {
+  border-color: #f3aaa5;
+  color: #84201b;
+  background: #ffe2e0;
+}
+
+.project-tracking-status-chip--complete,
+.project-tracking-priority-chip--complete {
+  border-color: #a7ddb8;
+  color: #195c37;
+  background: #e2f8ea;
 }
 
 .quick-next-step-mover {

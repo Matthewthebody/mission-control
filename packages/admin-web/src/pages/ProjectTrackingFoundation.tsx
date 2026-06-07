@@ -894,6 +894,29 @@ function priorityLabelForRow(row: ProjectWorkflowJobRow) {
   return labels[priorityFilterForRow(row)];
 }
 
+function statusChipClassForRow(row: ProjectWorkflowJobRow) {
+  if (row.health === "complete" || row.phase === "complete") {
+    return "project-tracking-status-chip--complete";
+  }
+  if (row.health === "blocked" || row.health === "running_late" || row.queue_intelligence.operational_status === "blocked" || row.queue_intelligence.operational_status === "overdue") {
+    return "project-tracking-status-chip--blocked";
+  }
+  if (row.health === "due_soon" || row.health === "at_risk" || row.health === "no_workflow" || row.health === "unknown" || row.queue_intelligence.operational_status === "needs_action") {
+    return "project-tracking-status-chip--at-risk";
+  }
+  if (boardLaneForRow(row) === "in_review") {
+    return "project-tracking-status-chip--in-review";
+  }
+  if (boardLaneForRow(row) === "todo") {
+    return "project-tracking-status-chip--todo";
+  }
+  return "project-tracking-status-chip--in-progress";
+}
+
+function priorityChipClassForRow(row: ProjectWorkflowJobRow) {
+  return `project-tracking-priority-chip--${priorityFilterForRow(row)}`;
+}
+
 function matchesPriorityFilter(row: ProjectWorkflowJobRow, priorityFilter: ProjectTrackingPriorityFilter) {
   return priorityFilter === "all" || priorityFilterForRow(row) === priorityFilter;
 }
@@ -1158,10 +1181,11 @@ function ProjectTrackingBoardView({
                             <span>{departmentDisplayForRow(row)} / {workItemAccountLabel(row)}</span>
                             <h4 title={row.job_title}>{workItemName(row)}</h4>
                           </div>
-                          <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
+                          <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`} aria-label={`Status: ${healthLabel(row.health)}`}>{healthLabel(row.health)}</span>
                         </div>
                         <div className="project-tracking-board-card__chips">
                           <span className={`project-tracking-step-pill ${phase.pillClassName}`}>{phase.label}</span>
+                          <span className={`project-tracking-priority-chip ${priorityChipClassForRow(row)}`} aria-label={`Priority: ${priorityLabelForRow(row)}`}>{priorityLabelForRow(row)}</span>
                           {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
                         </div>
                         <dl>
@@ -1232,7 +1256,7 @@ function ProjectTrackingTableView({
                   <td>{currentStepLabel(row)}</td>
                   <td>{deadlineLabel(row)}</td>
                   <td>
-                    <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
+                    <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`}>{healthLabel(row.health)}</span>
                   </td>
                   <td>
                     <span className={waiting === "Clear" ? "project-tracking-table-muted" : "project-tracking-attention-chip"}>{waiting}</span>
@@ -1293,7 +1317,8 @@ function ProjectTrackingTimelinePreview({
                           <small>{departmentDisplayForRow(row)} / {workItemAccountLabel(row)}</small>
                           <span>{currentStepLabel(row)} - {owner.primary}</span>
                           <div className="project-tracking-timeline-item__chips">
-                            <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`}>{healthLabel(row.health)}</span>
+                            <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`}>{healthLabel(row.health)}</span>
+                            <span className={`project-tracking-priority-chip ${priorityChipClassForRow(row)}`}>{priorityLabelForRow(row)}</span>
                             {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
                           </div>
                         </div>
@@ -1623,7 +1648,8 @@ function ProjectTrackingJobBoard({
                         </span>
                       </div>
                       <div className="project-tracking-work-card__attention">
-                        <span className={`project-tracking-risk-badge project-tracking-risk-badge--${healthToneForJob(row)}`} aria-label={`Risk: ${healthLabel(row.health)}`}>{healthLabel(row.health)}</span>
+                        <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`} aria-label={`Status: ${healthLabel(row.health)}`}>{healthLabel(row.health)}</span>
+                        <span className={`project-tracking-priority-chip ${priorityChipClassForRow(row)}`} aria-label={`Priority: ${priorityLabelForRow(row)}`}>{priorityLabelForRow(row)}</span>
                         <span className={`project-tracking-operational-status project-tracking-operational-status--${operationalToneForJob(row)}`} aria-label={`Operational status: ${operationalStatusLabel(row)}`}>
                           {operationalStatusLabel(row)}
                         </span>
@@ -1962,9 +1988,9 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
       ) : null}
 
       {status === "error" ? (
-        <section className="panel" role="alert" aria-label="Project dashboard unavailable">
-          <div className="section-title">Project dashboard is unavailable</div>
-          <p className="section-subtitle">Project Tracking did not load. Try again before using this page for live decisions.</p>
+        <section className="project-tracking-inline-notice" role="status" aria-label="Project data notice">
+          <strong>Project data notice</strong>
+          <p>Project data is not available in this demo view. Refresh if this does not resolve.</p>
         </section>
       ) : null}
 
