@@ -2122,9 +2122,9 @@ describe("organizations workflow surface", () => {
       expect(window.location.hash).toBe("#project-tracking");
     });
 
-    fireEvent.click(within(sourceOfTruthHub).getByRole("button", { name: "Open Needs Attention" }));
+    fireEvent.click(within(sourceOfTruthHub).getByRole("button", { name: "Review Relationship Health" }));
     await waitFor(() => {
-      expect(window.location.hash).toBe("#needs-attention");
+      expect(window.location.hash).toBe("#directory/accounts");
     });
   });
 

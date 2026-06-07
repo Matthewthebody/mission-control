@@ -100,9 +100,9 @@ describe("Attendance page", () => {
     expect(await screen.findByText("Attendance Operating System")).toBeInTheDocument();
     expect(screen.getByText("Leadership Attendance Review")).toBeInTheDocument();
     expect(screen.getByText(/Employees should start from Home or My Work/i)).toBeInTheDocument();
-    expect(screen.getByText(/cross-operational blockers belong in Needs Attention/i)).toBeInTheDocument();
+    expect(screen.getByText(/cross-operational blockers should surface through Home, department hubs, and Project Tracking/i)).toBeInTheDocument();
     expect(screen.getByText("Attendance operations panel")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toHaveAttribute("href", "#needs-attention");
+    expect(screen.getByRole("link", { name: "Open Project Tracking" })).toHaveAttribute("href", "#project-tracking");
     expect(screen.getByRole("link", { name: "Open Payroll Review" })).toHaveAttribute("href", "#employees/payroll");
 
     expect(screen.queryByText("Compliance Snapshot")).not.toBeInTheDocument();

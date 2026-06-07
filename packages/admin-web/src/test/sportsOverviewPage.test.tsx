@@ -414,7 +414,8 @@ describe("SportsOverview", () => {
     expect(screen.getAllByText("Client/info").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Project Tracking" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Exceptions" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Production" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("Sports Operating Board")).not.toBeInTheDocument();

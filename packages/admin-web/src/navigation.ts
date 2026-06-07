@@ -150,12 +150,6 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
     routeId: "dashboard-my-day"
   },
   {
-    key: "needs-attention",
-    label: "Needs Attention",
-    description: "Leadership review queue for blocked, missing, overdue, or review-required work.",
-    routeId: "people-ops-compliance"
-  },
-  {
     key: "schools",
     label: "Schools",
     description: "School command hub for school jobs, tasks, contacts, risks, and linked work.",
@@ -1262,13 +1256,13 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "people-ops-compliance",
     label: "Needs Attention",
-    sectionKey: "needs-attention",
-    description: "Leadership review queue for blocked, missing, overdue, or review-required operational items.",
+    sectionKey: null,
+    description: "Hidden review queue for blocked, missing, overdue, or review-required operational items surfaced from Home, My Work, departments, and Project Tracking.",
     canonicalHash: "#needs-attention",
     visibleTabs: ["compliance"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
-    showInSectionNav: true,
+    showInSectionNav: false,
     render: { kind: "tab", tab: "compliance" }
   },
   {

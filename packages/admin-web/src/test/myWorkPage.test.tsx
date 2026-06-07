@@ -719,7 +719,7 @@ describe("My Work page", () => {
     expect(screen.getByRole("link", { name: /My Schedule This Week/i })).toHaveAttribute("href", "#my-schedule");
     expect(screen.getByRole("link", { name: /Assigned Tasks/i })).toHaveAttribute("href", "#tasks");
     expect(screen.getByRole("link", { name: /Workflow Steps Waiting on Me/i })).toHaveAttribute("href", "#project-tracking");
-    expect(screen.getByRole("link", { name: /Heads Up/i })).toHaveAttribute("href", "#needs-attention");
+    expect(screen.queryByRole("link", { name: /Heads Up/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("3.8h scheduled this week").length).toBeGreaterThan(0);
     expect(screen.getByText("Worked hours show after punches are captured")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View schedule" })).toHaveAttribute("href", "#my-schedule");

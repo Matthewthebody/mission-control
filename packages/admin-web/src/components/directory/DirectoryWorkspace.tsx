@@ -256,8 +256,8 @@ export function DirectoryWorkspace({
           <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#project-tracking"; }}>
             View in Project Tracking
           </button>
-          <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#needs-attention"; }}>
-            Open Needs Attention
+          <button type="button" className="secondary-button" onClick={() => { window.location.hash = "#directory/accounts"; }}>
+            Review Relationship Health
           </button>
           {canManage ? (
             <>

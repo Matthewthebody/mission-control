@@ -399,8 +399,8 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
           Open Project Tracking
         </button>
         {hasJobPrepAttention(prepContext) ? (
-          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
-            Open Needs Attention
+          <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
+            Review Job Prep
           </button>
         ) : null}
       </WorkspaceActionBar>
@@ -1019,8 +1019,8 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                     Open Project Tracking
                   </button>
                   {needsPhotographyAttention(job) ? (
-                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
-                      Open Needs Attention
+                    <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
+                      Review Job Prep
                     </button>
                   ) : null}
                 </div>

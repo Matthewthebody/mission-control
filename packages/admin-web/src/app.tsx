@@ -1777,7 +1777,7 @@ function buildDesktopNavGroups(sections: ShellSection[]) {
     {
       id: "start",
       label: "Start Here",
-      keys: ["home", "my-work", "needs-attention"] as const
+      keys: ["home", "my-work"] as const
     },
     {
       id: "spine",

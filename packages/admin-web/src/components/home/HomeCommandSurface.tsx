@@ -101,7 +101,7 @@ function getPlainActionLabel(label: string, hash: string | null | undefined) {
   const lowerLabel = label.toLowerCase();
 
   if (lowerHash.includes("needs-attention") || lowerHash.includes("compliance") || lowerLabel.includes("compliance")) {
-    return "Review in Needs Attention";
+    return "Review the alert";
   }
   if (lowerHash.includes("attendance")) {
     return "Open Attendance Review";

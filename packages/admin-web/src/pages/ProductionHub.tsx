@@ -64,7 +64,7 @@ export function ProductionHub({ token, currentUser }: Props) {
   ];
   const attentionCards: DepartmentHubCard[] = [
     { label: "Blocked Production", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker before delivery slips." : "No blocked production work is visible.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
-    { label: "Overdue Work", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#needs-attention", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
+    { label: "Overdue Work", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
     { label: "QA Pressure", value: readyForQaCount, detail: readyForQaCount ? "QA is the next action before release can move." : "QA queue is clear right now.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
@@ -76,7 +76,7 @@ export function ProductionHub({ token, currentUser }: Props) {
     { label: "Editing Queue", detail: "Open production work that needs processing.", href: "#production/queue", tone: "info" },
     { label: "QA Queue", detail: "Review color, crop, roster, upload, and release readiness.", href: "#production/qa", tone: "warning" },
     { label: "Ready To Release", detail: "Final release and delivery confirmation.", href: "#production/release", tone: "info" },
-    { label: "Rush Jobs", detail: "Blocked or at-risk work that needs escalation.", href: "#needs-attention", tone: urgentCount ? "danger" : "success" }
+    { label: "Rush Jobs", detail: "Blocked or at-risk work that needs escalation.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: urgentCount ? "danger" : "success" }
   ];
 
   return (

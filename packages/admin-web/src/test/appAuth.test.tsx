@@ -425,7 +425,7 @@ describe("app auth bootstrap", () => {
     expect(screen.getByText("Work Spine")).toBeInTheDocument();
     expect(screen.getByText("Departments")).toBeInTheDocument();
     expect(screen.getByText("Company")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Needs Attention" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Needs Attention" })).not.toBeInTheDocument();
     expect(screen.queryByText("System")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Operations" })).not.toBeInTheDocument();
     const homeButton = screen.getByRole("button", { name: "Home" });
@@ -1248,7 +1248,6 @@ describe("app auth bootstrap", () => {
     expect(sectionKeys).toEqual([
       "home",
       "my-work",
-      "needs-attention",
       "schools",
       "sports",
       "photography",
@@ -1264,7 +1263,7 @@ describe("app auth bootstrap", () => {
     expect(photographySection?.label).toBe("Photography");
     expect(productionSection?.label).toBe("Production");
     expect(productionSection?.routeId).toBe("production");
-    expect(sections.find((section) => section.key === "needs-attention")?.label).toBe("Needs Attention");
+    expect(sections.find((section) => section.key === "needs-attention")).toBeUndefined();
     expect(sections.find((section) => section.key === "contacts")?.label).toBe("Directory");
     expect(leadershipSection?.childRouteIds).toContain("growth");
     expect(leadershipSection?.childRouteIds).toContain("business-health-reports");
@@ -1298,7 +1297,6 @@ describe("app auth bootstrap", () => {
     expect(sections).toEqual([
       "home",
       "my-work",
-      "needs-attention",
       "schools",
       "sports",
       "photography",

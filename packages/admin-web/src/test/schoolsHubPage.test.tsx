@@ -530,7 +530,8 @@ describe("SchoolsHub", () => {
     expect(screen.getAllByText("Confirm roster upload").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "View Workflow" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Exceptions" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Open details" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
     expect(screen.getByText("Proof approvals")).toBeInTheDocument();

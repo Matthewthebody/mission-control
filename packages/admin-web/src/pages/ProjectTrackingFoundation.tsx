@@ -1692,11 +1692,11 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     { label: "Blocked Projects", value: commandCount("blocked"), detail: "Blocked work that needs an owner, clear condition, or leadership unblock.", href: "#project-tracking", tone: commandCount("blocked") ? "danger" : "success" },
     { label: "Due This Week", value: commandCount("due_this_week"), detail: "Projects and workflow steps with a deadline in the next seven days.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success" },
     { label: "Waiting On Owner", value: commandCount("missing_owner_info"), detail: "Missing owner, missing next action, or missing info before work moves.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success" },
-    { label: "Leadership Decisions", value: commandCount("at_risk"), detail: "At-risk or overdue work that should be reviewed before it drifts.", href: "#needs-attention", tone: commandCount("at_risk") ? "danger" : "success" }
+    { label: "Leadership Decisions", value: commandCount("at_risk"), detail: "At-risk or overdue work that should be reviewed before it drifts.", href: "#project-tracking", tone: commandCount("at_risk") ? "danger" : "success" }
   ];
   const attentionCards: DepartmentHubCard[] = [
     { label: "Blocked", value: globalSummary.total_blocked, detail: "Blocked projects need a reason, owner, and clear next action.", href: "#project-tracking", tone: globalSummary.total_blocked ? "danger" : "success" },
-    { label: "Needs Attention", value: globalSummary.total_needs_attention, detail: "Review required across blocked, late, due-soon, or at-risk work.", href: "#needs-attention", tone: globalSummary.total_needs_attention ? "warning" : "success" },
+    { label: "Review Required", value: globalSummary.total_needs_attention, detail: "Blocked, late, due-soon, or at-risk work that needs a clearer owner or next action.", href: "#project-tracking", tone: globalSummary.total_needs_attention ? "warning" : "success" },
     { label: "Missing Owner / Info", value: commandCount("missing_owner_info"), detail: "Ownerless or incomplete work should not stay invisible.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
@@ -1708,7 +1708,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     { label: "Active Projects", detail: "Open the main work list.", href: "#project-tracking", tone: "info" },
     { label: "Blocked", detail: "Use the Blocked lens in Project Tracking.", href: "#project-tracking", tone: "danger" },
     { label: "Due This Week", detail: "Use Command View to filter deadline pressure.", href: "#project-tracking", tone: "warning" },
-    { label: "Waiting On Leadership", detail: "Open Needs Attention for decisions and exceptions.", href: "#needs-attention", tone: "warning" }
+    { label: "Waiting On Leadership", detail: "Use the Project Tracking leadership lens for decisions and exceptions.", href: "#project-tracking", tone: "warning" }
   ];
   const toggleExpandedRow = (rowId: string) => {
     setExpandedRows((current) => {
@@ -1783,8 +1783,8 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             <p>Track internal projects, owners, blockers, milestones, and leadership decisions.</p>
           </div>
           <div className="project-tracking-board-header__actions">
-            <a className="button button-secondary" href="#needs-attention">
-              Open Needs Attention
+            <a className="button button-secondary" href="#project-tracking">
+              Review Blocked / At Risk
             </a>
             <a className="button button-secondary" href="#prep-readiness">
               Prep Readiness
@@ -1838,7 +1838,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             <div className="project-tracking-summary-strip__label">
               <strong>Operating Summary</strong>
               <span>{globalSummary.source === "true_totals" ? "True totals before row limits" : "Shown rows only"}</span>
-              <small>Use Needs Attention for the review queue; use this page to inspect the work record.</small>
+              <small>Use this page to inspect the work record, blocker, owner, and next action.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (

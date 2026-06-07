@@ -713,7 +713,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByRole("button", { name: "Job Prep" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open work" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review Job Prep" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Senior Photographer View" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30-Day Planning Calendar" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "Photography Active Work" })).toBeInTheDocument();
@@ -785,7 +785,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByRole("button", { name: "Travel Details" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open work" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review Job Prep" })).toBeInTheDocument();
 
     expect(screen.queryByText("Reference Packet")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Travel & Logistics" })).not.toBeInTheDocument();
@@ -867,7 +867,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getAllByRole("button", { name: "Travel details" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Project Tracking" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open Needs Attention" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Review Job Prep" }).length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Department Focus")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Photography route shortcuts")).not.toBeInTheDocument();

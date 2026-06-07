@@ -586,7 +586,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         label: "Blocked / Needs Review",
         value: sportsOperatingRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length,
         detail: "Blocked, high-risk, staffing, proof, production, or review-needed work.",
-        hash: "#needs-attention"
+        hash: "#sports/exceptions"
       },
       {
         label: "Recently Changed",
@@ -720,7 +720,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <div className="sports-operating-board__signals" aria-label="Sports attention preview">
           <div className="sports-operating-board__signal-label">
             <strong>What needs attention</strong>
-            <span>Preview only. Use Needs Attention for cross-operational blockers.</span>
+            <span>Preview only. Open the matching Sports queue to act on the blocker.</span>
           </div>
           <button type="button" onClick={() => (window.location.hash = "#sports/graphics")}>
             <span>Proof approvals</span>
@@ -802,8 +802,8 @@ export function SportsOverview({ token, currentUser }: Props) {
                     Open Project Tracking
                   </button>
                   {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
-                    <button type="button" onClick={() => (window.location.hash = "#needs-attention")}>
-                      Open Needs Attention
+                    <button type="button" onClick={() => (window.location.hash = row.exceptionsHash ?? "#sports/exceptions")}>
+                      Open Exceptions
                     </button>
                   ) : null}
                   {row.accountHash ? (

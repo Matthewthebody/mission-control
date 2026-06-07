@@ -183,7 +183,6 @@ export function MyWork({ token, currentUser, socket }: Props) {
             detail={headsUpItems.length ? "Important items to notice before work stalls." : "No important acknowledgements are waiting."}
             helper={headsUpItems[0]?.summary ?? "Your day looks clear from the current demo data."}
             tone={headsUpItems.length ? "heads_up" : "good"}
-            href="#needs-attention"
           />
         </div>
       </section>
@@ -476,7 +475,7 @@ function buildHeadsUpItems(payload: EmployeeMyWorkResponse | null): HeadsUpItem[
   }));
   const exceptions: HeadsUpItem[] = payload.exceptions.map((item) => ({
     id: `exception-${item.id}`,
-    label: "Needs Attention",
+    label: "Heads Up",
     title: item.scope_label,
     summary: item.notes ?? item.exception_type_label,
     detail: `${item.exception_type_label} - ${formatDepartmentLabel(item.department)} - ${humanizeLabel(item.severity)}`,

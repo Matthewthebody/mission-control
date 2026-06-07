@@ -1196,7 +1196,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
         label: "Blocked / Needs Review",
         value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length,
         detail: "Blocked, overdue, high-risk, or review-needed work.",
-        hash: "#needs-attention"
+        hash: buildSchoolsTabHash("exceptions", { focus: "critical_high" })
       },
       {
         label: "Recently Changed",
@@ -1312,12 +1312,12 @@ export function SchoolsHub({ token, currentUser }: Props) {
   const attentionCards: DepartmentHubCard[] = [
     { label: "Missing Info / Client", value: boardIssueCounts.clientConcerns + missingDataCount, detail: "Schools work cannot move until the school/client data is clear.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: boardIssueCounts.clientConcerns + missingDataCount ? "danger" : "success" },
     { label: "Production Blockers", value: boardIssueCounts.productionBlockers, detail: "Production needs help before gallery or delivery work can finish.", href: buildSchoolsTabHash("jobs", { focus: "stalled" }), tone: boardIssueCounts.productionBlockers ? "danger" : "success" },
-    { label: "Proof Approvals", value: boardIssueCounts.proofApprovals, detail: "Approval risk should move through the school job or Needs Attention.", href: buildSchoolsTabHash("exceptions", { focus: "gallery_release" }), tone: boardIssueCounts.proofApprovals ? "warning" : "success" }
+    { label: "Proof Approvals", value: boardIssueCounts.proofApprovals, detail: "Approval risk should move through the school job or exceptions queue.", href: buildSchoolsTabHash("exceptions", { focus: "gallery_release" }), tone: boardIssueCounts.proofApprovals ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
     { label: "Due This Week", value: commandSummaryCards.find((card) => card.label === "Due Soon")?.value ?? 0, detail: "School jobs with a date or deadline inside the next seven days.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: "info" },
     { label: "School Tasks", value: tasks.filter(isTaskDueThisWeek).length, detail: "Tasks due this week for school follow-through.", href: buildSchoolsTabHash("tasks", { view: "week" }), tone: "info" },
-    { label: "Blocked / Waiting", value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length, detail: "Blocked, waiting, overdue, or high-risk school work.", href: "#needs-attention", tone: "warning" }
+    { label: "Blocked / Waiting", value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length, detail: "Blocked, waiting, overdue, or high-risk school work.", href: buildSchoolsTabHash("exceptions", { focus: "critical_high" }), tone: "warning" }
   ];
   const queueCards: DepartmentHubCard[] = [
     { label: "Gallery Releases", detail: "Open school jobs and release-related work.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: "info" },
@@ -1408,7 +1408,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
         <div className="schools-dashboard-v1__issue-strip" aria-label="Schools issue lanes">
           <div className="schools-dashboard-v1__issue-label">
             <strong>What needs attention</strong>
-            <span>Preview only. Use Needs Attention for cross-operational blockers.</span>
+            <span>Preview only. Open the right Schools queue to act on the blocker.</span>
           </div>
           <button type="button" className="schools-dashboard-v1__issue-chip" onClick={() => navigateToSchoolsTab("exceptions", { focus: "gallery_release" })}>
             <span>Proof approvals</span>
@@ -1435,7 +1435,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
         <div className="schools-dashboard-v1__main">
           <WorkspaceSectionHeader
             title="Department work"
-            summary={`${workflowDataNote} Use Open work for the next safe item, Open details for the job record, and Needs Attention for blockers that cross departments.`}
+            summary={`${workflowDataNote} Use Open work for the next safe item, Open details for the job record, and the exception lanes for blockers.`}
             compact
             badge={<span className="workspace-page-header__meta-pill">{schoolDashboardRows.length} visible items</span>}
           />
@@ -1494,8 +1494,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
                       {row.hasWorkflow ? "View Workflow" : "Open Project Tracking"}
                     </button>
                     {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
-                      <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#needs-attention")}>
-                        Open Needs Attention
+                      <button type="button" className="secondary-button" onClick={() => navigateToSchoolsTab("exceptions", { focus: "critical_high" })}>
+                        Open Exceptions
                       </button>
                     ) : null}
                     <button type="button" className="secondary-button" onClick={() => (window.location.hash = row.jobHash)}>
