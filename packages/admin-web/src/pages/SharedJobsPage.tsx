@@ -5,8 +5,7 @@ import { SharedJobListShell } from "../components/jobs/SharedJobListShell";
 import {
   BASELINE_FILTER_STATE,
   getDepartmentJobAdapterUI,
-  type SharedJobListFilterState,
-  type SharedJobSavedViewPreset
+  type SharedJobListFilterState
 } from "../components/jobs/DepartmentJobAdapterUIRegistry";
 import { buildSharedJobHash, navigateToSharedJobHash } from "../components/jobs/sharedJobRouting";
 import { DetailPreviewPanel, RiskBadge, SavedViewBar, StatusPill, formatDate, formatDateTime, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
@@ -24,35 +23,7 @@ type Props = {
   routeBase: string;
 };
 
-type StoredView = SharedJobSavedViewPreset & {
-  isCustom?: boolean;
-};
-
 const JOBS_PAGE_SIZES = [10, 25, 50] as const;
-
-function savedViewStorageKey(scope: string) {
-  return `pmc-shared-job-saved-views-${scope}`;
-}
-
-function defaultViewStorageKey(scope: string) {
-  return `pmc-shared-job-default-view-${scope}`;
-}
-
-function readSavedViews(scope: string) {
-  try {
-    const raw = window.localStorage.getItem(savedViewStorageKey(scope));
-    if (!raw) {
-      return [] as StoredView[];
-    }
-    return JSON.parse(raw) as StoredView[];
-  } catch {
-    return [];
-  }
-}
-
-function writeSavedViews(scope: string, views: StoredView[]) {
-  window.localStorage.setItem(savedViewStorageKey(scope), JSON.stringify(views));
-}
 
 function readFilterState(params: URLSearchParams, departmentType: "schools" | "sports" | null): SharedJobListFilterState {
   return {
@@ -246,13 +217,11 @@ function paginateItems<T>(items: T[], currentPage: number, pageSize: number) {
 
 export function SharedJobsPage({ token, currentUser, departmentType, routeBase }: Props) {
   const { params } = useHashRouteSnapshot();
-  const scope = departmentType ?? "all";
   const adapter = departmentType ? getDepartmentJobAdapterUI(departmentType) : null;
   const [items, setItems] = useState<SharedJobListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(params.get("preview"));
-  const [savedViews, setSavedViews] = useState<StoredView[]>(() => readSavedViews(scope));
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState(1);
   const filters = useMemo(() => readFilterState(params, departmentType), [departmentType, params]);
@@ -297,62 +266,17 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   const filterDefinitions = useMemo(() => (adapter ? adapter.getFilterDefinitions() : []), [adapter]);
   const presetViews = useMemo(() => (adapter ? adapter.getSavedViewPresets() : []), [adapter]);
   const databaseOptions = useMemo(() => buildDatabaseOptions(items), [items]);
-  const activeSavedViewKey = params.get("savedView") ?? window.localStorage.getItem(defaultViewStorageKey(scope)) ?? "";
+  const activeSavedViewKey = params.get("savedView") ?? "";
 
-  function applySavedView(view: StoredView) {
+  function applySavedView(view: (typeof presetViews)[number]) {
     writeFilterState(routeBase, { ...BASELINE_FILTER_STATE, ...filters, ...view.filters, departmentType: departmentType ?? filters.departmentType }, { savedView: view.key, preview: selectedItem?.id ?? null });
-  }
-
-  function saveCurrentView() {
-    const label = window.prompt("Saved view name", "My view");
-    if (!label?.trim()) {
-      return;
-    }
-    const nextView: StoredView = { key: `custom-${Date.now()}`, label: label.trim(), description: "Custom shared job view", filters: { ...filters }, isCustom: true };
-    const nextViews = [...savedViews, nextView];
-    setSavedViews(nextViews);
-    writeSavedViews(scope, nextViews);
-    applySavedView(nextView);
-  }
-
-  function renameCurrentView() {
-    const current = savedViews.find((view) => view.key === activeSavedViewKey);
-    if (!current) {
-      return;
-    }
-    const label = window.prompt("Rename saved view", current.label);
-    if (!label?.trim()) {
-      return;
-    }
-    const nextViews = savedViews.map((view) => (view.key === current.key ? { ...view, label: label.trim() } : view));
-    setSavedViews(nextViews);
-    writeSavedViews(scope, nextViews);
-  }
-
-  function deleteCurrentView() {
-    const current = savedViews.find((view) => view.key === activeSavedViewKey);
-    if (!current || !window.confirm(`Delete "${current.label}"?`)) {
-      return;
-    }
-    const nextViews = savedViews.filter((view) => view.key !== current.key);
-    setSavedViews(nextViews);
-    writeSavedViews(scope, nextViews);
-    window.localStorage.removeItem(defaultViewStorageKey(scope));
-    writeFilterState(routeBase, { ...filters, savedView: "" } as SharedJobListFilterState, { savedView: null, preview: selectedItem?.id ?? null });
-  }
-
-  function pinCurrentView() {
-    if (!activeSavedViewKey) {
-      return;
-    }
-    window.localStorage.setItem(defaultViewStorageKey(scope), activeSavedViewKey);
   }
 
   if (loading) {
     return <WorkspaceLoadingBlock title="Loading shared jobs" summary="Opening the shared job list infrastructure with department-aware filters and preview context." />;
   }
 
-  const viewLibrary = [...presetViews, ...savedViews];
+  const viewLibrary = presetViews;
   const visibleStart = filteredItems.length ? pagedItems.startIndex + 1 : 0;
   const visibleEnd = pagedItems.endIndex;
   const attentionCount = filteredItems.filter((item) => item.readiness_status === "at_risk" || item.readiness_status === "off_track" || item.risk_status === "high" || item.risk_status === "critical").length;
@@ -361,7 +285,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     <SharedJobListShell
       eyebrow={adapter?.labels.departmentBadge ?? "Database"}
       title={adapter?.listTitle ?? "Jobs Database"}
-      summary={adapter ? `One shared ${adapter.labels.listScope.toLowerCase()} board with department-specific filters, columns, and saved views on top of the same job truth layer.` : "Search the shared job database by department, organization, job name, status, date, urgency, and owner without turning the page into a long scroll."}
+      summary={adapter ? `One shared ${adapter.labels.listScope.toLowerCase()} board with department-specific filters, columns, and preset lenses on top of the same job truth layer.` : "Search the shared job database by department, organization, job name, status, date, urgency, and owner without turning the page into a long scroll."}
       meta={[
         { label: `${filteredItems.length} visible`, tone: "info" },
         { label: `${attentionCount} attention`, tone: attentionCount ? "warning" : "success" }
@@ -376,7 +300,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
         ) : null
       }
       savedViews={
-        isGlobalJobsPage ? null : (
+        isGlobalJobsPage || !viewLibrary.length ? null : (
         <div className="shared-job-list__saved-views">
           <SavedViewBar views={viewLibrary.map((view) => ({ key: view.key, label: view.label }))} activeKey={activeSavedViewKey || null} onSelect={(key) => {
             const view = viewLibrary.find((candidate) => candidate.key === key);
@@ -384,12 +308,6 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
               applySavedView(view);
             }
           }} />
-          <WorkspaceActionBar align="start" compact>
-            <button type="button" className="secondary-button" onClick={saveCurrentView}>Save current view</button>
-            <button type="button" className="secondary-button" onClick={renameCurrentView} disabled={!savedViews.some((view) => view.key === activeSavedViewKey)}>Rename</button>
-            <button type="button" className="secondary-button" onClick={pinCurrentView} disabled={!activeSavedViewKey}>Pin default</button>
-            <button type="button" className="secondary-button" onClick={deleteCurrentView} disabled={!savedViews.some((view) => view.key === activeSavedViewKey)}>Delete</button>
-          </WorkspaceActionBar>
         </div>
         )
       }

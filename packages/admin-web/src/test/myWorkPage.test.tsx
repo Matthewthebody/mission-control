@@ -701,7 +701,7 @@ describe("My Work page", () => {
     expect(await screen.findByRole("heading", { name: "Your Day" })).toBeInTheDocument();
     expect(screen.queryAllByText(/^My Work$/i).length).toBeLessThanOrEqual(1);
     expect(screen.queryByText("Daily Cockpit")).not.toBeInTheDocument();
-    expect(screen.getByText("Your day: tasks assigned to you, workflows you're part of, and things your department may need help with.")).toBeInTheDocument();
+    expect(screen.getByText("Tasks assigned to you, workflows you're part of, and things your department may need help with.")).toBeInTheDocument();
     expect(screen.getByText("Launchpad")).toBeInTheDocument();
     expect(screen.queryAllByText("Time Clock").length).toBeLessThanOrEqual(1);
     expect(screen.queryAllByText("Off Shift").length).toBeLessThanOrEqual(1);

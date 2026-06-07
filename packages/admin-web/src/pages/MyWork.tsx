@@ -129,7 +129,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
         <div>
           <div className="eyebrow">Employee Launchpad</div>
           <h2>Your Day</h2>
-          <p>Your day: tasks assigned to you, workflows you're part of, and things your department may need help with.</p>
+          <p>Tasks assigned to you, workflows you're part of, and things your department may need help with.</p>
         </div>
         <div className="page-intro-actions">
           <a className="primary-button" href="#employees/attendance">Clocked Out</a>

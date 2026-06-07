@@ -3032,8 +3032,7 @@ beforeEach(() => {
     expect(await screen.findByText("Rework 2")).toBeInTheDocument();
   });
 
-  it("persists saved views by department scope", async () => {
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Sports Focus");
+  it("keeps preset lenses without exposing saved-view management controls", async () => {
     listSharedJobsMock.mockResolvedValue({
       jobs: [
         buildJobListItem({
@@ -3058,13 +3057,12 @@ beforeEach(() => {
     render(<SharedJobsPage token="token-demo" currentUser={sportsManager} departmentType="sports" routeBase="#sports/shoots" />);
 
     expect(await screen.findByRole("heading", { name: "Sports Shoots" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
-
-    await waitFor(() => {
-      expect(window.localStorage.getItem("pmc-shared-job-saved-views-sports")).toContain("Sports Focus");
-    });
-    expect(window.localStorage.getItem("pmc-shared-job-saved-views-schools")).toBeNull();
-    promptSpy.mockRestore();
+    expect(screen.getByRole("button", { name: "Next 14 Days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Waiting on Approval" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save current view/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pin default/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Rename/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delete/i })).not.toBeInTheDocument();
   });
 
   it("renders workflow checkpoints on the shared job summary", async () => {
