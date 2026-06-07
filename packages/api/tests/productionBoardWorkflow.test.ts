@@ -230,6 +230,20 @@ describe("production board workflow engine", () => {
     expect(publish.production_items[0].status).toBe("queued");
   });
 
+  it("serves the main production queue without mutating during a read-only GET", async () => {
+    const publish = await createPublishedSportsJob();
+    const itemId = publish.production_items[0].id;
+
+    const response = await request(app)
+      .get("/api/jobs/production-items")
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .query({ department_type: "sports" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.summary.total_count).toBeGreaterThan(0);
+    expect(response.body.items.some((row: { id: string }) => row.id === itemId)).toBe(true);
+  });
+
   it("creates a blocker and risk state when file counts mismatch", async () => {
     const publish = await createPublishedSportsJob();
     const itemId = publish.production_items[0].id;

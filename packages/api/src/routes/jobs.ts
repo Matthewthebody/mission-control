@@ -962,7 +962,10 @@ router.get("/production-items", validateQuery(productionListQuerySchema), async 
     const auth = getAuth(req as unknown as AuthenticatedRequest);
     const client = await connectGuardedClient();
     try {
-      const response = await listProductionQueue(client, auth, req.query as any);
+      const response = await listProductionQueue(client, auth, {
+        ...(req.query as any),
+        run_automation: false
+      });
       return res.json(response);
     } finally {
       client.release();
