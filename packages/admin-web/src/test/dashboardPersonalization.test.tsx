@@ -358,7 +358,7 @@ describe("dashboard home command surface", () => {
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Task" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Task" })).not.toBeInTheDocument();
     expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create Event" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create Task" })).not.toBeInTheDocument();
@@ -375,16 +375,20 @@ describe("dashboard home command surface", () => {
     expect(screen.queryByText("Clocked In - Field")).not.toBeInTheDocument();
     expect(screen.queryByText("Clocked In - Office")).not.toBeInTheDocument();
 
-    expect(screen.getByText("Today at a glance")).toBeInTheDocument();
-    expect(screen.getByText("Today's Shoots")).toBeInTheDocument();
+    expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Today's Shoots/i })).toBeInTheDocument();
     expect(screen.getByText(/scheduled item.*still need readiness follow-through/i)).toBeInTheDocument();
-    expect(screen.getByText("Staffing Gaps")).toBeInTheDocument();
-    expect(screen.getByText("Production Work")).toBeInTheDocument();
-    expect(screen.getByText("School Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Sports Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Production Tasks")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Staffing Gaps/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Urgent Issues/i })).toBeInTheDocument();
+    expect(screen.getByText("Staffing needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Work That Needs To Be Processed This Week")).toBeInTheDocument();
+    expect(screen.getByText("Jobs That Need To Go Out This Week")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Production QA/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Project milestones/i })).toBeInTheDocument();
 
-    expect(screen.getByText("Urgent Issues")).toBeInTheDocument();
+    expect(screen.getAllByText("Urgent Issues").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
     expect(screen.getByText("Lead still missing")).toBeInTheDocument();
     expect(screen.getByText("Why it matters")).toBeInTheDocument();
@@ -407,8 +411,14 @@ describe("dashboard home command surface", () => {
     fireEvent.click(screen.getByRole("button", { name: /Staffing Gaps/i }));
     expect(window.location.hash).toBe("#operations/staffing?area=staffing");
 
-    fireEvent.click(screen.getByRole("button", { name: /Production Work/i }));
-    expect(window.location.hash).toBe("#project-tracking");
+    fireEvent.click(screen.getByRole("button", { name: /Schools Tasks/i }));
+    expect(window.location.hash).toBe("#schools/tasks");
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Sports Tasks/i })[0]);
+    expect(window.location.hash).toBe("#sports/tasks");
+
+    fireEvent.click(screen.getByRole("button", { name: /Production QA/i }));
+    expect(window.location.hash).toBe("#graphics/release?queue=ready_to_release_queue&stage=ready_to_release");
 
     fireEvent.click(screen.getByRole("button", { name: /Lead still missing/i }));
     expect(window.location.hash).toBe("#employees/attendance");
@@ -528,6 +538,7 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
     expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
+    expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();
@@ -538,7 +549,7 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText("Spring Portrait Day")).toBeInTheDocument();
 
     expect(screen.queryByText("Attendance")).not.toBeInTheDocument();
-    expect(screen.queryByText("Urgent Issues")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Urgent Issues/i })).toBeInTheDocument();
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
     expect(screen.queryByText("Operational Modules")).not.toBeInTheDocument();
     expect(screen.queryByText("What Needs Attention Right Now")).not.toBeInTheDocument();

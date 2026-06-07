@@ -25,8 +25,6 @@ type Props = {
   currentUser: SessionUser;
   socket: Socket | null;
   onOpenConcierge?: (initialQuery?: string) => void;
-  createEventHash: string;
-  createTaskHash: string;
 };
 
 type OperationalSummaryCard = {
@@ -35,6 +33,16 @@ type OperationalSummaryCard = {
   count: number;
   summary: string;
   explanation: string;
+  actionLabel: string;
+  hash: string;
+  tone: "neutral" | "info" | "success" | "warning" | "danger";
+};
+
+type WeeklyCommandItem = {
+  key: string;
+  title: string;
+  count: number;
+  summary: string;
   actionLabel: string;
   hash: string;
   tone: "neutral" | "info" | "success" | "warning" | "danger";
@@ -137,6 +145,60 @@ function getPlainActionLabel(label: string, hash: string | null | undefined) {
     return "Open work";
   }
   return label.replace(/^View\b/i, "Open").replace(/^Open attendance$/i, "Open Attendance Review");
+}
+
+function getUrgentDepartmentLabel(item: HomeUrgentWatchItem | null) {
+  const hash = resolveHomeActionHash(item?.action_hash).toLowerCase();
+  const text = `${item?.kind_label ?? ""} ${item?.title ?? ""} ${item?.summary ?? ""}`.toLowerCase();
+
+  if (hash.includes("attendance") || item?.kind === "attendance" || item?.kind === "labor") {
+    return "Staffing";
+  }
+  if (hash.startsWith("#schools") || text.includes("school")) {
+    return "Schools";
+  }
+  if (hash.startsWith("#sports") || text.includes("sport") || text.includes("roster")) {
+    return "Sports";
+  }
+  if (hash.startsWith("#studios") || text.includes("photo") || text.includes("shoot")) {
+    return "Photography";
+  }
+  if (hash.startsWith("#graphics") || hash.startsWith("#production") || text.includes("production") || text.includes("gallery")) {
+    return "Production";
+  }
+  if (hash.includes("project-tracking") || item?.kind === "project") {
+    return "Projects";
+  }
+  return "Operations";
+}
+
+function buildUrgentBriefingCard(input: {
+  urgentItems: HomeUrgentWatchItem[];
+  canOpenNeedsAttention: boolean;
+  canOpenAlerts: boolean;
+}): OperationalSummaryCard {
+  const topItem = input.urgentItems[0] ?? null;
+  const count = input.urgentItems.length;
+  const departmentLabel = getUrgentDepartmentLabel(topItem);
+  const hash = topItem ? resolveHomeActionHash(topItem.action_hash) : input.canOpenNeedsAttention ? buildShellRouteHash("people-ops-compliance") : buildShellRouteHash("dashboard");
+
+  return {
+    key: "urgent_issues",
+    title: "Urgent Issues",
+    count,
+    summary: count > 0 ? formatDepartmentAttentionLabel(departmentLabel) : "No urgent issues flagged",
+    explanation: topItem?.summary ?? "No critical, blocked, overdue, or ownerless item is currently flagged for this Home view.",
+    actionLabel: count > 0 ? getPlainActionLabel(topItem?.action_label ?? "Open work", topItem?.action_hash) : input.canOpenAlerts ? "Open Alerts" : "Open Home",
+    hash,
+    tone: count > 0 ? mapTone(topItem?.tone) : "success"
+  };
+}
+
+function formatDepartmentAttentionLabel(departmentLabel: string) {
+  if (departmentLabel === "Schools" || departmentLabel === "Sports" || departmentLabel === "Projects") {
+    return `${departmentLabel} need attention`;
+  }
+  return `${departmentLabel} needs attention`;
 }
 
 function getUrgentWhy(item: HomeUrgentWatchItem) {
@@ -355,7 +417,7 @@ function buildSummaryCards(input: {
   if (input.canOpenSchoolTasks && input.taskCounts.schools != null) {
     cards.push({
       key: "school_tasks",
-      title: "School Tasks",
+      title: "Schools Tasks",
       count: input.taskCounts.schools,
       summary: "School task preview",
       explanation:
@@ -401,6 +463,167 @@ function buildSummaryCards(input: {
   }
 
   return cards.slice(0, 6);
+}
+
+function buildProcessingThisWeekItems(input: {
+  payload: HomeDashboardResponse | null;
+  taskCounts: HomeDepartmentTaskCounts;
+  canOpenSchoolTasks: boolean;
+  canOpenSportsTasks: boolean;
+  canOpenPhotography: boolean;
+  canOpenProductionQueue: boolean;
+  canOpenProjectTracking: boolean;
+}) {
+  const items: WeeklyCommandItem[] = [];
+  const production = input.payload?.widgets.production_projects ?? null;
+  const todayShoots = input.payload?.widgets.today_shoots ?? null;
+  const projectFocusCount = production ? production.focus_items.length + production.urgent_items.length : 0;
+
+  if (input.canOpenSchoolTasks && input.taskCounts.schools != null) {
+    items.push({
+      key: "process_schools",
+      title: "Schools",
+      count: input.taskCounts.schools,
+      summary: "School tasks waiting on readiness, client follow-up, or field handoff.",
+      actionLabel: "Open Schools Command Hub",
+      hash: "#schools/tasks",
+      tone: input.taskCounts.schools > 40 ? "warning" : input.taskCounts.schools > 0 ? "info" : "success"
+    });
+  }
+
+  if (input.canOpenSportsTasks && input.taskCounts.sports != null) {
+    items.push({
+      key: "process_sports",
+      title: "Sports",
+      count: input.taskCounts.sports,
+      summary: "Sports tasks waiting on rosters, shoot prep, graphics, or follow-through.",
+      actionLabel: "Open Sports Command Hub",
+      hash: "#sports/tasks",
+      tone: input.taskCounts.sports > 20 ? "warning" : input.taskCounts.sports > 0 ? "info" : "success"
+    });
+  }
+
+  if (input.canOpenPhotography && todayShoots) {
+    items.push({
+      key: "process_photography",
+      title: "Photography",
+      count: todayShoots.needs_attention_count,
+      summary: "Shoot readiness, travel, and handoff items that need field confidence.",
+      actionLabel: "Open Photography Command Hub",
+      hash: "#studios/shoots",
+      tone: todayShoots.needs_attention_count > 0 ? "warning" : "success"
+    });
+  }
+
+  if (input.canOpenProductionQueue && production) {
+    const productionProcessingCount = production.counts.jobs_in_qa + production.counts.blocked + production.counts.overdue;
+    items.push({
+      key: "process_production",
+      title: "Production",
+      count: productionProcessingCount,
+      summary: "QA, blocker, and overdue production work waiting on internal processing.",
+      actionLabel: "Open Production Workload",
+      hash: buildShellRouteHash("graphics-workload"),
+      tone: productionProcessingCount > 0 ? "warning" : "success"
+    });
+  }
+
+  if (input.canOpenProjectTracking) {
+    items.push({
+      key: "process_projects",
+      title: "Project Tracking",
+      count: projectFocusCount,
+      summary: "Shared work-spine items with owners, next actions, due dates, or blockers.",
+      actionLabel: "Open Project Tracking",
+      hash: buildShellRouteHash("project-tracking"),
+      tone: projectFocusCount > 0 ? "info" : "success"
+    });
+  }
+
+  return items.slice(0, 5);
+}
+
+function findWeeklyDepartmentShoots(payload: HomeDashboardResponse | null, department: string) {
+  return payload?.widgets.business_pulse.weekly_department_mix.find((row) => row.department.toLowerCase() === department)?.shoots ?? 0;
+}
+
+function buildJobsToGoOutThisWeekItems(input: {
+  payload: HomeDashboardResponse | null;
+  canOpenSchoolTasks: boolean;
+  canOpenSportsTasks: boolean;
+  canOpenPhotography: boolean;
+  canOpenProductionQueue: boolean;
+  canOpenProjectTracking: boolean;
+}) {
+  const items: WeeklyCommandItem[] = [];
+  const production = input.payload?.widgets.production_projects ?? null;
+  const businessJobs = input.payload?.widgets.business_pulse.jobs ?? [];
+  const todayShoots = input.payload?.widgets.today_shoots ?? null;
+  const schoolShoots = findWeeklyDepartmentShoots(input.payload, "schools");
+  const sportsShoots = findWeeklyDepartmentShoots(input.payload, "sports");
+
+  if (input.canOpenSchoolTasks) {
+    items.push({
+      key: "release_schools",
+      title: "Schools galleries",
+      count: schoolShoots,
+      summary: "School work in this week's schedule that may need gallery delivery or follow-up.",
+      actionLabel: "Open Schools",
+      hash: "#schools",
+      tone: schoolShoots > 0 ? "info" : "neutral"
+    });
+  }
+
+  if (input.canOpenSportsTasks) {
+    items.push({
+      key: "release_sports",
+      title: "Sports releases",
+      count: sportsShoots,
+      summary: "Sports work in this week's schedule that may need release or customer handoff.",
+      actionLabel: "Open Sports",
+      hash: "#sports",
+      tone: sportsShoots > 0 ? "info" : "neutral"
+    });
+  }
+
+  if (input.canOpenPhotography && todayShoots) {
+    items.push({
+      key: "release_photography",
+      title: "Photography handoffs",
+      count: todayShoots.complete_count,
+      summary: "Completed field work ready for downstream handoff or confirmation.",
+      actionLabel: "Open Photography",
+      hash: "#studios/shoots",
+      tone: todayShoots.complete_count > 0 ? "info" : "neutral"
+    });
+  }
+
+  if (input.canOpenProductionQueue && production) {
+    const releaseCount = production.counts.ready_to_release + production.counts.jobs_in_qa + production.counts.due_within_24_hours;
+    items.push({
+      key: "release_production",
+      title: "Production QA",
+      count: releaseCount,
+      summary: "QA, due-soon, and ready-to-release production work that needs to go out.",
+      actionLabel: "Open Release Queue",
+      hash: buildShellRouteHash("graphics-release"),
+      tone: releaseCount > 0 ? "warning" : "success"
+    });
+  }
+
+  if (input.canOpenProjectTracking) {
+    items.push({
+      key: "release_projects",
+      title: "Project milestones",
+      count: businessJobs.length,
+      summary: "Week-level jobs and milestones that still need owner follow-through.",
+      actionLabel: "Open Project Tracking",
+      hash: buildShellRouteHash("project-tracking"),
+      tone: businessJobs.some((job) => job.tone === "action_needed") ? "danger" : businessJobs.length ? "warning" : "neutral"
+    });
+  }
+
+  return items.slice(0, 5);
 }
 
 function buildDailyBriefing(input: {
@@ -452,8 +675,7 @@ export function HomeCommandSurface({
   token,
   currentUser,
   socket,
-  onOpenConcierge = () => undefined,
-  createTaskHash
+  onOpenConcierge = () => undefined
 }: Props) {
   const cacheKey = `${token}:${currentUser.id}`;
   const cachedDashboard = homeDashboardCache.get(cacheKey);
@@ -462,13 +684,14 @@ export function HomeCommandSurface({
   const [error, setError] = useState("");
   const [urgentExpanded, setUrgentExpanded] = useState(false);
 
-  const canCreateTask = canAccessRoute(currentUser, "task-new");
   const canOpenSchedule = canAccessRoute(currentUser, "dashboard-my-schedule");
   const canOpenAlerts = canAccessRoute(currentUser, "dashboard-alerts");
   const canOpenAttendance = canAccessRoute(currentUser, "operations-attendance");
   const canOpenNeedsAttention = canAccessRoute(currentUser, "people-ops-compliance");
   const canOpenToday = canAccessRoute(currentUser, "operations-today");
   const canOpenStaffing = canAccessRoute(currentUser, "operations-staffing");
+  const canOpenPhotography = canAccessRoute(currentUser, "studios");
+  const canOpenProjectTracking = canAccessRoute(currentUser, "project-tracking");
   const canOpenProductionQueue = canAccessRoute(currentUser, "production") || canAccessRoute(currentUser, "production-workload");
   const canOpenSchoolTasks = canAccessRoute(currentUser, "operations-schools");
   const canOpenSportsTasks = canAccessRoute(currentUser, "sports");
@@ -563,6 +786,38 @@ export function HomeCommandSurface({
   const urgentItems = dashboard?.home_surface?.urgent_attention?.visible
     ? dashboard.home_surface.urgent_attention.items.slice(0, 4)
     : [];
+  const briefingCards = useMemo(
+    () => [
+      ...summaryCards.filter((card) => ["shoots_today", "staffing_gaps", "school_tasks", "sports_tasks"].includes(card.key)),
+      buildUrgentBriefingCard({ urgentItems, canOpenNeedsAttention, canOpenAlerts })
+    ],
+    [canOpenAlerts, canOpenNeedsAttention, summaryCards, urgentItems]
+  );
+  const processingThisWeekItems = useMemo(
+    () =>
+      buildProcessingThisWeekItems({
+        payload: dashboard,
+        taskCounts,
+        canOpenSchoolTasks,
+        canOpenSportsTasks,
+        canOpenPhotography,
+        canOpenProductionQueue,
+        canOpenProjectTracking
+      }),
+    [canOpenPhotography, canOpenProductionQueue, canOpenProjectTracking, canOpenSchoolTasks, canOpenSportsTasks, dashboard, taskCounts]
+  );
+  const jobsToGoOutThisWeekItems = useMemo(
+    () =>
+      buildJobsToGoOutThisWeekItems({
+        payload: dashboard,
+        canOpenSchoolTasks,
+        canOpenSportsTasks,
+        canOpenPhotography,
+        canOpenProductionQueue,
+        canOpenProjectTracking
+      }),
+    [canOpenPhotography, canOpenProductionQueue, canOpenProjectTracking, canOpenSchoolTasks, canOpenSportsTasks, dashboard]
+  );
   const visibleUrgentItems = urgentExpanded ? urgentItems : urgentItems.slice(0, 2);
   const movingItems = useMemo(() => buildMovingItems(dashboard), [dashboard]);
   const briefingLines = useMemo(
@@ -578,6 +833,8 @@ export function HomeCommandSurface({
     [attendanceAttentionMetric, dashboard, movingItems, summaryCards, timeBand, urgentItems]
   );
   const updatedLabel = dashboard ? `Updated ${formatHomeTimestamp(dashboard.generated_at)}` : null;
+  const primaryClockActionLabel = timeBand?.visible ? getTimeClockActionLabel(timeBand) : "Clock In";
+  const primaryClockActionHash = timeBand?.visible ? timeBand.action_hash : buildShellRouteHash("dashboard-my-day");
 
   if (loading && dashboard == null) {
     return (
@@ -602,16 +859,14 @@ export function HomeCommandSurface({
               <strong>Ask Concierge or search jobs, people, schools, tasks...</strong>
               <span>{updatedLabel ?? "Focus or click to open Concierge search."}</span>
             </button>
-            {timeBand?.visible ? (
-              <button type="button" className="primary-button home-operational__primary-clock-action" onClick={() => navigateToHash(timeBand.action_hash)}>
-                {getTimeClockActionLabel(timeBand)}
-              </button>
-            ) : null}
-            {canCreateTask ? (
-              <button type="button" className="secondary-button" onClick={() => navigateToHash(createTaskHash)} title="Open the task form. This is secondary to the daily clock and briefing actions.">
-                Add Task
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="primary-button home-operational__primary-clock-action"
+              onClick={() => navigateToHash(primaryClockActionHash)}
+              title={timeBand?.visible ? undefined : "Open My Work for the demo-safe clock-in path."}
+            >
+              {primaryClockActionLabel}
+            </button>
           </div>
         }
       />
@@ -628,6 +883,22 @@ export function HomeCommandSurface({
           <div className="home-operational__briefing-list">
             {briefingLines.map((line) => (
               <p key={line}>{line}</p>
+            ))}
+          </div>
+          <div className="home-operational__briefing-grid" aria-label="Today's briefing actions">
+            {briefingCards.map((card) => (
+              <button
+                key={card.key}
+                type="button"
+                className={`home-operational__summary-card home-operational__summary-card--briefing home-operational__summary-card--${card.tone}`}
+                onClick={() => navigateToHash(card.hash)}
+              >
+                <span>{card.title}</span>
+                <strong>{card.count}</strong>
+                <p>{card.summary}</p>
+                <small>{card.explanation}</small>
+                <em>{card.actionLabel}</em>
+              </button>
             ))}
           </div>
         </section>
@@ -693,31 +964,57 @@ export function HomeCommandSurface({
         ) : null}
       </div>
 
-      {summaryCards.length ? (
-        <section className="panel home-operational__summary-panel">
-          <WorkspaceSectionHeader
-            title="Today at a glance"
-            summary="A compact preview of today's shoots, staffing gaps, department tasks, and work-spine risk. Open a card only when you need the full queue."
-            compact
-          />
-          <div className="home-operational__summary-grid">
-            {summaryCards.map((card) => (
-              <button
-                key={card.key}
-                type="button"
-                className={`home-operational__summary-card home-operational__summary-card--${card.tone}`}
-                onClick={() => navigateToHash(card.hash)}
-              >
-                <span>{card.title}</span>
-                <strong>{card.count}</strong>
-                <p>{card.summary}</p>
-                <small>{card.explanation}</small>
-                <em>{card.actionLabel}</em>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <div className="home-operational__weekly-grid">
+        {processingThisWeekItems.length ? (
+          <section className="panel home-operational__weekly-panel">
+            <WorkspaceSectionHeader
+              title="Work That Needs To Be Processed This Week"
+              summary="Internal work waiting on a department, owner, QA step, or next action."
+              compact
+            />
+            <div className="home-operational__weekly-list">
+              {processingThisWeekItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`home-operational__weekly-card home-operational__weekly-card--${item.tone}`}
+                  onClick={() => navigateToHash(item.hash)}
+                >
+                  <span>{item.title}</span>
+                  <strong>{item.count}</strong>
+                  <p>{item.summary}</p>
+                  <em>{item.actionLabel}</em>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {jobsToGoOutThisWeekItems.length ? (
+          <section className="panel home-operational__weekly-panel">
+            <WorkspaceSectionHeader
+              title="Jobs That Need To Go Out This Week"
+              summary="Jobs, galleries, releases, handoffs, and milestones that need delivery follow-through."
+              compact
+            />
+            <div className="home-operational__weekly-list">
+              {jobsToGoOutThisWeekItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`home-operational__weekly-card home-operational__weekly-card--${item.tone}`}
+                  onClick={() => navigateToHash(item.hash)}
+                >
+                  <span>{item.title}</span>
+                  <strong>{item.count}</strong>
+                  <p>{item.summary}</p>
+                  <em>{item.actionLabel}</em>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
 
       <div className="home-operational__action-grid">
         {urgentItems.length ? (

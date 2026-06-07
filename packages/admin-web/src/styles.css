@@ -17118,7 +17118,8 @@ html[data-theme="light"] .app-shell--desktop-sidebar .shell-context-bar--sidebar
 .home-operational__summary-panel,
 .home-operational__briefing-panel,
 .home-operational__urgent-panel,
-.home-operational__moving-panel {
+.home-operational__moving-panel,
+.home-operational__weekly-panel {
   padding: 18px;
 }
 
@@ -17187,7 +17188,8 @@ html[data-theme="light"] .home-operational__search-launcher {
 }
 
 .home-operational__top-grid,
-.home-operational__action-grid {
+.home-operational__action-grid,
+.home-operational__weekly-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 16px;
@@ -17199,7 +17201,8 @@ html[data-theme="light"] .home-operational__search-launcher {
 .home-operational__summary-panel,
 .home-operational__briefing-panel,
 .home-operational__urgent-panel,
-.home-operational__moving-panel {
+.home-operational__moving-panel,
+.home-operational__weekly-panel {
   display: grid;
   gap: 14px;
 }
@@ -17213,6 +17216,20 @@ html[data-theme="light"] .home-operational__search-launcher {
   margin: 0;
   color: var(--text);
   line-height: 1.5;
+}
+
+.home-operational__briefing-grid,
+.home-operational__weekly-list {
+  display: grid;
+  gap: 10px;
+}
+
+.home-operational__briefing-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.home-operational__weekly-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .home-operational__clock-panel--success {
@@ -17254,6 +17271,7 @@ html[data-theme="light"] .home-operational__search-launcher {
 .home-operational__clock-stat,
 .home-operational__attendance-card,
 .home-operational__summary-card,
+.home-operational__weekly-card,
 .home-operational__issue-card,
 .home-operational__moving-card {
   border-radius: 18px;
@@ -17264,6 +17282,7 @@ html[data-theme="light"] .home-operational__search-launcher {
 html[data-theme="light"] .home-operational__clock-stat,
 html[data-theme="light"] .home-operational__attendance-card,
 html[data-theme="light"] .home-operational__summary-card,
+html[data-theme="light"] .home-operational__weekly-card,
 html[data-theme="light"] .home-operational__issue-card,
 html[data-theme="light"] .home-operational__moving-card {
   background: rgba(255, 255, 255, 0.95);
@@ -17279,6 +17298,7 @@ html[data-theme="light"] .home-operational__moving-card {
 .home-operational__clock-stat span,
 .home-operational__attendance-card span,
 .home-operational__summary-card span,
+.home-operational__weekly-card span,
 .home-operational__issue-top span,
 .home-operational__moving-top span {
   color: var(--text-muted);
@@ -17291,6 +17311,7 @@ html[data-theme="light"] .home-operational__moving-card {
 .home-operational__clock-stat strong,
 .home-operational__attendance-card strong,
 .home-operational__summary-card strong,
+.home-operational__weekly-card strong,
 .home-operational__issue-body strong,
 .home-operational__moving-card strong {
   font-size: 1rem;
@@ -17300,6 +17321,7 @@ html[data-theme="light"] .home-operational__moving-card {
 .home-operational__clock-stat p,
 .home-operational__attendance-card p,
 .home-operational__summary-card p,
+.home-operational__weekly-card p,
 .home-operational__issue-body p,
 .home-operational__moving-card p {
   margin: 0;
@@ -17330,6 +17352,7 @@ html[data-theme="light"] .home-operational__moving-card {
 
 .home-operational__attendance-card,
 .home-operational__summary-card,
+.home-operational__weekly-card,
 .home-operational__issue-card,
 .home-operational__moving-card {
   width: 100%;
@@ -17346,6 +17369,7 @@ html[data-theme="light"] .home-operational__moving-card {
 
 .home-operational__attendance-card:hover:not(:disabled),
 .home-operational__summary-card:hover:not(:disabled),
+.home-operational__weekly-card:hover:not(:disabled),
 .home-operational__issue-card:hover:not(:disabled),
 .home-operational__moving-card:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -17354,6 +17378,7 @@ html[data-theme="light"] .home-operational__moving-card {
 
 .home-operational__attendance-card--danger,
 .home-operational__summary-card--danger,
+.home-operational__weekly-card--danger,
 .home-operational__issue-card--danger,
 .home-operational__moving-card--danger {
   border-color: rgba(224, 84, 84, 0.4);
@@ -17361,6 +17386,7 @@ html[data-theme="light"] .home-operational__moving-card {
 
 .home-operational__attendance-card--warning,
 .home-operational__summary-card--warning,
+.home-operational__weekly-card--warning,
 .home-operational__issue-card--warning,
 .home-operational__moving-card--warning {
   border-color: rgba(224, 165, 70, 0.38);
@@ -17368,6 +17394,7 @@ html[data-theme="light"] .home-operational__moving-card {
 
 .home-operational__attendance-card--success,
 .home-operational__summary-card--success,
+.home-operational__weekly-card--success,
 .home-operational__issue-card--success,
 .home-operational__moving-card--success {
   border-color: rgba(74, 168, 114, 0.34);
@@ -17375,18 +17402,27 @@ html[data-theme="light"] .home-operational__moving-card {
 
 .home-operational__attendance-card--info,
 .home-operational__summary-card--info,
+.home-operational__weekly-card--info,
 .home-operational__issue-card--info,
 .home-operational__moving-card--info {
   border-color: rgba(92, 162, 229, 0.32);
 }
 
-.home-operational__summary-card strong {
+.home-operational__summary-card--briefing {
+  min-height: 168px;
+  padding: 12px;
+  align-content: start;
+}
+
+.home-operational__summary-card strong,
+.home-operational__weekly-card strong {
   font-size: 1.75rem;
   font-family: "Barlow Semi Condensed", sans-serif;
   letter-spacing: 0.02em;
 }
 
 .home-operational__summary-card em,
+.home-operational__weekly-card em,
 .home-operational__issue-meta em,
 .home-operational__moving-top em {
   color: var(--text);
@@ -17422,8 +17458,13 @@ html[data-theme="light"] .home-operational__moving-card {
   .home-operational__search-row,
   .home-operational__header-actions,
   .home-operational__top-grid,
-  .home-operational__action-grid {
+  .home-operational__action-grid,
+  .home-operational__weekly-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-operational__briefing-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .home-operational__top-actions {
@@ -17435,8 +17476,13 @@ html[data-theme="light"] .home-operational__moving-card {
   .employee-day-command__cards,
   .home-operational__attendance-grid,
   .home-operational__summary-grid,
+  .home-operational__weekly-list,
   .home-operational__clock-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-operational__briefing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -17446,7 +17492,8 @@ html[data-theme="light"] .home-operational__moving-card {
   .home-operational__attendance-panel,
   .home-operational__summary-panel,
   .home-operational__urgent-panel,
-  .home-operational__moving-panel {
+  .home-operational__moving-panel,
+  .home-operational__weekly-panel {
     padding: 16px;
   }
 
@@ -17467,6 +17514,10 @@ html[data-theme="light"] .home-operational__moving-card {
 
 @media (max-width: 520px) {
   .home-operational__top-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .home-operational__briefing-grid {
     grid-template-columns: 1fr;
   }
 }

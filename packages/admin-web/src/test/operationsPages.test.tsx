@@ -5046,11 +5046,13 @@ describe("admin operations regressions", () => {
 
     expect(screen.getByText("Loading Home")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByText("Today at a glance")).toBeInTheDocument();
-    expect(screen.getByText("School Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Sports Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Today's Shoots")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Task" })).toBeInTheDocument();
+    expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Today's Shoots/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Task" })).not.toBeInTheDocument();
+    expect(screen.getByText("Work That Needs To Be Processed This Week")).toBeInTheDocument();
+    expect(screen.getByText("Jobs That Need To Go Out This Week")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
@@ -5091,8 +5093,8 @@ describe("admin operations regressions", () => {
     render(<Dashboard token="token" currentUser={leadershipUser} socket={null} />);
 
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-      expect(screen.getByText("School Tasks")).toBeInTheDocument();
-      expect(screen.getByText("Today at a glance")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
+      expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.queryByText("Dashboard unavailable")).not.toBeInTheDocument();
   });
 
