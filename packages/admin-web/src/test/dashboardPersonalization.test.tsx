@@ -381,21 +381,18 @@ describe("dashboard home command surface", () => {
     expect(screen.getByRole("button", { name: /Staffing Gaps/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Urgent Issues/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Urgent Issues · 1/i })).toBeInTheDocument();
     expect(screen.getByText("Staffing needs attention")).toBeInTheDocument();
     expect(screen.getByText("Work That Needs To Be Processed This Week")).toBeInTheDocument();
     expect(screen.getByText("Jobs That Need To Go Out This Week")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Production QA/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Project milestones/i })).toBeInTheDocument();
 
-    expect(screen.getAllByText("Urgent Issues").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Open Needs Attention" })).toBeInTheDocument();
-    expect(screen.getByText("Lead still missing")).toBeInTheDocument();
-    expect(screen.getByText("Why it matters")).toBeInTheDocument();
-    expect(screen.getByText(/Owner\/context: Owner: Demo Leadership/i)).toBeInTheDocument();
-    expect(screen.getByText(/Next: Open Attendance Review/i)).toBeInTheDocument();
-    expect(screen.getByText("Work moving now")).toBeInTheDocument();
-    expect(screen.getAllByText("View in Project Tracking").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Lead still missing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Why it matters")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Owner\/context: Owner: Demo Leadership/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Work moving now/i)).not.toBeInTheDocument();
 
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
     expect(screen.queryByText("Operational Modules")).not.toBeInTheDocument();
@@ -420,11 +417,8 @@ describe("dashboard home command surface", () => {
     fireEvent.click(screen.getByRole("button", { name: /Production QA/i }));
     expect(window.location.hash).toBe("#graphics/release?queue=ready_to_release_queue&stage=ready_to_release");
 
-    fireEvent.click(screen.getByRole("button", { name: /Lead still missing/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Urgent Issues · 1/i }));
     expect(window.location.hash).toBe("#employees/attendance");
-
-    fireEvent.click(screen.getByRole("button", { name: /Gallery release review/i }));
-    expect(window.location.hash).toBe("#project-tracking/workflows/workflow-gallery-release");
   });
 
   it("keeps the employee home simple, action-oriented, and free of the old placeholder language", async () => {
@@ -545,11 +539,10 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText("Time Clock")).toBeInTheDocument();
     expect(screen.getByText("Clock-in needed")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Clock In" }).length).toBeGreaterThan(0);
-    expect(screen.getByText("Work moving now")).toBeInTheDocument();
-    expect(screen.getByText("Spring Portrait Day")).toBeInTheDocument();
+    expect(screen.queryByText(/Work moving now/i)).not.toBeInTheDocument();
 
     expect(screen.queryByText("Attendance")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Urgent Issues/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Urgent Issues · 0/i })).toBeInTheDocument();
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
     expect(screen.queryByText("Operational Modules")).not.toBeInTheDocument();
     expect(screen.queryByText("What Needs Attention Right Now")).not.toBeInTheDocument();

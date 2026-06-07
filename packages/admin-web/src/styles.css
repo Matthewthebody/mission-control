@@ -17414,6 +17414,29 @@ html[data-theme="light"] .home-operational__moving-card {
   align-content: start;
 }
 
+.home-operational__summary-card--urgent-briefing {
+  min-height: 0;
+  align-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+  border-color: rgba(224, 84, 84, 0.58);
+  background: linear-gradient(135deg, rgba(224, 84, 84, 0.22), rgba(13, 21, 34, 0.82));
+}
+
+html[data-theme="light"] .home-operational__summary-card--urgent-briefing {
+  background: linear-gradient(135deg, rgba(224, 84, 84, 0.17), rgba(255, 255, 255, 0.96));
+}
+
+.home-operational__summary-card--urgent-briefing span {
+  color: var(--danger);
+  font-size: 0.82rem;
+}
+
+.home-operational__summary-card--urgent-briefing p {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .home-operational__summary-card strong,
 .home-operational__weekly-card strong {
   font-size: 1.75rem;

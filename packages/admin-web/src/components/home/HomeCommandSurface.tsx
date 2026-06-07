@@ -6,8 +6,6 @@ import { getHomeDashboard } from "../../services/homeDashboard";
 import type {
   HomeDepartmentTaskCounts,
   HomeDashboardResponse,
-  HomeSurfaceFocusItem,
-  HomeSurfaceMyDayItem,
   HomeSurfaceStaffingBand,
   HomeSurfaceTimeBand,
   HomeUrgentWatchItem,
@@ -45,18 +43,6 @@ type WeeklyCommandItem = {
   summary: string;
   actionLabel: string;
   hash: string;
-  tone: "neutral" | "info" | "success" | "warning" | "danger";
-};
-
-type MovingItem = {
-  id: string;
-  eyebrow: string;
-  title: string;
-  summary: string;
-  metaPrimary: string;
-  metaSecondary: string | null;
-  actionLabel: string;
-  actionHash: string;
   tone: "neutral" | "info" | "success" | "warning" | "danger";
 };
 
@@ -201,20 +187,11 @@ function formatDepartmentAttentionLabel(departmentLabel: string) {
   return `${departmentLabel} needs attention`;
 }
 
-function getUrgentWhy(item: HomeUrgentWatchItem) {
-  if (item.kind === "attendance" || item.kind === "labor") {
-    return "Attendance issues can affect coverage, payroll review, and whether today's work has the right person on site.";
+function getBriefingCardLabel(card: OperationalSummaryCard) {
+  if (card.key === "urgent_issues") {
+    return `${card.title} · ${card.count}`;
   }
-  if (item.kind === "approval") {
-    return "Review items can hold payroll, mileage, release, or follow-up until a leader confirms the next step.";
-  }
-  if (item.kind === "project") {
-    return "Project blockers can turn into missed delivery, stalled ownership, or customer follow-up risk if no one opens the work record.";
-  }
-  if (item.kind === "shoot" || item.kind === "scheduling") {
-    return "Shoot and schedule issues can affect field readiness, arrival timing, and same-day customer experience.";
-  }
-  return `${item.urgency_label} items need owner follow-through before they drift into delivery, staffing, payroll, or customer impact.`;
+  return card.title;
 }
 
 function getTimeClockHeadline(timeBand: HomeSurfaceTimeBand) {
@@ -294,45 +271,6 @@ function getAttendanceMetrics(staffingBand: HomeSurfaceStaffingBand | null) {
 
 function findCompactWidget(payload: HomeDashboardResponse | null, id: string) {
   return payload?.home_surface?.compact_widgets.find((widget) => widget.id === id) ?? null;
-}
-
-function buildMovingItems(payload: HomeDashboardResponse | null): MovingItem[] {
-  const homeSurface = payload?.home_surface;
-  if (!homeSurface) {
-    return [];
-  }
-
-  if (homeSurface.today_and_next_up?.visible) {
-    return [...homeSurface.today_and_next_up.today, ...homeSurface.today_and_next_up.next_up]
-      .slice(0, 4)
-      .map((item: HomeSurfaceFocusItem) => ({
-        id: item.id,
-        eyebrow: item.source_label,
-        title: item.title,
-        summary: item.summary,
-        metaPrimary: item.owner_label,
-        metaSecondary: item.due_label,
-        actionLabel: item.next_action,
-        actionHash: item.action_hash,
-        tone: mapTone(item.tone)
-      }));
-  }
-
-  if (homeSurface.my_day?.visible) {
-    return homeSurface.my_day.items.slice(0, 4).map((item: HomeSurfaceMyDayItem) => ({
-      id: item.id,
-      eyebrow: item.time_label,
-      title: item.title,
-      summary: item.summary,
-      metaPrimary: item.role_label,
-      metaSecondary: item.location_label,
-      actionLabel: item.next_action,
-      actionHash: item.action_hash,
-      tone: mapTone(item.tone)
-    }));
-  }
-
-  return [];
 }
 
 function buildSummaryCards(input: {
@@ -630,7 +568,6 @@ function buildDailyBriefing(input: {
   payload: HomeDashboardResponse | null;
   summaryCards: OperationalSummaryCard[];
   urgentItems: HomeUrgentWatchItem[];
-  movingItems: MovingItem[];
   timeBand: HomeSurfaceTimeBand | null;
   attendanceAttentionMetric: ReturnType<typeof getAttendanceMetrics>[number] | null;
 }) {
@@ -665,9 +602,6 @@ function buildDailyBriefing(input: {
   if (!lines.length && input.summaryCards.length) {
     lines.push("Home is ready. Use the cards below to open the exact area that needs attention.");
   }
-  if (!lines.length && input.movingItems.length) {
-    lines.push(`${input.movingItems.length} active work item${input.movingItems.length === 1 ? "" : "s"} are ready for follow-through.`);
-  }
   return lines.slice(0, 4);
 }
 
@@ -682,7 +616,6 @@ export function HomeCommandSurface({
   const [dashboard, setDashboard] = useState<HomeDashboardResponse | null>(cachedDashboard?.payload ?? null);
   const [loading, setLoading] = useState(cachedDashboard == null);
   const [error, setError] = useState("");
-  const [urgentExpanded, setUrgentExpanded] = useState(false);
 
   const canOpenSchedule = canAccessRoute(currentUser, "dashboard-my-schedule");
   const canOpenAlerts = canAccessRoute(currentUser, "dashboard-alerts");
@@ -818,19 +751,16 @@ export function HomeCommandSurface({
       }),
     [canOpenPhotography, canOpenProductionQueue, canOpenProjectTracking, canOpenSchoolTasks, canOpenSportsTasks, dashboard]
   );
-  const visibleUrgentItems = urgentExpanded ? urgentItems : urgentItems.slice(0, 2);
-  const movingItems = useMemo(() => buildMovingItems(dashboard), [dashboard]);
   const briefingLines = useMemo(
     () =>
       buildDailyBriefing({
         payload: dashboard,
         summaryCards,
         urgentItems,
-        movingItems,
         timeBand,
         attendanceAttentionMetric
       }),
-    [attendanceAttentionMetric, dashboard, movingItems, summaryCards, timeBand, urgentItems]
+    [attendanceAttentionMetric, dashboard, summaryCards, timeBand, urgentItems]
   );
   const updatedLabel = dashboard ? `Updated ${formatHomeTimestamp(dashboard.generated_at)}` : null;
   const primaryClockActionLabel = timeBand?.visible ? getTimeClockActionLabel(timeBand) : "Clock In";
@@ -890,13 +820,13 @@ export function HomeCommandSurface({
               <button
                 key={card.key}
                 type="button"
-                className={`home-operational__summary-card home-operational__summary-card--briefing home-operational__summary-card--${card.tone}`}
+                className={`home-operational__summary-card home-operational__summary-card--briefing home-operational__summary-card--${card.key === "urgent_issues" ? "urgent-briefing " : ""}home-operational__summary-card--${card.tone}`}
                 onClick={() => navigateToHash(card.hash)}
               >
-                <span>{card.title}</span>
-                <strong>{card.count}</strong>
+                <span>{getBriefingCardLabel(card)}</span>
+                {card.key === "urgent_issues" ? null : <strong>{card.count}</strong>}
                 <p>{card.summary}</p>
-                <small>{card.explanation}</small>
+                {card.key === "urgent_issues" ? null : <small>{card.explanation}</small>}
                 <em>{card.actionLabel}</em>
               </button>
             ))}
@@ -1016,94 +946,6 @@ export function HomeCommandSurface({
         ) : null}
       </div>
 
-      <div className="home-operational__action-grid">
-        {urgentItems.length ? (
-          <section className="panel home-operational__urgent-panel">
-            <WorkspaceSectionHeader
-              title="Urgent Issues"
-              summary="The first issues to clear today. Expand only when you need the rest of the watch list."
-              compact
-              actions={
-                <WorkspaceActionBar align="end" compact>
-                  {urgentItems.length > 2 ? (
-                    <button type="button" className="secondary-button" onClick={() => setUrgentExpanded((current) => !current)}>
-                      {urgentExpanded ? "Show Fewer" : `Show All (${urgentItems.length})`}
-                    </button>
-                  ) : null}
-                  {canOpenAlerts ? (
-                    <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("dashboard-alerts"))}>
-                      Open Alerts
-                    </button>
-                  ) : null}
-                  {canOpenNeedsAttention ? (
-                    <button type="button" className="secondary-button" onClick={() => navigateToHash(buildShellRouteHash("people-ops-compliance"))}>
-                      Open Needs Attention
-                    </button>
-                  ) : null}
-                </WorkspaceActionBar>
-              }
-            />
-            <div className="home-operational__issue-list">
-              {visibleUrgentItems.map((item: HomeUrgentWatchItem) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`home-operational__issue-card home-operational__issue-card--${mapTone(item.tone)}`}
-                  onClick={() => navigateToHash(resolveHomeActionHash(item.action_hash))}
-                >
-                  <div className="home-operational__issue-top">
-                    <span>{item.kind_label}</span>
-                    <strong>{item.urgency_label}</strong>
-                  </div>
-                  <div className="home-operational__issue-body">
-                    <strong>{item.title}</strong>
-                    <p>{item.summary}</p>
-                  </div>
-                  <div className="home-operational__issue-explain">
-                    <span>Why it matters</span>
-                    <p>{getUrgentWhy(item)}</p>
-                  </div>
-                  <div className="home-operational__issue-meta">
-                    <span>Owner/context: {item.supporting_label ?? "Unassigned or context pending"}</span>
-                    <em>Next: {getPlainActionLabel(item.action_label, item.action_hash)}</em>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {movingItems.length ? (
-          <section className="panel home-operational__moving-panel">
-            <WorkspaceSectionHeader
-              title="Work moving now"
-              summary="The clearest next work already in motion, without turning Home into a long queue page."
-              compact
-            />
-            <div className="home-operational__moving-list">
-              {movingItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`home-operational__moving-card home-operational__moving-card--${item.tone}`}
-                  onClick={() => navigateToHash(resolveHomeActionHash(item.actionHash))}
-                >
-                  <div className="home-operational__moving-top">
-                    <span>{item.eyebrow}</span>
-                    <em>{getPlainActionLabel(item.actionLabel, item.actionHash)}</em>
-                  </div>
-                  <strong>{item.title}</strong>
-                  <p>{item.summary}</p>
-                  <div className="home-operational__moving-meta">
-                    <span>{item.metaPrimary}</span>
-                    {item.metaSecondary ? <span>{item.metaSecondary}</span> : null}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
     </section>
   );
 }
