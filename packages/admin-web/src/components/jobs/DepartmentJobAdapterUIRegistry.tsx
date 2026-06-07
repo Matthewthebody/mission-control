@@ -171,12 +171,14 @@ export type SharedJobListFilterState = {
   search: string;
   dateRange: string;
   organizationId: string;
+  jobCategory: string;
   primaryContactId: string;
   locationId: string;
   accountOwnerUserId: string;
   leadOwnerUserId: string;
   jobStatus: string;
   productionStatus: string;
+  releaseStatus: string;
   staffingStatus: string;
   readinessStatus: string;
   riskStatus: string;
@@ -250,12 +252,14 @@ export const BASELINE_FILTER_STATE: SharedJobListFilterState = {
   search: "",
   dateRange: "all",
   organizationId: "",
+  jobCategory: "",
   primaryContactId: "",
   locationId: "",
   accountOwnerUserId: "",
   leadOwnerUserId: "",
   jobStatus: "",
   productionStatus: "",
+  releaseStatus: "",
   staffingStatus: "",
   readinessStatus: "",
   riskStatus: "",

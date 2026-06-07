@@ -2256,7 +2256,10 @@ beforeEach(() => {
         title: `${isSports ? "Metro Athletics" : "North High"} Database Job ${oneBasedIndex}`,
         organization_id: isSports ? "org-sports" : "org-school",
         organization_name: isSports ? "Metro Athletics" : "North High",
+        job_category: isSports ? "media_day" : "photo_day",
         job_status: index % 3 === 0 ? "confirmed" : "planning",
+        production_status: isSports ? "proof_build" : "queued",
+        proof_status: isSports ? "proof_build" : null,
         risk_status: index % 5 === 0 ? "high" : "low",
         readiness_status: index % 5 === 0 ? "at_risk" : "on_track",
         lead_owner_user_id: isSports ? "lead-sports" : "lead-schools",
@@ -2267,7 +2270,9 @@ beforeEach(() => {
 
     render(<SharedJobsPage token="token-demo" currentUser={sportsCoordinator} departmentType={null} routeBase="#jobs" />);
 
-    expect(await screen.findByRole("heading", { name: "Jobs Database" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Jobs" })).toBeInTheDocument();
+    expect(screen.getByText("Search and review every photographed job from shoot to final delivery.")).toBeInTheDocument();
+    expect(screen.queryByText("Jobs Database")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryAllByText(/^Jobs$/).length).toBeLessThanOrEqual(1);
     expect(screen.queryByRole("button", { name: /New Job|Create New Job|Create job/i })).not.toBeInTheDocument();
@@ -2276,20 +2281,40 @@ beforeEach(() => {
     expect(screen.queryByRole("button", { name: /Pin default/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Rename/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delete/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/work spine|read model|command layer|database surface|job truth layer|current view/i)).not.toBeInTheDocument();
 
-    expect(screen.getByLabelText("Job name / number / organization")).toBeInTheDocument();
-    expect(screen.getByLabelText("Department / type")).toBeInTheDocument();
-    expect(screen.getByLabelText("Organization / school / team")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search Jobs")).toHaveAttribute("placeholder", "Search by school, team, organization, job name, or date...");
+    expect(screen.getByLabelText("Department")).toBeInTheDocument();
+    expect(screen.getByLabelText("Organization")).toBeInTheDocument();
+    expect(screen.getByLabelText("Job Type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Date Range")).toBeInTheDocument();
     expect(screen.getByLabelText("Status")).toBeInTheDocument();
-    expect(screen.getByLabelText("Date range")).toBeInTheDocument();
-    expect(screen.getByLabelText("Needs attention / urgent")).toBeInTheDocument();
-    expect(screen.getByLabelText("Assigned owner")).toBeInTheDocument();
+    expect(screen.getByLabelText("Owner")).toBeInTheDocument();
+    expect(screen.getByLabelText("Needs Attention")).toBeInTheDocument();
+    expect(screen.getByLabelText("Production Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Gallery / Release Status")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Job" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Organization" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Date" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Owner" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Next Step" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Needs Attention" })).toBeInTheDocument();
     expect(screen.getByLabelText("Jobs per page")).toHaveValue("25");
     expect(screen.getByText("Showing 1-25 of 30 jobs")).toBeInTheDocument();
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(26);
     expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open job record" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Resolve readiness").length).toBeGreaterThan(0);
     expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Job Type"), { target: { value: "media_day" } });
+
+    await waitFor(() => expect(screen.getByText("Showing 1-15 of 15 jobs")).toBeInTheDocument());
+    expect(screen.queryByText("North High Database Job 1")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Metro Athletics Database Job 2").length).toBeGreaterThan(0);
   });
 
   it("renders the shared editor with school adapter sections", async () => {

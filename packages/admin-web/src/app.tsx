@@ -327,12 +327,13 @@ export default function App() {
   const isMyWorkLaunchpadRoute = guardedRouteId === "dashboard-my-day";
   const isScheduleLandingRoute = guardedRouteId === "operations-schedule" || guardedRouteId === "dashboard-my-schedule";
   const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
+  const isJobsRoute = guardedRouteId === "jobs";
   const isPhotographySectionRoute = currentRoute.sectionKey === "photography";
   const isProjectTrackingOverviewRoute = guardedRouteId === "project-tracking";
   const isProductionSectionRoute = currentRoute.sectionKey === "production";
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
-  const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
+  const topbarRouteLabel = isDirectoryRoute ? "Directory" : currentRoute.label;
   const visibleSecondaryRoutes = isHomeRoute || isDirectoryRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
   const visibleContextUtilityRoutes: typeof utilityRoutes = [];
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
@@ -342,6 +343,7 @@ export default function App() {
     isMyWorkLaunchpadRoute ||
     isScheduleLandingRoute ||
     isDirectoryRoute ||
+    isJobsRoute ||
     isPhotographySectionRoute ||
     isProjectTrackingOverviewRoute ||
     isProductionSectionRoute;

@@ -516,8 +516,10 @@ describe("app auth bootstrap", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Jobs Database" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Jobs", level: 1 })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Jobs" })).toBeInTheDocument();
+    expect(screen.getByText("Search and review every photographed job from shoot to final delivery.")).toBeInTheDocument();
+    expect(screen.queryByText("Jobs Database")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Jobs" })).toHaveLength(1);
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();

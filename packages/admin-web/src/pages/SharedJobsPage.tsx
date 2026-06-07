@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ApiClientError } from "../api";
 import { usePermission } from "../components/PermissionGate";
 import { SharedJobListShell } from "../components/jobs/SharedJobListShell";
 import {
   BASELINE_FILTER_STATE,
   getDepartmentJobAdapterUI,
+  type SharedJobListColumnDefinition,
   type SharedJobListFilterState
 } from "../components/jobs/DepartmentJobAdapterUIRegistry";
-import { buildSharedJobHash, navigateToSharedJobHash } from "../components/jobs/sharedJobRouting";
-import { DetailPreviewPanel, RiskBadge, SavedViewBar, StatusPill, formatDate, formatDateTime, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
+import { navigateToSharedJobHash } from "../components/jobs/sharedJobRouting";
+import { DetailPreviewPanel, RiskBadge, SavedViewBar, StatusPill, formatDate, formatTimeRange, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import type { SharedJobListItem } from "../jobTruthTypes";
@@ -32,12 +32,14 @@ function readFilterState(params: URLSearchParams, departmentType: "schools" | "s
     search: params.get("search") ?? "",
     dateRange: params.get("dateRange") ?? "all",
     organizationId: params.get("organizationId") ?? "",
+    jobCategory: params.get("jobCategory") ?? "",
     primaryContactId: params.get("primaryContactId") ?? "",
     locationId: params.get("locationId") ?? "",
     accountOwnerUserId: params.get("accountOwnerUserId") ?? "",
     leadOwnerUserId: params.get("leadOwnerUserId") ?? "",
     jobStatus: params.get("jobStatus") ?? "",
     productionStatus: params.get("productionStatus") ?? "",
+    releaseStatus: params.get("releaseStatus") ?? "",
     staffingStatus: params.get("staffingStatus") ?? "",
     readinessStatus: params.get("readinessStatus") ?? "",
     riskStatus: params.get("riskStatus") ?? "",
@@ -106,6 +108,9 @@ function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFil
     if (filters.organizationId && item.organization_id !== filters.organizationId) {
       return false;
     }
+    if (filters.jobCategory && item.job_category !== filters.jobCategory) {
+      return false;
+    }
     if (filters.primaryContactId && item.primary_contact_id !== filters.primaryContactId) {
       return false;
     }
@@ -122,6 +127,9 @@ function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFil
       return false;
     }
     if (filters.productionStatus && item.production_status !== filters.productionStatus) {
+      return false;
+    }
+    if (filters.releaseStatus && (item.proof_status ?? item.gallery_type ?? "") !== filters.releaseStatus) {
       return false;
     }
     if (filters.staffingStatus && item.staffing_status !== filters.staffingStatus) {
@@ -191,7 +199,13 @@ function uniqueOptions(values: Array<SelectOption | null | undefined>) {
 function buildDatabaseOptions(items: SharedJobListItem[]) {
   return {
     organizations: uniqueOptions(items.map((item) => (item.organization_id ? { value: item.organization_id, label: item.organization_name ?? item.organization_id } : null))),
+    categories: uniqueOptions(items.map((item) => (item.job_category ? { value: item.job_category, label: humanizeToken(item.job_category) } : null))),
     statuses: uniqueOptions(items.map((item) => (item.job_status ? { value: item.job_status, label: humanizeToken(item.job_status) } : null))),
+    productionStatuses: uniqueOptions(items.map((item) => (item.production_status ? { value: item.production_status, label: humanizeToken(item.production_status) } : null))),
+    releaseStatuses: uniqueOptions(items.map((item) => {
+      const value = item.proof_status ?? item.gallery_type ?? "";
+      return value ? { value, label: humanizeToken(value) } : null;
+    })),
     risks: uniqueOptions(items.map((item) => (item.risk_status ? { value: item.risk_status, label: humanizeToken(item.risk_status) } : null))),
     owners: uniqueOptions(
       items.flatMap((item) => [
@@ -200,6 +214,152 @@ function buildDatabaseOptions(items: SharedJobListItem[]) {
       ])
     )
   };
+}
+
+function getJobTitle(item: SharedJobListItem) {
+  return item.title || item.event_name || item.job_number || "Untitled job";
+}
+
+function getDepartmentLabel(value: string | null | undefined) {
+  switch (value) {
+    case "schools":
+      return "Schools";
+    case "sports":
+      return "Sports";
+    case "headshots":
+      return "Photography";
+    case "corporate":
+      return "Corporate";
+    case "other":
+      return "Specialty";
+    default:
+      return value ? humanizeToken(value) : "Unassigned";
+  }
+}
+
+function getJobOwnerName(item: SharedJobListItem) {
+  return item.lead_owner_name ?? item.account_owner_name ?? "Unassigned";
+}
+
+function formatJobDate(item: SharedJobListItem) {
+  const date = item.primary_day_date ?? item.scheduled_start_at?.slice(0, 10) ?? null;
+  if (!date) {
+    return "TBD";
+  }
+  const startTime = item.primary_day_start_time ?? item.scheduled_start_at?.slice(11, 16) ?? null;
+  const endTime = item.primary_day_end_time ?? item.scheduled_end_at?.slice(11, 16) ?? null;
+  return `${formatDate(date)}${startTime ? ` | ${formatTimeRange(startTime, endTime)}` : ""}`;
+}
+
+function jobNeedsAttention(item: SharedJobListItem) {
+  return (
+    item.risk_status === "high" ||
+    item.risk_status === "critical" ||
+    item.readiness_status === "at_risk" ||
+    item.readiness_status === "off_track" ||
+    item.production_status === "blocked" ||
+    item.staffing_status === "gap_flagged" ||
+    item.blocker_count > 0 ||
+    item.open_watch_flag_count > 0
+  );
+}
+
+function getAttentionTone(item: SharedJobListItem): "neutral" | "success" | "warning" | "danger" {
+  if (item.risk_status === "critical" || item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0) {
+    return "danger";
+  }
+  if (jobNeedsAttention(item)) {
+    return "warning";
+  }
+  return "success";
+}
+
+function getAttentionLabel(item: SharedJobListItem) {
+  if (item.blocker_count > 0) {
+    return `${item.blocker_count} blocker${item.blocker_count === 1 ? "" : "s"}`;
+  }
+  if (item.open_watch_flag_count > 0) {
+    return `${item.open_watch_flag_count} issue${item.open_watch_flag_count === 1 ? "" : "s"}`;
+  }
+  if (item.production_status === "blocked") {
+    return "Production blocked";
+  }
+  if (item.risk_status === "critical" || item.risk_status === "high") {
+    return humanizeToken(item.risk_status);
+  }
+  if (item.readiness_status === "at_risk" || item.readiness_status === "off_track") {
+    return humanizeToken(item.readiness_status);
+  }
+  if (item.staffing_status === "gap_flagged") {
+    return "Staffing gap";
+  }
+  return "Clear";
+}
+
+function getNextStep(item: SharedJobListItem) {
+  if (item.blocker_count > 0 || item.open_watch_flag_count > 0) {
+    return "Resolve the attention item";
+  }
+  if (item.production_status === "blocked") {
+    return "Unblock production";
+  }
+  if (item.readiness_status === "off_track" || item.readiness_status === "at_risk") {
+    return "Resolve readiness";
+  }
+  if (item.staffing_status === "gap_flagged" || item.staffing_status === "unassigned" || item.staffing_status === "partially_staffed") {
+    return "Confirm staffing";
+  }
+  if (item.job_status === "draft" || item.job_status === "intake_blocked" || item.job_status === "pending_confirmation") {
+    return "Confirm job details";
+  }
+  if (item.job_status === "execution_complete" && item.production_status !== "complete") {
+    return "Move through production";
+  }
+  if (item.production_status === "awaiting_approval" || item.production_status === "proof_sent") {
+    return "Follow up on approval";
+  }
+  if (item.production_status === "delivered" || item.production_status === "complete") {
+    return "Review completed record";
+  }
+  return "Open job record";
+}
+
+function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[] {
+  return [
+    {
+      key: "job",
+      label: "Job",
+      render: (item) => (
+        <div className="shared-job-table__job">
+          <strong>{getJobTitle(item)}</strong>
+          <span className="shared-job-table__muted">{item.job_number ?? "Draft job"}</span>
+        </div>
+      )
+    },
+    { key: "organization", label: "Organization", render: (item) => item.organization_name ?? "Unassigned" },
+    { key: "date", label: "Date", render: (item) => formatJobDate(item) },
+    { key: "department", label: "Department", render: (item) => <StatusPill label={getDepartmentLabel(item.department_type)} tone="neutral" /> },
+    { key: "status", label: "Status", render: (item) => <StatusPill label={humanizeToken(item.job_status)} tone={statusTone(item.job_status)} /> },
+    { key: "owner", label: "Owner", render: (item) => getJobOwnerName(item) },
+    { key: "next_step", label: "Next Step", render: (item) => <span className="shared-job-table__next-step">{getNextStep(item)}</span> },
+    { key: "attention", label: "Needs Attention", render: (item) => <StatusPill label={getAttentionLabel(item)} tone={getAttentionTone(item)} /> },
+    {
+      key: "record",
+      label: "Record",
+      render: (item) => (
+        <button
+          type="button"
+          className="secondary-button shared-job-table__open-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            navigateToSharedJobHash(routeBase, item.id);
+          }}
+        >
+          Open job record
+        </button>
+      )
+    }
+  ];
 }
 
 function paginateItems<T>(items: T[], currentPage: number, pageSize: number) {
@@ -243,7 +403,8 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     }).catch((loadError) => {
       if (!cancelled) {
         setItems([]);
-        setError(loadError instanceof ApiClientError ? loadError.message : "We couldn't load jobs right now.");
+        console.error("Unable to load shared jobs", loadError);
+        setError("Jobs are not available in this demo view. Refresh if this does not resolve.");
       }
     }).finally(() => {
       if (!cancelled) {
@@ -262,7 +423,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   const filteredItems = useMemo(() => applyLocalFilters(items, filters), [filters, items]);
   const pagedItems = useMemo(() => paginateItems(filteredItems, currentPage, pageSize), [currentPage, filteredItems, pageSize]);
   const selectedItem = filteredItems.find((item) => item.id === selectedJobId) ?? pagedItems.items[0] ?? null;
-  const columns = useMemo(() => (adapter ? adapter.getListColumns() : getDepartmentJobAdapterUI("sports").getListColumns()), [adapter]);
+  const columns = useMemo(() => (adapter ? adapter.getListColumns() : getGlobalJobColumns(routeBase)), [adapter, routeBase]);
   const filterDefinitions = useMemo(() => (adapter ? adapter.getFilterDefinitions() : []), [adapter]);
   const presetViews = useMemo(() => (adapter ? adapter.getSavedViewPresets() : []), [adapter]);
   const databaseOptions = useMemo(() => buildDatabaseOptions(items), [items]);
@@ -273,7 +434,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   }
 
   if (loading) {
-    return <WorkspaceLoadingBlock title="Loading shared jobs" summary="Opening the shared job list infrastructure with department-aware filters and preview context." />;
+    return <WorkspaceLoadingBlock title="Loading jobs" summary="Opening the job database." />;
   }
 
   const viewLibrary = presetViews;
@@ -284,8 +445,8 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   return (
     <SharedJobListShell
       eyebrow={adapter?.labels.departmentBadge ?? "Database"}
-      title={adapter?.listTitle ?? "Jobs Database"}
-      summary={adapter ? `One shared ${adapter.labels.listScope.toLowerCase()} board with department-specific filters, columns, and preset lenses on top of the same job truth layer.` : "Search the shared job database by department, organization, job name, status, date, urgency, and owner without turning the page into a long scroll."}
+      title={adapter?.listTitle ?? "Jobs"}
+      summary={adapter ? `Search, filter, and review ${adapter.labels.listScope.toLowerCase()} with department-specific columns and saved views.` : "Search and review every photographed job from shoot to final delivery."}
       meta={[
         { label: `${filteredItems.length} visible`, tone: "info" },
         { label: `${attentionCount} attention`, tone: attentionCount ? "warning" : "success" }
@@ -314,28 +475,46 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
       filters={
         <div className="shared-job-list__filter-grid">
           <label className="filter-field filter-field--wide">
-            <span>Job name / number / organization</span>
-            <input value={filters.search} onChange={(event) => writeFilterState(routeBase, { ...filters, search: event.target.value }, { preview: selectedItem?.id ?? null, savedView: activeSavedViewKey || null })} placeholder="Job number, organization, title, or contact" />
+            <span>Search Jobs</span>
+            <input value={filters.search} onChange={(event) => writeFilterState(routeBase, { ...filters, search: event.target.value }, { preview: selectedItem?.id ?? null, savedView: activeSavedViewKey || null })} placeholder="Search by school, team, organization, job name, or date..." />
           </label>
           {isGlobalJobsPage ? (
             <>
               <label className="filter-field">
-                <span>Department / type</span>
+                <span>Department</span>
                 <select value={filters.departmentType} onChange={(event) => writeFilterState(routeBase, { ...filters, departmentType: event.target.value }, { preview: selectedItem?.id ?? null })}>
                   <option value="">All departments</option>
                   <option value="schools">Schools</option>
                   <option value="sports">Sports</option>
-                  <option value="photography">Photography</option>
-                  <option value="specialty">Specialty</option>
+                  <option value="headshots">Photography</option>
+                  <option value="other">Specialty</option>
                 </select>
               </label>
               <label className="filter-field">
-                <span>Organization / school / team</span>
+                <span>Organization</span>
                 <select value={filters.organizationId} onChange={(event) => writeFilterState(routeBase, { ...filters, organizationId: event.target.value }, { preview: selectedItem?.id ?? null })}>
                   <option value="">All organizations</option>
                   {databaseOptions.organizations.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Job Type</span>
+                <select value={filters.jobCategory} onChange={(event) => writeFilterState(routeBase, { ...filters, jobCategory: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All job types</option>
+                  {databaseOptions.categories.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Date Range</span>
+                <select value={filters.dateRange} onChange={(event) => writeFilterState(routeBase, { ...filters, dateRange: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="all">All dates</option>
+                  <option value="next-7">Next 7 days</option>
+                  <option value="next-14">Next 14 days</option>
+                  <option value="overdue">Overdue</option>
                 </select>
               </label>
               <label className="filter-field">
@@ -348,16 +527,16 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
                 </select>
               </label>
               <label className="filter-field">
-                <span>Date range</span>
-                <select value={filters.dateRange} onChange={(event) => writeFilterState(routeBase, { ...filters, dateRange: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="all">All dates</option>
-                  <option value="next-7">Next 7 days</option>
-                  <option value="next-14">Next 14 days</option>
-                  <option value="overdue">Overdue</option>
+                <span>Owner</span>
+                <select value={filters.leadOwnerUserId} onChange={(event) => writeFilterState(routeBase, { ...filters, leadOwnerUserId: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All owners</option>
+                  {databaseOptions.owners.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </label>
               <label className="filter-field">
-                <span>Needs attention / urgent</span>
+                <span>Needs Attention</span>
                 <select value={filters.riskStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, riskStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
                   <option value="">All risk states</option>
                   {databaseOptions.risks.map((option) => (
@@ -366,14 +545,25 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
                 </select>
               </label>
               <label className="filter-field">
-                <span>Assigned owner</span>
-                <select value={filters.leadOwnerUserId} onChange={(event) => writeFilterState(routeBase, { ...filters, leadOwnerUserId: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All owners</option>
-                  {databaseOptions.owners.map((option) => (
+                <span>Production Status</span>
+                <select value={filters.productionStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, productionStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All production statuses</option>
+                  {databaseOptions.productionStatuses.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </label>
+              {databaseOptions.releaseStatuses.length ? (
+                <label className="filter-field">
+                  <span>Gallery / Release Status</span>
+                  <select value={filters.releaseStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, releaseStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                    <option value="">All release statuses</option>
+                    {databaseOptions.releaseStatuses.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </>
           ) : filterDefinitions.map((definition) => (
             <label key={definition.key} className="filter-field">
@@ -431,7 +621,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
           </div>
         </div>
       }
-      emptyState={!filteredItems.length ? { title: "No jobs match this view", summary: "Adjust filters to find a school, sports, photography, or specialty job.", actions: !isGlobalJobsPage && createAllowed ? <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })}>Create job</button> : null } : null}
+      emptyState={!filteredItems.length ? { title: "No jobs match these filters", summary: "Adjust search or filters to find a school, sports, photography, or specialty job.", actions: !isGlobalJobsPage && createAllowed ? <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })}>Create job</button> : null } : null}
       preview={
         selectedItem ? (
           <DetailPreviewPanel
@@ -439,7 +629,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             subtitle={`${selectedItem.organization_name ?? "No organization"} | ${selectedItem.job_number ?? "Draft"}`}
             actions={
               <WorkspaceActionBar align="end" compact>
-                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open detail</button>
+                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open job record</button>
                 {canUpdateByPolicy ? <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, `${selectedItem.id}/edit`)}>Edit</button> : null}
               </WorkspaceActionBar>
             }
