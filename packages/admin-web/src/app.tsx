@@ -333,7 +333,7 @@ export default function App() {
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
   const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
-  const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
+  const visibleSecondaryRoutes = isHomeRoute || isDirectoryRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
   const visibleContextUtilityRoutes: typeof utilityRoutes = [];
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
   const showTopbarMeta = !isDirectoryRoute;

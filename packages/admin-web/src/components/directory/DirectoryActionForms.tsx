@@ -37,9 +37,22 @@ type FormProps = {
 
 type OrganizationEditorFormProps = FormProps & {
   initialValue?: Partial<OrganizationCreateInput>;
+  ownerOptions?: DirectoryOwnerOption[];
   submitLabel: string;
   onUploadLogo?: (file: File) => Promise<string>;
-  onSubmit: (input: OrganizationCreateInput) => Promise<void> | void;
+  onSubmit: (input: OrganizationCreateInput, context: OrganizationEditorSubmitContext) => Promise<void> | void;
+};
+
+export type OrganizationPrimaryContactDraft = {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  preferredContactMethod: string;
+};
+
+export type OrganizationEditorSubmitContext = {
+  primaryContact: OrganizationPrimaryContactDraft | null;
 };
 
 type ContactEditorFormProps = FormProps & {
@@ -89,15 +102,41 @@ type DuplicateReviewFormProps = FormProps & {
   onSubmit: (input: DirectoryDuplicateReviewCreateInput) => Promise<void> | void;
 };
 
-export function OrganizationEditorForm({ initialValue, submitLabel, onUploadLogo, onSubmit, onCancel, submitting, error }: OrganizationEditorFormProps) {
+const ORGANIZATION_RELATIONSHIP_STATUS_OPTIONS = ["Active", "Prospect", "Returning Client", "At Risk", "Inactive"];
+const FALLBACK_INTERNAL_OWNERS = ["Jessica", "Josh", "Spencer", "Dylan", "Greta", "Jared", "Matthew"];
+const CONTACT_METHOD_OPTIONS = ["", "Email", "Phone", "Text", "No preference"];
+
+export function OrganizationEditorForm({
+  initialValue,
+  ownerOptions = [],
+  submitLabel,
+  onUploadLogo,
+  onSubmit,
+  onCancel,
+  submitting,
+  error
+}: OrganizationEditorFormProps) {
   const [canonicalName, setCanonicalName] = useState(initialValue?.canonical_name ?? "");
   const [displayName, setDisplayName] = useState(initialValue?.display_name ?? initialValue?.canonical_name ?? "");
   const [logoUrl, setLogoUrl] = useState(initialValue?.logo_url ?? "");
   const [accountType, setAccountType] = useState<OrganizationAccountType>(initialValue?.account_type ?? "schools_underclass_portraits");
-  const [aliases, setAliases] = useState((initialValue?.aliases ?? []).join(", "));
-  const [notes, setNotes] = useState(initialValue?.notes ?? "");
+  const [relationshipStatus, setRelationshipStatus] = useState(initialValue?.active_status === "inactive" ? "Inactive" : "Active");
+  const [internalOwner, setInternalOwner] = useState("");
+  const [primaryContactName, setPrimaryContactName] = useState("");
+  const [primaryContactTitle, setPrimaryContactTitle] = useState("");
+  const [primaryContactEmail, setPrimaryContactEmail] = useState("");
+  const [primaryContactPhone, setPrimaryContactPhone] = useState("");
+  const [preferredContactMethod, setPreferredContactMethod] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [secondaryColor, setSecondaryColor] = useState("");
+  const [mascot, setMascot] = useState("");
+  const [website, setWebsite] = useState("");
+  const [mainPhone, setMainPhone] = useState("");
+  const [teamNotes, setTeamNotes] = useState(initialValue?.notes ?? "");
+  const [operationsNotes, setOperationsNotes] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const ownerSelectOptions = ownerOptions.length ? ownerOptions.map((owner) => owner.full_name) : FALLBACK_INTERNAL_OWNERS;
 
   async function handleLogoSelected(file: File | null) {
     if (!file || !onUploadLogo) {
@@ -120,62 +159,173 @@ export function OrganizationEditorForm({ initialValue, submitLabel, onUploadLogo
       className="directory-form"
       onSubmit={(event) => {
         event.preventDefault();
+        const primaryContact: OrganizationPrimaryContactDraft | null =
+          primaryContactName.trim() ||
+          primaryContactTitle.trim() ||
+          primaryContactEmail.trim() ||
+          primaryContactPhone.trim() ||
+          preferredContactMethod.trim()
+            ? {
+                name: primaryContactName.trim(),
+                title: primaryContactTitle.trim(),
+                email: primaryContactEmail.trim(),
+                phone: primaryContactPhone.trim(),
+                preferredContactMethod: preferredContactMethod.trim()
+              }
+            : null;
         void onSubmit({
           canonical_name: canonicalName.trim(),
           display_name: displayName.trim() || canonicalName.trim(),
           logo_url: logoUrl.trim() || null,
           account_type: accountType,
-          aliases: aliases
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean),
-          notes: notes.trim() || null
-        });
+          active_status: relationshipStatus === "Inactive" ? "inactive" : "active",
+          aliases: initialValue?.aliases ?? [],
+          notes: buildOrganizationNotes({
+            relationshipStatus,
+            internalOwner,
+            primaryColor,
+            secondaryColor,
+            mascot,
+            website,
+            mainPhone,
+            teamNotes,
+            operationsNotes
+          })
+        }, { primaryContact });
       }}
     >
-      <div className="directory-form__grid">
-        <label className="directory-field">
-          <span>Organization name</span>
-          <input value={canonicalName} onChange={(event) => setCanonicalName(event.target.value)} required />
-        </label>
-        <label className="directory-field">
-          <span>Short display name</span>
-          <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-        </label>
-        <label className="directory-field directory-field--wide">
-          <span>Logo or primary image</span>
-          <input value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="Paste an image URL or upload a file" />
-          <div className="directory-upload-row">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                void handleLogoSelected(event.target.files?.[0] ?? null);
-                event.currentTarget.value = "";
-              }}
-            />
-            {uploadingLogo ? <span className="muted">Uploading logo...</span> : null}
-          </div>
-        </label>
-        <label className="directory-field">
-          <span>Account type</span>
-          <select value={accountType} onChange={(event) => setAccountType(event.target.value as OrganizationAccountType)}>
-            {ACCOUNT_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="directory-field directory-field--wide">
-          <span>Aliases</span>
-          <input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="Comma-separated aliases" />
-        </label>
-        <label className="directory-field directory-field--wide">
-          <span>Team notes</span>
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} />
-        </label>
-      </div>
+      <fieldset className="directory-form__section">
+        <legend>Basic Info</legend>
+        <div className="directory-form__grid">
+          <label className="directory-field">
+            <span>Organization Name</span>
+            <input value={canonicalName} onChange={(event) => setCanonicalName(event.target.value)} required />
+          </label>
+          <label className="directory-field">
+            <span>Short Name</span>
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Account Type</span>
+            <select value={accountType} onChange={(event) => setAccountType(event.target.value as OrganizationAccountType)} required>
+              {ACCOUNT_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="directory-field">
+            <span>Status</span>
+            <select value={relationshipStatus} onChange={(event) => setRelationshipStatus(event.target.value)}>
+              {ORGANIZATION_RELATIONSHIP_STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="directory-field directory-field--wide">
+            <span>Logo</span>
+            <input value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="Paste an image URL or upload a file" />
+            <div className="directory-upload-row">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  void handleLogoSelected(event.target.files?.[0] ?? null);
+                  event.currentTarget.value = "";
+                }}
+              />
+              {uploadingLogo ? <span className="muted">Uploading logo...</span> : null}
+            </div>
+          </label>
+          <label className="directory-field">
+            <span>Internal Owner</span>
+            <select value={internalOwner} onChange={(event) => setInternalOwner(event.target.value)}>
+              <option value="">Not assigned</option>
+              {ownerSelectOptions.map((ownerName) => (
+                <option key={ownerName} value={ownerName}>
+                  {ownerName}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="directory-form__section">
+        <legend>Primary Contact</legend>
+        <p className="muted">Who is the main person connected to this organization?</p>
+        <div className="directory-form__grid">
+          <label className="directory-field">
+            <span>Contact Name</span>
+            <input value={primaryContactName} onChange={(event) => setPrimaryContactName(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Role / Title</span>
+            <input value={primaryContactTitle} onChange={(event) => setPrimaryContactTitle(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Email</span>
+            <input type="email" value={primaryContactEmail} onChange={(event) => setPrimaryContactEmail(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Phone</span>
+            <input value={primaryContactPhone} onChange={(event) => setPrimaryContactPhone(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Preferred Contact Method</span>
+            <select value={preferredContactMethod} onChange={(event) => setPreferredContactMethod(event.target.value)}>
+              {CONTACT_METHOD_OPTIONS.map((option) => (
+                <option key={option || "none"} value={option}>
+                  {option || "No preference"}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="directory-form__section">
+        <legend>Brand</legend>
+        <div className="directory-form__grid">
+          <label className="directory-field">
+            <span>Primary Color</span>
+            <input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} placeholder="Example: Navy" />
+          </label>
+          <label className="directory-field">
+            <span>Secondary Color</span>
+            <input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} placeholder="Example: Gold" />
+          </label>
+          <label className="directory-field">
+            <span>Mascot</span>
+            <input value={mascot} onChange={(event) => setMascot(event.target.value)} />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="directory-form__section">
+        <legend>Notes</legend>
+        <div className="directory-form__grid">
+          <label className="directory-field">
+            <span>Website</span>
+            <input type="url" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Main Phone</span>
+            <input value={mainPhone} onChange={(event) => setMainPhone(event.target.value)} />
+          </label>
+          <label className="directory-field directory-field--wide">
+            <span>Team Notes</span>
+            <textarea value={teamNotes} onChange={(event) => setTeamNotes(event.target.value)} rows={3} />
+          </label>
+          <label className="directory-field directory-field--wide">
+            <span>Operations Notes</span>
+            <textarea value={operationsNotes} onChange={(event) => setOperationsNotes(event.target.value)} rows={3} />
+          </label>
+        </div>
+      </fieldset>
       {uploadError ? <p className="directory-form__error">{uploadError}</p> : null}
       {error ? <p className="directory-form__error">{error}</p> : null}
       <div className="directory-form__actions">
@@ -188,6 +338,39 @@ export function OrganizationEditorForm({ initialValue, submitLabel, onUploadLogo
       </div>
     </form>
   );
+}
+
+function buildOrganizationNotes(input: {
+  relationshipStatus: string;
+  internalOwner: string;
+  primaryColor: string;
+  secondaryColor: string;
+  mascot: string;
+  website: string;
+  mainPhone: string;
+  teamNotes: string;
+  operationsNotes: string;
+}) {
+  const sections: string[] = [];
+  if (input.teamNotes.trim()) {
+    sections.push(input.teamNotes.trim());
+  }
+  const details = [
+    ["Status", input.relationshipStatus],
+    ["Internal Owner", input.internalOwner],
+    ["Website", input.website],
+    ["Main Phone", input.mainPhone],
+    ["Primary Color", input.primaryColor],
+    ["Secondary Color", input.secondaryColor],
+    ["Mascot", input.mascot],
+    ["Operations Notes", input.operationsNotes]
+  ]
+    .map(([label, value]) => [label, value.trim()] as const)
+    .filter(([, value]) => value);
+  if (details.length) {
+    sections.push(`Directory Details:\n${details.map(([label, value]) => `${label}: ${value}`).join("\n")}`);
+  }
+  return sections.length ? sections.join("\n\n") : null;
 }
 
 export function ContactEditorForm({

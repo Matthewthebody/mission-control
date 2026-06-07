@@ -929,8 +929,22 @@ type DrawerRenderProps = {
 function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptions, continuity, organizationId, organizationShoots, token, actionBusy, drawerError, refreshAll, refreshWorkspace, refreshFocusedWorkspace, closeDrawer, pushRoute, runAction }: DrawerRenderProps) {
   if (!drawerState) return null;
   if (drawerState.type === "create-organization") {
-    return <OrganizationEditorForm submitLabel="Create organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, null, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput) => runAction(async () => {
+    return <OrganizationEditorForm ownerOptions={ownerOptions} submitLabel="Create organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, null, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput, context) => runAction(async () => {
       const response = await createOrganizationRecord(token, input);
+      const primaryContact = context.primaryContact;
+      if (primaryContact?.name) {
+        const { firstName, lastName } = splitContactName(primaryContact.name);
+        await createOrganizationContactRecord(token, response.organization.id, {
+          first_name: firstName,
+          last_name: lastName,
+          title: primaryContact.title || null,
+          email: primaryContact.email || null,
+          phone: primaryContact.phone || null,
+          contact_status: "active",
+          role_category: "other",
+          notes: primaryContact.preferredContactMethod ? `Preferred contact method: ${primaryContact.preferredContactMethod}` : null
+        });
+      }
       await refreshAll(response.organization.id);
       pushRoute({ view: "organizations", organizationId: response.organization.id, contactId: null, locationId: null, tab: "profile" });
     }, true)} />;
@@ -949,7 +963,7 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
     );
   }
   if (!organizationId || !detail) return <div className="drawer-empty">Choose an organization to continue.</div>;
-  if (drawerState.type === "edit-organization") return <OrganizationEditorForm initialValue={{ canonical_name: detail.organization.canonical_name, display_name: detail.organization.display_name, logo_url: detail.organization.logo_url, account_type: detail.organization.account_type, aliases: detail.organization.aliases, notes: detail.organization.notes }} submitLabel="Save organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, organizationId, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput) => runAction(async () => { await updateOrganizationRecord(token, organizationId, input); await refreshAll(organizationId); }, true)} />;
+  if (drawerState.type === "edit-organization") return <OrganizationEditorForm ownerOptions={ownerOptions} initialValue={{ canonical_name: detail.organization.canonical_name, display_name: detail.organization.display_name, logo_url: detail.organization.logo_url, account_type: detail.organization.account_type, active_status: detail.organization.active_status, aliases: detail.organization.aliases, notes: detail.organization.notes }} submitLabel="Save organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, organizationId, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput) => runAction(async () => { await updateOrganizationRecord(token, organizationId, input); await refreshAll(organizationId); }, true)} />;
   if (drawerState.type === "edit-school-profile") return <SchoolProfileForm initialValue={detail.school_profile ?? null} ownerOptions={ownerOptions} locations={detail.locations} submitLabel="Save school profile" submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input) => runAction(async () => { await updateSchoolProfileRecord(token, organizationId, input); await refreshWorkspace(organizationId); }, true)} />;
   if (drawerState.type === "edit-school-contact-categories") return <SchoolContactCategoriesForm contact={drawerState.contact} submitLabel="Save school roles" submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input) => runAction(async () => { await updateSchoolContactCategoriesRecord(token, organizationId, drawerState.contact.id, input); await refreshWorkspace(organizationId); }, true)} />;
   if (drawerState.type === "create-school-rule") return <SchoolRuleForm submitLabel="Create school rule" submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input) => runAction(async () => { await createSchoolRuleRecord(token, organizationId, input as Parameters<typeof createSchoolRuleRecord>[2]); await refreshWorkspace(organizationId); }, true)} />;
@@ -968,6 +982,17 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
   if (drawerState.type === "attach-shoot") return <ShootAttachForm contact={drawerState.contact} shoots={organizationShoots} submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(shootId, input) => runAction(async () => { await attachContactToShootRecord(token, shootId, input); await refreshFocusedWorkspace(organizationId); pushRoute({ view: "contacts", contactId: drawerState.contact.id, tab: "linked_shoots" }); }, true)} />;
   if (drawerState.type === "duplicate-review") return <DuplicateReviewForm contacts={detail.contacts} initialPrimaryContactId={drawerState.contact?.id ?? null} submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input: DirectoryDuplicateReviewCreateInput) => runAction(async () => { await createDirectoryDuplicateReviewRecord(token, input); await refreshWorkspace(organizationId); pushRoute({ tab: "duplicates" }); }, true)} />;
   return null;
+}
+
+function splitContactName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return { firstName: "Primary", lastName: "Contact" };
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "Contact" };
+  }
+  return { firstName: parts.slice(0, -1).join(" "), lastName: parts[parts.length - 1] };
 }
 
 async function loadWorkspace(token: string, organizationId: string) {
@@ -1177,21 +1202,21 @@ function getDirectoryLookupIntro(view: DirectoryView, companyDirectoryCount: num
       eyebrow: "Directory",
       title: "Directory",
       body: companyDirectoryCount
-        ? "Search clients, organizations, contacts, and locations. Find the person first, then open the connected organization when account context matters."
-        : "Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail."
+        ? "Search for a school, sports organization, contact, or location. Find the person first, then open the connected organization when account context matters."
+        : "Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail."
     };
   }
   if (view === "locations") {
     return {
       eyebrow: "Directory",
       title: "Directory",
-      body: "Search clients, organizations, contacts, and locations. Use Locations when the place matters first, then open the connected organization for the full record."
+      body: "Search for a school, sports organization, contact, or location. Use Locations when the place matters first, then open the connected organization for the full record."
     };
   }
   return {
     eyebrow: "Directory",
     title: "Directory",
-    body: "Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details."
+    body: "Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details."
   };
 }
 

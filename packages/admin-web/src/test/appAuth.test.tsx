@@ -703,12 +703,13 @@ describe("app auth bootstrap", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Directory" })).toHaveLength(1);
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
+    expect(screen.queryByText("In Directory")).not.toBeInTheDocument();
     expect(screen.queryByText("Connected")).not.toBeInTheDocument();
     expect(screen.queryByText("Standard")).not.toBeInTheDocument();
     expect(screen.queryByText("Team Member")).not.toBeInTheDocument();
@@ -758,11 +759,12 @@ describe("app auth bootstrap", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Use Locations when the place matters first, then open the connected organization for the full record.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Use Locations when the place matters first, then open the connected organization for the full record.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Locations" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
+    expect(screen.queryByText("In Directory")).not.toBeInTheDocument();
     expect(screen.queryByText("Kemmetmueller Location Guide")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Client Command Center" })).not.toBeInTheDocument();
   });

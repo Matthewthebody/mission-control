@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { OrganizationEditorForm } from "../components/directory/DirectoryActionForms";
 import { Organizations } from "../pages/Organizations";
+import type { OrganizationCreateInput } from "../services/organizationApi";
 import type {
   DirectoryRelationshipContinuityBundle,
   DirectoryDuplicateReviewRecord,
@@ -1834,6 +1836,79 @@ describe("organizations workflow surface", () => {
     await screen.findByRole("button", { name: "Edit Jamie Carlson" });
   }
 
+  it("submits a new organization with grouped directory details and no aliases", async () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <OrganizationEditorForm
+        submitLabel="Create organization"
+        ownerOptions={[
+          {
+            user_id: "user-jessica",
+            full_name: "Jessica",
+            email: "jessica@example.com",
+            department: "schools",
+            status: "active"
+          }
+        ]}
+        onCancel={() => undefined}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.queryByLabelText("Alias")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Aliases")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Organization Name"), { target: { value: "North Shore High School" } });
+    fireEvent.change(screen.getByLabelText("Short Name"), { target: { value: "North Shore" } });
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "Returning Client" } });
+    fireEvent.change(screen.getByLabelText("Internal Owner"), { target: { value: "Jessica" } });
+    fireEvent.change(screen.getByLabelText("Contact Name"), { target: { value: "Pat Morgan" } });
+    fireEvent.change(screen.getByLabelText("Role / Title"), { target: { value: "Activities Director" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pat.morgan@example.com" } });
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "651-555-0199" } });
+    fireEvent.change(screen.getByLabelText("Preferred Contact Method"), { target: { value: "Email" } });
+    fireEvent.change(screen.getByLabelText("Primary Color"), { target: { value: "Navy" } });
+    fireEvent.change(screen.getByLabelText("Secondary Color"), { target: { value: "Gold" } });
+    fireEvent.change(screen.getByLabelText("Mascot"), { target: { value: "Bears" } });
+    fireEvent.change(screen.getByLabelText("Website"), { target: { value: "https://northshore.example.com" } });
+    fireEvent.change(screen.getByLabelText("Main Phone"), { target: { value: "651-555-0100" } });
+    fireEvent.change(screen.getByLabelText("Team Notes"), { target: { value: "Prefers spring planning calls." } });
+    fireEvent.change(screen.getByLabelText("Operations Notes"), { target: { value: "Use Door 3 for equipment load-in." } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create organization" }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    const [input, context] = onSubmit.mock.calls[0] as [
+      OrganizationCreateInput,
+      { primaryContact: { name: string; title: string; email: string; phone: string; preferredContactMethod: string } | null }
+    ];
+    expect(input.canonical_name).toBe("North Shore High School");
+    expect(input.display_name).toBe("North Shore");
+    expect(input.aliases).toEqual([]);
+    expect(input.active_status).toBe("active");
+    const notes = input.notes ?? "";
+    expect(notes).toContain("Prefers spring planning calls.");
+    expect(notes).toContain("Directory Details:");
+    expect(notes).toContain("Status: Returning Client");
+    expect(notes).toContain("Internal Owner: Jessica");
+    expect(notes).toContain("Website: https://northshore.example.com");
+    expect(notes).toContain("Primary Color: Navy");
+    expect(notes).toContain("Secondary Color: Gold");
+    expect(notes).toContain("Mascot: Bears");
+    expect(notes).toContain("Operations Notes: Use Door 3 for equipment load-in.");
+    expect(context.primaryContact).toEqual({
+      name: "Pat Morgan",
+      title: "Activities Director",
+      email: "pat.morgan@example.com",
+      phone: "651-555-0199",
+      preferredContactMethod: "Email"
+    });
+  });
+
   it("creates a new contact from a drawer instead of a permanent page form", async () => {
     createDirectoryHarness();
 
@@ -2049,7 +2124,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     await waitFor(() => {
       expect(
         apiFetchMock.mock.calls.some(
@@ -2063,14 +2138,36 @@ describe("organizations workflow surface", () => {
     expect(
       apiFetchMock.mock.calls.some(([path]) => typeof path === "string" && path.startsWith("/api/organizations/locations?"))
     ).toBe(false);
-    expect(screen.getByRole("button", { name: /Company Directory/i })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
     expect(await screen.findByText("Operational Role")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Organizations/i }));
+    expect(screen.getByLabelText("Directory view")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Organizations" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Contacts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Locations" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Directory view"), { target: { value: "organizations" } });
     fireEvent.click(await screen.findByRole("button", { name: "New organization" }));
 
-    expect(await screen.findByLabelText("Organization name")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Organization Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Short Name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Alias")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Aliases")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Account Type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Logo")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Status").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Internal Owner")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contact Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Role / Title")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Phone")).toBeInTheDocument();
+    expect(screen.getByLabelText("Preferred Contact Method")).toBeInTheDocument();
+    expect(screen.getByLabelText("Primary Color")).toBeInTheDocument();
+    expect(screen.getByLabelText("Secondary Color")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mascot")).toBeInTheDocument();
+    expect(screen.getByLabelText("Website")).toBeInTheDocument();
+    expect(screen.getByLabelText("Main Phone")).toBeInTheDocument();
+    expect(screen.getByLabelText("Team Notes")).toBeInTheDocument();
+    expect(screen.getByLabelText("Operations Notes")).toBeInTheDocument();
     expect(screen.queryByLabelText("Canonical name")).not.toBeInTheDocument();
   });
 
@@ -2079,7 +2176,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
     await waitFor(() => {
       expect(
         apiFetchMock.mock.calls.some(([path]) => typeof path === "string" && path.startsWith("/api/organizations?"))
@@ -2099,11 +2196,12 @@ describe("organizations workflow surface", () => {
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("heading", { name: "Directory" })).toBeInTheDocument();
-    expect(screen.getByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Organizations" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Contacts" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Locations" })).toBeInTheDocument();
+    expect(screen.getByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByLabelText("Directory view")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Organizations" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Contacts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Locations" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Contacts and Organizations source-of-truth checks")).not.toBeInTheDocument();
     expect(screen.queryByText("Current view")).not.toBeInTheDocument();
     expect(screen.queryByText("Needs follow-up")).not.toBeInTheDocument();
@@ -2119,7 +2217,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2146,7 +2244,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2163,7 +2261,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2201,7 +2299,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     expect(await screen.findByText("Relationship History")).toBeInTheDocument();
     expect(screen.getByText("Current Organizations")).toBeInTheDocument();
     expect(screen.getByText("Previous Organizations")).toBeInTheDocument();
@@ -2234,7 +2332,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     await waitFor(() => {
       expect(harness.getContactDetailRequests()).toContain("contact-1");
     });
@@ -2269,7 +2367,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Primary owner")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /show advanced filters/i }));

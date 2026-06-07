@@ -223,13 +223,23 @@ export function DirectoryRail({
 
       <div className="directory-rail__filters directory-rail__filters--primary">
         <label className="directory-field directory-field--wide">
-          <span>Search clients, organizations, contacts, and locations</span>
+          <span>Search for a school, sports organization, contact, or location</span>
           <input
             aria-label="Search directory"
             placeholder={searchPlaceholderForView(view)}
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
           />
+        </label>
+        <label className="directory-field">
+          <span>Directory view</span>
+          <select value={view} aria-label="Directory view" onChange={(event) => onViewChange(event.target.value as DirectoryView)}>
+            {DIRECTORY_VIEW_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="directory-field">
           <span>Account type</span>
@@ -360,19 +370,6 @@ export function DirectoryRail({
           ) : null}
         </>
       ) : null}
-
-      <div className="report-tab-row">
-        {DIRECTORY_VIEW_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={view === option.value ? "is-active" : ""}
-            onClick={() => onViewChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
 
       {view === "contacts" ? (
         <div className="directory-quick-filters">
@@ -528,5 +525,5 @@ function descriptionForView(view: DirectoryView) {
 }
 
 function searchPlaceholderForView(view: DirectoryView) {
-  return "Search for a school, sports org, contact, or location...";
+  return "Search for a school, sports organization, contact, or location...";
 }
