@@ -12859,6 +12859,10 @@ html[data-theme="light"] .shoot-priority-chip {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.employee-shift-rail--wide {
+  width: 100%;
+}
+
 .employee-detail-panel--compact {
   display: grid;
   gap: 10px;
@@ -18092,6 +18096,14 @@ html[data-theme="light"] .home-operational__search-launcher {
 
 .home-operational__weekly-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-operational__weekly-panel--priorities {
+  width: 100%;
+}
+
+.home-operational__weekly-list--priorities {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .home-operational__clock-panel--success {

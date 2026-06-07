@@ -720,14 +720,23 @@ describe("My Work page", () => {
     expect(screen.getAllByText("Assigned Tasks")).toHaveLength(1);
     expect(screen.getAllByText("Workflow Steps Waiting on Me")).toHaveLength(1);
     expect(screen.getAllByText("Heads Up")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: /My Schedule This Week/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Assigned Tasks/i })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Heads Up/i })).toHaveAttribute("aria-pressed", "false");
+    const scheduleLaunchpadButton = screen.getByRole("button", { name: /My Schedule This Week/i });
+    const tasksLaunchpadButton = screen.getByRole("button", { name: /Assigned Tasks/i });
+    const workflowLaunchpadButton = screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i });
+    const headsUpLaunchpadButton = screen.getByRole("button", { name: /Heads Up/i });
+    expect(scheduleLaunchpadButton).toHaveAttribute("aria-pressed", "true");
+    expect(scheduleLaunchpadButton).toHaveAttribute("aria-controls", "my-work-schedule");
+    expect(tasksLaunchpadButton).toHaveAttribute("aria-pressed", "false");
+    expect(tasksLaunchpadButton).toHaveAttribute("aria-controls", "my-work-assigned-tasks");
+    expect(workflowLaunchpadButton).toHaveAttribute("aria-pressed", "false");
+    expect(workflowLaunchpadButton).toHaveAttribute("aria-controls", "my-work-workflow-steps");
+    expect(headsUpLaunchpadButton).toHaveAttribute("aria-pressed", "false");
+    expect(headsUpLaunchpadButton).toHaveAttribute("aria-controls", "my-work-heads-up");
     expect(screen.getAllByText("Scheduled Hours: 3.8h").length).toBeGreaterThan(0);
     expect(screen.getByText("Worked Hours: 3.8h")).toBeInTheDocument();
     expect(screen.getByText("Remaining Hours: 0h")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View schedule" })).toHaveAttribute("href", "#my-schedule");
+    expect(document.getElementById("my-work-schedule")).toHaveClass("employee-shift-rail--wide");
     expect(screen.getByLabelText("Compact weekly schedule")).toBeInTheDocument();
     expect(screen.getByText("Thu")).toBeInTheDocument();
     expect(screen.getByText("Assigned shoot")).toBeInTheDocument();
@@ -747,12 +756,14 @@ describe("My Work page", () => {
     expect(screen.queryByText("Approve lead coverage change")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected Event Detail")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Assigned Tasks/i }));
+    fireEvent.click(tasksLaunchpadButton);
+    expect(document.getElementById("my-work-assigned-tasks")).toBeInTheDocument();
     expect(screen.getByText(/Confirm roster/i)).toBeInTheDocument();
     expect(screen.getByText(/Upload setup proof/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Assigned Tasks/i })).toHaveAttribute("aria-pressed", "true");
+    expect(tasksLaunchpadButton).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i }));
+    fireEvent.click(workflowLaunchpadButton);
+    expect(document.getElementById("my-work-workflow-steps")).toBeInTheDocument();
     expect(screen.getByText("Assigned to you")).toBeInTheDocument();
     expect(screen.getByText("Department: Production")).toBeInTheDocument();
     expect(screen.getByText("What to do now:")).toBeInTheDocument();
@@ -766,7 +777,8 @@ describe("My Work page", () => {
     expect(screen.queryByLabelText("Assign / Status current step")).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open work detail" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
 
-    fireEvent.click(screen.getByRole("button", { name: /Heads Up/i }));
+    fireEvent.click(headsUpLaunchpadButton);
+    expect(document.getElementById("my-work-heads-up")).toBeInTheDocument();
     expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
     expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();

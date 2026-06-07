@@ -382,15 +382,20 @@ describe("dashboard home command surface", () => {
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Today's Shoots/i })).toBeInTheDocument();
     expect(screen.getByText(/scheduled item.*still need readiness follow-through/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Staffing Gaps/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Staffing Gaps/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Urgent Issues · 1/i })).toBeInTheDocument();
     expect(screen.getByText("Staffing needs attention")).toBeInTheDocument();
-    expect(screen.getByText("Work That Needs To Be Processed This Week")).toBeInTheDocument();
-    expect(screen.getByText("Jobs That Need To Go Out This Week")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Production QA/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Project milestones/i })).toBeInTheDocument();
+    expect(screen.getByText("This Week's Operational Priorities")).toBeInTheDocument();
+    expect(screen.queryByText("Work That Needs To Be Processed This Week")).not.toBeInTheDocument();
+    expect(screen.queryByText("Jobs That Need To Go Out This Week")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Shoots scheduled this week/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Staffing gaps/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Jobs awaiting production/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Work ready to release/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Projects blocked or at risk/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Client follow-ups/i })).toBeInTheDocument();
 
     expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
     expect(screen.queryByText("Lead still missing")).not.toBeInTheDocument();
@@ -409,7 +414,7 @@ describe("dashboard home command surface", () => {
     fireEvent.click(screen.getByRole("button", { name: /Today's Shoots/i }));
     expect(window.location.hash).toBe("#studios/shoots");
 
-    fireEvent.click(screen.getByRole("button", { name: /Staffing Gaps/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Staffing Gaps/i })[0]);
     expect(window.location.hash).toBe("#operations/staffing?area=staffing");
 
     fireEvent.click(screen.getByRole("button", { name: /Schools Tasks/i }));
@@ -418,7 +423,7 @@ describe("dashboard home command surface", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Sports Tasks/i })[0]);
     expect(window.location.hash).toBe("#sports/tasks");
 
-    fireEvent.click(screen.getByRole("button", { name: /Production QA/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Work ready to release/i }));
     expect(window.location.hash).toBe("#graphics/release?queue=ready_to_release_queue&stage=ready_to_release");
 
     fireEvent.click(screen.getByRole("button", { name: /Urgent Issues · 1/i }));

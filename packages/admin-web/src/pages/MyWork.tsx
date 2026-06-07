@@ -35,6 +35,19 @@ type HeadsUpItem = {
 
 type ActiveLaunchpadSection = "schedule" | "tasks" | "workflow" | "heads-up";
 
+function launchpadTargetId(section: ActiveLaunchpadSection) {
+  switch (section) {
+    case "tasks":
+      return "my-work-assigned-tasks";
+    case "workflow":
+      return "my-work-workflow-steps";
+    case "heads-up":
+      return "my-work-heads-up";
+    default:
+      return "my-work-schedule";
+  }
+}
+
 export function MyWork({ token, currentUser, socket }: Props) {
   const [anchorDate, setAnchorDate] = useState(getLocalDateString());
   const [payload, setPayload] = useState<EmployeeMyWorkResponse | null>(null);
@@ -84,6 +97,18 @@ export function MyWork({ token, currentUser, socket }: Props) {
     } finally {
       setDetailLoading(false);
     }
+  }
+
+  function selectLaunchpadSection(section: ActiveLaunchpadSection) {
+    setActiveLaunchpadSection(section);
+    const scrollToTarget = () => {
+      document.getElementById(launchpadTargetId(section))?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(scrollToTarget);
+      return;
+    }
+    window.setTimeout(scrollToTarget, 0);
   }
 
   useEffect(() => {
@@ -158,7 +183,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
             detail={buildScheduleSummary(scheduleStats)}
             helper={buildLookaheadSummary(payload)}
             active={activeLaunchpadSection === "schedule"}
-            onSelect={() => setActiveLaunchpadSection("schedule")}
+            controlsId={launchpadTargetId("schedule")}
+            onSelect={() => selectLaunchpadSection("schedule")}
           />
           <LaunchpadSummaryTile
             eyebrow="Assigned Tasks"
@@ -166,7 +192,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
             detail="Tasks directly assigned to you."
             helper={buildTaskSummary(payload)}
             active={activeLaunchpadSection === "tasks"}
-            onSelect={() => setActiveLaunchpadSection("tasks")}
+            controlsId={launchpadTargetId("tasks")}
+            onSelect={() => selectLaunchpadSection("tasks")}
           />
           <LaunchpadSummaryTile
             eyebrow="Workflow Steps Waiting on Me"
@@ -174,7 +201,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
             detail="Work steps that need your action."
             helper={liveWorkflowSteps[0]?.next_action ?? "No work step is waiting on you."}
             active={activeLaunchpadSection === "workflow"}
-            onSelect={() => setActiveLaunchpadSection("workflow")}
+            controlsId={launchpadTargetId("workflow")}
+            onSelect={() => selectLaunchpadSection("workflow")}
           />
           <LaunchpadSummaryTile
             eyebrow="Heads Up"
@@ -183,13 +211,14 @@ export function MyWork({ token, currentUser, socket }: Props) {
             helper={headsUpItems[0]?.summary ?? "Your day looks clear from the current demo data."}
             tone={headsUpItems.length ? "heads_up" : "good"}
             active={activeLaunchpadSection === "heads-up"}
-            onSelect={() => setActiveLaunchpadSection("heads-up")}
+            controlsId={launchpadTargetId("heads-up")}
+            onSelect={() => selectLaunchpadSection("heads-up")}
           />
         </div>
       </section>
 
       <section className="employee-work-layout employee-work-layout--launchpad">
-        <div className="panel employee-shift-rail" id="my-work-schedule">
+        <div className="panel employee-shift-rail employee-shift-rail--wide" id="my-work-schedule">
           <div className="employee-section-heading">
             <div>
               <div className="section-title">My Schedule This Week</div>
@@ -252,7 +281,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
       </section>
 
       {activeLaunchpadSection !== "schedule" ? (
-        <section className="panel employee-detail-panel employee-detail-panel--compact" aria-live="polite">
+        <section className="panel employee-detail-panel employee-detail-panel--compact" id={launchpadTargetId(activeLaunchpadSection)} aria-live="polite">
           {activeLaunchpadSection === "tasks" ? (
             <PanelList
               title="Assigned Tasks"
@@ -330,6 +359,7 @@ function LaunchpadSummaryTile({
   helper,
   tone = "info",
   active = false,
+  controlsId,
   onSelect
 }: {
   eyebrow: string;
@@ -338,6 +368,7 @@ function LaunchpadSummaryTile({
   helper: string;
   tone?: "good" | "info" | "heads_up" | "action_needed";
   active?: boolean;
+  controlsId?: string;
   onSelect?: () => void;
 }) {
   const content = (
@@ -353,6 +384,7 @@ function LaunchpadSummaryTile({
       type="button"
       className={`employee-summary-tile employee-summary-tile--${tone}${active ? " employee-summary-tile--active" : ""}`}
       aria-pressed={active}
+      aria-controls={controlsId}
       onClick={onSelect}
     >
       {content}

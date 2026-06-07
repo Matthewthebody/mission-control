@@ -5051,8 +5051,11 @@ describe("admin operations regressions", () => {
     expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Today's Shoots/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add Task" })).not.toBeInTheDocument();
-    expect(screen.getByText("Work That Needs To Be Processed This Week")).toBeInTheDocument();
-    expect(screen.getByText("Jobs That Need To Go Out This Week")).toBeInTheDocument();
+    expect(screen.getByText("This Week's Operational Priorities")).toBeInTheDocument();
+    expect(screen.queryByText("Work That Needs To Be Processed This Week")).not.toBeInTheDocument();
+    expect(screen.queryByText("Jobs That Need To Go Out This Week")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Jobs awaiting production/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Work ready to release/i })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i })).toHaveAttribute("placeholder", "Ask Concierge Anything...");
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();

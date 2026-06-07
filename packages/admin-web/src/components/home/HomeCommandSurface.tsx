@@ -403,9 +403,10 @@ function buildSummaryCards(input: {
   return cards.slice(0, 6);
 }
 
-function buildProcessingThisWeekItems(input: {
+function buildWeeklyOperationalPriorityItems(input: {
   payload: HomeDashboardResponse | null;
   taskCounts: HomeDepartmentTaskCounts;
+  canOpenStaffing: boolean;
   canOpenSchoolTasks: boolean;
   canOpenSportsTasks: boolean;
   canOpenPhotography: boolean;
@@ -415,137 +416,94 @@ function buildProcessingThisWeekItems(input: {
   const items: WeeklyCommandItem[] = [];
   const production = input.payload?.widgets.production_projects ?? null;
   const todayShoots = input.payload?.widgets.today_shoots ?? null;
-  const projectFocusCount = production ? production.focus_items.length + production.urgent_items.length : 0;
+  const staffingWidget = findCompactWidget(input.payload, "staffing_health");
+  const weeklyShootCount = input.payload?.widgets.business_pulse.weekly_department_mix.reduce((total, row) => total + row.shoots, 0) ?? 0;
+  const businessJobs = input.payload?.widgets.business_pulse.jobs ?? [];
+
+  if (input.canOpenPhotography && todayShoots) {
+    items.push({
+      key: "weekly_shoots",
+      title: "Shoots scheduled this week",
+      count: weeklyShootCount || todayShoots.total,
+      summary: "Field work the company needs to staff, prep, shoot, and hand off.",
+      actionLabel: "Open Photography",
+      hash: "#studios/shoots",
+      tone: todayShoots.needs_attention_count > 0 ? "warning" : "info"
+    });
+  }
+
+  if (input.canOpenStaffing) {
+    const staffingCount = staffingWidget?.count ?? 0;
+    items.push({
+      key: "weekly_staffing",
+      title: "Staffing gaps",
+      count: staffingCount,
+      summary: staffingCount > 0 ? "Coverage gaps that could affect this week's field work." : "No staffing gap is flagged in the current Home view.",
+      actionLabel: "Open Staffing",
+      hash: staffingWidget?.action_hash || "#operations/staffing?area=staffing",
+      tone: staffingCount > 0 ? "warning" : "success"
+    });
+  }
+
+  if (input.canOpenProductionQueue && production) {
+    const waitingCount = production.counts.unassigned_jobs + production.counts.active_jobs + production.counts.jobs_in_qa;
+    items.push({
+      key: "weekly_awaiting_production",
+      title: "Jobs awaiting production",
+      count: waitingCount,
+      summary: "Open production work waiting on ownership, processing, QA, or next action.",
+      actionLabel: "Open Production Workload",
+      hash: buildShellRouteHash("graphics-workload"),
+      tone: production.counts.blocked || production.counts.overdue ? "warning" : waitingCount > 0 ? "info" : "success"
+    });
+  }
+
+  if (input.canOpenProductionQueue && production) {
+    items.push({
+      key: "weekly_release",
+      title: "Work ready to release",
+      count: production.counts.ready_to_release,
+      summary: "Jobs, uploads, galleries, or release checks ready for final follow-through.",
+      actionLabel: "Open Release Queue",
+      hash: buildShellRouteHash("graphics-release"),
+      tone: production.counts.ready_to_release > 0 ? "warning" : "success"
+    });
+  }
+
+  if (input.canOpenProjectTracking && production) {
+    const blockedProjectCount = production.counts.blocked + production.counts.overdue + production.urgent_items.length;
+    items.push({
+      key: "weekly_project_risk",
+      title: "Projects blocked or at risk",
+      count: blockedProjectCount,
+      summary: "Shared work that needs owner clarity, blocker removal, or leadership attention.",
+      actionLabel: "Open Project Tracking",
+      hash: buildShellRouteHash("project-tracking"),
+      tone: blockedProjectCount > 0 ? "danger" : "success"
+    });
+  }
 
   if (input.canOpenSchoolTasks && input.taskCounts.schools != null) {
     items.push({
-      key: "process_schools",
-      title: "Schools",
+      key: "weekly_client_followups",
+      title: "Client follow-ups",
       count: input.taskCounts.schools,
-      summary: "School tasks waiting on readiness, client follow-up, or field handoff.",
+      summary: "School follow-ups, readiness questions, and client-facing work still in the weekly queue.",
       actionLabel: "Open Schools",
       hash: "#schools/tasks",
-      tone: input.taskCounts.schools > 40 ? "warning" : input.taskCounts.schools > 0 ? "info" : "success"
+      tone: input.taskCounts.schools > 0 ? "info" : "success"
     });
   }
 
   if (input.canOpenSportsTasks && input.taskCounts.sports != null) {
     items.push({
-      key: "process_sports",
-      title: "Sports",
+      key: "weekly_sports_followthrough",
+      title: "Sports follow-through",
       count: input.taskCounts.sports,
-      summary: "Sports tasks waiting on rosters, shoot prep, graphics, or follow-through.",
+      summary: "Rosters, team questions, graphics, and release work that need sports follow-through.",
       actionLabel: "Open Sports",
       hash: "#sports/tasks",
-      tone: input.taskCounts.sports > 20 ? "warning" : input.taskCounts.sports > 0 ? "info" : "success"
-    });
-  }
-
-  if (input.canOpenPhotography && todayShoots) {
-    items.push({
-      key: "process_photography",
-      title: "Photography",
-      count: todayShoots.needs_attention_count,
-      summary: "Shoot readiness, travel, and handoff items that need field confidence.",
-      actionLabel: "Open Photography",
-      hash: "#studios/shoots",
-      tone: todayShoots.needs_attention_count > 0 ? "warning" : "success"
-    });
-  }
-
-  if (input.canOpenProductionQueue && production) {
-    const productionProcessingCount = production.counts.jobs_in_qa + production.counts.blocked + production.counts.overdue;
-    items.push({
-      key: "process_production",
-      title: "Production",
-      count: productionProcessingCount,
-      summary: "QA, blocker, and overdue production work waiting on internal processing.",
-      actionLabel: "Open Production Workload",
-      hash: buildShellRouteHash("graphics-workload"),
-      tone: productionProcessingCount > 0 ? "warning" : "success"
-    });
-  }
-
-  if (input.canOpenProjectTracking) {
-    items.push({
-      key: "process_projects",
-      title: "Project Tracking",
-      count: projectFocusCount,
-      summary: "Shared project items with owners, next actions, due dates, or blockers.",
-      actionLabel: "Open Project Tracking",
-      hash: buildShellRouteHash("project-tracking"),
-      tone: projectFocusCount > 0 ? "info" : "success"
-    });
-  }
-
-  return items.slice(0, 5);
-}
-
-function findWeeklyDepartmentShoots(payload: HomeDashboardResponse | null, department: string) {
-  return payload?.widgets.business_pulse.weekly_department_mix.find((row) => row.department.toLowerCase() === department)?.shoots ?? 0;
-}
-
-function buildJobsToGoOutThisWeekItems(input: {
-  payload: HomeDashboardResponse | null;
-  canOpenSchoolTasks: boolean;
-  canOpenSportsTasks: boolean;
-  canOpenPhotography: boolean;
-  canOpenProductionQueue: boolean;
-  canOpenProjectTracking: boolean;
-}) {
-  const items: WeeklyCommandItem[] = [];
-  const production = input.payload?.widgets.production_projects ?? null;
-  const businessJobs = input.payload?.widgets.business_pulse.jobs ?? [];
-  const todayShoots = input.payload?.widgets.today_shoots ?? null;
-  const schoolShoots = findWeeklyDepartmentShoots(input.payload, "schools");
-  const sportsShoots = findWeeklyDepartmentShoots(input.payload, "sports");
-
-  if (input.canOpenSchoolTasks) {
-    items.push({
-      key: "release_schools",
-      title: "Schools galleries",
-      count: schoolShoots,
-      summary: "School work in this week's schedule that may need gallery delivery or follow-up.",
-      actionLabel: "Open Schools",
-      hash: "#schools",
-      tone: schoolShoots > 0 ? "info" : "neutral"
-    });
-  }
-
-  if (input.canOpenSportsTasks) {
-    items.push({
-      key: "release_sports",
-      title: "Sports releases",
-      count: sportsShoots,
-      summary: "Sports work in this week's schedule that may need release or customer handoff.",
-      actionLabel: "Open Sports",
-      hash: "#sports",
-      tone: sportsShoots > 0 ? "info" : "neutral"
-    });
-  }
-
-  if (input.canOpenPhotography && todayShoots) {
-    items.push({
-      key: "release_photography",
-      title: "Photography handoffs",
-      count: todayShoots.complete_count,
-      summary: "Completed field work ready for downstream handoff or confirmation.",
-      actionLabel: "Open Photography",
-      hash: "#studios/shoots",
-      tone: todayShoots.complete_count > 0 ? "info" : "neutral"
-    });
-  }
-
-  if (input.canOpenProductionQueue && production) {
-    const releaseCount = production.counts.ready_to_release + production.counts.jobs_in_qa + production.counts.due_within_24_hours;
-    items.push({
-      key: "release_production",
-      title: "Production QA",
-      count: releaseCount,
-      summary: "QA, due-soon, and ready-to-release production work that needs to go out.",
-      actionLabel: "Open Release Queue",
-      hash: buildShellRouteHash("graphics-release"),
-      tone: releaseCount > 0 ? "warning" : "success"
+      tone: input.taskCounts.sports > 0 ? "info" : "success"
     });
   }
 
@@ -561,7 +519,7 @@ function buildJobsToGoOutThisWeekItems(input: {
     });
   }
 
-  return items.slice(0, 5);
+  return items.slice(0, 8);
 }
 
 function buildDailyBriefing(input: {
@@ -726,30 +684,19 @@ export function HomeCommandSurface({
     ],
     [canOpenAlerts, canOpenNeedsAttention, summaryCards, urgentItems]
   );
-  const processingThisWeekItems = useMemo(
+  const weeklyOperationalPriorityItems = useMemo(
     () =>
-      buildProcessingThisWeekItems({
+      buildWeeklyOperationalPriorityItems({
         payload: dashboard,
         taskCounts,
+        canOpenStaffing,
         canOpenSchoolTasks,
         canOpenSportsTasks,
         canOpenPhotography,
         canOpenProductionQueue,
         canOpenProjectTracking
       }),
-    [canOpenPhotography, canOpenProductionQueue, canOpenProjectTracking, canOpenSchoolTasks, canOpenSportsTasks, dashboard, taskCounts]
-  );
-  const jobsToGoOutThisWeekItems = useMemo(
-    () =>
-      buildJobsToGoOutThisWeekItems({
-        payload: dashboard,
-        canOpenSchoolTasks,
-        canOpenSportsTasks,
-        canOpenPhotography,
-        canOpenProductionQueue,
-        canOpenProjectTracking
-      }),
-    [canOpenPhotography, canOpenProductionQueue, canOpenProjectTracking, canOpenSchoolTasks, canOpenSportsTasks, dashboard]
+    [canOpenPhotography, canOpenProductionQueue, canOpenProjectTracking, canOpenSchoolTasks, canOpenSportsTasks, canOpenStaffing, dashboard, taskCounts]
   );
   const briefingLines = useMemo(
     () =>
@@ -911,57 +858,30 @@ export function HomeCommandSurface({
         ) : null}
       </div>
 
-      <div className="home-operational__weekly-grid">
-        {processingThisWeekItems.length ? (
-          <section className="panel home-operational__weekly-panel">
-            <WorkspaceSectionHeader
-              title="Work That Needs To Be Processed This Week"
-              summary="Internal work waiting on a department, owner, QA step, or next action."
-              compact
-            />
-            <div className="home-operational__weekly-list">
-              {processingThisWeekItems.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`home-operational__weekly-card home-operational__weekly-card--${item.tone}`}
-                  onClick={() => navigateToHash(item.hash)}
-                >
-                  <span>{item.title}</span>
-                  <strong>{item.count}</strong>
-                  <p>{item.summary}</p>
-                  <em>{item.actionLabel}</em>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {jobsToGoOutThisWeekItems.length ? (
-          <section className="panel home-operational__weekly-panel">
-            <WorkspaceSectionHeader
-              title="Jobs That Need To Go Out This Week"
-              summary="Jobs, galleries, releases, handoffs, and milestones that need delivery follow-through."
-              compact
-            />
-            <div className="home-operational__weekly-list">
-              {jobsToGoOutThisWeekItems.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`home-operational__weekly-card home-operational__weekly-card--${item.tone}`}
-                  onClick={() => navigateToHash(item.hash)}
-                >
-                  <span>{item.title}</span>
-                  <strong>{item.count}</strong>
-                  <p>{item.summary}</p>
-                  <em>{item.actionLabel}</em>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
+      {weeklyOperationalPriorityItems.length ? (
+        <section className="panel home-operational__weekly-panel home-operational__weekly-panel--priorities">
+          <WorkspaceSectionHeader
+            title="This Week's Operational Priorities"
+            summary="A 10,000-foot view of what the company needs to care about this week."
+            compact
+          />
+          <div className="home-operational__weekly-list home-operational__weekly-list--priorities">
+            {weeklyOperationalPriorityItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`home-operational__weekly-card home-operational__weekly-card--${item.tone}`}
+                onClick={() => navigateToHash(item.hash)}
+              >
+                <span>{item.title}</span>
+                <strong>{item.count}</strong>
+                <p>{item.summary}</p>
+                <em>{item.actionLabel}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
     </section>
   );
