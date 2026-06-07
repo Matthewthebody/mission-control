@@ -509,7 +509,7 @@ describe("SchoolsHub", () => {
     expect(screen.getByText("Galleries Due")).toBeInTheDocument();
     expect(screen.getAllByText("Missing Data").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Retakes").length).toBeGreaterThan(0);
-    expect(screen.getByText("Client Follow-Up")).toBeInTheDocument();
+    expect(screen.getByText("School Follow-Up")).toBeInTheDocument();
     expect(screen.getByText("Schools Command Hub")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Schools Active Work" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();

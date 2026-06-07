@@ -600,7 +600,7 @@ export function SportsOverview({ token, currentUser }: Props) {
   const jobsTodayCount = sharedJobs.filter((job) => isToday(job.primary_day_date ?? job.scheduled_start_at)).length;
   const releasesDueCount = sharedWorkflowItems.filter((item) => isWithinNextSevenDays(item.due_at)).length;
   const openFirstCards: DepartmentHubCard[] = [
-    { label: "Jobs Today", value: jobsTodayCount, detail: "Sports jobs or events happening today.", href: "#sports/jobs", tone: jobsTodayCount ? "info" : "success" },
+    { label: "Games / Events Today", value: jobsTodayCount, detail: "Teams, leagues, or sports photo events happening today.", href: "#sports/jobs", tone: jobsTodayCount ? "info" : "success" },
     { label: "Staffing Gaps", value: sportsBoardIssueCounts.staffing, detail: "Coverage or lead gaps that need action before the event.", href: "#sports/exceptions", tone: sportsBoardIssueCounts.staffing ? "danger" : "success" },
     { label: "Team Info Needed", value: sportsBoardIssueCounts.clientInfo, detail: "Missing team, contact, account, or client detail.", href: "#sports/contacts", tone: sportsBoardIssueCounts.clientInfo ? "warning" : "success" },
     { label: "Releases Due", value: releasesDueCount, detail: "Proof, graphics, or release work due inside the current week.", href: "#sports/graphics", tone: releasesDueCount ? "warning" : "success" }
@@ -611,14 +611,14 @@ export function SportsOverview({ token, currentUser }: Props) {
     { label: "Proof Approvals", value: sportsBoardIssueCounts.proofApprovals, detail: "Proof approval work needs follow-up without mixing into staffing.", href: "#sports/graphics", tone: sportsBoardIssueCounts.proofApprovals ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
-    { label: "Upcoming Jobs", value: sharedJobs.filter((job) => isWithinNextSevenDays(dueDateForSportsJob(job))).length, detail: "Sports jobs with a date or deadline this week.", href: "#sports/jobs", tone: "info" },
-    { label: "Open Tasks", value: sportsBoardIssueCounts.tasks, detail: "Sports tasks attached to the current command rows.", href: "#tasks?department=sports", tone: sportsBoardIssueCounts.tasks ? "warning" : "success" },
+    { label: "Upcoming Games / Events", value: sharedJobs.filter((job) => isWithinNextSevenDays(dueDateForSportsJob(job))).length, detail: "Sports jobs with a game, event, or release deadline this week.", href: "#sports/jobs", tone: "info" },
+    { label: "Sports Tasks", value: sportsBoardIssueCounts.tasks, detail: "Team, league, schedule, or release tasks attached to Sports work.", href: "#tasks?department=sports", tone: sportsBoardIssueCounts.tasks ? "warning" : "success" },
     { label: "Release / Graphics", value: sharedWorkflowItems.length, detail: "Sports workflow pressure from the shared production lanes.", href: "#sports/graphics", tone: sharedWorkflowItems.length ? "info" : "success" }
   ];
   const queueCards: DepartmentHubCard[] = [
-    { label: "Upcoming Jobs", detail: "Open the sports job queue.", href: "#sports/jobs", tone: "info" },
+    { label: "Games / Events", detail: "Open sports jobs for teams, leagues, and event-day work.", href: "#sports/jobs", tone: "info" },
     { label: "Team Info Needed", detail: "Open sports contacts and account context.", href: "#sports/contacts", tone: "warning" },
-    { label: "Releases", detail: "Open sports graphics and release work.", href: "#sports/graphics", tone: "info" },
+    { label: "Sports Releases", detail: "Open sports graphics, proofing, and release work.", href: "#sports/graphics", tone: "info" },
     { label: "Sports Tasks", detail: "Open the shared task queue filtered to Sports.", href: "#tasks?department=sports", tone: "info" }
   ];
 

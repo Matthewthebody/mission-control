@@ -57,10 +57,10 @@ export function ProductionHub({ token, currentUser }: Props) {
   const statusTone: HubTone = urgentCount > 0 ? "danger" : readyForQaCount > 0 || dueThisWeek.length > 0 ? "watch" : "good";
   const statusLabel = statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
   const openFirstCards: DepartmentHubCard[] = [
-    { label: "Jobs To Process", value: waitingCount, detail: "Needs ingest, ownership, or kickoff.", href: "#production/queue", tone: waitingCount ? "warning" : "success" },
+    { label: "Jobs Waiting For Processing", value: waitingCount, detail: "Needs file ingest, owner assignment, or production kickoff.", href: "#production/queue", tone: waitingCount ? "warning" : "success" },
     { label: "QA Needed", value: readyForQaCount, detail: "Color, crop, roster, upload, or release review.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
     { label: "Rush / At Risk", value: blockedCount, detail: "Blocked, ownerless, overdue, or missing production inputs.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
-    { label: "Ready To Release", value: summary?.awaiting_approval_count ?? 0, detail: "Approvals or release checks that need final movement.", href: "#production/release", tone: (summary?.awaiting_approval_count ?? 0) ? "warning" : "success" }
+    { label: "Exports / Releases", value: summary?.awaiting_approval_count ?? 0, detail: "Uploads, approvals, or release checks that need final movement.", href: "#production/release", tone: (summary?.awaiting_approval_count ?? 0) ? "warning" : "success" }
   ];
   const attentionCards: DepartmentHubCard[] = [
     { label: "Blocked Production", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker before delivery slips." : "No blocked production work is visible.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
@@ -68,14 +68,14 @@ export function ProductionHub({ token, currentUser }: Props) {
     { label: "QA Pressure", value: readyForQaCount, detail: readyForQaCount ? "QA is the next action before release can move." : "QA queue is clear right now.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
-    { label: "Due This Week", value: dueThisWeek.length, detail: "Production jobs with deadlines inside the next seven days.", href: "#production/release", tone: dueThisWeek.length ? "warning" : "success" },
+    { label: "Production Due This Week", value: dueThisWeek.length, detail: "Processing, QA, upload, or release deadlines inside the next seven days.", href: "#production/release", tone: dueThisWeek.length ? "warning" : "success" },
     { label: "In Editing", value: editingCount, detail: "Jobs actively moving through editing or production stages.", href: "#production/workload", tone: editingCount ? "info" : "success" },
     { label: "Recently Completed", value: recentlyCompleted.length, detail: "Closed, delivered, uploaded, or released work in the recent queue.", href: "#production/release", tone: "info" }
   ];
   const queueCards: DepartmentHubCard[] = [
     { label: "Editing Queue", detail: "Open production work that needs processing.", href: "#production/queue", tone: "info" },
     { label: "QA Queue", detail: "Review color, crop, roster, upload, and release readiness.", href: "#production/qa", tone: "warning" },
-    { label: "Ready To Release", detail: "Final release and delivery confirmation.", href: "#production/release", tone: "info" },
+    { label: "Exports / Releases", detail: "Final uploads, release, and delivery confirmation.", href: "#production/release", tone: "info" },
     { label: "Rush Jobs", detail: "Blocked or at-risk work that needs escalation.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: urgentCount ? "danger" : "success" }
   ];
 

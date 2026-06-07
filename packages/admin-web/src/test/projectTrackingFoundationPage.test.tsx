@@ -402,10 +402,14 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("Attention Needed")).toBeInTheDocument();
     expect(screen.getByText("This Week's Work")).toBeInTheDocument();
     expect(screen.getByText("Work Queues")).toBeInTheDocument();
-    expect(screen.getByText("Blocked Projects")).toBeInTheDocument();
+    expect(screen.getAllByText("Blocked Projects").length).toBeGreaterThan(0);
+    expect(screen.getByText("Project Deadlines")).toBeInTheDocument();
     expect(screen.getAllByText("Due This Week").length).toBeGreaterThan(0);
-    expect(screen.getByText("Waiting On Owner")).toBeInTheDocument();
+    expect(screen.getAllByText("Owner / Info Gaps").length).toBeGreaterThan(0);
     expect(screen.getByText("Leadership Decisions")).toBeInTheDocument();
+    expect(screen.getAllByText("Command View").length).toBeGreaterThan(0);
+    expect(screen.getByText("Main Work List")).toBeInTheDocument();
+    expect(screen.getByText("Timeline Lens")).toBeInTheDocument();
     expect(screen.getByText("Operating Summary")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Active Work/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);

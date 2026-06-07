@@ -1689,26 +1689,26 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   const commandGroups = commandGroupsFor(jobBoardRows, globalCommandCenter?.generated_at);
   const commandCount = (groupId: ProjectTrackingCommandGroupId) => commandGroups.find((group) => group.id === groupId)?.rows.length ?? 0;
   const openFirstCards: DepartmentHubCard[] = [
-    { label: "Blocked Projects", value: commandCount("blocked"), detail: "Blocked work that needs an owner, clear condition, or leadership unblock.", href: "#project-tracking", tone: commandCount("blocked") ? "danger" : "success" },
-    { label: "Due This Week", value: commandCount("due_this_week"), detail: "Projects and workflow steps with a deadline in the next seven days.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success" },
-    { label: "Waiting On Owner", value: commandCount("missing_owner_info"), detail: "Missing owner, missing next action, or missing info before work moves.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success" },
-    { label: "Leadership Decisions", value: commandCount("at_risk"), detail: "At-risk or overdue work that should be reviewed before it drifts.", href: "#project-tracking", tone: commandCount("at_risk") ? "danger" : "success" }
+    { label: "Blocked Projects", value: commandCount("blocked"), detail: "Projects with a blocker, clear condition, owner, or leadership unblock needed.", href: "#project-tracking", tone: commandCount("blocked") ? "danger" : "success", actionLabel: "Open blocked lens" },
+    { label: "Project Deadlines", value: commandCount("due_this_week"), detail: "Project milestones and workflow steps due in the next seven days.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success", actionLabel: "Open deadline lens" },
+    { label: "Owner / Info Gaps", value: commandCount("missing_owner_info"), detail: "Projects missing an owner, next action, or required information before work moves.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success", actionLabel: "Open owner lens" },
+    { label: "Leadership Decisions", value: commandCount("at_risk"), detail: "At-risk project records that need a decision before dates or owners drift.", href: "#project-tracking", tone: commandCount("at_risk") ? "danger" : "success", actionLabel: "Open review lens" }
   ];
   const attentionCards: DepartmentHubCard[] = [
-    { label: "Blocked", value: globalSummary.total_blocked, detail: "Blocked projects need a reason, owner, and clear next action.", href: "#project-tracking", tone: globalSummary.total_blocked ? "danger" : "success" },
-    { label: "Review Required", value: globalSummary.total_needs_attention, detail: "Blocked, late, due-soon, or at-risk work that needs a clearer owner or next action.", href: "#project-tracking", tone: globalSummary.total_needs_attention ? "warning" : "success" },
-    { label: "Missing Owner / Info", value: commandCount("missing_owner_info"), detail: "Ownerless or incomplete work should not stay invisible.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success" }
+    { label: "Blocked Projects", value: globalSummary.total_blocked, detail: "Blocked projects need a reason, owner, clear condition, and next action.", href: "#project-tracking", tone: globalSummary.total_blocked ? "danger" : "success", actionLabel: "Open blocked projects" },
+    { label: "Review Required", value: globalSummary.total_needs_attention, detail: "Late, due-soon, or at-risk projects that need owner or date clarity.", href: "#project-tracking", tone: globalSummary.total_needs_attention ? "warning" : "success", actionLabel: "Open review list" },
+    { label: "Owner / Info Gaps", value: commandCount("missing_owner_info"), detail: "Ownerless or incomplete project records should not stay invisible.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success", actionLabel: "Open owner gaps" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
-    { label: "Active Projects", value: globalSummary.total_active_workflows, detail: "Active workflow-backed work in the shared spine.", href: "#project-tracking", tone: "info" },
-    { label: "Due This Week", value: commandCount("due_this_week"), detail: "Milestones and next steps due in the current week.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success" },
-    { label: "Recently Changed", value: summaryRecentlyChangedCount(globalCommandCenter), detail: "Work records with current activity timestamps.", href: "#project-tracking", tone: "info" }
+    { label: "Active Projects", value: globalSummary.total_active_workflows, detail: "Active workflow-backed project records in the shared work spine.", href: "#project-tracking", tone: "info", actionLabel: "Open work list" },
+    { label: "Due This Week", value: commandCount("due_this_week"), detail: "Project milestones, owners, and next steps due in the current week.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success", actionLabel: "Open due list" },
+    { label: "Recently Changed", value: summaryRecentlyChangedCount(globalCommandCenter), detail: "Project records with current activity, owner, or status movement.", href: "#project-tracking", tone: "info", actionLabel: "Open recent changes" }
   ];
   const queueCards: DepartmentHubCard[] = [
-    { label: "Active Projects", detail: "Open the main work list.", href: "#project-tracking", tone: "info" },
-    { label: "Blocked", detail: "Use the Blocked lens in Project Tracking.", href: "#project-tracking", tone: "danger" },
-    { label: "Due This Week", detail: "Use Command View to filter deadline pressure.", href: "#project-tracking", tone: "warning" },
-    { label: "Waiting On Leadership", detail: "Use the Project Tracking leadership lens for decisions and exceptions.", href: "#project-tracking", tone: "warning" }
+    { label: "Command View", detail: "Scan what matters before opening individual workflow detail.", href: "#project-tracking", tone: "info", actionLabel: "Open command view" },
+    { label: "Main Work List", detail: "Review projects by owner, status, due date, and next step.", href: "#project-tracking", tone: "info", actionLabel: "Open work list" },
+    { label: "Blocked Lens", detail: "Filter projects with blockers, missing owners, or missing next action.", href: "#project-tracking", tone: "danger", actionLabel: "Open blocked lens" },
+    { label: "Timeline Lens", detail: "Review project date pressure from the same work records.", href: "#project-tracking", tone: "warning", actionLabel: "Open timeline lens" }
   ];
   const toggleExpandedRow = (rowId: string) => {
     setExpandedRows((current) => {

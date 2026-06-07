@@ -237,9 +237,9 @@ describe("ProductionHub", () => {
     expect(screen.getByText("Attention Needed")).toBeInTheDocument();
     expect(screen.getByText("This Week's Work")).toBeInTheDocument();
     expect(screen.getByText("Work Queues")).toBeInTheDocument();
-    expect(screen.getByText("Jobs To Process")).toBeInTheDocument();
+    expect(screen.getByText("Jobs Waiting For Processing")).toBeInTheDocument();
     expect(screen.getByText("Rush / At Risk")).toBeInTheDocument();
-    expect(screen.getAllByText("Ready To Release").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Exports / Releases").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due This Week").length).toBeGreaterThan(0);
     expect(screen.getAllByText("QA Needed").length).toBeGreaterThan(0);
     expect(screen.getByText("At Risk / Blocked")).toBeInTheDocument();
@@ -251,7 +251,7 @@ describe("ProductionHub", () => {
     expect(
       screen.getAllByRole("link", { name: /Release Readiness/i }).some((link) => link.getAttribute("href") === "#production/release"),
     ).toBe(true);
-    expect(screen.getByRole("link", { name: /Jobs To Process/i })).toHaveAttribute("href", "#production/queue");
+    expect(screen.getByRole("link", { name: /Jobs Waiting For Processing/i })).toHaveAttribute("href", "#production/queue");
     expect(screen.getByText("Blocked by missing files or partial upload handoff.")).toBeInTheDocument();
     expect(screen.getByText("Waiting on uploaded files or a complete file handoff.")).toBeInTheDocument();
     expect(screen.getAllByText(/Northview Upload/).length).toBeGreaterThan(0);

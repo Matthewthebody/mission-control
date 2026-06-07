@@ -8,6 +8,7 @@ export type DepartmentHubCard = {
   detail: string;
   href?: string;
   tone?: DepartmentHubTone;
+  actionLabel?: string;
 };
 
 type Props = {
@@ -85,7 +86,7 @@ function DepartmentHubCardView({ card, compact = false, queue = false }: { card:
       <span>{card.label}</span>
       {card.value !== undefined ? <strong>{card.value}</strong> : null}
       <small>{card.detail}</small>
-      {card.href ? <em>View Queue</em> : <em>Status only</em>}
+      {card.href ? <em>{card.actionLabel ?? (queue ? "View Queue" : "Open")}</em> : <em>Status only</em>}
     </>
   );
   if (card.href) {

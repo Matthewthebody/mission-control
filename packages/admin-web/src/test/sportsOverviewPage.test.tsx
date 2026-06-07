@@ -386,7 +386,7 @@ describe("SportsOverview", () => {
     expect(screen.getByText("Attention Needed")).toBeInTheDocument();
     expect(screen.getByText("This Week's Work")).toBeInTheDocument();
     expect(screen.getByText("Work Queues")).toBeInTheDocument();
-    expect(screen.getByText("Jobs Today")).toBeInTheDocument();
+    expect(screen.getByText("Games / Events Today")).toBeInTheDocument();
     expect(screen.getAllByText("Staffing Gaps").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Team Info Needed").length).toBeGreaterThan(0);
     expect(screen.getByText("Releases Due")).toBeInTheDocument();

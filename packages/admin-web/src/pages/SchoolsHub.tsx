@@ -1307,7 +1307,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
     { label: "Galleries Due", value: galleryDueCount, detail: "Gallery or release work that needs movement.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: galleryDueCount ? "warning" : "success" },
     { label: "Missing Data", value: missingDataCount, detail: "Rosters, contacts, approvals, or school info holding work.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: missingDataCount ? "danger" : "success" },
     { label: "Retakes", value: retakeCount, detail: "Retake or makeup work visible in the current school queue.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: retakeCount ? "info" : "success" },
-    { label: "Client Follow-Up", value: boardIssueCounts.clientConcerns, detail: "School, family, or client concern that needs a next owner.", href: buildSchoolsTabHash("exceptions", { focus: "critical_high" }), tone: boardIssueCounts.clientConcerns ? "warning" : "success" }
+    { label: "School Follow-Up", value: boardIssueCounts.clientConcerns, detail: "School, family, or gallery concern that needs a next owner.", href: buildSchoolsTabHash("exceptions", { focus: "critical_high" }), tone: boardIssueCounts.clientConcerns ? "warning" : "success" }
   ];
   const attentionCards: DepartmentHubCard[] = [
     { label: "Missing Info / Client", value: boardIssueCounts.clientConcerns + missingDataCount, detail: "Schools work cannot move until the school/client data is clear.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: boardIssueCounts.clientConcerns + missingDataCount ? "danger" : "success" },
@@ -1320,7 +1320,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
     { label: "Blocked / Waiting", value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length, detail: "Blocked, waiting, overdue, or high-risk school work.", href: buildSchoolsTabHash("exceptions", { focus: "critical_high" }), tone: "warning" }
   ];
   const queueCards: DepartmentHubCard[] = [
-    { label: "Gallery Releases", detail: "Open school jobs and release-related work.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: "info" },
+    { label: "Gallery Releases", detail: "Open galleries, release dates, and delivery follow-through.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: "info" },
     { label: "Missing Data", detail: "Open missing roster, school, approval, or client info.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: "warning" },
     { label: "Retakes", detail: "Open school jobs and filter retake work from the work list.", href: "#schools/jobs", tone: "info" },
     { label: "School Tasks", detail: "Open the Schools task queue.", href: "#schools/tasks", tone: "info" }
