@@ -46,9 +46,9 @@ export function MyWork({ token, currentUser, socket }: Props) {
   const [liveMessage, setLiveMessage] = useState("");
   const [editingWorkflowStepId, setEditingWorkflowStepId] = useState("");
   const scheduleStats = useMemo(() => buildScheduleWeekStats(payload), [payload]);
+  const scheduleWeekDays = useMemo(() => buildScheduleWeekDays(payload), [payload]);
   const liveWorkflowSteps = payload?.live_workflow_steps ?? [];
   const headsUpItems = useMemo(() => buildHeadsUpItems(payload), [payload]);
-  const visibleScheduleEvents = (payload?.events ?? []).slice(0, 3);
 
   const selectedEvent = useMemo(
     () => payload?.events.find((event) => event.id === selectedEventId) ?? null,
@@ -129,17 +129,20 @@ export function MyWork({ token, currentUser, socket }: Props) {
         <div>
           <div className="eyebrow">Employee Launchpad</div>
           <h2>Your Day</h2>
-          <p>Tasks assigned to you, workflows you're part of, and things your department may need help with.</p>
+          <p>Your day: tasks assigned to you, workflows you're part of, and things your department may need help with.</p>
         </div>
         <div className="page-intro-actions">
-          <div className="metric-pill">{currentUser.fullName}</div>
-          <label className="filter-field">
-            <span>Anchor Date</span>
-            <input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
-          </label>
-          <button className="secondary-button" onClick={() => void load()}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
+          <a className="primary-button" href="#employees/attendance">Clocked Out</a>
+          <details className="employee-date-disclosure">
+            <summary>Change week</summary>
+            <label className="filter-field">
+              <span>Week starting</span>
+              <input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
+            </label>
+            <button className="secondary-button" onClick={() => void load()}>
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </details>
         </div>
       </section>
 
@@ -158,18 +161,21 @@ export function MyWork({ token, currentUser, socket }: Props) {
             value={`${payload?.events.length ?? 0}`}
             detail={buildScheduleSummary(scheduleStats)}
             helper={buildLookaheadSummary(payload)}
+            href="#my-schedule"
           />
           <LaunchpadSummaryTile
             eyebrow="Assigned Tasks"
             value={payload?.summary.assigned_task_count ?? 0}
             detail="Tasks directly assigned to you."
             helper={buildTaskSummary(payload)}
+            href="#tasks"
           />
           <LaunchpadSummaryTile
             eyebrow="Workflow Steps Waiting on Me"
             value={payload?.summary.live_workflow_step_count ?? 0}
             detail="Job or production steps where you are the assigned person."
             helper={liveWorkflowSteps[0]?.next_action ?? "No workflow step is personally waiting on you."}
+            href="#project-tracking"
           />
           <LaunchpadSummaryTile
             eyebrow="Heads Up"
@@ -177,11 +183,12 @@ export function MyWork({ token, currentUser, socket }: Props) {
             detail={headsUpItems.length ? "Important items to notice before work stalls." : "No important acknowledgements are waiting."}
             helper={headsUpItems[0]?.summary ?? "Your day looks clear from the current demo data."}
             tone={headsUpItems.length ? "heads_up" : "good"}
+            href="#needs-attention"
           />
         </div>
       </section>
 
-      <section className="employee-work-layout">
+      <section className="employee-work-layout employee-work-layout--launchpad">
         <div className="panel employee-shift-rail">
           <div className="employee-section-heading">
             <div>
@@ -197,57 +204,36 @@ export function MyWork({ token, currentUser, socket }: Props) {
             <span>{scheduleStats.remainingHoursLabel}</span>
           </div>
 
-          <div className="ops-preview-list">
-            <ScheduleContextCard
-              label="Current"
-              event={payload?.schedule_context.current_event ?? null}
-              emptyLabel={payload?.schedule_context.active_now_count ? "Active work is in progress." : "Nothing is active right now."}
-            />
-            <ScheduleContextCard
-              label="Up Next"
-              event={payload?.schedule_context.next_event ?? null}
-              emptyLabel="No additional events are lined up from this anchor date."
-            />
-          </div>
-
           {loading ? <div className="empty-state empty-state--panel">Loading your events...</div> : null}
           {!loading && !payload?.events.length ? <div className="empty-state empty-state--panel">No events are assigned right now.</div> : null}
 
-          <div className="employee-shift-list">
-            {visibleScheduleEvents.map((event) => (
-              <button
-                key={event.id}
-                className={`employee-shift-card${selectedEvent?.id === event.id ? " employee-shift-card--selected" : ""}`}
-                onClick={() => setSelectedEventId(event.id)}
-              >
-                <div className="employee-shift-card__top">
-                  <span className="eyebrow">{formatDepartmentLabel(event.department)}</span>
-                  <span className={`home-tone-chip home-tone-chip--${toneForEvent(event)}`}>{event.action_label}</span>
-                </div>
-                <strong>{event.title}</strong>
-                <div className="muted">{event.subtitle ?? humanizeLabel(event.status)}</div>
-                <div className="employee-shift-card__meta">
-                  <span>{formatShortWindow(event.starts_at, event.ends_at)}</span>
-                  <span>{humanizeLabel(event.staffing_role ?? "assigned_event")}</span>
-                </div>
-                <div className="employee-shift-card__location">{event.location_name || event.location_address || "Location pending"}</div>
-                {event.linked_job_number || event.linked_job_title ? (
-                  <div className="muted">
-                    {event.linked_job_number ? `${event.linked_job_number} · ` : ""}
-                    {event.linked_job_title ?? "Linked job"}
+          <div className="employee-week-strip" aria-label="Compact weekly schedule">
+            {scheduleWeekDays.map((day) => (
+              <div key={day.key} className="employee-week-day">
+                <span>{day.label}</span>
+                <strong>{day.shortDate}</strong>
+                {day.events.length ? (
+                  <div className="employee-week-day__events">
+                    {day.events.slice(0, 2).map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        className={`employee-week-event${selectedEvent?.id === event.id ? " employee-week-event--selected" : ""}`}
+                        onClick={() => setSelectedEventId(event.id)}
+                      >
+                        <span>{formatShortWindow(event.starts_at, event.ends_at)}</span>
+                        <strong>{event.title}</strong>
+                        <small>{event.location_name || event.location_address || "Location pending"}</small>
+                      </button>
+                    ))}
+                    {day.events.length > 2 ? <small>{day.events.length - 2} more on schedule</small> : null}
                   </div>
-                ) : null}
-                <div className="employee-shift-card__flags">
-                  {event.note_summary && !event.notes_acknowledged ? <span className="meta-pill">Notes To Review</span> : null}
-                  {event.open_exception_count ? <span className="meta-pill">{event.open_exception_count} exception</span> : null}
-                  {event.follow_through_label ? <span className="meta-pill">{event.follow_through_label}</span> : null}
-                </div>
-              </button>
+                ) : (
+                  <small>No published work</small>
+                )}
+              </div>
             ))}
           </div>
-          {payload && payload.events.length > visibleScheduleEvents.length ? (
-            <div className="empty-state empty-state--compact">Showing the next {visibleScheduleEvents.length} schedule items. Open the schedule for the full week.</div>
-          ) : null}
 
           <details className="employee-collapsible-list">
             <summary>Related jobs ({payload?.jobs.length ?? 0})</summary>
@@ -263,47 +249,53 @@ export function MyWork({ token, currentUser, socket }: Props) {
           </details>
         </div>
 
-        <div className="panel employee-detail-panel">
-          <PanelList
-            title="Assigned Tasks"
-            subtitle="Open work assigned to you. Blocked or overdue items should show the reason and the next useful place to act."
-            items={payload?.tasks ?? []}
-            getKey={(task) => task.id}
-            empty="No open assigned tasks are in your queue."
-            renderItem={(task) => <TaskCard task={task} />}
-            limit={3}
-          />
+        <div className="panel employee-detail-panel employee-detail-panel--compact">
+          <CompactDetailGroup title="Assigned Tasks" count={payload?.tasks.length ?? 0}>
+            <PanelList
+              title="Assigned Tasks"
+              subtitle="Open work assigned to you. Blocked or overdue items should show the reason and the next useful place to act."
+              items={payload?.tasks ?? []}
+              getKey={(task) => task.id}
+              empty="No open assigned tasks are in your queue."
+              renderItem={(task) => <TaskCard task={task} />}
+              limit={2}
+            />
+          </CompactDetailGroup>
 
-          <PanelList
-            title="Workflow Steps Waiting on Me"
-            subtitle="Current workflow steps assigned directly to you."
-            items={liveWorkflowSteps}
-            getKey={(step) => step.id}
-            empty="No workflow steps are personally assigned to you."
-            renderItem={(step) => (
-              <WorkflowStepCard
-                step={step}
-                token={token}
-                editing={editingWorkflowStepId === step.id}
-                onToggleEdit={() => setEditingWorkflowStepId((current) => (current === step.id ? "" : step.id))}
-                onSaved={async () => {
-                  await load();
-                  setEditingWorkflowStepId("");
-                }}
-              />
-            )}
-            limit={3}
-          />
+          <CompactDetailGroup title="Workflow Steps Waiting on Me" count={liveWorkflowSteps.length}>
+            <PanelList
+              title="Workflow Steps Waiting on Me"
+              subtitle="Current workflow steps assigned directly to you."
+              items={liveWorkflowSteps}
+              getKey={(step) => step.id}
+              empty="No workflow steps are personally assigned to you."
+              renderItem={(step) => (
+                <WorkflowStepCard
+                  step={step}
+                  token={token}
+                  editing={editingWorkflowStepId === step.id}
+                  onToggleEdit={() => setEditingWorkflowStepId((current) => (current === step.id ? "" : step.id))}
+                  onSaved={async () => {
+                    await load();
+                    setEditingWorkflowStepId("");
+                  }}
+                />
+              )}
+              limit={2}
+            />
+          </CompactDetailGroup>
 
-          <PanelList
-            title="Heads Up"
-            subtitle="Acknowledgements, exceptions, approvals, and important changes folded into one short queue."
-            items={headsUpItems}
-            getKey={(item) => item.id}
-            empty="No important acknowledgements are waiting here."
-            renderItem={(item) => <HeadsUpCard item={item} />}
-            limit={4}
-          />
+          <CompactDetailGroup title="Heads Up" count={headsUpItems.length}>
+            <PanelList
+              title="Heads Up"
+              subtitle="Acknowledgements, schedule notes, and important changes folded into one short queue."
+              items={headsUpItems}
+              getKey={(item) => item.id}
+              empty="No important acknowledgements are waiting here."
+              renderItem={(item) => <HeadsUpCard item={item} />}
+              limit={3}
+            />
+          </CompactDetailGroup>
         </div>
       </section>
 
@@ -337,21 +329,47 @@ function LaunchpadSummaryTile({
   value,
   detail,
   helper,
-  tone = "info"
+  tone = "info",
+  href
 }: {
   eyebrow: string;
   value: number | string;
   detail: string;
   helper: string;
   tone?: "good" | "info" | "heads_up" | "action_needed";
+  href?: string;
 }) {
-  return (
-    <article className={`employee-summary-tile employee-summary-tile--${tone}`}>
+  const content = (
+    <>
       <span className="eyebrow">{eyebrow}</span>
       <strong>{value}</strong>
       <p>{detail}</p>
       <small>{helper}</small>
+    </>
+  );
+  if (href) {
+    return (
+      <a className={`employee-summary-tile employee-summary-tile--${tone}`} href={href}>
+        {content}
+      </a>
+    );
+  }
+  return (
+    <article className={`employee-summary-tile employee-summary-tile--${tone}`}>
+      {content}
     </article>
+  );
+}
+
+function CompactDetailGroup({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  return (
+    <details className="employee-compact-detail">
+      <summary>
+        <span>{title}</span>
+        <strong>{count}</strong>
+      </summary>
+      {children}
+    </details>
   );
 }
 
@@ -375,6 +393,41 @@ function buildScheduleWeekStats(payload: EmployeeMyWorkResponse | null) {
     workedHoursLabel: "Worked hours show after punches are captured",
     remainingHoursLabel: `${formatHours(remainingHours)} remaining on published events`
   };
+}
+
+function buildScheduleWeekDays(payload: EmployeeMyWorkResponse | null) {
+  const events = payload?.events ?? [];
+  const firstEventDate = events[0]?.starts_at.slice(0, 10);
+  const baseDateString = payload?.anchor_date || firstEventDate || getLocalDateString();
+  const baseDate = new Date(`${baseDateString}T12:00:00`);
+  if (Number.isNaN(baseDate.getTime())) {
+    return [];
+  }
+  const start = getMondayForDate(baseDate);
+  const hasWeekendWork = events.some((event) => {
+    const day = new Date(event.starts_at).getDay();
+    return day === 0 || day === 6;
+  });
+  const dayCount = hasWeekendWork ? 7 : 5;
+  return Array.from({ length: dayCount }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const key = date.toISOString().slice(0, 10);
+    return {
+      key,
+      label: date.toLocaleDateString(undefined, { weekday: "long" }),
+      shortDate: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      events: events.filter((event) => event.starts_at.slice(0, 10) === key)
+    };
+  });
+}
+
+function getMondayForDate(date: Date) {
+  const monday = new Date(date);
+  const day = monday.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  monday.setDate(monday.getDate() + offset);
+  return monday;
 }
 
 function buildScheduleSummary(stats: ReturnType<typeof buildScheduleWeekStats>) {
@@ -498,36 +551,11 @@ function PanelList<T>({
   );
 }
 
-function ScheduleContextCard({
-  label,
-  event,
-  emptyLabel
-}: {
-  label: string;
-  event: EmployeeMyWorkEventRecord | null;
-  emptyLabel: string;
-}) {
-  return (
-    <article className="notification-card notification-card--normal">
-      <strong>{label}</strong>
-      {event ? (
-        <>
-          <div>{event.title}</div>
-          <div className="muted">{formatShortWindow(event.starts_at, event.ends_at)}</div>
-          <div className="muted">{event.location_name || event.location_address || "Location pending"}</div>
-        </>
-      ) : (
-        <div className="muted">{emptyLabel}</div>
-      )}
-    </article>
-  );
-}
-
 function JobCard({ job }: { job: EmployeeMyWorkJobRecord }) {
   return (
     <article className="notification-card notification-card--normal">
-      <strong>{job.job_number ? `${job.job_number} · ${job.title}` : job.title}</strong>
-      <div className="muted">{formatDepartmentLabel(job.department)} · {job.status_label}</div>
+      <strong>{job.job_number ? `${job.job_number}  -  ${job.title}` : job.title}</strong>
+      <div className="muted">{formatDepartmentLabel(job.department)}  -  {job.status_label}</div>
       <div className="muted">{job.organization_display_name ?? "Organization pending"}</div>
       <div className="employee-shift-card__flags">
         <span className="meta-pill">{job.assigned_task_count} task{job.assigned_task_count === 1 ? "" : "s"}</span>
@@ -641,11 +669,11 @@ function WorkflowStepCard({
 function TaskCard({ task }: { task: EmployeeMyWorkTaskRecord }) {
   return (
     <article className={`notification-card notification-card--${toneToNotificationClass(toneForTask(task))}`}>
-      <strong>{task.task_number} · {task.title}</strong>
-      <div className="muted">{formatDepartmentLabel(task.department)} · {task.status_label}</div>
+      <strong>{task.task_number}  -  {task.title}</strong>
+      <div className="muted">{formatDepartmentLabel(task.department)}  -  {task.status_label}</div>
       {task.linked_job_number || task.linked_job_title ? (
         <div className="muted">
-          {task.linked_job_number ? `${task.linked_job_number} · ` : ""}
+          {task.linked_job_number ? `${task.linked_job_number}  -  ` : ""}
           {task.linked_job_title ?? "Linked job"}
         </div>
       ) : null}
@@ -676,12 +704,12 @@ function AcknowledgementCard({ item }: { item: EmployeeMyWorkAcknowledgementReco
   return (
     <article className="notification-card notification-card--high">
       <strong>{item.title}</strong>
-      <div className="muted">{formatDepartmentLabel(item.department)} · {item.action_label}</div>
+      <div className="muted">{formatDepartmentLabel(item.department)}  -  {item.action_label}</div>
       <div className="muted">{item.summary}</div>
       <div className="muted">Why it matters: this change may affect how you arrive, set up, communicate, or close out the linked work.</div>
       {item.linked_job_number || item.linked_job_title ? (
         <div className="muted">
-          {item.linked_job_number ? `${item.linked_job_number} · ` : ""}
+          {item.linked_job_number ? `${item.linked_job_number}  -  ` : ""}
           {item.linked_job_title ?? "Linked job"}
         </div>
       ) : null}
@@ -697,12 +725,12 @@ function ExceptionCard({ item }: { item: EmployeeMyWorkExceptionRecord }) {
   return (
     <article className={`notification-card notification-card--${toneToNotificationClass(item.tone)}`}>
       <strong>{item.scope_label}</strong>
-      <div className="muted">{item.exception_type_label} · {humanizeLabel(item.status)}</div>
-      <div className="muted">{formatDepartmentLabel(item.department)} · {humanizeLabel(item.severity)}</div>
+      <div className="muted">{item.exception_type_label}  -  {humanizeLabel(item.status)}</div>
+      <div className="muted">{formatDepartmentLabel(item.department)}  -  {humanizeLabel(item.severity)}</div>
       {item.notes ? <div className="muted">{item.notes}</div> : null}
       {item.linked_job_number || item.linked_job_title ? (
         <div className="muted">
-          {item.linked_job_number ? `${item.linked_job_number} · ` : ""}
+          {item.linked_job_number ? `${item.linked_job_number}  -  ` : ""}
           {item.linked_job_title ?? "Linked job"}
         </div>
       ) : null}
@@ -737,7 +765,7 @@ function RecentChangeCard({ item }: { item: EmployeeMyWorkRecentChangeRecord }) 
     <article className={`notification-card notification-card--${toneToNotificationClass(item.tone)}`}>
       <strong>{item.title}</strong>
       <div className="muted">{item.summary}</div>
-      <div className="muted">{item.department ? `${formatDepartmentLabel(item.department)} · ` : ""}{formatDateTime(item.created_at)}</div>
+      <div className="muted">{item.department ? `${formatDepartmentLabel(item.department)}  -  ` : ""}{formatDateTime(item.created_at)}</div>
     </article>
   );
 }
@@ -808,16 +836,6 @@ function toneForWorkflowStep(step: EmployeeMyWorkWorkflowStepRecord) {
   }
   if (step.operational_status === "waiting" || step.operational_status === "at_risk" || step.waiting_detail) {
     return "heads_up";
-  }
-  return "info";
-}
-
-function toneForEvent(event: EmployeeMyWorkEventRecord) {
-  if (event.open_exception_count > 0 || (event.note_summary && !event.notes_acknowledged)) {
-    return "heads_up";
-  }
-  if (event.action_label === "On now") {
-    return "good";
   }
   return "info";
 }

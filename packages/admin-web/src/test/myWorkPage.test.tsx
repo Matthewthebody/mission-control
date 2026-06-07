@@ -698,20 +698,32 @@ describe("My Work page", () => {
   it("renders My Work as a focused employee launchpad", async () => {
     render(<MyWork token="token" currentUser={fieldUser} socket={null} />);
 
-    expect(await screen.findByText("Your Day")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Your Day" })).toBeInTheDocument();
     expect(screen.queryAllByText(/^My Work$/i).length).toBeLessThanOrEqual(1);
     expect(screen.queryByText("Daily Cockpit")).not.toBeInTheDocument();
-    expect(screen.getByText("Tasks assigned to you, workflows you're part of, and things your department may need help with.")).toBeInTheDocument();
+    expect(screen.getByText("Your day: tasks assigned to you, workflows you're part of, and things your department may need help with.")).toBeInTheDocument();
     expect(screen.getByText("Launchpad")).toBeInTheDocument();
     expect(screen.queryAllByText("Time Clock").length).toBeLessThanOrEqual(1);
     expect(screen.queryAllByText("Off Shift").length).toBeLessThanOrEqual(1);
+    expect(screen.getByRole("link", { name: "Clocked Out" })).toHaveAttribute("href", "#employees/attendance");
+    expect(screen.queryByText("Anchor Date")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connected Standards")).not.toBeInTheDocument();
+    expect(screen.queryByText("Directory of Photography")).not.toBeInTheDocument();
+    expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();
     expect(screen.getAllByText("My Schedule This Week").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Assigned Tasks").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Workflow Steps Waiting on Me").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Heads Up").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /My Schedule This Week/i })).toHaveAttribute("href", "#my-schedule");
+    expect(screen.getByRole("link", { name: /Assigned Tasks/i })).toHaveAttribute("href", "#tasks");
+    expect(screen.getByRole("link", { name: /Workflow Steps Waiting on Me/i })).toHaveAttribute("href", "#project-tracking");
+    expect(screen.getByRole("link", { name: /Heads Up/i })).toHaveAttribute("href", "#needs-attention");
     expect(screen.getAllByText("3.8h scheduled this week").length).toBeGreaterThan(0);
     expect(screen.getByText("Worked hours show after punches are captured")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View schedule" })).toHaveAttribute("href", "#my-schedule");
+    expect(screen.getByLabelText("Compact weekly schedule")).toBeInTheDocument();
+    expect(screen.getByText("Thursday")).toBeInTheDocument();
+    expect(screen.getAllByText("DEMO-001").length).toBeGreaterThan(0);
     expect(screen.getByText("Related jobs (1)")).toBeInTheDocument();
     expect(screen.queryByText("Assigned Jobs")).not.toBeInTheDocument();
     expect(screen.queryByText("Current Steps")).not.toBeInTheDocument();
@@ -722,8 +734,13 @@ describe("My Work page", () => {
     expect(screen.queryByText("Required Acknowledgements")).not.toBeInTheDocument();
     expect(screen.queryByText("Owned Exceptions")).not.toBeInTheDocument();
     expect(screen.queryByText("Approvals Waiting On You")).not.toBeInTheDocument();
-    expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();
+    expect(screen.getByText("Workflow Steps Waiting on Me", { selector: "summary span" }).closest("details")).not.toHaveAttribute("open");
+
+    fireEvent.click(screen.getByText("Assigned Tasks", { selector: "summary span" }));
     expect(screen.getByText(/Confirm roster/i)).toBeInTheDocument();
+    expect(screen.getByText(/Upload setup proof/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Workflow Steps Waiting on Me", { selector: "summary span" }));
     expect(screen.getByText("Assigned person: You")).toBeInTheDocument();
     expect(screen.getByText("Department: Production")).toBeInTheDocument();
     expect(screen.getByText("Current step:")).toBeInTheDocument();
@@ -736,8 +753,11 @@ describe("My Work page", () => {
     expect(screen.getByLabelText("Assigned person")).toBeInTheDocument();
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
+
+    fireEvent.click(screen.getByText("Heads Up", { selector: "summary span" }));
     expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
+    expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();
     expect(screen.getByText(/Blocking downstream work until reviewed/i)).toBeInTheDocument();
 
     expect(screen.queryByText("My Shifts")).not.toBeInTheDocument();

@@ -357,7 +357,11 @@ describe("dashboard home command surface", () => {
 
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
+    const conciergeInput = screen.getByRole("searchbox", { name: /Ask Concierge Anything/i });
+    expect(conciergeInput).toHaveAttribute("placeholder", "Ask Concierge Anything...");
+    fireEvent.change(conciergeInput, { target: { value: "staffing gaps today" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    expect(onOpenConcierge).toHaveBeenCalledWith("staffing gaps today");
     expect(screen.queryByRole("button", { name: "Add Task" })).not.toBeInTheDocument();
     expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create Event" })).not.toBeInTheDocument();
@@ -399,8 +403,8 @@ describe("dashboard home command surface", () => {
     expect(screen.queryByText("Widget Snapshot")).not.toBeInTheDocument();
     expect(screen.queryByText("Watchlist")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i }));
-    expect(onOpenConcierge).toHaveBeenCalledTimes(1);
+    fireEvent.submit(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i }).closest("form")!);
+    expect(onOpenConcierge).toHaveBeenCalledTimes(2);
 
     fireEvent.click(screen.getByRole("button", { name: /Today's Shoots/i }));
     expect(window.location.hash).toBe("#studios/shoots");
@@ -530,7 +534,7 @@ describe("dashboard home command surface", () => {
 
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i })).toHaveAttribute("placeholder", "Ask Concierge Anything...");
     expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();

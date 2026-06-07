@@ -5053,7 +5053,7 @@ describe("admin operations regressions", () => {
     expect(screen.queryByRole("button", { name: "Add Task" })).not.toBeInTheDocument();
     expect(screen.getByText("Work That Needs To Be Processed This Week")).toBeInTheDocument();
     expect(screen.getByText("Jobs That Need To Go Out This Week")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ask Concierge or search jobs, people, schools, tasks/i })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i })).toHaveAttribute("placeholder", "Ask Concierge Anything...");
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();

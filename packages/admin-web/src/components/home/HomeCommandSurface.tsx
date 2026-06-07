@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Socket } from "socket.io-client";
 import { buildShellRouteHash } from "../../navigation";
 import { canAccessRoute } from "../../permissions";
@@ -762,9 +762,15 @@ export function HomeCommandSurface({
       }),
     [attendanceAttentionMetric, dashboard, summaryCards, timeBand, urgentItems]
   );
+  const [conciergeQuery, setConciergeQuery] = useState("");
   const updatedLabel = dashboard ? `Updated ${formatHomeTimestamp(dashboard.generated_at)}` : null;
   const primaryClockActionLabel = timeBand?.visible ? getTimeClockActionLabel(timeBand) : "Clock In";
   const primaryClockActionHash = timeBand?.visible ? timeBand.action_hash : buildShellRouteHash("dashboard-my-day");
+
+  function submitConciergeSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onOpenConcierge(conciergeQuery.trim());
+  }
 
   if (loading && dashboard == null) {
     return (
@@ -784,11 +790,22 @@ export function HomeCommandSurface({
         className="home-operational__header"
         actions={
           <div className="home-operational__header-actions">
-            <button type="button" className="home-operational__search-launcher" onClick={() => onOpenConcierge()}>
+            <form className="home-operational__search-launcher" onSubmit={submitConciergeSearch}>
               <span className="home-operational__search-label">Concierge</span>
-              <strong>Ask Concierge or search jobs, people, schools, tasks...</strong>
-              <span>{updatedLabel ?? "Focus or click to open Concierge search."}</span>
-            </button>
+              <div className="home-operational__search-input-row">
+                <input
+                  type="search"
+                  value={conciergeQuery}
+                  onChange={(event) => setConciergeQuery(event.currentTarget.value)}
+                  placeholder="Ask Concierge Anything..."
+                  aria-label="Ask Concierge Anything"
+                />
+                <button type="submit" className="secondary-button">
+                  Ask
+                </button>
+              </div>
+              <span>{updatedLabel ?? "Type a question or search, then press Ask."}</span>
+            </form>
             <button
               type="button"
               className="primary-button home-operational__primary-clock-action"
