@@ -12855,12 +12855,14 @@ html[data-theme="light"] .shoot-priority-chip {
   overflow-wrap: anywhere;
 }
 
-.employee-work-layout--launchpad {
+.employee-work-layout.employee-work-layout--launchpad {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.employee-shift-rail--wide {
+.employee-work-layout--launchpad .employee-shift-rail--wide {
+  grid-column: 1 / -1;
   width: 100%;
+  max-width: none;
 }
 
 .employee-detail-panel--compact {
