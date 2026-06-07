@@ -152,13 +152,13 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   {
     key: "schools",
     label: "Schools",
-    description: "School command hub for school jobs, tasks, contacts, risks, and linked work.",
+    description: "School jobs, gallery releases, tasks, contacts, risks, and linked work.",
     routeId: "operations-schools"
   },
   {
     key: "sports",
     label: "Sports",
-    description: "Sports command hub for sports jobs, organizations, contacts, risks, and production handoffs.",
+    description: "Sports jobs, teams, organizations, contacts, risks, and production handoffs.",
     routeId: "sports"
   },
   {
@@ -176,7 +176,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   {
     key: "project-tracking",
     label: "Project Tracking",
-    description: "Source-of-truth work spine for active work, next owners, due dates, blockers, and recent changes.",
+    description: "Shared project board for active work, next owners, due dates, blockers, and recent changes.",
     routeId: "project-tracking"
   },
   {
@@ -2014,6 +2014,12 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "operations/staffing") {
     return pickVisibleRoute("operations-staffing", availableTabs, employeeOnlyMode);
   }
+  if (path === "leadership") {
+    return pickVisibleRoute("executive", availableTabs, employeeOnlyMode);
+  }
+  if (path === "settings") {
+    return pickVisibleRoute("admin", availableTabs, employeeOnlyMode);
+  }
   if (path === "photography") {
     return pickVisibleRoute("studios", availableTabs, employeeOnlyMode);
   }
@@ -2045,7 +2051,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
     return pickVisibleRoute("status-board-display", availableTabs, employeeOnlyMode);
   }
   if (path === "operations/travel") {
-    return pickVisibleRoute("operations-travel", availableTabs, employeeOnlyMode);
+    return pickVisibleRoute("studios-travel", availableTabs, employeeOnlyMode);
   }
   if (path === "employees/exceptions") {
     return pickVisibleRoute("people-exceptions", availableTabs, employeeOnlyMode);

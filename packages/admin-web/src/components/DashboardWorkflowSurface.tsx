@@ -149,7 +149,7 @@ export function DashboardWorkflowSurface({ token, currentUser }: Props) {
           <div className="eyebrow">Daily Workflow Snapshot</div>
           <div className="section-title">Assignment To Completion</div>
           <p className="section-subtitle">
-            Home keeps the daily briefing compact. Open Project Tracking when you need the source-of-truth work spine.
+            Home keeps the daily briefing compact. Open Project Tracking when you need the full shared project board.
           </p>
         </div>
         <div className="page-intro-actions page-intro-actions--compact">

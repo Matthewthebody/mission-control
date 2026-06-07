@@ -116,13 +116,13 @@ function getPlainActionLabel(label: string, hash: string | null | undefined) {
     return "Open work";
   }
   if (lowerHash.startsWith("#studios")) {
-    return "Open Photography Command Hub";
+    return "Open Photography";
   }
   if (lowerHash.startsWith("#schools")) {
-    return "Open Schools Command Hub";
+    return "Open Schools";
   }
   if (lowerHash.startsWith("#sports")) {
-    return "Open Sports Command Hub";
+    return "Open Sports";
   }
   if (lowerHash.startsWith("#production")) {
     return "Open Production hub";
@@ -299,7 +299,7 @@ function buildSummaryCards(input: {
         todayShoots.needs_attention_count > 0
           ? `${todayShoots.needs_attention_count} scheduled item${todayShoots.needs_attention_count === 1 ? "" : "s"} still need readiness follow-through before the day is safe.`
           : "Today's field work is visible here so the team can confirm timing, readiness, and staffing before jumping into details.",
-      actionLabel: "Open Photography Command Hub",
+      actionLabel: "Open Photography",
       hash: "#studios/shoots",
       tone: todayShoots.needs_attention_count > 0 ? "warning" : "info"
     });
@@ -335,7 +335,7 @@ function buildSummaryCards(input: {
       summary: "Production work preview from the daily command center",
       explanation:
         productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
-          ? `${productionProjects.counts.blocked} blocked and ${productionProjects.counts.overdue} overdue production item${productionProjects.counts.blocked + productionProjects.counts.overdue === 1 ? "" : "s"} need work-spine inspection.`
+          ? `${productionProjects.counts.blocked} blocked and ${productionProjects.counts.overdue} overdue production item${productionProjects.counts.blocked + productionProjects.counts.overdue === 1 ? "" : "s"} need project review.`
           : "Production is active; open the department hub when you need the owner, due state, or release blocker.",
       actionLabel:
         productionProjects.counts.blocked > 0 || productionProjects.counts.overdue > 0
@@ -362,7 +362,7 @@ function buildSummaryCards(input: {
         input.taskCounts.schools > 0
           ? "School tasks can affect photo-day readiness, client follow-up, or field handoff quality."
           : "No open school task count is currently flagged for this Home view.",
-      actionLabel: "Open Schools Command Hub",
+      actionLabel: "Open Schools",
       hash: "#schools/tasks",
       tone: input.taskCounts.schools > 0 ? "info" : "success"
     });
@@ -378,7 +378,7 @@ function buildSummaryCards(input: {
         input.taskCounts.sports > 0
           ? "Sports tasks can affect roster readiness, shoot prep, graphics, or customer follow-through."
           : "No open sports task count is currently flagged for this Home view.",
-      actionLabel: "Open Sports Command Hub",
+      actionLabel: "Open Sports",
       hash: "#sports/tasks",
       tone: input.taskCounts.sports > 0 ? "info" : "success"
     });
@@ -423,7 +423,7 @@ function buildProcessingThisWeekItems(input: {
       title: "Schools",
       count: input.taskCounts.schools,
       summary: "School tasks waiting on readiness, client follow-up, or field handoff.",
-      actionLabel: "Open Schools Command Hub",
+      actionLabel: "Open Schools",
       hash: "#schools/tasks",
       tone: input.taskCounts.schools > 40 ? "warning" : input.taskCounts.schools > 0 ? "info" : "success"
     });
@@ -435,7 +435,7 @@ function buildProcessingThisWeekItems(input: {
       title: "Sports",
       count: input.taskCounts.sports,
       summary: "Sports tasks waiting on rosters, shoot prep, graphics, or follow-through.",
-      actionLabel: "Open Sports Command Hub",
+      actionLabel: "Open Sports",
       hash: "#sports/tasks",
       tone: input.taskCounts.sports > 20 ? "warning" : input.taskCounts.sports > 0 ? "info" : "success"
     });
@@ -447,7 +447,7 @@ function buildProcessingThisWeekItems(input: {
       title: "Photography",
       count: todayShoots.needs_attention_count,
       summary: "Shoot readiness, travel, and handoff items that need field confidence.",
-      actionLabel: "Open Photography Command Hub",
+      actionLabel: "Open Photography",
       hash: "#studios/shoots",
       tone: todayShoots.needs_attention_count > 0 ? "warning" : "success"
     });
@@ -471,7 +471,7 @@ function buildProcessingThisWeekItems(input: {
       key: "process_projects",
       title: "Project Tracking",
       count: projectFocusCount,
-      summary: "Shared work-spine items with owners, next actions, due dates, or blockers.",
+      summary: "Shared project items with owners, next actions, due dates, or blockers.",
       actionLabel: "Open Project Tracking",
       hash: buildShellRouteHash("project-tracking"),
       tone: projectFocusCount > 0 ? "info" : "success"

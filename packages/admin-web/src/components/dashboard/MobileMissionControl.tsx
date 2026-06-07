@@ -673,7 +673,7 @@ function MobileQuickAccessCard({
   role: BusinessRole;
 }) {
   return (
-    <MobileCard role={role} title="Quick Access" subtitle="Fast drill-ins for the next thing you need to open.">
+    <MobileCard role={role} title="Next Steps" subtitle="Open the next place you need without leaving the daily flow.">
       <div className="role-dashboard-quick-actions role-dashboard-quick-actions--mobile">
         {actions.map((action) => (
           <button

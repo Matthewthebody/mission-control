@@ -336,6 +336,7 @@ export default function App() {
   const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
   const isPhotographySectionRoute = currentRoute.sectionKey === "photography";
   const isPhotographyOverviewRoute = guardedRouteId === "studios";
+  const isProjectTrackingOverviewRoute = guardedRouteId === "project-tracking";
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
   const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
@@ -869,7 +870,7 @@ export default function App() {
           </aside>
 
           <div className="app-shell__content">
-            {!isHomeRoute && !isMyWorkLaunchpadRoute && !isScheduleLandingRoute && !isPhotographyOverviewRoute ? (
+            {!isHomeRoute && !isMyWorkLaunchpadRoute && !isScheduleLandingRoute && !isPhotographyOverviewRoute && !isProjectTrackingOverviewRoute ? (
               <header className={`shell-topbar panel${headerCollapsed ? " shell-topbar--collapsed" : ""}`}>
                 <div className="shell-topbar__heading">
                   <div className="eyebrow">{activeSectionDefinition?.label ?? "Mission Control"}</div>
@@ -938,8 +939,8 @@ export default function App() {
                 ) : null}
                 {visibleContextUtilityRoutes.length ? (
                   <div className="shell-context-bar__group shell-context-bar__group--utility">
-                    <div className="shell-context-bar__label">Quick Access</div>
-                    <nav className="shell-context-utility" aria-label="Quick Access">
+                    <div className="shell-context-bar__label">Shortcuts</div>
+                    <nav className="shell-context-utility" aria-label="Shortcuts">
                       {visibleContextUtilityRoutes.map((route) => (
                         <button
                           key={route.id}
@@ -1795,7 +1796,7 @@ function buildDesktopNavGroups(sections: ShellSection[]) {
     },
     {
       id: "spine",
-      label: "Work Spine",
+      label: "Work",
       keys: ["project-tracking", "schedule", "contacts", "jobs"] as const
     },
     {

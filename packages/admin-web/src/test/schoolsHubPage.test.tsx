@@ -497,7 +497,7 @@ beforeEach(() => {
 });
 
 describe("SchoolsHub", () => {
-  it("renders Schools as a department command hub with work-spine and blocker links", async () => {
+  it("renders Schools as a department workspace with project and blocker links", async () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
     expect(await screen.findByRole("heading", { name: "Schools" })).toBeInTheDocument();
@@ -510,7 +510,8 @@ describe("SchoolsHub", () => {
     expect(screen.getAllByText("Missing Data").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Retakes").length).toBeGreaterThan(0);
     expect(screen.getByText("School Follow-Up")).toBeInTheDocument();
-    expect(screen.getByText("Schools Command Hub")).toBeInTheDocument();
+    expect(screen.getByText("Schools Daily Board")).toBeInTheDocument();
+    expect(screen.queryByText("Schools Command Hub")).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Schools Active Work" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();
     expect(screen.getByLabelText("Schools Active Work summary")).toBeInTheDocument();

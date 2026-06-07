@@ -422,7 +422,8 @@ describe("app auth bootstrap", () => {
     });
     expect(apiFetchMock).toHaveBeenCalledWith("/api/attendance/time-clock/state", "shell-token");
     expect(screen.getByText("Start Here")).toBeInTheDocument();
-    expect(screen.getByText("Work Spine")).toBeInTheDocument();
+    expect(screen.getByText("Work")).toBeInTheDocument();
+    expect(screen.queryByText("Work Spine")).not.toBeInTheDocument();
     expect(screen.getByText("Departments")).toBeInTheDocument();
     expect(screen.getByText("Company")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Needs Attention" })).not.toBeInTheDocument();
@@ -1401,6 +1402,8 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#operations/urgent-watch", availableTabs, false)).toBe("operations-exceptions");
     expect(resolveRouteId("#scheduling", availableTabs, false)).toBe("operations-scheduling");
     expect(resolveRouteId("#operations/job-admin", availableTabs, false)).toBe("operations-job-admin");
+    expect(resolveRouteId("#leadership", availableTabs, false)).toBe("executive");
+    expect(resolveRouteId("#settings", availableTabs, false)).toBe("admin");
     expect(resolveRouteId("#operations/shoots/import", availableTabs, false)).toBe("studios-shoots");
     expect(resolveRouteId("#schedule", availableTabs, false)).toBe("operations-schedule");
     expect(resolveRouteId("#schedule/jobs", availableTabs, false)).toBe("operations-schedule");
@@ -1411,6 +1414,7 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#photography/shoots", availableTabs, false)).toBe("studios-shoots");
     expect(resolveRouteId("#photography/pre-service", availableTabs, false)).toBe("studios-pre-service");
     expect(resolveRouteId("#photography/travel", availableTabs, false)).toBe("studios-travel");
+    expect(resolveRouteId("#operations/travel", availableTabs, false)).toBe("studios-travel");
     expect(resolveRouteId("#photography/readiness", availableTabs, false)).toBe("studios-readiness");
     expect(resolveRouteId("#photography/staffing", availableTabs, false)).toBe("operations-staffing");
     expect(resolveRouteId("#photography/calendar", availableTabs, false)).toBe("studios-calendar");

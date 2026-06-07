@@ -1382,9 +1382,6 @@ function ProjectTrackingJobBoard({
             ))}
           </select>
         </label>
-        <button className="project-tracking-control-button" type="button" disabled title="Saved views need a setup pass before this becomes a real workflow tool. Planned levels: personal, department default, and company default.">
-          Saved views planned
-        </button>
       </div>
       <div className="project-tracking-filter-row" aria-label="Project tracking filters">
         {PRIMARY_FILTERS.map((filter) => (
@@ -1700,7 +1697,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     { label: "Owner / Info Gaps", value: commandCount("missing_owner_info"), detail: "Ownerless or incomplete project records should not stay invisible.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success", actionLabel: "Open owner gaps" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
-    { label: "Active Projects", value: globalSummary.total_active_workflows, detail: "Active workflow-backed project records in the shared work spine.", href: "#project-tracking", tone: "info", actionLabel: "Open work list" },
+    { label: "Active Projects", value: globalSummary.total_active_workflows, detail: "Active workflow-backed project records in the shared project board.", href: "#project-tracking", tone: "info", actionLabel: "Open work list" },
     { label: "Due This Week", value: commandCount("due_this_week"), detail: "Project milestones, owners, and next steps due in the current week.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success", actionLabel: "Open due list" },
     { label: "Recently Changed", value: summaryRecentlyChangedCount(globalCommandCenter), detail: "Project records with current activity, owner, or status movement.", href: "#project-tracking", tone: "info", actionLabel: "Open recent changes" }
   ];

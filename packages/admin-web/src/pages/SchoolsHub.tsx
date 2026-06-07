@@ -1207,7 +1207,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
     ],
     [anchorDate, schoolDashboardRows, workspace?.summary.waiting_on_school, workflowRows]
   );
-  const workflowDataNote = errors.projectTracking ? "Project Tracking links are limited until work-spine rows load." : "Use Project Tracking for the full work spine when a workflow is connected.";
+  const workflowDataNote = errors.projectTracking ? "Project Tracking links are limited until project rows load." : "Use Project Tracking for the full project record when a workflow is connected.";
   const workflowOptions = useMemo(() => buildSelectOptions(schoolJobs.map((job) => ({ value: job.job_status, label: humanizeToken(job.job_status) }))), [schoolJobs]);
   const assigneeOptions = useMemo(
     () => buildSelectOptions(schoolJobs.map((job) => ({ value: job.lead_owner_user_id ?? job.account_owner_user_id ?? "", label: jobOwnerName(job) }))),
@@ -1328,7 +1328,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
   const fullyBlocked = !workspace && !schoolJobs.length && !tasks.length && !exceptions.length && Object.values(errors).some(Boolean);
 
   if (loading) {
-    return <WorkspaceLoadingBlock title="Loading Schools" summary="Pulling the school jobs, tasks, exceptions, and work-spine links the team needs today." />;
+    return <WorkspaceLoadingBlock title="Loading Schools" summary="Pulling the school jobs, tasks, exceptions, and project links the team needs today." />;
   }
 
   if (accessScope == null) {
@@ -1379,8 +1379,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
       <section className="panel schools-dashboard-v1">
         <div className="schools-dashboard-v1__top">
           <WorkspaceSectionHeader
-            title="Schools Command Hub"
-            summary="Summary-first view of school work, due dates, blockers, next owners, and where to inspect the full work record."
+            title="Schools Daily Board"
+            summary="Summary-first view of school jobs, gallery releases, missing information, blockers, next owners, and where to inspect the full record."
           />
           <div className="segmented-toggle segmented-toggle--compact schools-department__primary-tabs" role="tablist" aria-label="Schools work modes">
             {([

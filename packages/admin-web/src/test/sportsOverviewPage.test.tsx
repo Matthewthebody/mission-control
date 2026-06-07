@@ -377,7 +377,7 @@ describe("SportsOverview", () => {
     cleanup();
   });
 
-  it("renders Sports as a department command hub with work-spine and blocker links", async () => {
+  it("renders Sports as a department workspace with project and blocker links", async () => {
     render(<SportsOverview token="token" currentUser={baseUser} />);
 
     expect(await screen.findByRole("heading", { name: "Sports" })).toBeInTheDocument();
@@ -390,7 +390,8 @@ describe("SportsOverview", () => {
     expect(screen.getAllByText("Staffing Gaps").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Team Info Needed").length).toBeGreaterThan(0);
     expect(screen.getByText("Releases Due")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sports Command Hub" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sports Daily Board" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sports Command Hub" })).not.toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Sports department command list" })).toBeInTheDocument();
     expect(screen.getByText("Active Sports Work")).toBeInTheDocument();
     expect(screen.getByText("Photo Days / Events")).toBeInTheDocument();
@@ -420,12 +421,12 @@ describe("SportsOverview", () => {
     expect(screen.getAllByRole("button", { name: "Production" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("Sports Operating Board")).not.toBeInTheDocument();
     expect(screen.queryByText("Board rows")).not.toBeInTheDocument();
-    expect(screen.getByText("Shared operational contract")).toBeInTheDocument();
+    expect(screen.getByText("Sports Work Records")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Exceptions" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Workflow" })).toBeInTheDocument();
-    expect(screen.getByText("Sports read-model projections")).toBeInTheDocument();
+    expect(screen.getByText("Sports Signals")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Upcoming Shoots" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Staffing Readiness" })).toBeInTheDocument();
   });

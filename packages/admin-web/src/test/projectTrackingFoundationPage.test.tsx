@@ -393,7 +393,7 @@ describe("ProjectTrackingFoundation", () => {
     });
   });
 
-  it("renders Project Tracking as the source-of-truth work spine with next owner, blockers, due dates, and changes", async () => {
+  it("renders Project Tracking as the shared project board with next owner, blockers, due dates, and changes", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
@@ -444,7 +444,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(presetLenses).getByRole("button", { name: /At Risk, 0 items/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Department" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Saved views planned/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Saved views planned/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mine filter" })).toBeInTheDocument();
     expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
     const viewModes = screen.getByLabelText("Project Tracking view modes");

@@ -691,8 +691,8 @@ export function SportsOverview({ token, currentUser }: Props) {
       <section className="panel sports-operating-board">
         <div className="sports-operating-board__top">
           <WorkspaceSectionHeader
-            title="Sports Command Hub"
-            summary="Summary-first view of sports work, photo days, due dates, blockers, next owners, and where to inspect the full work record."
+            title="Sports Daily Board"
+            summary="Summary-first view of sports jobs, teams, event days, due dates, blockers, next owners, and where to inspect the full record."
           />
           <WorkspaceActionBar align="end">
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/jobs")}>
@@ -871,7 +871,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         token={token}
         currentUser={currentUser}
         title="Sports Active Work"
-        summary="Compact sports workload strip for event pressure, owner clarity, next action, and risk before opening the full work spine."
+        summary="Compact sports workload strip for event pressure, owner clarity, next action, and risk before opening the full project record."
         defaultDepartment="sports"
         routeHash="#sports/jobs"
         focus="overview"
@@ -1002,8 +1002,8 @@ export function SportsOverview({ token, currentUser }: Props) {
 
       <section className="sports-contract-block">
         <WorkspaceSectionHeader
-          title="Shared operational contract"
-          summary="Jobs, tasks, exceptions, and workflow are first-class here. Sports-specific metrics stay as projections over that same shared work."
+          title="Sports Work Records"
+          summary="Jobs, tasks, exceptions, and workflow steps stay together so sports work can be reviewed without jumping between disconnected trackers."
         />
         <div className="sports-grid sports-grid--two">
           <OverviewListCard
@@ -1038,8 +1038,8 @@ export function SportsOverview({ token, currentUser }: Props) {
       {filteredSportsReadModels ? (
         <section className="sports-read-model-block">
           <WorkspaceSectionHeader
-            title="Sports read-model projections"
-            summary="These signals stay sports-specific while Project Tracking remains the shared work spine for full inspection."
+            title="Sports Signals"
+            summary="Sports-specific signals for upcoming shoots, staffing readiness, ready pings, proofs, and specialty product pressure."
           />
           <div className="sports-grid sports-grid--two">
             <OverviewListCard
