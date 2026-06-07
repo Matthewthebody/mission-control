@@ -32,7 +32,9 @@ export function ProductionHub({ token, currentUser }: Props) {
       setPayload(response);
       setError("");
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "We couldn't load Production right now.");
+      console.error("Production queue failed to load", loadError);
+      setPayload(null);
+      setError("Production data is not available in this demo view.");
     } finally {
       setLoading(false);
     }
@@ -54,8 +56,9 @@ export function ProductionHub({ token, currentUser }: Props) {
   const readyForQaCount = qaNeeded.length || summary?.qa_pending_count || 0;
   const blockedCount = summary?.blocked_count ?? atRisk.filter((item) => item.tone === "danger").length;
   const urgentCount = blockedCount + (summary?.overdue_count ?? 0);
-  const statusTone: HubTone = urgentCount > 0 ? "danger" : readyForQaCount > 0 || dueThisWeek.length > 0 ? "watch" : "good";
-  const statusLabel = statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
+  const dataUnavailable = Boolean(error && !payload);
+  const statusTone: HubTone = dataUnavailable ? "watch" : urgentCount > 0 ? "danger" : readyForQaCount > 0 || dueThisWeek.length > 0 ? "watch" : "good";
+  const statusLabel = dataUnavailable ? "Demo data unavailable" : statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
   const openFirstCards: DepartmentHubCard[] = [
     { label: "Jobs Waiting For Processing", value: waitingCount, detail: "Needs file ingest, owner assignment, or production kickoff.", href: "#production/queue", tone: waitingCount ? "warning" : "success" },
     { label: "QA Needed", value: readyForQaCount, detail: "Color, crop, roster, upload, or release review.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
@@ -105,7 +108,7 @@ export function ProductionHub({ token, currentUser }: Props) {
         </div>
       </section>
 
-      {error ? <div className="error-banner">{error}</div> : null}
+      {error ? <div className="panel empty-state empty-state--panel">{error}</div> : null}
 
       <DepartmentHubPattern
         department="Production"

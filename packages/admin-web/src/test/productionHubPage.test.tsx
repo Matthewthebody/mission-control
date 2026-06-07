@@ -260,4 +260,28 @@ describe("ProductionHub", () => {
       expect(listSharedProductionQueueMock).toHaveBeenCalledWith("token-demo");
     });
   });
+
+  it("shows a safe demo state instead of raw internal errors when production data is unavailable", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    listSharedProductionQueueMock.mockRejectedValueOnce(new Error("Internal server error"));
+
+    try {
+      const { container } = render(<ProductionHub token="token-demo" currentUser={productionUser} />);
+
+      expect(await screen.findByRole("heading", { name: "Production" })).toBeInTheDocument();
+      expect(await screen.findByText("Production data is not available in this demo view.")).toBeInTheDocument();
+      expect(screen.getByText("Demo data unavailable")).toBeInTheDocument();
+      expect(screen.getByText("Open First")).toBeInTheDocument();
+      expect(screen.getByText("Work Queues")).toBeInTheDocument();
+      expect(screen.queryByText("Internal server error")).not.toBeInTheDocument();
+      expect(container.querySelector(".error-banner")).toBeNull();
+
+      await waitFor(() => {
+        expect(listSharedProductionQueueMock).toHaveBeenCalledWith("token-demo");
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith("Production queue failed to load", expect.any(Error));
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });

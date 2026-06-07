@@ -5571,14 +5571,14 @@ describe("admin operations regressions", () => {
     expect(screen.getByText("Loading attendance")).toBeInTheDocument();
     expect((await screen.findAllByText("Attendance Operating System")).length).toBeGreaterThan(0);
     expect(await screen.findByText("Manager Correction Flow")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Needs Attention" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Project Tracking" })).toHaveAttribute("href", "#project-tracking");
     expect(screen.getByText("Coverage Risk")).toBeInTheDocument();
     expect(screen.getByText("Home-Ready Summary")).toBeInTheDocument();
 
     const detailPanel = screen.getByText("Manager Correction Flow").closest("aside");
     expect(detailPanel).not.toBeNull();
     expect(within(detailPanel as HTMLElement).getByText("Shift Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Open Needs Attention")).toBeInTheDocument();
+    expect(screen.getByText("Open Project Tracking")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Demo Associate - Shift Beta/i }));
 
