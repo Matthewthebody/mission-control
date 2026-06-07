@@ -2245,6 +2245,53 @@ beforeEach(() => {
     expect(screen.getByRole("columnheader", { name: "Teams" })).toBeInTheDocument();
   });
 
+  it("renders the top-level Jobs route as a searchable paginated database", async () => {
+    const databaseJobs = Array.from({ length: 30 }, (_, index) => {
+      const oneBasedIndex = index + 1;
+      const isSports = index % 2 === 1;
+      return buildJobListItem({
+        id: `job-database-${oneBasedIndex}`,
+        job_number: `${isSports ? "SPT" : "SCH"}-2026-${String(oneBasedIndex).padStart(4, "0")}`,
+        department_type: isSports ? "sports" : "schools",
+        title: `${isSports ? "Metro Athletics" : "North High"} Database Job ${oneBasedIndex}`,
+        organization_id: isSports ? "org-sports" : "org-school",
+        organization_name: isSports ? "Metro Athletics" : "North High",
+        job_status: index % 3 === 0 ? "confirmed" : "planning",
+        risk_status: index % 5 === 0 ? "high" : "low",
+        readiness_status: index % 5 === 0 ? "at_risk" : "on_track",
+        lead_owner_user_id: isSports ? "lead-sports" : "lead-schools",
+        lead_owner_name: isSports ? "Sports Lead" : "Schools Lead"
+      });
+    });
+    listSharedJobsMock.mockResolvedValueOnce({ jobs: databaseJobs });
+
+    render(<SharedJobsPage token="token-demo" currentUser={sportsCoordinator} departmentType={null} routeBase="#jobs" />);
+
+    expect(await screen.findByRole("heading", { name: "Jobs Database" })).toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryAllByText(/^Jobs$/).length).toBeLessThanOrEqual(1);
+    expect(screen.queryByRole("button", { name: /New Job|Create New Job|Create job/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save current view/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pin default/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Rename/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delete/i })).not.toBeInTheDocument();
+
+    expect(screen.getByLabelText("Job name / number / organization")).toBeInTheDocument();
+    expect(screen.getByLabelText("Department / type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Organization / school / team")).toBeInTheDocument();
+    expect(screen.getByLabelText("Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Date range")).toBeInTheDocument();
+    expect(screen.getByLabelText("Needs attention / urgent")).toBeInTheDocument();
+    expect(screen.getByLabelText("Assigned owner")).toBeInTheDocument();
+    expect(screen.getByLabelText("Jobs per page")).toHaveValue("25");
+    expect(screen.getByText("Showing 1-25 of 30 jobs")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(26);
+    expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
+  });
+
   it("renders the shared editor with school adapter sections", async () => {
     window.location.hash = "#schools/jobs/new";
     render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType="schools" routeBase="#schools/jobs" mode="create" />);

@@ -28,6 +28,8 @@ type StoredView = SharedJobSavedViewPreset & {
   isCustom?: boolean;
 };
 
+const JOBS_PAGE_SIZES = [10, 25, 50] as const;
+
 function savedViewStorageKey(scope: string) {
   return `pmc-shared-job-saved-views-${scope}`;
 }
@@ -142,7 +144,7 @@ function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFil
     if (filters.accountOwnerUserId && item.account_owner_user_id !== filters.accountOwnerUserId) {
       return false;
     }
-    if (filters.leadOwnerUserId && item.lead_owner_user_id !== filters.leadOwnerUserId) {
+    if (filters.leadOwnerUserId && item.lead_owner_user_id !== filters.leadOwnerUserId && item.account_owner_user_id !== filters.leadOwnerUserId) {
       return false;
     }
     if (filters.jobStatus && item.job_status !== filters.jobStatus) {
@@ -197,22 +199,49 @@ function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFil
   });
 }
 
-function exportRows(items: SharedJobListItem[]) {
-  const lines = [
-    ["job_number", "department", "organization", "title", "date", "status"].join(","),
-    ...items.map((item) =>
-      [item.job_number ?? "", item.department_type, item.organization_name ?? "", item.title, item.primary_day_date ?? "", item.job_status]
-        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-        .join(",")
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
+function uniqueOptions(values: Array<SelectOption | null | undefined>) {
+  const byValue = new Map<string, string>();
+  values.forEach((option) => {
+    if (!option?.value || !option.label) {
+      return;
+    }
+    byValue.set(option.value, option.label);
+  });
+  return [...byValue.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function buildDatabaseOptions(items: SharedJobListItem[]) {
+  return {
+    organizations: uniqueOptions(items.map((item) => (item.organization_id ? { value: item.organization_id, label: item.organization_name ?? item.organization_id } : null))),
+    statuses: uniqueOptions(items.map((item) => (item.job_status ? { value: item.job_status, label: humanizeToken(item.job_status) } : null))),
+    risks: uniqueOptions(items.map((item) => (item.risk_status ? { value: item.risk_status, label: humanizeToken(item.risk_status) } : null))),
+    owners: uniqueOptions(
+      items.flatMap((item) => [
+        item.account_owner_user_id ? { value: item.account_owner_user_id, label: item.account_owner_name ?? item.account_owner_user_id } : null,
+        item.lead_owner_user_id ? { value: item.lead_owner_user_id, label: item.lead_owner_name ?? item.lead_owner_user_id } : null
+      ])
     )
-  ];
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "shared-jobs.csv";
-  link.click();
-  URL.revokeObjectURL(url);
+  };
+}
+
+function paginateItems<T>(items: T[], currentPage: number, pageSize: number) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  return {
+    currentPage: safePage,
+    totalPages,
+    startIndex,
+    endIndex: Math.min(startIndex + pageSize, items.length),
+    items: items.slice(startIndex, startIndex + pageSize)
+  };
 }
 
 export function SharedJobsPage({ token, currentUser, departmentType, routeBase }: Props) {
@@ -224,12 +253,14 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   const [error, setError] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(params.get("preview"));
   const [savedViews, setSavedViews] = useState<StoredView[]>(() => readSavedViews(scope));
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [currentPage, setCurrentPage] = useState(1);
   const filters = useMemo(() => readFilterState(params, departmentType), [departmentType, params]);
   const permissionContext = { departmentType: (departmentType ?? filters.departmentType) || null };
   const canCreateByPolicy = usePermission(currentUser, "job.create", permissionContext);
   const canUpdateByPolicy = usePermission(currentUser, "job.update", permissionContext);
-  const canExportJobs = usePermission(currentUser, "export.jobs", permissionContext);
   const createAllowed = canCreateByPolicy || (departmentType === "schools" ? canManageSchoolsHub(currentUser) || canCreateShootRecords(currentUser) : departmentType === "sports" ? canManageSportsWorkspace(currentUser) || canCreateShootRecords(currentUser) : canCreateShootRecords(currentUser));
+  const isGlobalJobsPage = departmentType == null;
 
   useEffect(() => {
     let cancelled = false;
@@ -255,11 +286,17 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     };
   }, [departmentType, filters.search, token]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, pageSize]);
+
   const filteredItems = useMemo(() => applyLocalFilters(items, filters), [filters, items]);
-  const selectedItem = filteredItems.find((item) => item.id === selectedJobId) ?? filteredItems[0] ?? null;
+  const pagedItems = useMemo(() => paginateItems(filteredItems, currentPage, pageSize), [currentPage, filteredItems, pageSize]);
+  const selectedItem = filteredItems.find((item) => item.id === selectedJobId) ?? pagedItems.items[0] ?? null;
   const columns = useMemo(() => (adapter ? adapter.getListColumns() : getDepartmentJobAdapterUI("sports").getListColumns()), [adapter]);
   const filterDefinitions = useMemo(() => (adapter ? adapter.getFilterDefinitions() : []), [adapter]);
   const presetViews = useMemo(() => (adapter ? adapter.getSavedViewPresets() : []), [adapter]);
+  const databaseOptions = useMemo(() => buildDatabaseOptions(items), [items]);
   const activeSavedViewKey = params.get("savedView") ?? window.localStorage.getItem(defaultViewStorageKey(scope)) ?? "";
 
   function applySavedView(view: StoredView) {
@@ -316,27 +353,30 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   }
 
   const viewLibrary = [...presetViews, ...savedViews];
+  const visibleStart = filteredItems.length ? pagedItems.startIndex + 1 : 0;
+  const visibleEnd = pagedItems.endIndex;
+  const attentionCount = filteredItems.filter((item) => item.readiness_status === "at_risk" || item.readiness_status === "off_track" || item.risk_status === "high" || item.risk_status === "critical").length;
 
   return (
     <SharedJobListShell
-      eyebrow={adapter?.labels.departmentBadge ?? "Jobs"}
-      title={adapter?.listTitle ?? "Jobs"}
-      summary={adapter ? `One shared ${adapter.labels.listScope.toLowerCase()} board with department-specific filters, columns, and saved views on top of the same job truth layer.` : "Shared global jobs list across departments."}
+      eyebrow={adapter?.labels.departmentBadge ?? "Database"}
+      title={adapter?.listTitle ?? "Jobs Database"}
+      summary={adapter ? `One shared ${adapter.labels.listScope.toLowerCase()} board with department-specific filters, columns, and saved views on top of the same job truth layer.` : "Search the shared job database by department, organization, job name, status, date, urgency, and owner without turning the page into a long scroll."}
       meta={[
         { label: `${filteredItems.length} visible`, tone: "info" },
-        { label: `${filteredItems.filter((item) => item.readiness_status === "at_risk" || item.readiness_status === "off_track").length} attention`, tone: filteredItems.some((item) => item.readiness_status === "at_risk" || item.readiness_status === "off_track") ? "warning" : "success" }
+        { label: `${attentionCount} attention`, tone: attentionCount ? "warning" : "success" }
       ]}
       actions={
+        !isGlobalJobsPage && createAllowed ? (
         <WorkspaceActionBar align="end">
           <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })} disabled={!createAllowed}>
             {adapter?.createTitle ?? "New Job"}
           </button>
-          <button type="button" className="secondary-button" onClick={() => exportRows(filteredItems)} disabled={!filteredItems.length || !canExportJobs}>
-            Export
-          </button>
         </WorkspaceActionBar>
+        ) : null
       }
       savedViews={
+        isGlobalJobsPage ? null : (
         <div className="shared-job-list__saved-views">
           <SavedViewBar views={viewLibrary.map((view) => ({ key: view.key, label: view.label }))} activeKey={activeSavedViewKey || null} onSelect={(key) => {
             const view = viewLibrary.find((candidate) => candidate.key === key);
@@ -351,14 +391,73 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             <button type="button" className="secondary-button" onClick={deleteCurrentView} disabled={!savedViews.some((view) => view.key === activeSavedViewKey)}>Delete</button>
           </WorkspaceActionBar>
         </div>
+        )
       }
       filters={
         <div className="shared-job-list__filter-grid">
           <label className="filter-field filter-field--wide">
-            <span>Search</span>
+            <span>Job name / number / organization</span>
             <input value={filters.search} onChange={(event) => writeFilterState(routeBase, { ...filters, search: event.target.value }, { preview: selectedItem?.id ?? null, savedView: activeSavedViewKey || null })} placeholder="Job number, organization, title, or contact" />
           </label>
-          {filterDefinitions.map((definition) => (
+          {isGlobalJobsPage ? (
+            <>
+              <label className="filter-field">
+                <span>Department / type</span>
+                <select value={filters.departmentType} onChange={(event) => writeFilterState(routeBase, { ...filters, departmentType: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All departments</option>
+                  <option value="schools">Schools</option>
+                  <option value="sports">Sports</option>
+                  <option value="photography">Photography</option>
+                  <option value="specialty">Specialty</option>
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Organization / school / team</span>
+                <select value={filters.organizationId} onChange={(event) => writeFilterState(routeBase, { ...filters, organizationId: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All organizations</option>
+                  {databaseOptions.organizations.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Status</span>
+                <select value={filters.jobStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, jobStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All statuses</option>
+                  {databaseOptions.statuses.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Date range</span>
+                <select value={filters.dateRange} onChange={(event) => writeFilterState(routeBase, { ...filters, dateRange: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="all">All dates</option>
+                  <option value="next-7">Next 7 days</option>
+                  <option value="next-14">Next 14 days</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Needs attention / urgent</span>
+                <select value={filters.riskStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, riskStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All risk states</option>
+                  {databaseOptions.risks.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Assigned owner</span>
+                <select value={filters.leadOwnerUserId} onChange={(event) => writeFilterState(routeBase, { ...filters, leadOwnerUserId: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All owners</option>
+                  {databaseOptions.owners.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : filterDefinitions.map((definition) => (
             <label key={definition.key} className="filter-field">
               <span>{definition.label}</span>
               <select value={(filters as Record<string, string>)[definition.key] ?? ""} onChange={(event) => writeFilterState(routeBase, { ...filters, [definition.key]: event.target.value }, { preview: selectedItem?.id ?? null, savedView: activeSavedViewKey || null })}>
@@ -373,26 +472,48 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
         </div>
       }
       content={
-        <div className="shared-job-list__table-wrap">
+        <div className="shared-job-list__database">
           {error ? <div className="shared-job-list__error" role="alert">{error}</div> : null}
-          <table className="shared-job-table">
-            <thead>
-              <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((item) => (
-                <tr key={item.id} className={selectedItem?.id === item.id ? "is-selected" : ""} onClick={() => {
-                  setSelectedJobId(item.id);
-                  writeFilterState(routeBase, filters, { preview: item.id, savedView: activeSavedViewKey || null });
-                }}>
-                  {columns.map((column) => <td key={`${item.id}-${column.key}`}>{column.render(item)}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="shared-job-list__database-toolbar">
+            <span>Showing {visibleStart}-{visibleEnd} of {filteredItems.length} jobs</span>
+            <label className="filter-field filter-field--compact">
+              <span>Per page</span>
+              <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} aria-label="Jobs per page">
+                {JOBS_PAGE_SIZES.map((size) => (
+                  <option key={size} value={size}>{size} per page</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="shared-job-list__table-wrap">
+            <table className="shared-job-table">
+              <thead>
+                <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
+              </thead>
+              <tbody>
+                {pagedItems.items.map((item) => (
+                  <tr key={item.id} className={selectedItem?.id === item.id ? "is-selected" : ""} onClick={() => {
+                    setSelectedJobId(item.id);
+                    writeFilterState(routeBase, filters, { preview: item.id, savedView: activeSavedViewKey || null });
+                  }}>
+                    {columns.map((column) => <td key={`${item.id}-${column.key}`}>{column.render(item)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="shared-job-list__pagination" aria-label="Jobs pagination">
+            <button type="button" className="secondary-button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={pagedItems.currentPage <= 1}>
+              Previous
+            </button>
+            <span>Page {pagedItems.currentPage} of {pagedItems.totalPages}</span>
+            <button type="button" className="secondary-button" onClick={() => setCurrentPage((page) => Math.min(pagedItems.totalPages, page + 1))} disabled={pagedItems.currentPage >= pagedItems.totalPages}>
+              Next
+            </button>
+          </div>
         </div>
       }
-      emptyState={!filteredItems.length ? { title: "No jobs match this view", summary: "Adjust filters or create a new job through the shared shell.", actions: createAllowed ? <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })}>Create job</button> : null } : null}
+      emptyState={!filteredItems.length ? { title: "No jobs match this view", summary: "Adjust filters to find a school, sports, photography, or specialty job.", actions: !isGlobalJobsPage && createAllowed ? <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })}>Create job</button> : null } : null}
       preview={
         selectedItem ? (
           <DetailPreviewPanel

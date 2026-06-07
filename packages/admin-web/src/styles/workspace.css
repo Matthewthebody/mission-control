@@ -1251,6 +1251,35 @@
   overflow-x: auto;
 }
 
+.shared-job-list__database {
+  display: grid;
+  gap: 14px;
+}
+
+.shared-job-list__database-toolbar,
+.shared-job-list__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shared-job-list__database-toolbar {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.filter-field--compact {
+  max-width: 180px;
+}
+
+.shared-job-list__pagination span {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .shared-job-table {
   width: 100%;
   border-collapse: collapse;

@@ -476,6 +476,49 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByText("Connected Standard")).not.toBeInTheDocument();
   });
 
+  it("keeps the Jobs route focused on the database without the generic Quick Access rail", async () => {
+    window.localStorage.setItem("pmc_admin_token", "jobs-token");
+    window.location.hash = "#jobs";
+
+    const jobsUser: SessionUser = {
+      id: "user-jobs",
+      tenantId: "tenant-demo",
+      accountId: "account-jobs",
+      sessionId: "session-jobs",
+      email: "jobs@example.com",
+      fullName: "Jobs User",
+      status: "active",
+      department: "operations",
+      isEmailVerified: true,
+      authVersion: 1,
+      roles: ["office_employee"],
+      permissions: ["dashboard.read", "job.read"],
+      authorityTier: "standard_employee",
+      primaryJobFunctionProfile: "customer_service_rep",
+      jobFunctionProfiles: ["customer_service_rep"],
+      permissionGrants: [],
+      effectiveScopes: ["department_scope"],
+      sessionTrust
+    };
+
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/auth/session") {
+        return { user: jobsUser };
+      }
+      if (path === "/api/jobs") {
+        return { jobs: [] };
+      }
+      throw new Error(`Unexpected app call: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Jobs Database" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Jobs", level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+  });
+
   it("renders the communications launcher in the authenticated shell", async () => {
     window.localStorage.setItem("pmc_admin_token", "shell-token");
     window.location.hash = "#dashboard";
