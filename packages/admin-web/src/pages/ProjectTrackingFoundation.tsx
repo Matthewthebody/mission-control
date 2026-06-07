@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
 import { ProjectWorkflowMap } from "../components/projectTracking/ProjectWorkflowMap";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
@@ -41,8 +40,10 @@ type ProjectTrackingFilter =
   | "no_workflow";
 type ProjectTrackingSort = "priority" | "organization" | "job" | "stage" | "owner" | "deadline" | "risk" | "updated";
 type ProjectTrackingDepartmentFilter = "all" | "schools" | "sports" | "sessions" | "production" | "other";
-type ProjectTrackingPreset = "all_active" | "leadership_review" | "schools" | "sports" | "photography" | "blocked" | "due_soon" | "at_risk";
+type ProjectTrackingPreset = "all_active" | "leadership_review" | "schools" | "sports" | "photography" | "blocked" | "due_soon" | "at_risk" | "completed_this_month";
 type ProjectTrackingViewMode = "command" | "board" | "table" | "timeline";
+type ProjectTrackingPriorityFilter = "all" | "high" | "medium" | "normal" | "complete";
+type ProjectTrackingStatusFilter = "all" | ProjectTrackingBoardLaneId;
 type ProjectTrackingCommandGroupId =
   | "at_risk"
   | "due_today"
@@ -64,7 +65,7 @@ type ProjectTrackingCommandGroup = {
   rows: ProjectWorkflowJobRow[];
   sortKey: ProjectTrackingSort;
 };
-type ProjectTrackingBoardLaneId = "blocked" | "intake" | "ready" | "production" | "review" | "delivery" | "complete";
+type ProjectTrackingBoardLaneId = "todo" | "in_progress" | "in_review" | "on_hold" | "complete";
 type ProjectTrackingTimelineGroupId = "overdue" | "today" | "this_week" | "next_week" | "later" | "unscheduled";
 
 const EMPTY_SUMMARY = {
@@ -115,7 +116,8 @@ const PRESET_LABELS: Record<ProjectTrackingPreset, string> = {
   photography: "Photography",
   blocked: "Blocked",
   due_soon: "Due Soon",
-  at_risk: "At Risk"
+  at_risk: "At Risk",
+  completed_this_month: "Completed This Month"
 };
 
 const PRESET_EMPTY_STATES: Record<ProjectTrackingPreset, string> = {
@@ -126,26 +128,25 @@ const PRESET_EMPTY_STATES: Record<ProjectTrackingPreset, string> = {
   photography: "No Photography active work found.",
   blocked: "No blocked work right now.",
   due_soon: "No due-soon work found.",
-  at_risk: "No at-risk work found."
+  at_risk: "No at-risk work found.",
+  completed_this_month: "No projects completed this month."
 };
 
-const PROJECT_TRACKING_PRESETS: ProjectTrackingPreset[] = ["all_active", "leadership_review", "schools", "sports", "photography", "blocked", "due_soon", "at_risk"];
+const PROJECT_TRACKING_PRESETS: ProjectTrackingPreset[] = ["all_active", "leadership_review", "schools", "sports", "photography", "blocked", "due_soon", "at_risk", "completed_this_month"];
 
 const PROJECT_TRACKING_VIEW_MODES: Array<{ id: ProjectTrackingViewMode; label: string; summary: string }> = [
-  { id: "command", label: "Command", summary: "Scan and act from the main work list." },
+  { id: "command", label: "List", summary: "Review compact row details from the same filtered work." },
   { id: "board", label: "Board", summary: "Group the same work by current operating lane." },
   { id: "table", label: "Table", summary: "Review dense work details without extra card chrome." },
   { id: "timeline", label: "Timeline", summary: "Preview date pressure from the same filtered work." }
 ];
 
 const PROJECT_TRACKING_BOARD_LANES: Array<{ id: ProjectTrackingBoardLaneId; label: string; description: string }> = [
-  { id: "blocked", label: "Blocked / At Risk", description: "Blocked, late, missing owner, or missing next action." },
-  { id: "intake", label: "Intake", description: "New or not-started work that needs setup." },
-  { id: "ready", label: "Ready / Field Work", description: "Prep, shoot, or field work currently in motion." },
-  { id: "production", label: "Production", description: "Production or graphics work underway." },
-  { id: "review", label: "Review / QA", description: "Review, proofing, QA, or rework steps." },
-  { id: "delivery", label: "Delivery", description: "Gallery, release, delivery, or closeout steps." },
-  { id: "complete", label: "Complete", description: "Completed work still visible in the current filters." }
+  { id: "todo", label: "To Do", description: "New or unstarted projects that need setup, owner clarity, or first action." },
+  { id: "in_progress", label: "In Progress", description: "Projects actively moving through field work, production, or internal handoffs." },
+  { id: "in_review", label: "In Review", description: "Proofing, QA, rework, approval, or release checks before completion." },
+  { id: "on_hold", label: "On Hold", description: "Blocked, late, waiting, ownerless, or missing the next action." },
+  { id: "complete", label: "Complete", description: "Completed projects still visible in the current filters." }
 ];
 
 const PROJECT_TRACKING_TIMELINE_GROUPS: Array<{ id: ProjectTrackingTimelineGroupId; label: string; description: string }> = [
@@ -599,28 +600,19 @@ function ProjectTrackingWorkAction({
 
 function boardLaneForRow(row: ProjectWorkflowJobRow): ProjectTrackingBoardLaneId {
   const stepText = `${currentStepLabel(row)} ${row.current_step?.description ?? ""} ${row.file_status}`.toLowerCase();
-  if (row.health === "blocked" || row.health === "running_late" || ["blocked", "overdue", "missing_owner", "missing_next_action"].includes(row.queue_intelligence.operational_status)) {
-    return "blocked";
-  }
   if (row.health === "complete" || row.phase === "complete") {
     return "complete";
   }
-  if (stepText.includes("qa") || stepText.includes("review") || stepText.includes("proof") || row.rework_count > 0) {
-    return "review";
+  if (row.health === "blocked" || row.health === "running_late" || ["blocked", "overdue", "missing_owner", "missing_next_action", "waiting"].includes(row.queue_intelligence.operational_status) || waitingOrBlockedLabelForRow(row)) {
+    return "on_hold";
   }
-  if (stepText.includes("gallery") || stepText.includes("deliver") || stepText.includes("release")) {
-    return "delivery";
-  }
-  if (row.phase === "production" || row.phase === "qa" || stepText.includes("production") || stepText.includes("graphic")) {
-    return "production";
-  }
-  if (stepText.includes("shoot") || stepText.includes("session") || stepText.includes("photograph") || stepText.includes("capture")) {
-    return "ready";
+  if (stepText.includes("qa") || stepText.includes("review") || stepText.includes("proof") || stepText.includes("approval") || row.rework_count > 0) {
+    return "in_review";
   }
   if (row.phase === "intake" || row.phase === "not_started" || row.health === "no_workflow" || row.health === "unknown") {
-    return "intake";
+    return "todo";
   }
-  return "ready";
+  return "in_progress";
 }
 
 function timelineGroupForRow(row: ProjectWorkflowJobRow, referenceDate = new Date()): ProjectTrackingTimelineGroupId {
@@ -878,6 +870,84 @@ function priorityRank(row: ProjectWorkflowJobRow) {
   return 5;
 }
 
+function priorityFilterForRow(row: ProjectWorkflowJobRow): ProjectTrackingPriorityFilter {
+  if (row.health === "blocked" || row.health === "running_late" || row.queue_intelligence.operational_status === "overdue") {
+    return "high";
+  }
+  if (row.health === "due_soon" || row.health === "at_risk" || row.health === "unknown" || row.rework_count > 0 || row.queue_intelligence.operational_status === "needs_action") {
+    return "medium";
+  }
+  if (row.health === "complete") {
+    return "complete";
+  }
+  return "normal";
+}
+
+function priorityLabelForRow(row: ProjectWorkflowJobRow) {
+  const labels: Record<ProjectTrackingPriorityFilter, string> = {
+    all: "All priorities",
+    high: "High",
+    medium: "Medium",
+    normal: "Normal",
+    complete: "Complete"
+  };
+  return labels[priorityFilterForRow(row)];
+}
+
+function matchesPriorityFilter(row: ProjectWorkflowJobRow, priorityFilter: ProjectTrackingPriorityFilter) {
+  return priorityFilter === "all" || priorityFilterForRow(row) === priorityFilter;
+}
+
+function matchesStatusFilter(row: ProjectWorkflowJobRow, statusFilter: ProjectTrackingStatusFilter) {
+  return statusFilter === "all" || boardLaneForRow(row) === statusFilter;
+}
+
+function ownerFilterValue(row: ProjectWorkflowJobRow) {
+  return ownerPresentation(row).primary.trim().toLowerCase();
+}
+
+function matchesOwnerFilter(row: ProjectWorkflowJobRow, ownerFilter: string) {
+  return ownerFilter === "all" || ownerFilterValue(row) === ownerFilter;
+}
+
+function dueDateParts(row: ProjectWorkflowJobRow) {
+  if (!row.next_deadline_at) {
+    return null;
+  }
+  const date = new Date(row.next_deadline_at);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return { month: String(date.getMonth() + 1), year: String(date.getFullYear()) };
+}
+
+function matchesDueMonthFilter(row: ProjectWorkflowJobRow, dueMonthFilter: string) {
+  return dueMonthFilter === "all" || dueDateParts(row)?.month === dueMonthFilter;
+}
+
+function matchesDueYearFilter(row: ProjectWorkflowJobRow, dueYearFilter: string) {
+  return dueYearFilter === "all" || dueDateParts(row)?.year === dueYearFilter;
+}
+
+function isCompletedThisMonth(row: ProjectWorkflowJobRow, referenceDate = new Date()) {
+  if (row.health !== "complete") {
+    return false;
+  }
+  const updatedAt = new Date(row.updated_at);
+  if (Number.isNaN(updatedAt.getTime())) {
+    return false;
+  }
+  return updatedAt.getFullYear() === referenceDate.getFullYear() && updatedAt.getMonth() === referenceDate.getMonth();
+}
+
+function optionLabelForMonth(month: string) {
+  if (month === "all") {
+    return "All months";
+  }
+  const monthIndex = Number(month) - 1;
+  return new Date(2026, monthIndex, 1).toLocaleString(undefined, { month: "long" });
+}
+
 function dateSortValue(value: string | null) {
   return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 }
@@ -949,15 +1019,12 @@ function ProjectTrackingCommandView({
   const rows = buildJobBoardRows(payload);
   const groups = commandGroupsFor(rows, payload?.generated_at);
   return (
-    <section className="project-tracking-command-view" aria-label="Project Tracking Command View">
+    <section className="project-tracking-command-view" aria-label="Project Tracking Needs Attention Review">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Command View</div>
-          <p className="section-subtitle">Start with risk, due dates, blockers, waits, and missing handoff details before opening the full work list.</p>
+          <div className="section-title">Needs Attention Review</div>
+          <p className="section-subtitle">Blocked, late, waiting, and missing-owner projects from the same board data.</p>
         </div>
-        <a className="project-tracking-command-view__broad-link" href="#project-tracking">
-          Open in Project Tracking
-        </a>
       </div>
       <div className="project-tracking-command-grid">
         {groups.map((group) => {
@@ -1027,7 +1094,7 @@ function ProjectTrackingViewSwitcher({
     <div className="project-tracking-view-switcher" aria-label="Project Tracking view modes">
       <div>
         <strong>View</strong>
-        <span>Same filtered work, different lens</span>
+        <span>Same filtered projects</span>
       </div>
       <div className="project-tracking-view-switcher__buttons">
         {PROJECT_TRACKING_VIEW_MODES.map((mode) => (
@@ -1059,7 +1126,7 @@ function ProjectTrackingBoardView({
     <section className="project-tracking-view-shell project-tracking-board-view" aria-label="Board View">
       <div className="project-tracking-view-intro">
         <strong>Board</strong>
-        <span>Flow state by lane. Filters and search still control the work shown here.</span>
+        <span>Board-first view grouped by project status. Filters and search control the work shown here.</span>
       </div>
       <div className="project-tracking-board-lanes" role="list" aria-label="Project Tracking board lanes">
         {PROJECT_TRACKING_BOARD_LANES.map((lane) => {
@@ -1255,12 +1322,22 @@ function ProjectTrackingJobBoard({
   selectedPreset,
   selectedCommandGroup,
   departmentFilter,
+  priorityFilter,
+  ownerFilter,
+  dueMonthFilter,
+  dueYearFilter,
+  statusFilter,
   searchQuery,
   sortKey,
   expandedRows,
   onViewModeChange,
   onFilterChange,
   onDepartmentFilterChange,
+  onPriorityFilterChange,
+  onOwnerFilterChange,
+  onDueMonthFilterChange,
+  onDueYearFilterChange,
+  onStatusFilterChange,
   onPresetChange,
   onSearchQueryChange,
   onSortKeyChange,
@@ -1277,12 +1354,22 @@ function ProjectTrackingJobBoard({
   selectedPreset: ProjectTrackingPreset;
   selectedCommandGroup: ProjectTrackingCommandGroupId | null;
   departmentFilter: ProjectTrackingDepartmentFilter;
+  priorityFilter: ProjectTrackingPriorityFilter;
+  ownerFilter: string;
+  dueMonthFilter: string;
+  dueYearFilter: string;
+  statusFilter: ProjectTrackingStatusFilter;
   searchQuery: string;
   sortKey: ProjectTrackingSort;
   expandedRows: Set<string>;
   onViewModeChange: (viewMode: ProjectTrackingViewMode) => void;
   onFilterChange: (filter: ProjectTrackingFilter) => void;
   onDepartmentFilterChange: (filter: ProjectTrackingDepartmentFilter) => void;
+  onPriorityFilterChange: (filter: ProjectTrackingPriorityFilter) => void;
+  onOwnerFilterChange: (filter: string) => void;
+  onDueMonthFilterChange: (filter: string) => void;
+  onDueYearFilterChange: (filter: string) => void;
+  onStatusFilterChange: (filter: ProjectTrackingStatusFilter) => void;
   onPresetChange: (preset: ProjectTrackingPreset) => void;
   onSearchQueryChange: (query: string) => void;
   onSortKeyChange: (sortKey: ProjectTrackingSort) => void;
@@ -1294,14 +1381,35 @@ function ProjectTrackingJobBoard({
   const rows = buildJobBoardRows(payload);
   const commandReference = commandReferenceDate(payload?.generated_at);
   const presetRows = rows.filter((row) => matchesPreset(row, selectedPreset) && (!selectedCommandGroup || matchesCommandGroup(row, selectedCommandGroup, commandReference)));
-  const filteredRows = sortRows(presetRows.filter((row) => matchesDepartmentFilter(row, departmentFilter) && matchesFilterForUser(row, activeFilter, currentUser) && matchesSearch(row, searchQuery)), sortKey);
+  const filteredRows = sortRows(
+    presetRows.filter(
+      (row) =>
+        matchesDepartmentFilter(row, departmentFilter) &&
+        matchesPriorityFilter(row, priorityFilter) &&
+        matchesOwnerFilter(row, ownerFilter) &&
+        matchesDueMonthFilter(row, dueMonthFilter) &&
+        matchesDueYearFilter(row, dueYearFilter) &&
+        matchesStatusFilter(row, statusFilter) &&
+        matchesFilterForUser(row, activeFilter, currentUser) &&
+        matchesSearch(row, searchQuery)
+    ),
+    sortKey
+  );
   const presetCounts = presetCountsFor(rows);
-  const hasActiveControls = selectedPreset !== "all_active" || selectedCommandGroup !== null || activeFilter !== "all" || departmentFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
+  const hasActiveControls = selectedPreset !== "all_active" || selectedCommandGroup !== null || activeFilter !== "all" || departmentFilter !== "all" || priorityFilter !== "all" || ownerFilter !== "all" || dueMonthFilter !== "all" || dueYearFilter !== "all" || statusFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
   const filterSummary = activeFilter === "all" ? "all work" : FILTER_LABELS[activeFilter].toLowerCase();
   const presetSummary = PRESET_LABELS[selectedPreset];
   const commandSummary = selectedCommandGroup ? COMMAND_GROUP_ORDER.find((group) => group.id === selectedCommandGroup)?.label : null;
   const departmentSummary = departmentFilter === "all" ? "all departments" : DEPARTMENT_FILTER_LABELS[departmentFilter];
+  const prioritySummary = priorityFilter === "all" ? null : priorityFilter === "high" ? "High" : priorityFilter === "medium" ? "Medium" : priorityFilter === "complete" ? "Complete" : "Normal";
+  const statusSummary = statusFilter === "all" ? null : PROJECT_TRACKING_BOARD_LANES.find((lane) => lane.id === statusFilter)?.label;
+  const ownerSummary = ownerFilter === "all" ? null : ownerFilter;
+  const dueMonthSummary = dueMonthFilter === "all" ? null : optionLabelForMonth(dueMonthFilter);
+  const dueYearSummary = dueYearFilter === "all" ? null : dueYearFilter;
   const searchSummary = searchQuery.trim();
+  const ownerOptions = Array.from(new Map(rows.map((row) => [ownerFilterValue(row), ownerPresentation(row).primary])).entries()).sort(([, a], [, b]) => compareText(a, b));
+  const dueMonthOptions = Array.from(new Set(rows.map((row) => dueDateParts(row)?.month).filter(Boolean) as string[])).sort((a, b) => Number(a) - Number(b));
+  const dueYearOptions = Array.from(new Set(rows.map((row) => dueDateParts(row)?.year).filter(Boolean) as string[])).sort();
   const activeFilterSummaryId = "project-tracking-active-filter-summary";
   const timelineReferenceDate = commandReferenceDate(payload?.generated_at);
   const emptyStateCopy = !rows.length
@@ -1317,19 +1425,21 @@ function ProjectTrackingJobBoard({
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Active Work</div>
-          <p className="section-subtitle">Start here to see what work exists, who owns the next step, what is blocked, what is due soon, and what changed recently.</p>
+          <div className="section-title">Project Board</div>
+          <p className="section-subtitle">Kanban view of projects, owners, due dates, blockers, and next steps.</p>
         </div>
         <div className="project-tracking-board-meta">
           <span className="badge">Showing {filteredRows.length} of {presetRows.length}</span>
           {payload?.generated_at ? <span className="badge">Updated {new Date(payload.generated_at).toLocaleTimeString()}</span> : null}
         </div>
       </div>
-      <ProjectTrackingViewSwitcher viewMode={viewMode} onViewModeChange={onViewModeChange} />
+      <div className="project-tracking-board-toolbar">
+        <ProjectTrackingViewSwitcher viewMode={viewMode} onViewModeChange={onViewModeChange} />
+      </div>
       <div className="project-tracking-preset-row" aria-label="Project Tracking preset lenses">
         <div className="project-tracking-preset-row__label">
-          <strong>Preset lenses</strong>
-          <span>Temporary view only</span>
+          <strong>Saved views</strong>
+          <span>Filters the board now</span>
         </div>
         <div className="project-tracking-preset-row__buttons">
           {presetCounts.map((presetOption) => (
@@ -1348,7 +1458,7 @@ function ProjectTrackingJobBoard({
           ))}
         </div>
       </div>
-      <div className="project-tracking-controls" aria-label="Project tracking search and sorting">
+      <div className="project-tracking-controls project-tracking-controls--kanban" aria-label="Project tracking filters and search">
         <label className="project-tracking-search">
           <span>Search</span>
           <input
@@ -1368,6 +1478,60 @@ function ProjectTrackingJobBoard({
             {(Object.keys(DEPARTMENT_FILTER_LABELS) as ProjectTrackingDepartmentFilter[]).map((filterOption) => (
               <option key={filterOption} value={filterOption}>
                 {DEPARTMENT_FILTER_LABELS[filterOption]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="project-tracking-sort">
+          <span>Priority</span>
+          <select value={priorityFilter} onChange={(event) => onPriorityFilterChange(event.target.value as ProjectTrackingPriorityFilter)}>
+            <option value="all">All priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="normal">Normal</option>
+            <option value="complete">Complete</option>
+          </select>
+        </label>
+        <label className="project-tracking-sort">
+          <span>Owner</span>
+          <select value={ownerFilter} onChange={(event) => onOwnerFilterChange(event.target.value)}>
+            <option value="all">All owners</option>
+            {ownerOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="project-tracking-sort">
+          <span>Due Month</span>
+          <select value={dueMonthFilter} onChange={(event) => onDueMonthFilterChange(event.target.value)}>
+            <option value="all">All months</option>
+            {dueMonthOptions.map((month) => (
+              <option key={month} value={month}>
+                {optionLabelForMonth(month)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="project-tracking-sort">
+          <span>Due Year</span>
+          <select value={dueYearFilter} onChange={(event) => onDueYearFilterChange(event.target.value)}>
+            <option value="all">All years</option>
+            {dueYearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="project-tracking-sort">
+          <span>Status</span>
+          <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value as ProjectTrackingStatusFilter)}>
+            <option value="all">All statuses</option>
+            {PROJECT_TRACKING_BOARD_LANES.map((lane) => (
+              <option key={lane.id} value={lane.id}>
+                {lane.label}
               </option>
             ))}
           </select>
@@ -1401,7 +1565,12 @@ function ProjectTrackingJobBoard({
       <div className="project-tracking-active-filter" id={activeFilterSummaryId} aria-live="polite">
         <span>
           Showing {filteredRows.length} of {presetRows.length} work items - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}
-          {commandSummary ? ` - Command: ${commandSummary}` : ""}
+          {commandSummary ? ` - Needs Attention: ${commandSummary}` : ""}
+          {prioritySummary ? ` - Priority: ${prioritySummary}` : ""}
+          {ownerSummary ? ` - Owner: ${ownerSummary}` : ""}
+          {dueMonthSummary ? ` - Month: ${dueMonthSummary}` : ""}
+          {dueYearSummary ? ` - Year: ${dueYearSummary}` : ""}
+          {statusSummary ? ` - Status: ${statusSummary}` : ""}
           {searchSummary ? ` - Search: "${searchSummary}"` : ""}
         </span>
         {hasActiveControls ? (
@@ -1623,9 +1792,14 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   const [selectedPreset, setSelectedPreset] = useState<ProjectTrackingPreset>("all_active");
   const [selectedCommandGroup, setSelectedCommandGroup] = useState<ProjectTrackingCommandGroupId | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<ProjectTrackingDepartmentFilter>("all");
+  const [priorityFilter, setPriorityFilter] = useState<ProjectTrackingPriorityFilter>("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
+  const [dueMonthFilter, setDueMonthFilter] = useState("all");
+  const [dueYearFilter, setDueYearFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<ProjectTrackingStatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ProjectTrackingSort>("priority");
-  const [viewMode, setViewMode] = useState<ProjectTrackingViewMode>("command");
+  const [viewMode, setViewMode] = useState<ProjectTrackingViewMode>("board");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
@@ -1665,48 +1839,21 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   }
 
   const globalSummary = summaryFor(globalCommandCenter);
-  const summaryMetrics: Array<{ filter: ProjectTrackingFilter; label: string; value: number; title?: string }> = [
-    { filter: "all", label: "Active Work", value: globalSummary.total_active_workflows },
-    { filter: "due_soon", label: "Due Soon", value: globalSummary.total_due_soon },
-    { filter: "blocked", label: "Blocked", value: globalSummary.total_blocked },
-    {
-      filter: "waiting_review",
-      label: "Review Required",
-      value: globalSummary.total_needs_attention,
-      title: "Closest existing count: blocked, late, due-soon, or at-risk work that should be reviewed before it drifts."
-    },
-    {
-      filter: "recently_changed",
-      label: "Recently Changed",
-      value: summaryRecentlyChangedCount(globalCommandCenter),
-      title: "Rows in the current response that include a recent activity timestamp."
-    }
-  ];
   const jobBoardRows = buildJobBoardRows(globalCommandCenter);
+  const summaryMetrics: Array<{ filter: ProjectTrackingFilter; label: string; value: number; title?: string }> = [
+    { filter: "all", label: "Active Projects", value: globalSummary.total_active_workflows },
+    {
+      filter: "attention",
+      label: "Needs Attention",
+      value: globalSummary.total_needs_attention,
+      title: "Blocked, late, due-soon, or at-risk projects that need review."
+    },
+    { filter: "waiting_review", label: "At Risk", value: jobBoardRows.filter(isAtRiskWork).length },
+    { filter: "blocked", label: "Blocked", value: globalSummary.total_blocked },
+    { filter: "complete", label: "Completed This Month", value: jobBoardRows.filter((row) => isCompletedThisMonth(row)).length }
+  ];
   const commandGroups = commandGroupsFor(jobBoardRows, globalCommandCenter?.generated_at);
   const commandCount = (groupId: ProjectTrackingCommandGroupId) => commandGroups.find((group) => group.id === groupId)?.rows.length ?? 0;
-  const openFirstCards: DepartmentHubCard[] = [
-    { label: "Blocked Projects", value: commandCount("blocked"), detail: "Projects with a blocker, clear condition, owner, or leadership unblock needed.", href: "#project-tracking", tone: commandCount("blocked") ? "danger" : "success", actionLabel: "Open blocked lens" },
-    { label: "Project Deadlines", value: commandCount("due_this_week"), detail: "Project milestones and workflow steps due in the next seven days.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success", actionLabel: "Open deadline lens" },
-    { label: "Owner / Info Gaps", value: commandCount("missing_owner_info"), detail: "Projects missing an owner, next action, or required information before work moves.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success", actionLabel: "Open owner lens" },
-    { label: "Leadership Decisions", value: commandCount("at_risk"), detail: "At-risk project records that need a decision before dates or owners drift.", href: "#project-tracking", tone: commandCount("at_risk") ? "danger" : "success", actionLabel: "Open review lens" }
-  ];
-  const attentionCards: DepartmentHubCard[] = [
-    { label: "Blocked Projects", value: globalSummary.total_blocked, detail: "Blocked projects need a reason, owner, clear condition, and next action.", href: "#project-tracking", tone: globalSummary.total_blocked ? "danger" : "success", actionLabel: "Open blocked projects" },
-    { label: "Review Required", value: globalSummary.total_needs_attention, detail: "Late, due-soon, or at-risk projects that need owner or date clarity.", href: "#project-tracking", tone: globalSummary.total_needs_attention ? "warning" : "success", actionLabel: "Open review list" },
-    { label: "Owner / Info Gaps", value: commandCount("missing_owner_info"), detail: "Ownerless or incomplete project records should not stay invisible.", href: "#project-tracking", tone: commandCount("missing_owner_info") ? "warning" : "success", actionLabel: "Open owner gaps" }
-  ];
-  const weeklyCards: DepartmentHubCard[] = [
-    { label: "Active Projects", value: globalSummary.total_active_workflows, detail: "Active workflow-backed project records in the shared project board.", href: "#project-tracking", tone: "info", actionLabel: "Open work list" },
-    { label: "Due This Week", value: commandCount("due_this_week"), detail: "Project milestones, owners, and next steps due in the current week.", href: "#project-tracking", tone: commandCount("due_this_week") ? "warning" : "success", actionLabel: "Open due list" },
-    { label: "Recently Changed", value: summaryRecentlyChangedCount(globalCommandCenter), detail: "Project records with current activity, owner, or status movement.", href: "#project-tracking", tone: "info", actionLabel: "Open recent changes" }
-  ];
-  const queueCards: DepartmentHubCard[] = [
-    { label: "Command View", detail: "Scan what matters before opening individual workflow detail.", href: "#project-tracking", tone: "info", actionLabel: "Open command view" },
-    { label: "Main Work List", detail: "Review projects by owner, status, due date, and next step.", href: "#project-tracking", tone: "info", actionLabel: "Open work list" },
-    { label: "Blocked Lens", detail: "Filter projects with blockers, missing owners, or missing next action.", href: "#project-tracking", tone: "danger", actionLabel: "Open blocked lens" },
-    { label: "Timeline Lens", detail: "Review project date pressure from the same work records.", href: "#project-tracking", tone: "warning", actionLabel: "Open timeline lens" }
-  ];
   const toggleExpandedRow = (rowId: string) => {
     setExpandedRows((current) => {
       const next = new Set(current);
@@ -1723,6 +1870,11 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     setSelectedPreset("all_active");
     setActiveFilter("all");
     setDepartmentFilter("all");
+    setPriorityFilter("all");
+    setOwnerFilter("all");
+    setDueMonthFilter("all");
+    setDueYearFilter("all");
+    setStatusFilter("all");
     setSearchQuery("");
     setSortKey("priority");
   };
@@ -1731,14 +1883,24 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     setSelectedPreset(preset);
     setActiveFilter("all");
     setDepartmentFilter("all");
+    setPriorityFilter("all");
+    setOwnerFilter("all");
+    setDueMonthFilter("all");
+    setDueYearFilter("all");
+    setStatusFilter("all");
     setSearchQuery("");
-    setSortKey(preset === "due_soon" ? "deadline" : preset === "leadership_review" || preset === "blocked" || preset === "at_risk" ? "risk" : "priority");
+    setSortKey(preset === "due_soon" || preset === "completed_this_month" ? "deadline" : preset === "leadership_review" || preset === "blocked" || preset === "at_risk" ? "risk" : "priority");
   };
   const applyCommandGroup = (group: ProjectTrackingCommandGroup) => {
     setSelectedCommandGroup(group.id);
     setSelectedPreset("all_active");
     setActiveFilter("all");
     setDepartmentFilter("all");
+    setPriorityFilter("all");
+    setOwnerFilter("all");
+    setDueMonthFilter("all");
+    setDueYearFilter("all");
+    setStatusFilter("all");
     setSearchQuery("");
     setSortKey(group.sortKey);
   };
@@ -1748,6 +1910,13 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   };
   const applySummaryMetric = (filter: ProjectTrackingFilter) => {
     setSelectedCommandGroup(null);
+    if (filter === "complete") {
+      setSelectedPreset("completed_this_month");
+      setActiveFilter("all");
+      setSortKey("updated");
+      return;
+    }
+    setSelectedPreset("all_active");
     setActiveFilter(filter);
     if (filter === "recently_changed") {
       setSortKey("updated");
@@ -1780,12 +1949,9 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             <p>Track internal projects, owners, blockers, milestones, and leadership decisions.</p>
           </div>
           <div className="project-tracking-board-header__actions">
-            <a className="button button-secondary" href="#project-tracking">
+            <button className="button button-secondary" type="button" onClick={() => applyPreset("blocked")}>
               Review Blocked / At Risk
-            </a>
-            <a className="button button-secondary" href="#prep-readiness">
-              Prep Readiness
-            </a>
+            </button>
             {featureFlags.workflowTemplateBuilderV1 && canManageWorkflowTemplates(currentUser) ? (
               <a className="button button-secondary" href="#project-tracking/workflow-templates">
                 Workflow Templates
@@ -1816,26 +1982,11 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         )
       ) : (
         <>
-          <DepartmentHubPattern
-            department="Project Tracking"
-            openFirst={openFirstCards}
-            attention={attentionCards}
-            weekly={weeklyCards}
-            queues={queueCards}
-            notes={<span>Command View tells what matters; the main work list and workflow detail keep the source of truth one click away.</span>}
-          />
-
-          <ProjectTrackingCommandView
-            payload={globalCommandCenter}
-            selectedCommandGroup={selectedCommandGroup}
-            onCommandGroupSelect={applyCommandGroup}
-          />
-
           <section className="project-tracking-summary-strip" aria-label="Project tracking summary filters">
             <div className="project-tracking-summary-strip__label">
-              <strong>Operating Summary</strong>
-              <span>{globalSummary.source === "true_totals" ? "True totals before row limits" : "Shown rows only"}</span>
-              <small>Use this page to inspect the work record, blocker, owner, and next action.</small>
+              <strong>Project Health</strong>
+              <span>{globalSummary.source === "true_totals" ? "All tracked projects" : "Shown projects"}</span>
+              <small>Review owners, blockers, due dates, and next actions.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (
@@ -1865,12 +2016,22 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             selectedPreset={selectedPreset}
             selectedCommandGroup={selectedCommandGroup}
             departmentFilter={departmentFilter}
+            priorityFilter={priorityFilter}
+            ownerFilter={ownerFilter}
+            dueMonthFilter={dueMonthFilter}
+            dueYearFilter={dueYearFilter}
+            statusFilter={statusFilter}
             searchQuery={searchQuery}
             sortKey={sortKey}
             expandedRows={expandedRows}
             onViewModeChange={setViewMode}
             onFilterChange={applyPrimaryFilter}
             onDepartmentFilterChange={setDepartmentFilter}
+            onPriorityFilterChange={setPriorityFilter}
+            onOwnerFilterChange={setOwnerFilter}
+            onDueMonthFilterChange={setDueMonthFilter}
+            onDueYearFilterChange={setDueYearFilter}
+            onStatusFilterChange={setStatusFilter}
             onPresetChange={applyPreset}
             onSearchQueryChange={setSearchQuery}
             onSortKeyChange={setSortKey}
@@ -1878,6 +2039,12 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             onToggleRow={toggleExpandedRow}
             onOpenWorkflow={openWorkflowProgress}
             onWorkflowRowUpdated={refreshCommandCenter}
+          />
+
+          <ProjectTrackingCommandView
+            payload={globalCommandCenter}
+            selectedCommandGroup={selectedCommandGroup}
+            onCommandGroupSelect={applyCommandGroup}
           />
         </>
       )}

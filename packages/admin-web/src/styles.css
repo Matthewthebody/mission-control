@@ -3251,6 +3251,14 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   color: #3f6ea4;
 }
 
+.project-tracking-board-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 .department-hub-pattern {
   display: grid;
   gap: 1rem;
@@ -4028,6 +4036,10 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   grid-template-columns: minmax(280px, 1fr) minmax(150px, 0.28fr) minmax(170px, 0.3fr) auto;
   gap: 8px;
   align-items: end;
+}
+
+.project-tracking-controls--kanban {
+  grid-template-columns: minmax(240px, 1.6fr) repeat(auto-fit, minmax(128px, 1fr));
 }
 
 .project-tracking-search,

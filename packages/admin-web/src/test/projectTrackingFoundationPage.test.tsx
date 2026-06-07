@@ -393,93 +393,73 @@ describe("ProjectTrackingFoundation", () => {
     });
   });
 
-  it("renders Project Tracking as the shared project board with next owner, blockers, due dates, and changes", async () => {
+  it("renders Project Tracking as a board-first kanban surface with owners, due dates, priority, and attention signals", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
     expect(screen.getByText("Track internal projects, owners, blockers, milestones, and leadership decisions.")).toBeInTheDocument();
-    expect(screen.getByText("Open First")).toBeInTheDocument();
-    expect(screen.getByText("Attention Needed")).toBeInTheDocument();
-    expect(screen.getByText("This Week's Work")).toBeInTheDocument();
-    expect(screen.getByText("Work Queues")).toBeInTheDocument();
-    expect(screen.getAllByText("Blocked Projects").length).toBeGreaterThan(0);
-    expect(screen.getByText("Project Deadlines")).toBeInTheDocument();
-    expect(screen.getAllByText("Due This Week").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Owner / Info Gaps").length).toBeGreaterThan(0);
-    expect(screen.getByText("Leadership Decisions")).toBeInTheDocument();
-    expect(screen.getAllByText("Command View").length).toBeGreaterThan(0);
-    expect(screen.getByText("Main Work List")).toBeInTheDocument();
-    expect(screen.getByText("Timeline Lens")).toBeInTheDocument();
-    expect(screen.getByText("Operating Summary")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Active Work/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Open First")).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Work Spine/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Project Health")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Active Projects/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Needs Attention/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /At Risk/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Review Required/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Recently Changed/i }).length).toBeGreaterThan(0);
-    expect(screen.getByText("Use this page to inspect the work record, blocker, owner, and next action.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Review Blocked / At Risk" })).toHaveAttribute("href", "#project-tracking");
-    expect(screen.getByText("Operations")).toBeInTheDocument();
-    const commandView = screen.getByLabelText("Project Tracking Command View");
-    expect(within(commandView).getByText("Command View")).toBeInTheDocument();
-    expect(within(commandView).getByRole("link", { name: "Open in Project Tracking" })).toHaveAttribute("href", "#project-tracking");
-    expect(within(screen.getByLabelText("At Risk command group")).getByText("1")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("At Risk command group")).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("At Risk command group")).getByRole("link", { name: /View workflow for Maple Grove Senior High Retakes/i })).toHaveAttribute("href", "#project-tracking/workflows/workflow-late");
-    expect(within(screen.getByLabelText("Due Today command group")).getByText("1")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Due This Week command group")).getByText("2")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Blocked command group")).getByText("1")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Waiting on School / Client command group")).getByText("1")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Waiting on Internal Team command group")).getByText("0")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Waiting on Internal Team command group")).getByText("No internal handoff blockers found.")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Recently Completed command group")).getByText("0")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("Missing Owner / Info command group")).getByText("2")).toBeInTheDocument();
-    const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
-    expect(within(presetLenses).getByRole("button", { name: /All Active, 2 items, active preset/i })).toHaveAttribute("aria-pressed", "true");
-    expect(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /Schools, 1 item/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /Sports, 0 items/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /Photography, 0 items/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /Blocked, 1 item/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /Due Soon, 0 items/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /At Risk, 0 items/i })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Department" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Saved views planned/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mine filter" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Completed This Month/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Review Blocked / At Risk" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review Blocked / At Risk" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();
+
+    expect(screen.getByText("Project Board")).toBeInTheDocument();
+    expect(screen.getByText("Kanban view of projects, owners, due dates, blockers, and next steps.")).toBeInTheDocument();
     const viewModes = screen.getByLabelText("Project Tracking view modes");
-    expect(within(viewModes).getByRole("button", { name: /Command/i })).toHaveAttribute("aria-pressed", "true");
-    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "false");
+    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(viewModes).getByRole("button", { name: /List/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /Timeline/i })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("list", { name: "Project Tracking active work list" })).toBeInTheDocument();
+    expect(screen.getByText("Board-first view grouped by project status. Filters and search control the work shown here.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Project Tracking board lanes")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /To Do, 0 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /In Progress, 0 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /In Review, 0 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /On Hold, 2 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Complete, 0 items/i })).toBeInTheDocument();
     expect(screen.getAllByText("Owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Next Step").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("View Workflow").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Details").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Job date")).not.toBeInTheDocument();
-    expect(screen.queryByText("File status")).not.toBeInTheDocument();
-    expect(screen.queryByText("Workflow Details")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Priority").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Status").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Confirm Files Received").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Maple Grove Senior High").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Overdue").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("High").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Running late").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Missing Info").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs Attention").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /View workflow for/i }).length).toBeGreaterThan(0);
     expect(screen.queryByText("School Portraits Workflow")).not.toBeInTheDocument();
     expect(screen.queryByText("mission_control_demo_school_portraits")).not.toBeInTheDocument();
     expect(screen.queryByText("No workflow linked")).not.toBeInTheDocument();
     expect(screen.queryByText("Job record")).not.toBeInTheDocument();
 
-    fireEvent.click(within(viewModes).getByRole("button", { name: /Board/i }));
-    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Flow state by lane. Filters and search still control the work shown here.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Project Tracking board lanes")).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /Blocked \/ At Risk, 2 items/i })).toBeInTheDocument();
-    expect(screen.getAllByText("Owner / Queue").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Current Step").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /View workflow for/i }).length).toBeGreaterThan(0);
+    const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
+    expect(within(presetLenses).getByRole("button", { name: /All Active, 2 items, active preset/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Schools, 1 item/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Sports, 0 items/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Photography, 0 items/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Completed This Month, 0 items/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Department" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Priority" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Owner" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Due Month" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Due Year" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Status" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Sort" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Saved views planned/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mine filter" })).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.click(within(viewModes).getByRole("button", { name: /Table/i }));
     expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "true");
@@ -497,8 +477,8 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByRole("listitem", { name: /Overdue, 2 items/i })).toBeInTheDocument();
     expect(screen.getByText("Unscheduled")).toBeInTheDocument();
 
-    fireEvent.click(within(viewModes).getByRole("button", { name: /Command/i }));
-    expect(within(viewModes).getByRole("button", { name: /Command/i })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(viewModes).getByRole("button", { name: /List/i }));
+    expect(within(viewModes).getByRole("button", { name: /List/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("list", { name: "Project Tracking active work list" })).toBeInTheDocument();
 
     const expandMaple = screen.getByRole("button", { name: /Expand details for Maple Grove Senior High Retakes/i });
@@ -531,11 +511,11 @@ describe("ProjectTrackingFoundation", () => {
   it("filters, searches, and clears the jobs board from compact controls", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    await screen.findByRole("list", { name: "Project Tracking active work list" });
+    await screen.findByLabelText("Project Tracking board lanes");
     const departmentSelect = screen.getByRole("combobox", { name: "Department" });
     fireEvent.change(departmentSelect, { target: { value: "schools" } });
 
-    let board = screen.getByRole("list", { name: "Project Tracking active work list" }).closest("section");
+    let board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
@@ -547,7 +527,7 @@ describe("ProjectTrackingFoundation", () => {
     const filters = screen.getByLabelText("Project tracking filters");
     fireEvent.click(within(filters).getByRole("button", { name: "Blocked filter" }));
 
-    board = screen.getByRole("list", { name: "Project Tracking active work list" }).closest("section");
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
@@ -556,47 +536,52 @@ describe("ProjectTrackingFoundation", () => {
     fireEvent.click(screen.getByRole("button", { name: /Clear Project Tracking filters/i }));
     expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
+    fireEvent.change(screen.getByRole("combobox", { name: "Priority" }), { target: { value: "high" } });
+    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work - Priority: High")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Clear Project Tracking filters/i }));
     fireEvent.change(screen.getByPlaceholderText("Search work, schools, owners, next steps..."), { target: { value: "Maple Grove" } });
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
   });
 
-  it("uses Command View actions as temporary filters without breaking preset lenses", async () => {
+  it("uses Needs Attention Review actions as temporary filters without breaking preset lenses", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    await screen.findByRole("list", { name: "Project Tracking active work list" });
+    await screen.findByLabelText("Project Tracking board lanes");
     const blockedCommandGroup = screen.getByLabelText("Blocked command group");
     const blockedCommandButton = within(blockedCommandGroup).getByRole("button", { name: "Review blocked work" });
     expect(blockedCommandButton).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(blockedCommandButton);
 
-    let board = screen.getByRole("list", { name: "Project Tracking active work list" }).closest("section");
+    let board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 1 work items - Preset: All Active - all departments - Filtered by all work - Command: Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 work items - Preset: All Active - all departments - Filtered by all work - Needs Attention: Blocked")).toBeInTheDocument();
     expect(screen.getByLabelText("Blocked command group, active command filter")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Active command filter: blocked work" })).toHaveAttribute("aria-pressed", "true");
 
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
     fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i }));
-    board = screen.getByRole("list", { name: "Project Tracking active work list" }).closest("section");
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(screen.getByText("Showing 2 of 2 work items - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
-    expect(screen.queryByText(/Command: Blocked/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Needs Attention: Blocked/)).not.toBeInTheDocument();
   });
 
   it("applies no-persistence preset lenses with honest counts and calm empty states", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    await screen.findByRole("list", { name: "Project Tracking active work list" });
+    await screen.findByLabelText("Project Tracking board lanes");
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
     fireEvent.click(within(presetLenses).getByRole("button", { name: /Schools, 1 item/i }));
 
-    let board = screen.getByRole("list", { name: "Project Tracking active work list" }).closest("section");
+    let board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
@@ -609,7 +594,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("No Photography active work found.")).toBeInTheDocument();
 
     fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i }));
-    board = screen.getByRole("list", { name: "Project Tracking active work list" }).closest("section");
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
