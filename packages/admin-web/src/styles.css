@@ -12514,8 +12514,20 @@ html[data-theme="light"] .shoot-priority-chip {
   text-decoration: none;
 }
 
+.employee-summary-tile[type="button"] {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
 .employee-summary-tile[href]:hover,
-.employee-summary-tile[href]:focus-visible {
+.employee-summary-tile[href]:focus-visible,
+.employee-summary-tile[type="button"]:hover,
+.employee-summary-tile[type="button"]:focus-visible,
+.employee-summary-tile--active {
   border-color: var(--border-strong);
   background: linear-gradient(160deg, rgba(17, 40, 64, 0.86), rgba(9, 24, 40, 0.96));
 }
@@ -12685,6 +12697,16 @@ html[data-theme="light"] .shoot-priority-chip {
 .employee-week-event > span {
   color: var(--brand-blue-bright);
   font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.employee-week-event__kind {
+  justify-self: start;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(126, 162, 198, 0.12);
+  color: var(--text);
+  font-size: 0.68rem;
   font-weight: 900;
 }
 

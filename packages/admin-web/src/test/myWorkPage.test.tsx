@@ -698,13 +698,17 @@ describe("My Work page", () => {
   it("renders My Work as a focused employee launchpad", async () => {
     render(<MyWork token="token" currentUser={fieldUser} socket={null} />);
 
-    expect(await screen.findByRole("heading", { name: "Your Day" })).toBeInTheDocument();
-    expect(screen.queryAllByText(/^My Work$/i).length).toBeLessThanOrEqual(1);
+    expect(await screen.findByRole("heading", { name: "My Work" })).toBeInTheDocument();
+    expect(screen.queryAllByText(/^My Work$/i)).toHaveLength(1);
     expect(screen.queryByText("Daily Cockpit")).not.toBeInTheDocument();
     expect(screen.getByText("Tasks assigned to you, workflows you're part of, and things your department may need help with.")).toBeInTheDocument();
     expect(screen.getByText("Launchpad")).toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/My Work refreshed/i)).not.toBeInTheDocument();
     expect(screen.queryAllByText("Time Clock").length).toBeLessThanOrEqual(1);
     expect(screen.queryAllByText("Off Shift").length).toBeLessThanOrEqual(1);
+    expect(screen.getAllByRole("link", { name: "Clocked Out" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Clocked Out" })).toHaveAttribute("href", "#employees/attendance");
     expect(screen.queryByText("Anchor Date")).not.toBeInTheDocument();
     expect(screen.queryByText("Connected Standards")).not.toBeInTheDocument();
@@ -713,18 +717,20 @@ describe("My Work page", () => {
     expect(screen.queryByText("Company scope")).not.toBeInTheDocument();
     expect(screen.queryByText("Staffing Schedule")).not.toBeInTheDocument();
     expect(screen.getAllByText("My Schedule This Week").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Assigned Tasks").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Workflow Steps Waiting on Me").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Heads Up").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /My Schedule This Week/i })).toHaveAttribute("href", "#my-schedule");
-    expect(screen.getByRole("link", { name: /Assigned Tasks/i })).toHaveAttribute("href", "#tasks");
-    expect(screen.getByRole("link", { name: /Workflow Steps Waiting on Me/i })).toHaveAttribute("href", "#project-tracking");
-    expect(screen.queryByRole("link", { name: /Heads Up/i })).not.toBeInTheDocument();
-    expect(screen.getAllByText("3.8h scheduled this week").length).toBeGreaterThan(0);
-    expect(screen.getByText("Worked hours show after punches are captured")).toBeInTheDocument();
+    expect(screen.getAllByText("Assigned Tasks")).toHaveLength(1);
+    expect(screen.getAllByText("Workflow Steps Waiting on Me")).toHaveLength(1);
+    expect(screen.getAllByText("Heads Up")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /My Schedule This Week/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Assigned Tasks/i })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Heads Up/i })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByText("Scheduled Hours: 3.8h").length).toBeGreaterThan(0);
+    expect(screen.getByText("Worked Hours: 3.8h")).toBeInTheDocument();
+    expect(screen.getByText("Remaining Hours: 0h")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View schedule" })).toHaveAttribute("href", "#my-schedule");
     expect(screen.getByLabelText("Compact weekly schedule")).toBeInTheDocument();
-    expect(screen.getByText("Thursday")).toBeInTheDocument();
+    expect(screen.getByText("Thu")).toBeInTheDocument();
+    expect(screen.getByText("Assigned shoot")).toBeInTheDocument();
     expect(screen.getAllByText("DEMO-001").length).toBeGreaterThan(0);
     expect(screen.getByText("Related jobs (1)")).toBeInTheDocument();
     expect(screen.queryByText("Assigned Jobs")).not.toBeInTheDocument();
@@ -736,19 +742,24 @@ describe("My Work page", () => {
     expect(screen.queryByText("Required Acknowledgements")).not.toBeInTheDocument();
     expect(screen.queryByText("Owned Exceptions")).not.toBeInTheDocument();
     expect(screen.queryByText("Approvals Waiting On You")).not.toBeInTheDocument();
-    expect(screen.getByText("Workflow Steps Waiting on Me", { selector: "summary span" }).closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText(/Confirm roster/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Assigned person: You")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approve lead coverage change")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected Event Detail")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Assigned Tasks", { selector: "summary span" }));
+    fireEvent.click(screen.getByRole("button", { name: /Assigned Tasks/i }));
     expect(screen.getByText(/Confirm roster/i)).toBeInTheDocument();
     expect(screen.getByText(/Upload setup proof/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Assigned Tasks/i })).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(screen.getByText("Workflow Steps Waiting on Me", { selector: "summary span" }));
+    fireEvent.click(screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i }));
     expect(screen.getByText("Assigned person: You")).toBeInTheDocument();
     expect(screen.getByText("Department: Production")).toBeInTheDocument();
     expect(screen.getByText("Current step:")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Confirm Files/i })).toBeInTheDocument();
+    const confirmFilesButton = screen.getByRole("button", { name: "Confirm Files" });
+    expect(confirmFilesButton).toBeInTheDocument();
     expect(screen.getByText("Shared note: Edit proof set before parent preview.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Confirm Files/i }));
+    fireEvent.click(confirmFilesButton);
     expect(await screen.findByLabelText("Move to next step")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Assign / Status" }));
     expect(await screen.findByLabelText("Assign / Status current step")).toBeInTheDocument();
@@ -756,7 +767,7 @@ describe("My Work page", () => {
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
 
-    fireEvent.click(screen.getByText("Heads Up", { selector: "summary span" }));
+    fireEvent.click(screen.getByRole("button", { name: /Heads Up/i }));
     expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
     expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();
@@ -769,12 +780,14 @@ describe("My Work page", () => {
   it("keeps detailed field actions available only after an event is selected", async () => {
     render(<MyWork token="token" currentUser={fieldUser} socket={null} />);
 
-    expect(await screen.findByText("Selected Event Detail")).toBeInTheDocument();
-    expect(screen.getByText(/Choose an event from My Schedule This Week/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My Work" })).toBeInTheDocument();
+    expect(screen.queryByText("Selected Event Detail")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Choose an event from My Schedule This Week/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /DEMO-001/i }));
 
     await waitFor(() => {
+      expect(screen.getByText("Selected Event Detail")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Submit Post-Shoot Eval" })).toBeInTheDocument();
     });
 

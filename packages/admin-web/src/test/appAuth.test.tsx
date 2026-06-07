@@ -519,6 +519,87 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
   });
 
+  it("keeps the My Work launchpad free of duplicate shell title and Quick Access clutter", async () => {
+    window.localStorage.setItem("pmc_admin_token", "my-work-token");
+    window.location.hash = "#my-work";
+
+    const myWorkUser: SessionUser = {
+      id: "user-my-work",
+      tenantId: "tenant-demo",
+      accountId: "account-my-work",
+      sessionId: "session-my-work",
+      email: "my.work@example.com",
+      fullName: "My Work User",
+      status: "active",
+      department: "schools",
+      isEmailVerified: true,
+      authVersion: 1,
+      roles: ["photographer"],
+      permissions: ["dashboard.read", "schedule.read", "time.clock", "notification.read", "project.read"],
+      authorityTier: "standard_employee",
+      primaryJobFunctionProfile: "seasonal_photographer",
+      jobFunctionProfiles: ["seasonal_photographer"],
+      permissionGrants: [],
+      effectiveScopes: ["self_only"],
+      sessionTrust
+    };
+
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/auth/session") {
+        return { user: myWorkUser };
+      }
+      if (path.startsWith("/api/employee/my-work?anchor_date=")) {
+        return {
+          anchor_date: "2026-03-30",
+          window_end_date: "2026-04-06",
+          summary: {
+            events_today: 0,
+            upcoming_events: 0,
+            shifts_today: 0,
+            upcoming_shifts: 0,
+            pending_trade_requests: 0,
+            unread_notifications: 0,
+            clocked_in_shift_count: 0,
+            attention_needed_count: 0,
+            closeout_due_count: 0,
+            late_or_exception_count: 0,
+            mileage_review_count: 0,
+            assigned_job_count: 0,
+            assigned_event_count: 0,
+            assigned_task_count: 0,
+            live_workflow_step_count: 0,
+            acknowledgement_count: 0,
+            owned_exception_count: 0,
+            approval_waiting_count: 0,
+            recent_change_count: 0,
+            next_event_label: null,
+            next_shift_label: null
+          },
+          shifts: [],
+          notifications: [],
+          jobs: [],
+          live_workflow_steps: [],
+          events: [],
+          tasks: [],
+          acknowledgements: [],
+          exceptions: [],
+          approvals: [],
+          recent_changes: []
+        };
+      }
+      throw new Error(`Unexpected app call: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "My Work", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "My Work", level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Clocked Out" })).toHaveLength(1);
+    expect(screen.queryByText("Off Shift")).not.toBeInTheDocument();
+  });
+
   it("keeps the Directory route focused on lookup without generic shell status clutter", async () => {
     window.localStorage.setItem("pmc_admin_token", "directory-token");
     window.location.hash = "#accounts";

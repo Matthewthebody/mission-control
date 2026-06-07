@@ -328,6 +328,8 @@ export default function App() {
     (route): route is (typeof utilityRoutes)[number] => Boolean(route)
   );
   const isHomeRoute = guardedRouteId === "dashboard";
+  const isMyWorkLaunchpadRoute = guardedRouteId === "dashboard-my-day";
+  const isMyWorkSectionRoute = currentRoute.sectionKey === "my-work";
   const isScheduleSectionRoute = currentRoute.sectionKey === "schedule";
   const isJobsSectionRoute = currentRoute.sectionKey === "jobs";
   const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
@@ -336,7 +338,9 @@ export default function App() {
   const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
   const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
   const visibleContextUtilityRoutes =
-    isHomeRoute || isScheduleSectionRoute || isJobsSectionRoute || isDirectoryRoute ? [] : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
+    isHomeRoute || isMyWorkSectionRoute || isScheduleSectionRoute || isJobsSectionRoute || isDirectoryRoute
+      ? []
+      : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
   const showTopbarMeta = !isDirectoryRoute;
   const desktopNavGroups = buildDesktopNavGroups(primarySections);
@@ -862,7 +866,7 @@ export default function App() {
           </aside>
 
           <div className="app-shell__content">
-            {!isHomeRoute ? (
+            {!isHomeRoute && !isMyWorkLaunchpadRoute ? (
               <header className={`shell-topbar panel${headerCollapsed ? " shell-topbar--collapsed" : ""}`}>
                 <div className="shell-topbar__heading">
                   <div className="eyebrow">{activeSectionDefinition?.label ?? "Mission Control"}</div>

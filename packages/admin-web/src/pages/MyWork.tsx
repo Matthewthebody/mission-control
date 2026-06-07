@@ -34,16 +34,18 @@ type HeadsUpItem = {
   tone: "good" | "info" | "heads_up" | "action_needed";
 };
 
+type ActiveLaunchpadSection = "schedule" | "tasks" | "workflow" | "heads-up";
+
 export function MyWork({ token, currentUser, socket }: Props) {
   const [anchorDate, setAnchorDate] = useState(getLocalDateString());
   const [payload, setPayload] = useState<EmployeeMyWorkResponse | null>(null);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedEventDetail, setSelectedEventDetail] = useState<EmployeeEventDetailResponse | null>(null);
+  const [activeLaunchpadSection, setActiveLaunchpadSection] = useState<ActiveLaunchpadSection>("schedule");
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [liveMessage, setLiveMessage] = useState("");
   const [editingWorkflowStepId, setEditingWorkflowStepId] = useState("");
   const scheduleStats = useMemo(() => buildScheduleWeekStats(payload), [payload]);
   const scheduleWeekDays = useMemo(() => buildScheduleWeekDays(payload), [payload]);
@@ -103,14 +105,11 @@ export function MyWork({ token, currentUser, socket }: Props) {
       return;
     }
 
-    const clearLiveMessage = () => window.setTimeout(() => setLiveMessage(""), 2400);
     const onRefresh = () => {
-      setLiveMessage("Live update: My Work refreshed.");
       void load();
       if (selectedEventId) {
         void loadEventDetail(selectedEventId);
       }
-      clearLiveMessage();
     };
 
     socket.on("schedule_changed", onRefresh);
@@ -128,7 +127,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
       <section className="page-intro page-intro--compact">
         <div>
           <div className="eyebrow">Employee Launchpad</div>
-          <h2>Your Day</h2>
+          <h2>My Work</h2>
           <p>Tasks assigned to you, workflows you're part of, and things your department may need help with.</p>
         </div>
         <div className="page-intro-actions">
@@ -148,7 +147,6 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
       {notice ? <div className="success-banner">{notice}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
-      {liveMessage ? <div className="feedback-strip feedback-strip--info">{liveMessage}</div> : null}
 
       <section className="panel employee-day-command">
         <div>
@@ -161,21 +159,24 @@ export function MyWork({ token, currentUser, socket }: Props) {
             value={`${payload?.events.length ?? 0}`}
             detail={buildScheduleSummary(scheduleStats)}
             helper={buildLookaheadSummary(payload)}
-            href="#my-schedule"
+            active={activeLaunchpadSection === "schedule"}
+            onSelect={() => setActiveLaunchpadSection("schedule")}
           />
           <LaunchpadSummaryTile
             eyebrow="Assigned Tasks"
             value={payload?.summary.assigned_task_count ?? 0}
             detail="Tasks directly assigned to you."
             helper={buildTaskSummary(payload)}
-            href="#tasks"
+            active={activeLaunchpadSection === "tasks"}
+            onSelect={() => setActiveLaunchpadSection("tasks")}
           />
           <LaunchpadSummaryTile
             eyebrow="Workflow Steps Waiting on Me"
             value={payload?.summary.live_workflow_step_count ?? 0}
             detail="Job or production steps where you are the assigned person."
             helper={liveWorkflowSteps[0]?.next_action ?? "No workflow step is personally waiting on you."}
-            href="#project-tracking"
+            active={activeLaunchpadSection === "workflow"}
+            onSelect={() => setActiveLaunchpadSection("workflow")}
           />
           <LaunchpadSummaryTile
             eyebrow="Heads Up"
@@ -183,12 +184,14 @@ export function MyWork({ token, currentUser, socket }: Props) {
             detail={headsUpItems.length ? "Important items to notice before work stalls." : "No important acknowledgements are waiting."}
             helper={headsUpItems[0]?.summary ?? "Your day looks clear from the current demo data."}
             tone={headsUpItems.length ? "heads_up" : "good"}
+            active={activeLaunchpadSection === "heads-up"}
+            onSelect={() => setActiveLaunchpadSection("heads-up")}
           />
         </div>
       </section>
 
       <section className="employee-work-layout employee-work-layout--launchpad">
-        <div className="panel employee-shift-rail">
+        <div className="panel employee-shift-rail" id="my-work-schedule">
           <div className="employee-section-heading">
             <div>
               <div className="section-title">My Schedule This Week</div>
@@ -220,6 +223,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
                         className={`employee-week-event${selectedEvent?.id === event.id ? " employee-week-event--selected" : ""}`}
                         onClick={() => setSelectedEventId(event.id)}
                       >
+                        <span className="employee-week-event__kind">{formatEventKind(event)}</span>
                         <span>{formatShortWindow(event.starts_at, event.ends_at)}</span>
                         <strong>{event.title}</strong>
                         <small>{event.location_name || event.location_address || "Location pending"}</small>
@@ -228,7 +232,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
                     {day.events.length > 2 ? <small>{day.events.length - 2} more on schedule</small> : null}
                   </div>
                 ) : (
-                  <small>No published work</small>
+                  <small>Available</small>
                 )}
               </div>
             ))}
@@ -247,9 +251,11 @@ export function MyWork({ token, currentUser, socket }: Props) {
             />
           </details>
         </div>
+      </section>
 
-        <div className="panel employee-detail-panel employee-detail-panel--compact">
-          <CompactDetailGroup title="Assigned Tasks" count={payload?.tasks.length ?? 0}>
+      {activeLaunchpadSection !== "schedule" ? (
+        <section className="panel employee-detail-panel employee-detail-panel--compact" aria-live="polite">
+          {activeLaunchpadSection === "tasks" ? (
             <PanelList
               title="Assigned Tasks"
               subtitle="Open work assigned to you. Blocked or overdue items should show the reason and the next useful place to act."
@@ -257,11 +263,11 @@ export function MyWork({ token, currentUser, socket }: Props) {
               getKey={(task) => task.id}
               empty="No open assigned tasks are in your queue."
               renderItem={(task) => <TaskCard task={task} />}
-              limit={2}
+              limit={4}
             />
-          </CompactDetailGroup>
+          ) : null}
 
-          <CompactDetailGroup title="Workflow Steps Waiting on Me" count={liveWorkflowSteps.length}>
+          {activeLaunchpadSection === "workflow" ? (
             <PanelList
               title="Workflow Steps Waiting on Me"
               subtitle="Current workflow steps assigned directly to you."
@@ -280,11 +286,11 @@ export function MyWork({ token, currentUser, socket }: Props) {
                   }}
                 />
               )}
-              limit={2}
+              limit={4}
             />
-          </CompactDetailGroup>
+          ) : null}
 
-          <CompactDetailGroup title="Heads Up" count={headsUpItems.length}>
+          {activeLaunchpadSection === "heads-up" ? (
             <PanelList
               title="Heads Up"
               subtitle="Acknowledgements, schedule notes, and important changes folded into one short queue."
@@ -292,19 +298,17 @@ export function MyWork({ token, currentUser, socket }: Props) {
               getKey={(item) => item.id}
               empty="No important acknowledgements are waiting here."
               renderItem={(item) => <HeadsUpCard item={item} />}
-              limit={3}
+              limit={4}
             />
-          </CompactDetailGroup>
-        </div>
-      </section>
+          ) : null}
+        </section>
+      ) : null}
 
+      {selectedEventId || detailLoading || selectedEventDetail ? (
       <section className="panel employee-detail-panel">
         <div className="section-title">Selected Event Detail</div>
         <p className="section-subtitle">Detailed field actions stay here after you pick a schedule item, so the launchpad stays calm until you need the full workflow.</p>
         {detailLoading && !selectedEventDetail ? <div className="empty-state empty-state--panel">Loading event detail...</div> : null}
-        {!detailLoading && !selectedEventDetail ? (
-          <div className="empty-state empty-state--panel">Choose an event from My Schedule This Week to open its detailed field workflow.</div>
-        ) : null}
         {selectedEventDetail ? (
           <EmployeeShiftDetailPanel
             token={token}
@@ -319,6 +323,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
           />
         ) : null}
       </section>
+      ) : null}
     </>
   );
 }
@@ -329,14 +334,16 @@ function LaunchpadSummaryTile({
   detail,
   helper,
   tone = "info",
-  href
+  active = false,
+  onSelect
 }: {
   eyebrow: string;
   value: number | string;
   detail: string;
   helper: string;
   tone?: "good" | "info" | "heads_up" | "action_needed";
-  href?: string;
+  active?: boolean;
+  onSelect?: () => void;
 }) {
   const content = (
     <>
@@ -346,29 +353,15 @@ function LaunchpadSummaryTile({
       <small>{helper}</small>
     </>
   );
-  if (href) {
-    return (
-      <a className={`employee-summary-tile employee-summary-tile--${tone}`} href={href}>
-        {content}
-      </a>
-    );
-  }
   return (
-    <article className={`employee-summary-tile employee-summary-tile--${tone}`}>
+    <button
+      type="button"
+      className={`employee-summary-tile employee-summary-tile--${tone}${active ? " employee-summary-tile--active" : ""}`}
+      aria-pressed={active}
+      onClick={onSelect}
+    >
       {content}
-    </article>
-  );
-}
-
-function CompactDetailGroup({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  return (
-    <details className="employee-compact-detail">
-      <summary>
-        <span>{title}</span>
-        <strong>{count}</strong>
-      </summary>
-      {children}
-    </details>
+    </button>
   );
 }
 
@@ -385,12 +378,14 @@ function buildScheduleWeekStats(payload: EmployeeMyWorkResponse | null) {
   const scheduledHours = payload.events.reduce((total, event) => total + calculateHoursBetween(event.starts_at, event.ends_at), 0);
   const remainingEvents = payload.events.filter((event) => new Date(event.ends_at).getTime() >= Date.now());
   const remainingHours = remainingEvents.reduce((total, event) => total + calculateHoursBetween(event.starts_at, event.ends_at), 0);
+  const workedHours = Math.max(0, scheduledHours - remainingHours);
   return {
     scheduledHours,
     remainingHours,
-    scheduledHoursLabel: `${formatHours(scheduledHours)} scheduled this week`,
-    workedHoursLabel: "Worked hours show after punches are captured",
-    remainingHoursLabel: `${formatHours(remainingHours)} remaining on published events`
+    workedHours,
+    scheduledHoursLabel: `Scheduled Hours: ${formatHours(scheduledHours)}`,
+    workedHoursLabel: `Worked Hours: ${formatHours(workedHours)}`,
+    remainingHoursLabel: `Remaining Hours: ${formatHours(remainingHours)}`
   };
 }
 
@@ -414,7 +409,7 @@ function buildScheduleWeekDays(payload: EmployeeMyWorkResponse | null) {
     const key = date.toISOString().slice(0, 10);
     return {
       key,
-      label: date.toLocaleDateString(undefined, { weekday: "long" }),
+      label: date.toLocaleDateString(undefined, { weekday: "short" }),
       shortDate: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       events: events.filter((event) => event.starts_at.slice(0, 10) === key)
     };
@@ -775,6 +770,23 @@ function getLocalDateString() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatEventKind(event: EmployeeMyWorkEventRecord) {
+  const source = `${event.source} ${event.source_record_type} ${event.status} ${event.action_label}`.toLowerCase();
+  if (source.includes("pto") || source.includes("time off")) {
+    return "PTO";
+  }
+  if (source.includes("office")) {
+    return "Office work";
+  }
+  if (event.linked_job_id || event.linked_job_title) {
+    return "Assigned shoot";
+  }
+  if (source.includes("shift")) {
+    return "Shift";
+  }
+  return "Event";
 }
 
 function formatShortWindow(startsAt: string, endsAt: string) {
