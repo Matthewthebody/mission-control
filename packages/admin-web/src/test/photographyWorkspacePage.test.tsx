@@ -688,10 +688,16 @@ describe("StudiosWorkspace", () => {
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} />);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Photography Command Hub" })).toBeInTheDocument();
-    expect(screen.getByText("Today's shoots, readiness, travel details, job prep, references, and field handoffs in one place.")).toBeInTheDocument();
+    expect(screen.getByText("Run today's shoots, job prep, travel, senior photographer coverage, and post-shoot handoffs.")).toBeInTheDocument();
+    expect(screen.getByText("Open First")).toBeInTheDocument();
+    expect(screen.getByText("Attention Needed")).toBeInTheDocument();
+    expect(screen.getByText("This Week's Work")).toBeInTheDocument();
+    expect(screen.getByText("Work Queues")).toBeInTheDocument();
+    expect(screen.getByText("Travel / Load-In")).toBeInTheDocument();
+    expect(screen.getByText("Post-Shoot Handoffs")).toBeInTheDocument();
     expect(listSharedJobsMock).toHaveBeenCalledWith("token-demo", { day_date: today });
     expect(screen.getByRole("heading", { level: 3, name: "Today's Photography Shoots" })).toBeInTheDocument();
-    expect(screen.getByText("Today's Shoots")).toBeInTheDocument();
+    expect(screen.getAllByText("Today's Shoots").length).toBeGreaterThan(0);
     expect(screen.getByText("Ready to Go")).toBeInTheDocument();
     expect(screen.getByText("Needs Prep")).toBeInTheDocument();
     expect(screen.getByText("Travel Notes")).toBeInTheDocument();

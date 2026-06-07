@@ -3241,6 +3241,121 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   color: #3f6ea4;
 }
 
+.department-hub-pattern {
+  display: grid;
+  gap: 1rem;
+}
+
+.department-hub-pattern__section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.department-hub-pattern__section-heading {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.department-hub-pattern__card-grid,
+.department-hub-pattern__attention-grid,
+.department-hub-pattern__queue-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.department-hub-pattern__card-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.department-hub-pattern__card {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  color: inherit;
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.85rem;
+  text-decoration: none;
+}
+
+.department-hub-pattern__card[href]:hover,
+.department-hub-pattern__card[href]:focus-visible {
+  border-color: rgba(125, 211, 252, 0.65);
+  transform: translateY(-1px);
+}
+
+.department-hub-pattern__card span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.department-hub-pattern__card strong {
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.department-hub-pattern__card small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.department-hub-pattern__card em {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.department-hub-pattern__card--compact strong,
+.department-hub-pattern__card--queue strong {
+  font-size: 1rem;
+}
+
+.department-hub-pattern__card--success {
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.department-hub-pattern__card--info {
+  border-color: rgba(125, 211, 252, 0.35);
+}
+
+.department-hub-pattern__card--warning {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.department-hub-pattern__card--danger {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.09);
+}
+
+.department-hub-pattern__notes {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+html[data-theme="light"] .department-hub-pattern__card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .department-hub-pattern__card--warning {
+  background: #fff7ed;
+}
+
+html[data-theme="light"] .department-hub-pattern__card--danger {
+  background: #fff1f2;
+}
+
 .project-tracking-foundation-page .section-title {
   color: var(--pt-text);
 }
@@ -5647,6 +5762,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   .project-tracking-view-switcher,
   .project-tracking-preset-row,
   .project-tracking-controls,
+  .department-hub-pattern__card-grid--four,
   .project-tracking-board-header,
   .project-workflow-detail-hero,
   .project-workflow-next-action,

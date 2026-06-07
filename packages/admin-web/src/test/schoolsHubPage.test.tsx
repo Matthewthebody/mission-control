@@ -501,7 +501,15 @@ describe("SchoolsHub", () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
     expect(await screen.findByRole("heading", { name: "Schools" })).toBeInTheDocument();
-    expect(screen.getByText("School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner.")).toBeInTheDocument();
+    expect(screen.getByText("Manage school picture days, gallery releases, retakes, missing data, and client follow-up.")).toBeInTheDocument();
+    expect(screen.getByText("Open First")).toBeInTheDocument();
+    expect(screen.getByText("Attention Needed")).toBeInTheDocument();
+    expect(screen.getByText("This Week's Work")).toBeInTheDocument();
+    expect(screen.getByText("Work Queues")).toBeInTheDocument();
+    expect(screen.getByText("Galleries Due")).toBeInTheDocument();
+    expect(screen.getAllByText("Missing Data").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Retakes").length).toBeGreaterThan(0);
+    expect(screen.getByText("Client Follow-Up")).toBeInTheDocument();
     expect(screen.getByText("Schools Command Hub")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Schools Active Work" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();

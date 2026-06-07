@@ -397,7 +397,15 @@ describe("ProjectTrackingFoundation", () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
-    expect(screen.getByText("Source of truth for active work, next owners, due dates, blockers, and recent changes.")).toBeInTheDocument();
+    expect(screen.getByText("Track internal projects, owners, blockers, milestones, and leadership decisions.")).toBeInTheDocument();
+    expect(screen.getByText("Open First")).toBeInTheDocument();
+    expect(screen.getByText("Attention Needed")).toBeInTheDocument();
+    expect(screen.getByText("This Week's Work")).toBeInTheDocument();
+    expect(screen.getByText("Work Queues")).toBeInTheDocument();
+    expect(screen.getByText("Blocked Projects")).toBeInTheDocument();
+    expect(screen.getAllByText("Due This Week").length).toBeGreaterThan(0);
+    expect(screen.getByText("Waiting On Owner")).toBeInTheDocument();
+    expect(screen.getByText("Leadership Decisions")).toBeInTheDocument();
     expect(screen.getByText("Operating Summary")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Active Work/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
 import { listSharedProductionQueue } from "../services/jobsApi";
 import type { SharedProductionQueueItem, SharedProductionQueueResponse } from "../jobTruthTypes";
 import type { SessionUser } from "../types";
@@ -55,6 +56,28 @@ export function ProductionHub({ token, currentUser }: Props) {
   const urgentCount = blockedCount + (summary?.overdue_count ?? 0);
   const statusTone: HubTone = urgentCount > 0 ? "danger" : readyForQaCount > 0 || dueThisWeek.length > 0 ? "watch" : "good";
   const statusLabel = statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
+  const openFirstCards: DepartmentHubCard[] = [
+    { label: "Jobs To Process", value: waitingCount, detail: "Needs ingest, ownership, or kickoff.", href: "#production/queue", tone: waitingCount ? "warning" : "success" },
+    { label: "QA Needed", value: readyForQaCount, detail: "Color, crop, roster, upload, or release review.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
+    { label: "Rush / At Risk", value: blockedCount, detail: "Blocked, ownerless, overdue, or missing production inputs.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
+    { label: "Ready To Release", value: summary?.awaiting_approval_count ?? 0, detail: "Approvals or release checks that need final movement.", href: "#production/release", tone: (summary?.awaiting_approval_count ?? 0) ? "warning" : "success" }
+  ];
+  const attentionCards: DepartmentHubCard[] = [
+    { label: "Blocked Production", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker before delivery slips." : "No blocked production work is visible.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
+    { label: "Overdue Work", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#needs-attention", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
+    { label: "QA Pressure", value: readyForQaCount, detail: readyForQaCount ? "QA is the next action before release can move." : "QA queue is clear right now.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" }
+  ];
+  const weeklyCards: DepartmentHubCard[] = [
+    { label: "Due This Week", value: dueThisWeek.length, detail: "Production jobs with deadlines inside the next seven days.", href: "#production/release", tone: dueThisWeek.length ? "warning" : "success" },
+    { label: "In Editing", value: editingCount, detail: "Jobs actively moving through editing or production stages.", href: "#production/workload", tone: editingCount ? "info" : "success" },
+    { label: "Recently Completed", value: recentlyCompleted.length, detail: "Closed, delivered, uploaded, or released work in the recent queue.", href: "#production/release", tone: "info" }
+  ];
+  const queueCards: DepartmentHubCard[] = [
+    { label: "Editing Queue", detail: "Open production work that needs processing.", href: "#production/queue", tone: "info" },
+    { label: "QA Queue", detail: "Review color, crop, roster, upload, and release readiness.", href: "#production/qa", tone: "warning" },
+    { label: "Ready To Release", detail: "Final release and delivery confirmation.", href: "#production/release", tone: "info" },
+    { label: "Rush Jobs", detail: "Blocked or at-risk work that needs escalation.", href: "#needs-attention", tone: urgentCount ? "danger" : "success" }
+  ];
 
   return (
     <div className="production-hub">
@@ -62,7 +85,7 @@ export function ProductionHub({ token, currentUser }: Props) {
         <div className="production-hub__hero-copy">
           <div className="eyebrow">Department Hub</div>
           <h2>Production</h2>
-          <p>Processing, QA, uploads, and release readiness.</p>
+          <p>Monitor editing, QA, packaging, release preparation, and jobs at risk.</p>
           <div className="production-hub__status-row">
             <span className={`production-hub__status production-hub__status--${statusTone}`}>{statusLabel}</span>
             <span className="metric-pill">{urgentCount} urgent</span>
@@ -84,16 +107,13 @@ export function ProductionHub({ token, currentUser }: Props) {
 
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <section className="panel production-hub__section">
-        <div className="section-title">Today's Production Work</div>
-        <p className="section-subtitle">Fast scan of work waiting, moving, ready for QA, or blocked before release.</p>
-        <div className="production-hub__tiles">
-          <ProductionTile label="Jobs waiting for processing" value={waitingCount} detail="Needs ingest, ownership, or kickoff." href="#production/queue" tone={waitingCount ? "watch" : "good"} />
-          <ProductionTile label="Jobs in editing" value={editingCount} detail="Actively moving through Production." href="#production/workload" tone={editingCount ? "info" : "good"} />
-          <ProductionTile label="Jobs ready for QA" value={readyForQaCount} detail="Needs color, crop, roster, upload, or release review." href="#production/qa" tone={readyForQaCount ? "watch" : "good"} />
-          <ProductionTile label="Blocked by missing files or data" value={blockedCount} detail="Missing files, roster/data, owner, or upload clarity." href="#production/qa?queue=blocked_queue&stage=blocked" tone={blockedCount ? "danger" : "good"} />
-        </div>
-      </section>
+      <DepartmentHubPattern
+        department="Production"
+        openFirst={openFirstCards}
+        attention={attentionCards}
+        weekly={weeklyCards}
+        queues={queueCards}
+      />
 
       {loading ? <div className="panel empty-state empty-state--panel">Loading Production work...</div> : null}
 
@@ -132,16 +152,6 @@ export function ProductionHub({ token, currentUser }: Props) {
         </div>
       </section>
     </div>
-  );
-}
-
-function ProductionTile({ label, value, detail, href, tone }: { label: string; value: number; detail: string; href: string; tone: HubTone }) {
-  return (
-    <a className={`production-hub__tile production-hub__tile--${tone}`} href={href}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </a>
   );
 }
 

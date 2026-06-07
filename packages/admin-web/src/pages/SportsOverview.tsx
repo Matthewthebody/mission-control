@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiClientError } from "../api";
+import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
 import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
 import { JobIntakeLauncherCard } from "../components/jobIntake/JobIntakeLauncherCard";
 import { QuickCreateJobDrawer } from "../components/jobIntake/QuickCreateJobDrawer";
@@ -137,6 +138,17 @@ function startOfToday() {
 function isBeforeToday(value: string | null | undefined) {
   const parsed = parseDate(value);
   return parsed ? parsed.getTime() < startOfToday().getTime() : false;
+}
+
+function isToday(value: string | null | undefined) {
+  const parsed = parseDate(value);
+  if (!parsed) {
+    return false;
+  }
+  const start = startOfToday();
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+  return parsed.getTime() >= start.getTime() && parsed.getTime() <= end.getTime();
 }
 
 function isWithinNextSevenDays(value: string | null | undefined) {
@@ -585,6 +597,30 @@ export function SportsOverview({ token, currentUser }: Props) {
     ],
     [overview?.upcoming_shoots.length, sharedJobs, sportsOperatingRows]
   );
+  const jobsTodayCount = sharedJobs.filter((job) => isToday(job.primary_day_date ?? job.scheduled_start_at)).length;
+  const releasesDueCount = sharedWorkflowItems.filter((item) => isWithinNextSevenDays(item.due_at)).length;
+  const openFirstCards: DepartmentHubCard[] = [
+    { label: "Jobs Today", value: jobsTodayCount, detail: "Sports jobs or events happening today.", href: "#sports/jobs", tone: jobsTodayCount ? "info" : "success" },
+    { label: "Staffing Gaps", value: sportsBoardIssueCounts.staffing, detail: "Coverage or lead gaps that need action before the event.", href: "#sports/exceptions", tone: sportsBoardIssueCounts.staffing ? "danger" : "success" },
+    { label: "Team Info Needed", value: sportsBoardIssueCounts.clientInfo, detail: "Missing team, contact, account, or client detail.", href: "#sports/contacts", tone: sportsBoardIssueCounts.clientInfo ? "warning" : "success" },
+    { label: "Releases Due", value: releasesDueCount, detail: "Proof, graphics, or release work due inside the current week.", href: "#sports/graphics", tone: releasesDueCount ? "warning" : "success" }
+  ];
+  const attentionCards: DepartmentHubCard[] = [
+    { label: "Production Blockers", value: sportsBoardIssueCounts.production, detail: "Graphics or production issues can delay sports releases.", href: "#sports/graphics", tone: sportsBoardIssueCounts.production ? "danger" : "success" },
+    { label: "Staffing / Coverage", value: sportsBoardIssueCounts.staffing, detail: "Resolve coverage before game-day work drifts.", href: "#sports/exceptions", tone: sportsBoardIssueCounts.staffing ? "danger" : "success" },
+    { label: "Proof Approvals", value: sportsBoardIssueCounts.proofApprovals, detail: "Proof approval work needs follow-up without mixing into staffing.", href: "#sports/graphics", tone: sportsBoardIssueCounts.proofApprovals ? "warning" : "success" }
+  ];
+  const weeklyCards: DepartmentHubCard[] = [
+    { label: "Upcoming Jobs", value: sharedJobs.filter((job) => isWithinNextSevenDays(dueDateForSportsJob(job))).length, detail: "Sports jobs with a date or deadline this week.", href: "#sports/jobs", tone: "info" },
+    { label: "Open Tasks", value: sportsBoardIssueCounts.tasks, detail: "Sports tasks attached to the current command rows.", href: "#tasks?department=sports", tone: sportsBoardIssueCounts.tasks ? "warning" : "success" },
+    { label: "Release / Graphics", value: sharedWorkflowItems.length, detail: "Sports workflow pressure from the shared production lanes.", href: "#sports/graphics", tone: sharedWorkflowItems.length ? "info" : "success" }
+  ];
+  const queueCards: DepartmentHubCard[] = [
+    { label: "Upcoming Jobs", detail: "Open the sports job queue.", href: "#sports/jobs", tone: "info" },
+    { label: "Team Info Needed", detail: "Open sports contacts and account context.", href: "#sports/contacts", tone: "warning" },
+    { label: "Releases", detail: "Open sports graphics and release work.", href: "#sports/graphics", tone: "info" },
+    { label: "Sports Tasks", detail: "Open the shared task queue filtered to Sports.", href: "#tasks?department=sports", tone: "info" }
+  ];
 
   const allErrors = Object.values(errors).filter(Boolean);
 
@@ -598,7 +634,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <WorkspacePageHeader
           eyebrow="Sports"
           title="Sports"
-          summary="Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner."
+          summary="Track sports jobs, team and individual photo coverage, staffing needs, and gallery releases."
           meta={[{ label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "info" }]}
         />
         <section className="panel">
@@ -621,7 +657,7 @@ export function SportsOverview({ token, currentUser }: Props) {
       <WorkspacePageHeader
         eyebrow="Sports"
         title="Sports"
-        summary="Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner."
+        summary="Track sports jobs, team and individual photo coverage, staffing needs, and gallery releases."
         meta={[
           { label: overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Shared contract view", tone: "info" },
           { label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "success" }
@@ -642,6 +678,14 @@ export function SportsOverview({ token, currentUser }: Props) {
             </button>
           </WorkspaceActionBar>
         }
+      />
+
+      <DepartmentHubPattern
+        department="Sports"
+        openFirst={openFirstCards}
+        attention={attentionCards}
+        weekly={weeklyCards}
+        queues={queueCards}
       />
 
       <section className="panel sports-operating-board">

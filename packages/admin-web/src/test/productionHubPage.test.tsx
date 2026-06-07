@@ -232,18 +232,26 @@ describe("ProductionHub", () => {
     render(<ProductionHub token="token-demo" currentUser={productionUser} />);
 
     expect(await screen.findByRole("heading", { name: "Production" })).toBeInTheDocument();
-    expect(screen.getByText("Processing, QA, uploads, and release readiness.")).toBeInTheDocument();
-    expect(screen.getByText("Today's Production Work")).toBeInTheDocument();
-    expect(screen.getByText("Due This Week")).toBeInTheDocument();
-    expect(screen.getByText("QA Needed")).toBeInTheDocument();
+    expect(screen.getByText("Monitor editing, QA, packaging, release preparation, and jobs at risk.")).toBeInTheDocument();
+    expect(screen.getByText("Open First")).toBeInTheDocument();
+    expect(screen.getByText("Attention Needed")).toBeInTheDocument();
+    expect(screen.getByText("This Week's Work")).toBeInTheDocument();
+    expect(screen.getByText("Work Queues")).toBeInTheDocument();
+    expect(screen.getByText("Jobs To Process")).toBeInTheDocument();
+    expect(screen.getByText("Rush / At Risk")).toBeInTheDocument();
+    expect(screen.getAllByText("Ready To Release").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Due This Week").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("QA Needed").length).toBeGreaterThan(0);
     expect(screen.getByText("At Risk / Blocked")).toBeInTheDocument();
-    expect(screen.getByText("Recently Completed")).toBeInTheDocument();
+    expect(screen.getAllByText("Recently Completed").length).toBeGreaterThan(0);
     expect(screen.getByText("Department Help Needed")).toBeInTheDocument();
 
     expect(screen.getByRole("link", { name: /Open Production Queue/i })).toHaveAttribute("href", "#production/queue");
     expect(screen.getByRole("link", { name: /Review QA/i })).toHaveAttribute("href", "#production/qa");
-    expect(screen.getByRole("link", { name: /Release Readiness/i })).toHaveAttribute("href", "#production/release");
-    expect(screen.getByRole("link", { name: /Jobs waiting for processing/i })).toHaveAttribute("href", "#production/queue");
+    expect(
+      screen.getAllByRole("link", { name: /Release Readiness/i }).some((link) => link.getAttribute("href") === "#production/release"),
+    ).toBe(true);
+    expect(screen.getByRole("link", { name: /Jobs To Process/i })).toHaveAttribute("href", "#production/queue");
     expect(screen.getByText("Blocked by missing files or partial upload handoff.")).toBeInTheDocument();
     expect(screen.getByText("Waiting on uploaded files or a complete file handoff.")).toBeInTheDocument();
     expect(screen.getAllByText(/Northview Upload/).length).toBeGreaterThan(0);

@@ -381,7 +381,15 @@ describe("SportsOverview", () => {
     render(<SportsOverview token="token" currentUser={baseUser} />);
 
     expect(await screen.findByRole("heading", { name: "Sports" })).toBeInTheDocument();
-    expect(screen.getByText("Photo days, team and individual workflows, QR/data issues, galleries, products, and work that needs a next owner.")).toBeInTheDocument();
+    expect(screen.getByText("Track sports jobs, team and individual photo coverage, staffing needs, and gallery releases.")).toBeInTheDocument();
+    expect(screen.getByText("Open First")).toBeInTheDocument();
+    expect(screen.getByText("Attention Needed")).toBeInTheDocument();
+    expect(screen.getByText("This Week's Work")).toBeInTheDocument();
+    expect(screen.getByText("Work Queues")).toBeInTheDocument();
+    expect(screen.getByText("Jobs Today")).toBeInTheDocument();
+    expect(screen.getAllByText("Staffing Gaps").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Team Info Needed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Releases Due")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sports Command Hub" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Sports department command list" })).toBeInTheDocument();
     expect(screen.getByText("Active Sports Work")).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
 import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
 import { QuickCreateJobDrawer } from "../components/jobIntake/QuickCreateJobDrawer";
 import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
@@ -1299,6 +1300,31 @@ export function SchoolsHub({ token, currentUser }: Props) {
   }, [exceptions, exceptionsFocus, watchSearch]);
 
   const pagedExceptions = paginate(filteredExceptions, exceptionsPage, EXCEPTIONS_PAGE_SIZE);
+  const retakeCount = schoolDashboardRows.filter((row) => row.jobType.toLowerCase().includes("retake")).length;
+  const galleryDueCount = schoolDashboardRows.filter((row) => row.jobType.toLowerCase().includes("gallery") || row.currentStep.toLowerCase().includes("release")).length;
+  const missingDataCount = (workspace?.summary.waiting_on_school ?? 0) + workflowRows.filter((row) => row.waiting_on_party === "school" || row.missing_info_flags.length > 0).length;
+  const openFirstCards: DepartmentHubCard[] = [
+    { label: "Galleries Due", value: galleryDueCount, detail: "Gallery or release work that needs movement.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: galleryDueCount ? "warning" : "success" },
+    { label: "Missing Data", value: missingDataCount, detail: "Rosters, contacts, approvals, or school info holding work.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: missingDataCount ? "danger" : "success" },
+    { label: "Retakes", value: retakeCount, detail: "Retake or makeup work visible in the current school queue.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: retakeCount ? "info" : "success" },
+    { label: "Client Follow-Up", value: boardIssueCounts.clientConcerns, detail: "School, family, or client concern that needs a next owner.", href: buildSchoolsTabHash("exceptions", { focus: "critical_high" }), tone: boardIssueCounts.clientConcerns ? "warning" : "success" }
+  ];
+  const attentionCards: DepartmentHubCard[] = [
+    { label: "Missing Info / Client", value: boardIssueCounts.clientConcerns + missingDataCount, detail: "Schools work cannot move until the school/client data is clear.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: boardIssueCounts.clientConcerns + missingDataCount ? "danger" : "success" },
+    { label: "Production Blockers", value: boardIssueCounts.productionBlockers, detail: "Production needs help before gallery or delivery work can finish.", href: buildSchoolsTabHash("jobs", { focus: "stalled" }), tone: boardIssueCounts.productionBlockers ? "danger" : "success" },
+    { label: "Proof Approvals", value: boardIssueCounts.proofApprovals, detail: "Approval risk should move through the school job or Needs Attention.", href: buildSchoolsTabHash("exceptions", { focus: "gallery_release" }), tone: boardIssueCounts.proofApprovals ? "warning" : "success" }
+  ];
+  const weeklyCards: DepartmentHubCard[] = [
+    { label: "Due This Week", value: commandSummaryCards.find((card) => card.label === "Due Soon")?.value ?? 0, detail: "School jobs with a date or deadline inside the next seven days.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: "info" },
+    { label: "School Tasks", value: tasks.filter(isTaskDueThisWeek).length, detail: "Tasks due this week for school follow-through.", href: buildSchoolsTabHash("tasks", { view: "week" }), tone: "info" },
+    { label: "Blocked / Waiting", value: schoolDashboardRows.filter((row) => row.riskTone === "danger" || row.riskTone === "warning").length, detail: "Blocked, waiting, overdue, or high-risk school work.", href: "#needs-attention", tone: "warning" }
+  ];
+  const queueCards: DepartmentHubCard[] = [
+    { label: "Gallery Releases", detail: "Open school jobs and release-related work.", href: buildSchoolsTabHash("jobs", { focus: "open" }), tone: "info" },
+    { label: "Missing Data", detail: "Open missing roster, school, approval, or client info.", href: buildSchoolsTabHash("exceptions", { focus: "missing_data" }), tone: "warning" },
+    { label: "Retakes", detail: "Open school jobs and filter retake work from the work list.", href: "#schools/jobs", tone: "info" },
+    { label: "School Tasks", detail: "Open the Schools task queue.", href: "#schools/tasks", tone: "info" }
+  ];
   const fullyBlocked = !workspace && !schoolJobs.length && !tasks.length && !exceptions.length && Object.values(errors).some(Boolean);
 
   if (loading) {
@@ -1308,7 +1334,7 @@ export function SchoolsHub({ token, currentUser }: Props) {
   if (accessScope == null) {
     return (
       <section className="schools-department">
-        <WorkspacePageHeader title="Schools" summary="School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner." />
+        <WorkspacePageHeader title="Schools" summary="Manage school picture days, gallery releases, retakes, missing data, and client follow-up." />
         <section className="panel">
           <WorkspaceEmptyState title="Schools access is not enabled for this account" summary="Ask an admin to add the Schools access your role needs before using this department page." />
         </section>
@@ -1322,8 +1348,8 @@ export function SchoolsHub({ token, currentUser }: Props) {
         title="Schools"
         summary={
           accessScope === "own"
-            ? "Your assigned school jobs, rosters, galleries, yearbooks, account follow-up, and next-owner work."
-            : "School jobs, rosters, galleries, yearbooks, account follow-up, and work that needs a next owner."
+            ? "Your assigned school picture days, gallery releases, retakes, missing data, and client follow-up."
+            : "Manage school picture days, gallery releases, retakes, missing data, and client follow-up."
         }
         actions={
           <WorkspaceActionBar align="end" compact>
@@ -1340,6 +1366,14 @@ export function SchoolsHub({ token, currentUser }: Props) {
             ) : null}
           </WorkspaceActionBar>
         }
+      />
+
+      <DepartmentHubPattern
+        department="Schools"
+        openFirst={openFirstCards}
+        attention={attentionCards}
+        weekly={weeklyCards}
+        queues={queueCards}
       />
 
       <section className="panel schools-dashboard-v1">

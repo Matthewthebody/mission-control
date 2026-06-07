@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
 import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
 import { CompactActiveWorkPanel } from "../components/workspace/CompactActiveWorkPanel";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
@@ -26,7 +27,7 @@ type Props = {
 const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: string; meta: WorkspaceHeaderMeta[] }> = {
   overview: {
     title: "Photography Command Hub",
-    summary: "Today's shoots, readiness, travel details, job prep, references, and field handoffs in one place.",
+    summary: "Run today's shoots, job prep, travel, senior photographer coverage, and post-shoot handoffs.",
     meta: [
       { label: "Field readiness", tone: "info" },
       { label: "Job prep connected", tone: "success" },
@@ -93,6 +94,33 @@ const PRIMARY_LINKS = [
 
 const HOMEPAGE_LINK_IDS = new Set(["pre-service", "travel", "workload", "calendar", "closeout"]);
 
+const PHOTOGRAPHY_OPEN_FIRST: DepartmentHubCard[] = [
+  { label: "Today's Shoots", value: "Today", detail: "Same-day schedule, leads, locations, and field readiness.", href: "#studios/shoots", tone: "info" },
+  { label: "Job Prep", value: "Prep", detail: "Briefings, readiness gaps, references, and client context.", href: "#studios/pre-service", tone: "warning" },
+  { label: "Travel / Load-In", value: "Route", detail: "Arrival, parking, contacts, crew, and location guidance.", href: "#studios/travel", tone: "info" },
+  { label: "Post-Shoot Handoffs", value: "Closeout", detail: "Evaluations, mileage review, and next production handoff.", href: "#job-closeout", tone: "info" }
+];
+
+const PHOTOGRAPHY_ATTENTION: DepartmentHubCard[] = [
+  { label: "Shoot Readiness", value: "Check", detail: "Confirm prep and travel before the field team leaves.", href: "#studios/pre-service", tone: "warning" },
+  { label: "Travel Risk", value: "Review", detail: "Location, parking, and contact context belong in Travel / Logistics.", href: "#studios/travel", tone: "info" },
+  { label: "Field Handoffs", value: "Next", detail: "Post-shoot notes should move through closeout and Project Tracking.", href: "#studios/workload", tone: "info" }
+];
+
+const PHOTOGRAPHY_WEEKLY: DepartmentHubCard[] = [
+  { label: "Upcoming Shoots", value: "30-Day", detail: "Use the calendar for weekly shoot load and date pressure.", href: "#studios/calendar", tone: "info" },
+  { label: "Senior Coverage", value: "Owners", detail: "Senior photographer view keeps owner clarity and support visible.", href: "#studios/workload", tone: "info" },
+  { label: "Prep Packets", value: "Ready", detail: "Readiness, references, and pre-service context stay together.", href: "#studios/pre-service", tone: "warning" }
+];
+
+const PHOTOGRAPHY_QUEUES: DepartmentHubCard[] = [
+  { label: "Today's Shoots", detail: "Open the field-ready day view.", href: "#studios/shoots", tone: "info" },
+  { label: "Job Prep", detail: "Open prep packets and readiness checks.", href: "#studios/pre-service", tone: "warning" },
+  { label: "Travel", detail: "Open location, route, and load-in context.", href: "#studios/travel", tone: "info" },
+  { label: "Senior Photographer View", detail: "Open workload, handoffs, and field support.", href: "#studios/workload", tone: "info" },
+  { label: "Post-Shoot Reviews", detail: "Open closeout and evaluation work.", href: "#job-closeout", tone: "info" }
+];
+
 export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Props) {
   const copy = FOCUS_COPY[focus];
   const isOverview = focus === "overview";
@@ -128,6 +156,15 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
 
       {isOverview ? (
         <>
+          <DepartmentHubPattern
+            department="Photography"
+            openFirst={PHOTOGRAPHY_OPEN_FIRST}
+            attention={PHOTOGRAPHY_ATTENTION}
+            weekly={PHOTOGRAPHY_WEEKLY}
+            queues={PHOTOGRAPHY_QUEUES}
+            notes={<span>Field work stays here; staffing and attendance review stay with Leadership and Schedule.</span>}
+          />
+
           <PhotographyTodayShootsPanel token={token} />
 
           <section className="studios-workspace__launch-grid" aria-label="Photography launch points">
