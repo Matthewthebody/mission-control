@@ -328,10 +328,11 @@ export default function App() {
     (route): route is (typeof utilityRoutes)[number] => Boolean(route)
   );
   const isHomeRoute = guardedRouteId === "dashboard";
+  const isScheduleSectionRoute = currentRoute.sectionKey === "schedule";
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
   const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
-  const visibleContextUtilityRoutes = isHomeRoute ? [] : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
+  const visibleContextUtilityRoutes = isHomeRoute || isScheduleSectionRoute ? [] : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
   const desktopNavGroups = buildDesktopNavGroups(primarySections);
   const sectionLandingCards =
@@ -835,9 +836,9 @@ export default function App() {
 
             <div className="shell-sidebar__footer">
               <div className="shell-sidebar__identity">
-                <strong>{currentUser.fullName}</strong>
+                <strong>{getShellUserName(currentUser)}</strong>
                 <span>
-                  {humanizeLabel(currentUser.authorityTier)}
+                  {getShellAuthorityLabel(currentUser)}
                   {" | "}
                   {getTrustLabel(currentUser)}
                 </span>
@@ -883,7 +884,7 @@ export default function App() {
                   </button>
                   <GlobalPunchControl token={token} currentUser={currentUser} />
                   <div className="shell-topbar__meta">
-                    <div className={`status-pill status-pill--${realtimeStatus}`}>{humanizeLabel(realtimeStatus)}</div>
+                    <div className={`status-pill status-pill--${realtimeStatus}`}>{getRealtimeStatusLabel(realtimeStatus)}</div>
                     <div
                       className={`metric-pill metric-pill--${
                         currentUser.sessionTrust.breakGlassModeActive
@@ -895,7 +896,7 @@ export default function App() {
                     >
                       {getTrustLabel(currentUser)}
                     </div>
-                    <div className="metric-pill metric-pill--identity">{humanizeLabel(currentUser.primaryJobFunctionProfile)}</div>
+                    <div className="metric-pill metric-pill--identity">{getShellRoleLabel(currentUser)}</div>
                   </div>
                 </div>
               </header>
@@ -970,7 +971,7 @@ export default function App() {
                       <GlobalPunchControl token={token} currentUser={currentUser} />
                       <div className="shell-status-strip">
                         <div className={`status-pill status-pill--${realtimeStatus}`}>
-                          {headerCollapsed ? humanizeLabel(realtimeStatus) : `Realtime: ${realtimeStatus}`}
+                          {headerCollapsed ? getRealtimeStatusLabel(realtimeStatus) : `Realtime: ${getRealtimeStatusLabel(realtimeStatus)}`}
                         </div>
                         <div
                           className={`metric-pill metric-pill--${
@@ -985,10 +986,8 @@ export default function App() {
                         </div>
                         <div className="metric-pill metric-pill--identity">
                           {headerCollapsed
-                            ? `${currentUser.fullName} | ${humanizeLabel(currentUser.authorityTier)}`
-                            : `${currentUser.fullName} | ${humanizeLabel(currentUser.authorityTier)} | ${humanizeLabel(
-                                currentUser.primaryJobFunctionProfile
-                              )}`}
+                            ? `${getShellUserName(currentUser)} | ${getShellAuthorityLabel(currentUser)}`
+                            : `${getShellUserName(currentUser)} | ${getShellAuthorityLabel(currentUser)} | ${getShellRoleLabel(currentUser)}`}
                         </div>
                       </div>
                       {shellTools}
@@ -2029,6 +2028,30 @@ function resolveMobileRoute(user: SessionUser, candidates: ShellRouteId[]) {
 
 function humanizeLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function getRealtimeStatusLabel(status: "connecting" | "connected" | "error") {
+  if (status === "connected") {
+    return "Connected";
+  }
+  return humanizeLabel(status);
+}
+
+function isDemoAdminShellUser(user: SessionUser) {
+  return user.fullName.trim().toLowerCase() === "demo admin";
+}
+
+function getShellUserName(user: SessionUser) {
+  return isDemoAdminShellUser(user) ? "Mission Control User" : user.fullName;
+}
+
+function getShellAuthorityLabel(user: SessionUser) {
+  return isDemoAdminShellUser(user) ? "Team Member" : humanizeLabel(user.authorityTier);
+}
+
+function getShellRoleLabel(user: SessionUser) {
+  const label = humanizeLabel(user.primaryJobFunctionProfile);
+  return isDemoAdminShellUser(user) || label.toLowerCase() === "demo admin" ? "Team Member" : label;
 }
 
 function matchesMobileShell() {

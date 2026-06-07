@@ -42,6 +42,15 @@ vi.mock("../realtime", () => ({
   }))
 }));
 
+vi.mock("../pages/Schedule", () => ({
+  Schedule: () => (
+    <section>
+      <h2>Schedule</h2>
+      <p>Who is working, where, when, and coverage status.</p>
+    </section>
+  )
+}));
+
 afterEach(() => {
   cleanup();
 });
@@ -422,6 +431,49 @@ describe("app auth bootstrap", () => {
     const homeButton = screen.getByRole("button", { name: "Home" });
     homeButton.focus();
     expect(homeButton).toHaveFocus();
+  });
+
+  it("keeps the Schedule route free of the generic Quick Access rail", async () => {
+    window.localStorage.setItem("pmc_admin_token", "schedule-token");
+    window.location.hash = "#schedule";
+
+    const scheduleUser: SessionUser = {
+      id: "user-scheduler",
+      tenantId: "tenant-demo",
+      accountId: "account-scheduler",
+      sessionId: "session-scheduler",
+      email: "scheduler@example.com",
+      fullName: "Demo Admin",
+      status: "active",
+      department: "operations",
+      isEmailVerified: true,
+      authVersion: 1,
+      roles: ["manager"],
+      permissions: ["dashboard.read", "schedule.read", "shoot.read"],
+      authorityTier: "director_admin",
+      primaryJobFunctionProfile: "director_of_photography",
+      jobFunctionProfiles: ["director_of_photography"],
+      permissionGrants: [],
+      effectiveScopes: ["department_scope"],
+      sessionTrust
+    };
+
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/auth/session") {
+        return { user: scheduleUser };
+      }
+      throw new Error(`Unexpected app call: ${path}`);
+    });
+
+    render(<App />);
+
+    expect((await screen.findAllByRole("heading", { name: "Schedule" })).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("Director Admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("Director Of Photography")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connected Standard")).not.toBeInTheDocument();
   });
 
   it("renders the communications launcher in the authenticated shell", async () => {

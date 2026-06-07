@@ -5354,7 +5354,15 @@ describe("admin operations regressions", () => {
 
     expect(screen.getByRole("heading", { name: "My Schedule" })).toBeInTheDocument();
     expect(screen.getAllByText("My Schedule").length).toBeGreaterThan(0);
+    expect(screen.getByText("Your assigned shifts, linked jobs, work times, and locations stay in one compact personal schedule view.")).toBeInTheDocument();
     expect(screen.getByText("Own assignments only")).toBeInTheDocument();
+    expect(screen.getByText("Schedule Date")).toBeInTheDocument();
+    expect(screen.queryByText("Anchor Date")).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connected Standards")).not.toBeInTheDocument();
+    expect(screen.queryByText("Directory of Photography")).not.toBeInTheDocument();
+    expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("Company scope")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Calendar/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Staffing Schedule/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Day" })).toBeInTheDocument();

@@ -710,6 +710,8 @@ describe("My Work page", () => {
     expect(screen.queryByText("Connected Standards")).not.toBeInTheDocument();
     expect(screen.queryByText("Directory of Photography")).not.toBeInTheDocument();
     expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("Company scope")).not.toBeInTheDocument();
+    expect(screen.queryByText("Staffing Schedule")).not.toBeInTheDocument();
     expect(screen.getAllByText("My Schedule This Week").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Assigned Tasks").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Workflow Steps Waiting on Me").length).toBeGreaterThan(0);

@@ -38,20 +38,22 @@ const VIEW_OPTIONS: Array<{ id: MasterScheduleView; label: string; summary: stri
   {
     id: "jobs",
     label: "Calendar",
-    summary: "See jobs and events on the shared calendar without burying timing and location context."
+    summary: "Scan who is working, where they are going, and when work happens."
   },
   {
     id: "staffing",
     label: "Staffing Schedule",
-    summary: "See assignments, availability pressure, and coverage in the same shared scheduling engine."
+    summary: "Check assignment coverage, open roles, and missing staffing in the same schedule."
   },
   {
     id: "assignment_board",
     label: "Assignment Board",
-    summary: "Scan open work, filled roles, conflicts, and staffing gaps together."
+    summary: "Review filled roles, conflicts, and gaps without leaving the schedule."
   }
 ];
 
+// Future direction: My Work stays personal, department hubs get filtered schedule lenses,
+// and leadership/operations owns the full editable schedule over this shared source.
 export function Schedule({ token, currentUser }: Props) {
   const [routeState, setRouteState] = useState(() => parseScheduleWorkspaceRouteState(window.location.hash));
   const [date, setDate] = useState(routeState.date ?? getLocalDateString());
@@ -172,11 +174,6 @@ export function Schedule({ token, currentUser }: Props) {
                 My Work
               </button>
             ) : null}
-            {!employeeOnlyMode ? (
-              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#my-schedule")}>
-                My Schedule
-              </button>
-            ) : null}
             {routeContext === "photography" ? (
               <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#photography")}>
                 Back to Photography
@@ -209,7 +206,7 @@ export function Schedule({ token, currentUser }: Props) {
       <WorkspaceFilterToolbar className="schedule-shell__toolbar">
         <div className="workspace-toolbar__group">
           <label className="filter-field">
-            <span>Anchor Date</span>
+            <span>Schedule Date</span>
             <input
               type="date"
               value={date}
@@ -225,7 +222,7 @@ export function Schedule({ token, currentUser }: Props) {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by shoot, location, employee, or role"
+              placeholder="Search who, where, job, or role"
             />
           </label>
         </div>
@@ -314,7 +311,7 @@ function getHeaderCopy(context: ScheduleRouteContext, view: MasterScheduleView, 
     return {
       eyebrow: "My Schedule",
       title: "My Schedule",
-      summary: "Your assignments, linked jobs, and time-based field work stay in one compact schedule surface."
+      summary: "Your assigned shifts, linked jobs, work times, and locations stay in one compact personal schedule view."
     };
   }
 
@@ -324,23 +321,23 @@ function getHeaderCopy(context: ScheduleRouteContext, view: MasterScheduleView, 
       title: view === "staffing" ? "Photography Staffing" : "Photography Calendar",
       summary:
         view === "staffing"
-          ? "Field staffing, coverage gaps, and photographer placement stay inside the shared master schedule."
-          : "Photography opens here first: a 30-day view of upcoming shoot load, readiness pressure, and linked assignment access."
+          ? "Field staffing, coverage gaps, and photographer placement stay inside the shared schedule."
+          : "Photography opens here first: upcoming shoot timing, locations, readiness pressure, and linked assignment access."
     };
   }
 
   if (context === "operations") {
     return {
       eyebrow: "Operations",
-      title: "Master Schedule",
-      summary: "One shared scheduling workspace for job timing, staffing pressure, assignment conflicts, and oversight."
+      title: "Schedule",
+      summary: "One shared schedule view for who is working, where they are working, when they are working, and whether coverage is missing."
     };
   }
 
   return {
     eyebrow: "Schedule",
-    title: "Master Schedule",
-    summary: "One shared scheduling engine for job timing, staffing visibility, and assignment control without splitting the calendar into separate tools."
+    title: "Schedule",
+    summary: "One shared schedule view for who is working, where they are working, when they are working, and whether coverage is missing."
   };
 }
 

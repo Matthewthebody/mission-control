@@ -851,7 +851,7 @@ export function UnifiedScheduleSurface({
               <option value="">All Leads</option>
               {members.map((member) => (
                 <option key={`lead-${member.id}`} value={member.id}>
-                  {member.full_name}
+                  {formatScheduleLeadName(member.full_name, "Team Lead")}
                 </option>
               ))}
             </select>
@@ -864,7 +864,7 @@ export function UnifiedScheduleSurface({
               <option value="">All Employees</option>
               {members.map((member) => (
                 <option key={`employee-${member.id}`} value={member.id}>
-                  {member.full_name}
+                  {formatScheduleLeadName(member.full_name, "Team Member")}
                 </option>
               ))}
             </select>
@@ -1181,7 +1181,7 @@ function ScheduleEventPanel({
             </div>
             <div className="shoot-briefing__metric">
               <span>Lead</span>
-              <strong>{event.lead_name || "Unassigned"}</strong>
+              <strong>{formatScheduleLeadName(event.lead_name, "Unassigned")}</strong>
             </div>
           </div>
         </section>
@@ -1722,7 +1722,7 @@ function ScheduleDayBriefing({
                     {item.location_name || item.location_address || "Location pending"}
                   </div>
                   <div className="schedule-day-queue__meta">
-                    <span className="meta-pill">{item.lead_name || "Lead pending"}</span>
+                    <span className="meta-pill">{formatScheduleLeadName(item.lead_name, "Lead pending")}</span>
                     {item.integration.manual_review_required || item.integration.sync_required ? (
                       <span className="meta-pill">Sync review</span>
                     ) : null}
@@ -2050,7 +2050,7 @@ function renderCalendarSurface(input: {
                       <div className="muted" title={item.location_name || item.location_address || "Location pending"}>
                         {item.location_name || item.location_address || "Location pending"}
                       </div>
-                      <div className="muted">{item.lead_name || "Lead pending"}</div>
+                      <div className="muted">{formatScheduleLeadName(item.lead_name, "Lead pending")}</div>
                     </button>
                   ) : (
                     <button
@@ -2250,7 +2250,7 @@ function renderAgendaSurface(input: {
                       </div>
                       <div className="muted">{shoot.location_name || shoot.location_address || "Location pending"}</div>
                       <div className="schedule-agenda-card__meta">
-                        {input.scheduleWorkspace ? null : <span className="meta-pill">{shoot.lead_name || "Lead pending"}</span>}
+                        {input.scheduleWorkspace ? null : <span className="meta-pill">{formatScheduleLeadName(shoot.lead_name, "Lead pending")}</span>}
                         {input.scheduleWorkspace ? (
                           <span className="meta-pill">{humanizeLabel(shoot.status)}</span>
                         ) : (
@@ -2286,7 +2286,7 @@ function renderAgendaSurface(input: {
                     </div>
                     <div className="muted">{event.location_name || event.location_address || "Location pending"}</div>
                     <div className="schedule-agenda-card__meta">
-                      <span className="meta-pill">{event.lead_name || "Lead pending"}</span>
+                      <span className="meta-pill">{formatScheduleLeadName(event.lead_name, "Lead pending")}</span>
                       {event.integration.manual_review_required || event.integration.sync_required ? (
                         <span className="risk-pill risk-pill--watch">Sync review</span>
                       ) : null}
@@ -2553,6 +2553,13 @@ function humanizeLabel(value?: string | null) {
     return "Unknown";
   }
   return value.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function formatScheduleLeadName(value: string | null | undefined, fallback: string) {
+  if (!value) {
+    return fallback;
+  }
+  return value.trim().toLowerCase() === "demo admin" ? "Team Lead" : value;
 }
 
 function mapIntegrationTone(health: ScheduleRecordIntegrationState["sync_health"]) {
