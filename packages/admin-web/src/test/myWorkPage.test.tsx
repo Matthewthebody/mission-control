@@ -743,7 +743,7 @@ describe("My Work page", () => {
     expect(screen.queryByText("Owned Exceptions")).not.toBeInTheDocument();
     expect(screen.queryByText("Approvals Waiting On You")).not.toBeInTheDocument();
     expect(screen.queryByText(/Confirm roster/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("Assigned person: You")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assigned to you")).not.toBeInTheDocument();
     expect(screen.queryByText("Approve lead coverage change")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected Event Detail")).not.toBeInTheDocument();
 
@@ -753,19 +753,18 @@ describe("My Work page", () => {
     expect(screen.getByRole("button", { name: /Assigned Tasks/i })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i }));
-    expect(screen.getByText("Assigned person: You")).toBeInTheDocument();
+    expect(screen.getByText("Assigned to you")).toBeInTheDocument();
     expect(screen.getByText("Department: Production")).toBeInTheDocument();
-    expect(screen.getByText("Current step:")).toBeInTheDocument();
+    expect(screen.getByText("What to do now:")).toBeInTheDocument();
     const confirmFilesButton = screen.getByRole("button", { name: "Confirm Files" });
     expect(confirmFilesButton).toBeInTheDocument();
     expect(screen.getByText("Shared note: Edit proof set before parent preview.")).toBeInTheDocument();
     fireEvent.click(confirmFilesButton);
     expect(await screen.findByLabelText("Move to next step")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Assign / Status" }));
-    expect(await screen.findByLabelText("Assign / Status current step")).toBeInTheDocument();
-    expect(screen.getByLabelText("Assigned person")).toBeInTheDocument();
-    expect(screen.getByLabelText("Department")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
+    expect(screen.queryByRole("button", { name: "Assign / Status" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Update step" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Assign / Status current step")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open work detail" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
 
     fireEvent.click(screen.getByRole("button", { name: /Heads Up/i }));
     expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);

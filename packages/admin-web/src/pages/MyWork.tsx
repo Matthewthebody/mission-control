@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Socket } from "socket.io-client";
 import { EmployeeShiftDetailPanel } from "../components/EmployeeShiftDetailPanel";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
-import { QuickWorkflowStepEditor } from "../components/projectTracking/QuickWorkflowStepEditor";
 import {
   fetchEmployeeMyWork,
   fetchEmployeeEventDetail,
@@ -46,7 +45,6 @@ export function MyWork({ token, currentUser, socket }: Props) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [editingWorkflowStepId, setEditingWorkflowStepId] = useState("");
   const scheduleStats = useMemo(() => buildScheduleWeekStats(payload), [payload]);
   const scheduleWeekDays = useMemo(() => buildScheduleWeekDays(payload), [payload]);
   const liveWorkflowSteps = payload?.live_workflow_steps ?? [];
@@ -173,8 +171,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
           <LaunchpadSummaryTile
             eyebrow="Workflow Steps Waiting on Me"
             value={payload?.summary.live_workflow_step_count ?? 0}
-            detail="Job or production steps where you are the assigned person."
-            helper={liveWorkflowSteps[0]?.next_action ?? "No workflow step is personally waiting on you."}
+            detail="Work steps that need your action."
+            helper={liveWorkflowSteps[0]?.next_action ?? "No work step is waiting on you."}
             active={activeLaunchpadSection === "workflow"}
             onSelect={() => setActiveLaunchpadSection("workflow")}
           />
@@ -270,19 +268,16 @@ export function MyWork({ token, currentUser, socket }: Props) {
           {activeLaunchpadSection === "workflow" ? (
             <PanelList
               title="Workflow Steps Waiting on Me"
-              subtitle="Current workflow steps assigned directly to you."
+              subtitle="Work steps that need your action."
               items={liveWorkflowSteps}
               getKey={(step) => step.id}
-              empty="No workflow steps are personally assigned to you."
+              empty="No work steps are waiting on you."
               renderItem={(step) => (
                 <WorkflowStepCard
                   step={step}
                   token={token}
-                  editing={editingWorkflowStepId === step.id}
-                  onToggleEdit={() => setEditingWorkflowStepId((current) => (current === step.id ? "" : step.id))}
                   onSaved={async () => {
                     await load();
-                    setEditingWorkflowStepId("");
                   }}
                 />
               )}
@@ -565,23 +560,19 @@ function JobCard({ job }: { job: EmployeeMyWorkJobRecord }) {
 function WorkflowStepCard({
   step,
   token,
-  editing,
-  onToggleEdit,
   onSaved
 }: {
   step: EmployeeMyWorkWorkflowStepRecord;
   token: string;
-  editing: boolean;
-  onToggleEdit: () => void;
   onSaved: () => Promise<void> | void;
 }) {
   return (
     <article className={`notification-card notification-card--${toneToNotificationClass(toneForWorkflowStep(step))}`}>
       <strong>{step.job_number ? `${step.job_number} - ${step.job_title}` : step.job_title}</strong>
       <div className="muted">Department: {formatDepartmentLabel(step.assigned_queue ?? step.department)}</div>
-      <div className="muted">Assigned person: You</div>
+      <div className="muted">Assigned to you</div>
       <div className="muted">
-        Current step:{" "}
+        What to do now:{" "}
         <QuickWorkflowNextStepMover
           token={token}
           workflowRunId={step.workflow_run_id}
@@ -599,20 +590,17 @@ function WorkflowStepCard({
       </div>
       {step.notes ? <div className="muted">Shared note: {step.notes}</div> : null}
       <div className="employee-workflow-step-card__actions">
-        <button type="button" className="button" onClick={onToggleEdit}>
-          Assign / Status
-        </button>
-        <a className="secondary-button" href={step.deep_link}>Open Workflow</a>
+        <a className="secondary-button" href={step.deep_link}>Open work detail</a>
       </div>
       <details className="employee-workflow-step-card__details">
-        <summary>Details</summary>
+        <summary>More context</summary>
         <div className="employee-workflow-step-card__details-grid">
           <div>
             <span>Next action</span>
             <strong>{step.next_action}</strong>
           </div>
           <div>
-            <span>Clear condition</span>
+            <span>Done when</span>
             <strong>{step.clear_condition}</strong>
           </div>
           {step.organization_display_name ? (
@@ -635,27 +623,11 @@ function WorkflowStepCard({
           ) : null}
         </div>
         <div className="employee-shift-card__flags">
-          <span className="meta-pill">From workflow</span>
+          <span className="meta-pill">Workflow</span>
           {step.assigned_queue ? <span className="meta-pill">{formatDepartmentLabel(step.assigned_queue)}</span> : null}
           <span className="meta-pill">{humanizeLabel(step.operational_status)}</span>
         </div>
       </details>
-      {editing ? (
-        <QuickWorkflowStepEditor
-          token={token}
-          workflowRunId={step.workflow_run_id}
-          step={{
-            id: step.id,
-            name: step.step_name,
-            status: step.status,
-            assigned_user_id: step.assigned_user_id ?? null,
-            assigned_queue: step.assigned_queue ?? null,
-            notes: step.notes ?? null,
-            updated_at: step.updated_at ?? null
-          }}
-          onSaved={onSaved}
-        />
-      ) : null}
     </article>
   );
 }
