@@ -331,6 +331,7 @@ export default function App() {
   const isMyWorkLaunchpadRoute = guardedRouteId === "dashboard-my-day";
   const isMyWorkSectionRoute = currentRoute.sectionKey === "my-work";
   const isScheduleSectionRoute = currentRoute.sectionKey === "schedule";
+  const isScheduleLandingRoute = guardedRouteId === "operations-schedule" || guardedRouteId === "dashboard-my-schedule";
   const isJobsSectionRoute = currentRoute.sectionKey === "jobs";
   const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
   const isPhotographySectionRoute = currentRoute.sectionKey === "photography";
@@ -868,7 +869,7 @@ export default function App() {
           </aside>
 
           <div className="app-shell__content">
-            {!isHomeRoute && !isMyWorkLaunchpadRoute && !isPhotographyOverviewRoute ? (
+            {!isHomeRoute && !isMyWorkLaunchpadRoute && !isScheduleLandingRoute && !isPhotographyOverviewRoute ? (
               <header className={`shell-topbar panel${headerCollapsed ? " shell-topbar--collapsed" : ""}`}>
                 <div className="shell-topbar__heading">
                   <div className="eyebrow">{activeSectionDefinition?.label ?? "Mission Control"}</div>

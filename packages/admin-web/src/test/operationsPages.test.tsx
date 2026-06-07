@@ -5299,7 +5299,62 @@ describe("admin operations regressions", () => {
     expect(screen.getAllByText("Leadership Command").length).toBeGreaterThan(0);
   }, 15000);
 
-  it("renders the employee schedule as a filtered assignment view without manager staffing controls", async () => {
+  it("renders the shared Schedule page as a calendar-first view without staffing command clutter", async () => {
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("/api/shifts/resources/members?anchor_date=")) {
+        return [
+          {
+            id: "user-photo",
+            email: "photo@example.com",
+            full_name: "Demo Photographer",
+            department: "schools",
+            roles: ["associate_photographer"]
+          }
+        ];
+      }
+      if (path.startsWith("/api/schedule/calendar?")) {
+        return unifiedScheduleCalendar;
+      }
+      if (path.startsWith("/api/shifts?date_from=")) {
+        return unifiedScheduleAssignments;
+      }
+      throw new Error(`Unexpected schedule call: ${path}`);
+    });
+
+    render(<Schedule token="token" currentUser={leadershipUser} />);
+
+    expect(screen.getByRole("heading", { name: "Schedule" })).toBeInTheDocument();
+    expect(screen.getByText("A readable calendar for shifts, events, shoots, locations, and weekly planning.")).toBeInTheDocument();
+    expect(screen.getByText("Team schedule")).toBeInTheDocument();
+    expect(screen.getByText("Day / Week / Month")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Calendar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Staffing Schedule/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Assignment Board/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Month" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "3-Day" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "List" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lane Board" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Coverage Requests/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Coverage gaps")).not.toBeInTheDocument();
+    expect(screen.queryByText("Critical role gaps")).not.toBeInTheDocument();
+    expect(screen.queryByText("Conflicts")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unconfirmed labor")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pending updates")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Staffing Health")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Lead")).not.toBeInTheDocument();
+
+    expect(await screen.findByText("Spring Portrait Day")).toBeInTheDocument();
+    expect(screen.getAllByText("Daily Ops Huddle").length).toBeGreaterThan(0);
+    expect(
+      apiFetchMock.mock.calls.some(
+        ([path]) => typeof path === "string" && path.startsWith("/api/schedule/board?")
+      )
+    ).toBe(false);
+  });
+
+  it("renders the employee schedule as a filtered assignment calendar without manager staffing controls", async () => {
     const personalScheduleCalendar: UnifiedScheduleCalendarResponse = {
       ...unifiedScheduleCalendar,
       items: unifiedScheduleCalendar.items
@@ -5328,21 +5383,11 @@ describe("admin operations regressions", () => {
             : item
         )
     };
-    const personalBoard: UnifiedScheduleBoardResponse = {
-      ...unifiedScheduleBoard,
-      groups: unifiedScheduleBoard.groups.map((group) => ({
-        ...group,
-        shoots: group.shoots.filter((shoot) => shoot.id === "shoot-1")
-      }))
-    };
     const personalAssignments = unifiedScheduleAssignments.filter((shift) => shift.assigned_user_id === "user-photo");
 
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/api/schedule/calendar?")) {
         return personalScheduleCalendar;
-      }
-      if (path.startsWith("/api/schedule/board?")) {
-        return personalBoard;
       }
       if (path.startsWith("/api/shifts?date_from=")) {
         return personalAssignments;
@@ -5353,28 +5398,29 @@ describe("admin operations regressions", () => {
     render(<Schedule token="token" currentUser={fieldScheduleUser} />);
 
     expect(screen.getByRole("heading", { name: "My Schedule" })).toBeInTheDocument();
-    expect(screen.getAllByText("My Schedule").length).toBeGreaterThan(0);
-    expect(screen.getByText("Your assigned shifts, linked jobs, work times, and locations stay in one compact personal schedule view.")).toBeInTheDocument();
-    expect(screen.getByText("Own assignments only")).toBeInTheDocument();
-    expect(screen.getByText("Schedule Date")).toBeInTheDocument();
+    expect(screen.getAllByText("My Schedule").length).toBeLessThanOrEqual(2);
+    expect(screen.getByText("Your shifts, events, linked jobs, times, and locations in one calendar view.")).toBeInTheDocument();
+    expect(screen.getByText("My schedule")).toBeInTheDocument();
+    expect(screen.getByText("Date")).toBeInTheDocument();
     expect(screen.queryByText("Anchor Date")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Connected Standards")).not.toBeInTheDocument();
     expect(screen.queryByText("Directory of Photography")).not.toBeInTheDocument();
     expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();
     expect(screen.queryByText("Company scope")).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Calendar/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Staffing Schedule/i })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Calendar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Staffing Schedule/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Assignment Board/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Day" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "3-Day" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "30-Day" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "List" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Month" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "3-Day" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "List" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Lane Board" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Staffing Health")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Lead")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Scheduling" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Work" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Work" })).not.toBeInTheDocument();
     expect(
       apiFetchMock.mock.calls.some(
         ([path]) => typeof path === "string" && path.startsWith("/api/schedule/board?")
@@ -5383,8 +5429,6 @@ describe("admin operations regressions", () => {
 
     expect((await screen.findAllByText("Spring Portrait Day")).length).toBeGreaterThan(0);
     expect((await screen.findAllByText("Main Gym")).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "My Work" }));
-    expect(window.location.hash).toBe("#my-work");
   });
 
   it("renders the shoots workspace queues and opens a meaningful shoot workspace", async () => {

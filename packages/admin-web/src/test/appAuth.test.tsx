@@ -467,7 +467,7 @@ describe("app auth bootstrap", () => {
 
     render(<App />);
 
-    expect((await screen.findAllByRole("heading", { name: "Schedule" })).length).toBeGreaterThan(0);
+    expect(await screen.findAllByRole("heading", { name: "Schedule" })).toHaveLength(1);
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
     expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();

@@ -86,6 +86,7 @@ export function UnifiedScheduleSurface({
   const schedulingWorkspace = workspaceMode === "scheduling";
   const scheduleWorkspace = workspaceMode === "schedule";
   const photographyPresentation = presentationMode === "photography";
+  const simpleCalendarMode = scheduleWorkspace && !photographyPresentation;
   const canManage = schedulingWorkspace && currentUser.permissions.includes("schedule.manage");
   const canViewBroaderAssignments = !employeeOnlyMode;
   const [isNarrowLayout, setIsNarrowLayout] = useState(() => matchesNarrowScheduleLayout());
@@ -634,15 +635,16 @@ export function UnifiedScheduleSurface({
       unconfirmedLaborCount: 0
     }
   );
-  const scheduleHeaderTitle = photographyPresentation ? "Photography Calendar" : scheduleWorkspace ? (employeeOnlyMode ? "My Schedule" : "Schedule") : "Scheduling";
+  const scheduleHeaderTitle = photographyPresentation ? "Photography Calendar" : simpleCalendarMode ? "Calendar" : "Scheduling";
   const scheduleHeaderSubtitle = photographyPresentation
     ? "A read-only view of upcoming shoots, timing, client names, and the few alerts that need field attention."
-    : scheduleWorkspace
-      ? "Schedule is the clean assignment layer. It keeps your own work, timing, location, and update status readable without exposing manager staffing control."
+    : simpleCalendarMode
+      ? "Day, week, and month views for shifts, events, shoots, locations, and linked work."
       : "Scheduling is the staffing control layer. Plan coverage, compare required vs assigned labor, and catch gaps before the day goes live.";
+  const monthRangeLabel = simpleCalendarMode ? "Month" : "30-Day";
 
   return (
-    <section className="panel dashboard-panel unified-schedule-surface">
+    <section className={`panel dashboard-panel unified-schedule-surface${simpleCalendarMode ? " unified-schedule-surface--simple" : ""}`}>
       <div className="dashboard-panel__header">
         <div>
           <div className="section-title">{scheduleHeaderTitle}</div>
@@ -662,6 +664,7 @@ export function UnifiedScheduleSurface({
                 >
                   Day
                 </button>
+                {schedulingWorkspace ? (
                 <button
                   className={surfaceMode === "schedule" && layoutMode === "grid" && rangeMode === "3day" ? "is-active" : ""}
                   onClick={() => {
@@ -672,6 +675,7 @@ export function UnifiedScheduleSurface({
                 >
                   3-Day
                 </button>
+                ) : null}
               </>
             ) : null}
             <button
@@ -692,9 +696,9 @@ export function UnifiedScheduleSurface({
                 setRangeMode("30day");
               }}
             >
-              30-Day
+              {monthRangeLabel}
             </button>
-            {!photographyPresentation ? (
+            {schedulingWorkspace && !photographyPresentation ? (
               <button
                 className={surfaceMode === "schedule" && layoutMode === "list" ? "is-active" : ""}
                 onClick={() => {
@@ -753,7 +757,7 @@ export function UnifiedScheduleSurface({
             <strong>{rangeMode === "30day" ? "30 days" : "Week"}</strong>
           </article>
         </div>
-      ) : (
+      ) : simpleCalendarMode ? null : (
         <div className="schedule-workspace-summary">
           <article className="schedule-workspace-summary__card">
             <span>Assignments in view</span>
@@ -774,7 +778,7 @@ export function UnifiedScheduleSurface({
         </div>
       )}
 
-      {!photographyPresentation ? (
+      {schedulingWorkspace && !photographyPresentation ? (
         <div className="schedule-sync-summary">
           <span className="metric-pill">{visibleShoots.length} shoots in view</span>
           <span className="metric-pill">{visibleAssignments} assignments in scope</span>
@@ -798,7 +802,7 @@ export function UnifiedScheduleSurface({
             </select>
           </label>
         ) : null}
-        {(schedulingWorkspace || canViewBroaderAssignments) ? (
+        {schedulingWorkspace || (simpleCalendarMode && canViewBroaderAssignments) ? (
           <label className="filter-field">
             <span>Department</span>
             <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
@@ -814,7 +818,7 @@ export function UnifiedScheduleSurface({
             </select>
           </label>
         ) : null}
-        {(schedulingWorkspace || canViewBroaderAssignments) ? (
+        {schedulingWorkspace || (canViewBroaderAssignments && !simpleCalendarMode) ? (
           <label className="filter-field">
             <span>Status</span>
             <input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} placeholder="scheduled, live, completed..." />
@@ -857,11 +861,11 @@ export function UnifiedScheduleSurface({
             </select>
           </label>
         ) : null}
-        {(schedulingWorkspace || canViewBroaderAssignments) ? (
+        {schedulingWorkspace || (simpleCalendarMode && canViewBroaderAssignments) ? (
           <label className="filter-field">
-            <span>Employee</span>
+            <span>Team Member</span>
             <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
-              <option value="">All Employees</option>
+              <option value="">Team Schedule</option>
               {members.map((member) => (
                 <option key={`employee-${member.id}`} value={member.id}>
                   {formatScheduleLeadName(member.full_name, "Team Member")}
@@ -892,11 +896,11 @@ export function UnifiedScheduleSurface({
         </label>
         {!employeeOnlyMode ? (
           <label className="filter-field filter-field--checkbox">
-            <span>{scheduleWorkspace ? "My Assignments Only" : "My Items Only"}</span>
+            <span>{simpleCalendarMode ? "My Schedule" : scheduleWorkspace ? "My Assignments Only" : "My Items Only"}</span>
             <input type="checkbox" checked={myItemsOnly} onChange={(event) => setMyItemsOnly(event.target.checked)} />
           </label>
         ) : null}
-        {surfaceMode === "schedule" && layoutMode !== "list" && gridMode !== "month" && !photographyPresentation ? (
+        {surfaceMode === "schedule" && layoutMode !== "list" && gridMode !== "month" && schedulingWorkspace && !photographyPresentation ? (
           <label className="filter-field">
             <span>Assignments</span>
             <select value={staffingDisplayMode} onChange={(event) => setStaffingDisplayMode(event.target.value as StaffingDisplayMode)}>
@@ -1016,7 +1020,7 @@ export function UnifiedScheduleSurface({
         selectedItemKey,
         selectedShootBriefing,
         showStaffingDetails: schedulingWorkspace,
-        showIntegrationDetails: !photographyPresentation,
+        showIntegrationDetails: schedulingWorkspace && !photographyPresentation,
         photographyPresentation,
         setSelectedDayKey,
         setSelectedItemKey,

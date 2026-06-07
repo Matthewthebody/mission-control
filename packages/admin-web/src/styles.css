@@ -7325,6 +7325,40 @@ html[data-theme="light"] .leadership-shoot-workspace__slot-card {
   gap: 18px;
 }
 
+.unified-schedule-surface--simple {
+  gap: 14px;
+}
+
+.unified-schedule-surface--simple .dashboard-panel__header {
+  align-items: center;
+  padding-bottom: 4px;
+}
+
+.unified-schedule-surface--simple .schedule-filter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.unified-schedule-surface--simple .schedule-day-column {
+  border-color: rgba(126, 162, 198, 0.2);
+  background: rgba(12, 23, 38, 0.5);
+}
+
+.unified-schedule-surface--simple .schedule-event-card,
+.unified-schedule-surface--simple .schedule-shift-card {
+  border-left: 4px solid rgba(126, 162, 198, 0.78);
+  border-radius: 8px;
+}
+
+.unified-schedule-surface--simple .schedule-day-summary-card--watch,
+.unified-schedule-surface--simple .schedule-event-card--watch {
+  border-left-color: rgba(211, 165, 106, 0.86);
+}
+
+.unified-schedule-surface--simple .schedule-day-summary-card--critical,
+.unified-schedule-surface--simple .schedule-event-card--critical {
+  border-left-color: rgba(182, 91, 91, 0.9);
+}
+
 .schedule-sync-summary,
 .schedule-workspace-summary,
 .schedule-filter-grid,
