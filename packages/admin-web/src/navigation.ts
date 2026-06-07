@@ -91,6 +91,7 @@ type RouteRender =
   | { kind: "operations-exceptions" }
   | { kind: "project-tracking-command-center" }
   | { kind: "prep-readiness-queue" }
+  | { kind: "production-hub" }
   | { kind: "production-workflow-queue" }
   | { kind: "workflow-template-builder" }
   | { kind: "client-command-center" }
@@ -176,7 +177,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
     key: "production",
     label: "Production",
     description: "Downstream production queue, active production work, QA, release, handoff, and files.",
-    routeId: "graphics"
+    routeId: "production"
   },
   {
     key: "project-tracking",
@@ -948,8 +949,19 @@ const ROUTES: RouteDefinition[] = [
     render: { kind: "sports-settings" }
   },
   {
-    id: "graphics",
+    id: "production",
     label: "Production",
+    sectionKey: "production",
+    description: "Processing, QA, uploads, and release readiness.",
+    canonicalHash: "#production",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "production-hub" }
+  },
+  {
+    id: "graphics",
+    label: "Production Board",
     sectionKey: "production",
     description: "Internal graphics and downstream production board for intake, queue management, QA, release readiness, blockers, and workload.",
     canonicalHash: "#graphics",
@@ -2233,7 +2245,10 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "production-queue" || path === "production/workflow-queue" || path === "production/handoffs") {
     return pickVisibleRoute("production-workflow-queue", availableTabs, employeeOnlyMode);
   }
-  if (path === "production" || path === "projects") {
+  if (path === "production") {
+    return pickVisibleRoute("production", availableTabs, employeeOnlyMode);
+  }
+  if (path === "projects") {
     // Hash-based `#projects` is a Graphics compatibility route inside the admin shell.
     // It is intentionally separate from the external `/projects/{portal_project_key}` portal.
     return resolveGraphicsAlias(params, availableTabs, employeeOnlyMode);

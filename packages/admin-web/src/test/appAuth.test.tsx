@@ -1086,7 +1086,8 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#photography/staffing", availableTabs, false)).toBe("operations-staffing");
     expect(resolveRouteId("#photography/calendar", availableTabs, false)).toBe("studios-calendar");
     expect(resolveRouteId("#photography/workload", availableTabs, false)).toBe("studios-workload");
-    expect(resolveRouteId("#production", availableTabs, false)).toBe("graphics");
+    expect(resolveRouteId("#production", availableTabs, false)).toBe("production");
+    expect(resolveRouteId("#production", availableTabs.filter((tab) => tab !== "projects"), false)).toBe("production");
     expect(resolveRouteId("#graphics", availableTabs, false)).toBe("graphics");
     expect(resolveRouteId("#production/queue", availableTabs, false)).toBe("graphics-queue");
     expect(resolveRouteId("#graphics/queue", availableTabs, false)).toBe("graphics-queue");
@@ -1210,6 +1211,7 @@ describe("app auth bootstrap", () => {
     ]);
     expect(photographySection?.label).toBe("Photography");
     expect(productionSection?.label).toBe("Production");
+    expect(productionSection?.routeId).toBe("production");
     expect(sections.find((section) => section.key === "needs-attention")?.label).toBe("Needs Attention");
     expect(sections.find((section) => section.key === "contacts")?.label).toBe("Directory");
     expect(leadershipSection?.childRouteIds).toContain("growth");

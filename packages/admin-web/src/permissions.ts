@@ -1956,7 +1956,7 @@ export function canAccessSection(user: SessionUser, sectionKey: ShellSectionKey)
     case "photography":
       return canAccessStudiosWorkspace(user);
     case "production":
-      return canAccessGraphicsWorkspace(user);
+      return canAccessGraphicsWorkspace(user) || canAccessProjectTracking(user);
     case "project-tracking":
       return canAccessProjectTracking(user);
     case "jobs":
@@ -2158,7 +2158,7 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
     case "graphics":
       return canAccessGraphicsWorkspace(user);
     case "production":
-      return canAccessGraphicsWorkspace(user);
+      return canAccessGraphicsWorkspace(user) || canAccessProjectTracking(user);
     case "files":
       return canAccessGraphicsWorkspace(user);
     case "production-assets":

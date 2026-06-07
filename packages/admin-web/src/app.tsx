@@ -220,6 +220,9 @@ const LazyPrepReadinessQueuePage = lazy(() =>
 const LazyProductionWorkflowQueue = lazy(() =>
   import("./pages/ProductionWorkflowQueue").then((module) => ({ default: module.ProductionWorkflowQueue }))
 );
+const LazyProductionHub = lazy(() =>
+  import("./pages/ProductionHub").then((module) => ({ default: module.ProductionHub }))
+);
 const LazyWorkflowTemplateBuilderPage = lazy(() =>
   import("./pages/WorkflowTemplateBuilderPage").then((module) => ({ default: module.WorkflowTemplateBuilderPage }))
 );
@@ -1488,6 +1491,14 @@ function renderRouteContent({
       <LazyProductionWorkflowQueue token={token} currentUser={currentUser} />,
       "Loading Production Queue",
       "Opening handoff-backed Production work."
+    );
+  }
+
+  if (route.render.kind === "production-hub") {
+    return withRouteSuspense(
+      <LazyProductionHub token={token} currentUser={currentUser} />,
+      "Loading Production",
+      "Opening the Production department hub."
     );
   }
 
