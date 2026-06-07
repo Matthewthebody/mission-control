@@ -695,21 +695,33 @@ describe("My Work page", () => {
     });
   });
 
-  it("renders My Work as a shared execution center instead of a shift-first day console", async () => {
+  it("renders My Work as a focused employee launchpad", async () => {
     render(<MyWork token="token" currentUser={fieldUser} socket={null} />);
 
     expect(await screen.findByText("Your Day")).toBeInTheDocument();
-    expect(screen.getByText("Daily Cockpit")).toBeInTheDocument();
-    expect(screen.getByText("Today")).toBeInTheDocument();
-    expect(screen.getByText("Schedule")).toBeInTheDocument();
-    expect(screen.getByText("Lookahead")).toBeInTheDocument();
-    expect(screen.getByText("Assigned Jobs")).toBeInTheDocument();
-    expect(screen.getAllByText("Current Steps").length).toBeGreaterThan(0);
-    expect(screen.getByText("Assigned Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Required Acknowledgements")).toBeInTheDocument();
-    expect(screen.getByText("Owned Exceptions")).toBeInTheDocument();
-    expect(screen.getByText("Approvals Waiting On You")).toBeInTheDocument();
-    expect(screen.getAllByText("Recent Changes").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/^My Work$/i).length).toBeLessThanOrEqual(1);
+    expect(screen.queryByText("Daily Cockpit")).not.toBeInTheDocument();
+    expect(screen.getByText("Tasks assigned to you, workflows you're part of, and things your department may need help with.")).toBeInTheDocument();
+    expect(screen.getByText("Launchpad")).toBeInTheDocument();
+    expect(screen.queryAllByText("Time Clock").length).toBeLessThanOrEqual(1);
+    expect(screen.queryAllByText("Off Shift").length).toBeLessThanOrEqual(1);
+    expect(screen.getAllByText("My Schedule This Week").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Assigned Tasks").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Workflow Steps Waiting on Me").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Heads Up").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("3.8h scheduled this week").length).toBeGreaterThan(0);
+    expect(screen.getByText("Worked hours show after punches are captured")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View schedule" })).toHaveAttribute("href", "#my-schedule");
+    expect(screen.getByText("Related jobs (1)")).toBeInTheDocument();
+    expect(screen.queryByText("Assigned Jobs")).not.toBeInTheDocument();
+    expect(screen.queryByText("Current Steps")).not.toBeInTheDocument();
+    expect(screen.queryByText("Events")).not.toBeInTheDocument();
+    expect(screen.queryByText("Exceptions")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approvals")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent Changes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Required Acknowledgements")).not.toBeInTheDocument();
+    expect(screen.queryByText("Owned Exceptions")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approvals Waiting On You")).not.toBeInTheDocument();
     expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();
     expect(screen.getByText(/Confirm roster/i)).toBeInTheDocument();
     expect(screen.getByText("Assigned person: You")).toBeInTheDocument();
@@ -725,10 +737,8 @@ describe("My Work page", () => {
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
     expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Why it matters: this change may affect how you arrive/i)).toBeInTheDocument();
     expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
-    expect(screen.getByText(/Why it matters: this is blocking downstream work/i)).toBeInTheDocument();
-    expect(screen.getByText("Next: Review approval")).toBeInTheDocument();
+    expect(screen.getByText(/Blocking downstream work until reviewed/i)).toBeInTheDocument();
 
     expect(screen.queryByText("My Shifts")).not.toBeInTheDocument();
     expect(screen.queryByText("Attendance Risk")).not.toBeInTheDocument();
@@ -738,7 +748,7 @@ describe("My Work page", () => {
     render(<MyWork token="token" currentUser={fieldUser} socket={null} />);
 
     expect(await screen.findByText("Selected Event Detail")).toBeInTheDocument();
-    expect(screen.getByText(/Choose an event from Immediate Schedule/i)).toBeInTheDocument();
+    expect(screen.getByText(/Choose an event from My Schedule This Week/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /DEMO-001/i }));
 
@@ -747,7 +757,7 @@ describe("My Work page", () => {
     });
 
     expect(apiFetchMock).toHaveBeenCalledWith("/api/employee/events/shift-1", "token");
-    expect(screen.queryByText(/Choose an event from Immediate Schedule/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Choose an event from My Schedule This Week/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit Post-Shoot Eval" })).toBeInTheDocument();
   });
 });

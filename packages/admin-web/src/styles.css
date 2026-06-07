@@ -12375,29 +12375,86 @@ html[data-theme="light"] .shoot-priority-chip {
 
 .employee-day-command__cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
 .employee-summary-tile {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 15px 16px;
+  padding: 13px 14px;
   background: linear-gradient(160deg, rgba(7, 18, 31, 0.74), rgba(9, 24, 40, 0.92));
   box-shadow: var(--shadow);
 }
 
+.employee-summary-tile--heads_up {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: linear-gradient(160deg, rgba(113, 63, 18, 0.42), rgba(9, 24, 40, 0.92));
+}
+
+.employee-summary-tile--action_needed {
+  border-color: rgba(224, 84, 84, 0.42);
+  background: linear-gradient(160deg, rgba(127, 29, 29, 0.42), rgba(9, 24, 40, 0.92));
+}
+
 .employee-summary-tile strong {
   display: block;
-  font-size: 1.7rem;
+  font-size: 1.55rem;
   line-height: 1;
-  margin: 8px 0 6px;
+  margin: 2px 0;
+}
+
+.employee-summary-tile p,
+.employee-summary-tile small {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .employee-summary-tile p {
-  margin: 0;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.employee-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.employee-schedule-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.employee-schedule-stats span,
+.employee-collapsible-list > summary {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(126, 162, 198, 0.1);
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.employee-collapsible-list {
+  margin-top: 16px;
+}
+
+.employee-collapsible-list > summary {
+  display: inline-flex;
+  cursor: pointer;
+  color: var(--text);
 }
 
 .employee-work-layout {

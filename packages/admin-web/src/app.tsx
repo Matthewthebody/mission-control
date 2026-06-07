@@ -325,10 +325,11 @@ export default function App() {
     (route): route is (typeof utilityRoutes)[number] => Boolean(route)
   );
   const isHomeRoute = guardedRouteId === "dashboard";
-  const visibleSecondaryRoutes = isHomeRoute ? [] : secondaryRoutes;
-  const visibleContextUtilityRoutes = isHomeRoute ? [] : contextUtilityRoutes;
-  const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
+  const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
+  const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
+  const visibleContextUtilityRoutes = isHomeRoute ? [] : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
+  const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
   const desktopNavGroups = buildDesktopNavGroups(primarySections);
   const sectionLandingCards =
     currentRoute.sectionKey != null
@@ -858,7 +859,7 @@ export default function App() {
                   <div className="eyebrow">{activeSectionDefinition?.label ?? "Mission Control"}</div>
                   <div className="shell-topbar__title-wrap">
                     <h1>{currentRoute.label}</h1>
-                    {!headerCollapsed && activeSectionDefinition ? (
+                    {!headerCollapsed && activeSectionDefinition && !currentRouteRepeatsSectionLabel ? (
                       <div className="shell-topbar__supporting-line">
                         <span>{activeSectionDefinition.label}</span>
                       </div>
