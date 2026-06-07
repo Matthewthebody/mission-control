@@ -57,7 +57,6 @@ const LIGHT_THEME_COLOR = "#f4efe6";
 const DARK_THEME_COLOR = "#081523";
 const HEADER_COLLAPSE_SCROLL_Y = 104;
 const HEADER_EXPAND_SCROLL_Y = 36;
-const QUICK_ACCESS_ROUTE_IDS: ShellRouteId[] = ["dashboard-my-day", "dashboard-my-schedule", "search", "dashboard-alerts"];
 const LazyCustomerService = lazy(() =>
   import("./pages/CustomerService").then((module) => ({ default: module.CustomerService }))
 );
@@ -324,29 +323,28 @@ export default function App() {
     currentUser ? canAccessRoute(currentUser, route.id) : false
   );
   const accountUtilityRoute = utilityRoutes.find((route) => route.id === "account") ?? null;
-  const contextUtilityRoutes = QUICK_ACCESS_ROUTE_IDS.map((routeId) => utilityRoutes.find((route) => route.id === routeId) ?? null).filter(
-    (route): route is (typeof utilityRoutes)[number] => Boolean(route)
-  );
   const isHomeRoute = guardedRouteId === "dashboard";
   const isMyWorkLaunchpadRoute = guardedRouteId === "dashboard-my-day";
-  const isMyWorkSectionRoute = currentRoute.sectionKey === "my-work";
-  const isScheduleSectionRoute = currentRoute.sectionKey === "schedule";
   const isScheduleLandingRoute = guardedRouteId === "operations-schedule" || guardedRouteId === "dashboard-my-schedule";
-  const isJobsSectionRoute = currentRoute.sectionKey === "jobs";
   const isDirectoryRoute = currentRoute.sectionKey === "contacts" || guardedRouteId.startsWith("directory-");
   const isPhotographySectionRoute = currentRoute.sectionKey === "photography";
-  const isPhotographyOverviewRoute = guardedRouteId === "studios";
   const isProjectTrackingOverviewRoute = guardedRouteId === "project-tracking";
+  const isProductionSectionRoute = currentRoute.sectionKey === "production";
   const activeSectionDefinition = activeSection ? getSectionDefinition(activeSection.key) : null;
   const currentRouteRepeatsSectionLabel = activeSectionDefinition?.label === currentRoute.label;
   const topbarRouteLabel = guardedRouteId === "jobs" ? "Database" : isDirectoryRoute ? "Directory" : currentRoute.label;
   const visibleSecondaryRoutes = isHomeRoute || currentRouteRepeatsSectionLabel ? [] : secondaryRoutes;
-  const visibleContextUtilityRoutes =
-    isHomeRoute || isMyWorkSectionRoute || isScheduleSectionRoute || isJobsSectionRoute || isDirectoryRoute || isPhotographySectionRoute
-      ? []
-      : contextUtilityRoutes.filter((route) => route.id !== guardedRouteId);
+  const visibleContextUtilityRoutes: typeof utilityRoutes = [];
   const visibleHeaderUtilityRoutes = isHomeRoute ? utilityRoutes.filter((route) => route.id === "account") : utilityRoutes;
   const showTopbarMeta = !isDirectoryRoute;
+  const routeOwnsPrimaryHeader =
+    isHomeRoute ||
+    isMyWorkLaunchpadRoute ||
+    isScheduleLandingRoute ||
+    isDirectoryRoute ||
+    isPhotographySectionRoute ||
+    isProjectTrackingOverviewRoute ||
+    isProductionSectionRoute;
   const desktopNavGroups = buildDesktopNavGroups(primarySections);
   const sectionLandingCards =
     currentRoute.sectionKey != null
@@ -870,7 +868,7 @@ export default function App() {
           </aside>
 
           <div className="app-shell__content">
-            {!isHomeRoute && !isMyWorkLaunchpadRoute && !isScheduleLandingRoute && !isPhotographyOverviewRoute && !isProjectTrackingOverviewRoute ? (
+            {!routeOwnsPrimaryHeader ? (
               <header className={`shell-topbar panel${headerCollapsed ? " shell-topbar--collapsed" : ""}`}>
                 <div className="shell-topbar__heading">
                   <div className="eyebrow">{activeSectionDefinition?.label ?? "Mission Control"}</div>

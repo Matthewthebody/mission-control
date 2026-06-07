@@ -471,6 +471,8 @@ describe("app auth bootstrap", () => {
     expect(await screen.findAllByRole("heading", { name: "Schedule" })).toHaveLength(1);
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
     expect(screen.queryByText("Demo Admin")).not.toBeInTheDocument();
     expect(screen.queryByText("Director Admin")).not.toBeInTheDocument();
     expect(screen.queryByText("Director Of Photography")).not.toBeInTheDocument();
@@ -518,6 +520,8 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("heading", { name: "Jobs", level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
   });
 
   it("keeps the Photography overview free of duplicate shell title and Quick Access clutter", async () => {
@@ -571,6 +575,8 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("heading", { name: "Photography", level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
     expect(screen.getByText("Open First")).toBeInTheDocument();
   });
 
@@ -651,6 +657,8 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("heading", { name: "My Work", level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Clocked Out" })).toHaveLength(1);
     expect(screen.queryByText("Off Shift")).not.toBeInTheDocument();
   });
@@ -696,8 +704,11 @@ describe("app auth bootstrap", () => {
     render(<App />);
 
     expect(await screen.findByText("Search clients, organizations, contacts, and locations. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Directory" })).toHaveLength(1);
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
     expect(screen.queryByText("Connected")).not.toBeInTheDocument();
     expect(screen.queryByText("Standard")).not.toBeInTheDocument();
     expect(screen.queryByText("Team Member")).not.toBeInTheDocument();
@@ -750,6 +761,8 @@ describe("app auth bootstrap", () => {
     expect(await screen.findByText("Search clients, organizations, contacts, and locations. Use Locations when the place matters first, then open the connected organization for the full record.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Locations" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search for a school, sports org, contact, or location...")).toBeInTheDocument();
+    expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
     expect(screen.queryByText("Kemmetmueller Location Guide")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Client Command Center" })).not.toBeInTheDocument();
   });

@@ -429,6 +429,10 @@ describe("SportsOverview", () => {
     expect(screen.getByText("Sports Signals")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Upcoming Shoots" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Staffing Readiness" })).toBeInTheDocument();
+    expect(screen.queryByText(/shared sports contract/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/shared contract/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/read models?/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/operating contract/i)).not.toBeInTheDocument();
   });
 
   it("routes the main Sports create and account actions to existing safe pages", async () => {

@@ -59,6 +59,7 @@ export function ProductionHub({ token, currentUser }: Props) {
   const dataUnavailable = Boolean(error && !payload);
   const statusTone: HubTone = dataUnavailable ? "watch" : urgentCount > 0 ? "danger" : readyForQaCount > 0 || dueThisWeek.length > 0 ? "watch" : "good";
   const statusLabel = dataUnavailable ? "Demo data unavailable" : statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
+  const productionViewerName = currentUser.fullName.trim().toLowerCase() === "demo admin" ? "Mission Control User" : currentUser.fullName;
   const openFirstCards: DepartmentHubCard[] = [
     { label: "Jobs Waiting For Processing", value: waitingCount, detail: "Needs file ingest, owner assignment, or production kickoff.", href: "#production/queue", tone: waitingCount ? "warning" : "success" },
     { label: "QA Needed", value: readyForQaCount, detail: "Color, crop, roster, upload, or release review.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
@@ -92,7 +93,7 @@ export function ProductionHub({ token, currentUser }: Props) {
           <div className="production-hub__status-row">
             <span className={`production-hub__status production-hub__status--${statusTone}`}>{statusLabel}</span>
             <span className="metric-pill">{urgentCount} urgent</span>
-            <span className="metric-pill">Viewing as {currentUser.fullName}</span>
+            <span className="metric-pill">Viewing as {productionViewerName}</span>
           </div>
         </div>
         <div className="production-hub__hero-actions">

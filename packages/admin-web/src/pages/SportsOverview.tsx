@@ -625,7 +625,7 @@ export function SportsOverview({ token, currentUser }: Props) {
   const allErrors = Object.values(errors).filter(Boolean);
 
   if (loading) {
-    return <WorkspaceLoadingBlock title="Loading Sports" summary="Opening the shared sports contract and the department read models tied to it." />;
+    return <WorkspaceLoadingBlock title="Loading Sports" summary="Opening sports jobs, team details, releases, and staffing signals." />;
   }
 
   if (!overview && !sharedJobs.length && !tasks.length && !exceptions.length && !dashboard && !peerQaBoard) {
@@ -640,7 +640,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         <section className="panel">
           <WorkspaceEmptyState
             title="Sports overview unavailable"
-            summary={allErrors.join(" ") || "We couldn't open the sports contract view right now."}
+            summary={allErrors.join(" ") || "We couldn't open the sports board right now."}
             actions={
               <button type="button" onClick={() => window.location.reload()}>
                 Retry
@@ -659,7 +659,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         title="Sports"
         summary="Track sports jobs, team and individual photo coverage, staffing needs, and gallery releases."
         meta={[
-          { label: overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Shared contract view", tone: "info" },
+          { label: overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Sports board", tone: "info" },
           { label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "success" }
         ]}
         actions={
@@ -842,7 +842,7 @@ export function SportsOverview({ token, currentUser }: Props) {
         token={token}
         currentUser={currentUser}
         departmentType="sports"
-        title="Sports Command Layer"
+        title="Sports Operations Health"
         summary="Shared operational health for sports readiness, staffing volatility, missing ready confirmations, blocked workflow, overdue approvals, and delivery risk."
         routeHash="#sports/exceptions"
       />
@@ -893,8 +893,8 @@ export function SportsOverview({ token, currentUser }: Props) {
           <CreateWorkLauncherPanel
             className="sports-workspace__create-panel"
             eyebrow="Sports Create"
-            title="Start sports work in the shared lanes"
-            summary="Sports jobs and events create the real workload. Sports tasks and graphics work stay attached to the same shared operating contract."
+            title="Start sports work"
+            summary="Sports jobs and events create the real workload. Sports tasks and graphics work stay attached to the same sports record."
             jobAction={{
               label: "New Sports Job / Event",
               summary: "Create the sports job that should flow into scheduling, staffing, proofs, specialty products, and shared graphics workflow.",
@@ -1010,7 +1010,7 @@ export function SportsOverview({ token, currentUser }: Props) {
             title="Jobs"
             items={sharedJobCards}
             emptyTitle="No sports jobs in motion"
-            emptyDescription="Published sports jobs tied to the shared contract will surface here."
+            emptyDescription="Published sports jobs tied to this Sports board will surface here."
           />
           <OverviewListCard
             title="Tasks"

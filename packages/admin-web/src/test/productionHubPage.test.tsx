@@ -245,6 +245,7 @@ describe("ProductionHub", () => {
     expect(screen.getByText("At Risk / Blocked")).toBeInTheDocument();
     expect(screen.getAllByText("Recently Completed").length).toBeGreaterThan(0);
     expect(screen.getByText("Department Help Needed")).toBeInTheDocument();
+    expect(screen.getByText("Viewing as Production Lead")).toBeInTheDocument();
 
     expect(screen.getByRole("link", { name: /Open Production Queue/i })).toHaveAttribute("href", "#production/queue");
     expect(screen.getByRole("link", { name: /Review QA/i })).toHaveAttribute("href", "#production/qa");
@@ -259,6 +260,14 @@ describe("ProductionHub", () => {
     await waitFor(() => {
       expect(listSharedProductionQueueMock).toHaveBeenCalledWith("token-demo");
     });
+  });
+
+  it("does not expose the demo admin user label in the Production status line", async () => {
+    render(<ProductionHub token="token-demo" currentUser={{ ...productionUser, fullName: "Demo Admin" }} />);
+
+    expect(await screen.findByRole("heading", { name: "Production" })).toBeInTheDocument();
+    expect(screen.getByText("Viewing as Mission Control User")).toBeInTheDocument();
+    expect(screen.queryByText("Viewing as Demo Admin")).not.toBeInTheDocument();
   });
 
   it("shows a safe demo state instead of raw internal errors when production data is unavailable", async () => {
