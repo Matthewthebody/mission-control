@@ -30,6 +30,7 @@ type Props = {
   workspaceMode?: "scheduling" | "schedule";
   initialView?: "jobs" | "staffing" | "assignment_board";
   initialRange?: ScheduleRangeMode;
+  defaultMyItemsOnly?: boolean;
   presentationMode?: "default" | "photography";
   token: string;
   anchorDate: string;
@@ -69,6 +70,7 @@ export function UnifiedScheduleSurface({
   workspaceMode = "scheduling",
   initialView = "jobs",
   initialRange = "week",
+  defaultMyItemsOnly,
   presentationMode = "default",
   token,
   anchorDate,
@@ -103,7 +105,7 @@ export function UnifiedScheduleSurface({
   const [shootTypeFilter, setShootTypeFilter] = useState("");
   const [staffingHealthFilter, setStaffingHealthFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
-  const [myItemsOnly, setMyItemsOnly] = useState(scheduleWorkspace || employeeOnlyMode);
+  const [myItemsOnly, setMyItemsOnly] = useState(defaultMyItemsOnly ?? employeeOnlyMode);
   const [staffingDisplayMode, setStaffingDisplayMode] = useState<StaffingDisplayMode>(
     scheduleWorkspace || employeeOnlyMode || businessRole === "shoot_lead" ? "show_assignments" : "shoots_only"
   );
@@ -238,9 +240,9 @@ export function UnifiedScheduleSurface({
     if (scheduleWorkspace) {
       setSurfaceMode("schedule");
       setStaffingDisplayMode("show_assignments");
-      setMyItemsOnly(true);
+      setMyItemsOnly(defaultMyItemsOnly ?? employeeOnlyMode);
     }
-  }, [scheduleWorkspace]);
+  }, [defaultMyItemsOnly, employeeOnlyMode, scheduleWorkspace]);
 
   useEffect(() => {
     if (initialView === "assignment_board") {
@@ -635,11 +637,13 @@ export function UnifiedScheduleSurface({
       unconfirmedLaborCount: 0
     }
   );
-  const scheduleHeaderTitle = photographyPresentation ? "Photography Calendar" : simpleCalendarMode ? "Calendar" : "Scheduling";
+  const scheduleHeaderTitle = photographyPresentation ? "Photography Calendar" : simpleCalendarMode ? (myItemsOnly ? "My Calendar" : "Team Calendar") : "Scheduling";
   const scheduleHeaderSubtitle = photographyPresentation
     ? "A read-only view of upcoming shoots, timing, client names, and the few alerts that need field attention."
     : simpleCalendarMode
-      ? "Day, week, and month views for shifts, events, shoots, locations, and linked work."
+      ? myItemsOnly
+        ? "Your shifts, events, shoots, locations, and linked work."
+        : "Team shifts, events, shoots, locations, and linked work."
       : "Scheduling is the staffing control layer. Plan coverage, compare required vs assigned labor, and catch gaps before the day goes live.";
   const monthRangeLabel = simpleCalendarMode ? "Month" : "30-Day";
 
@@ -863,9 +867,9 @@ export function UnifiedScheduleSurface({
         ) : null}
         {schedulingWorkspace || (simpleCalendarMode && canViewBroaderAssignments) ? (
           <label className="filter-field">
-            <span>Team Member</span>
+            <span>Staff</span>
             <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
-              <option value="">Team Schedule</option>
+              <option value="">All staff</option>
               {members.map((member) => (
                 <option key={`employee-${member.id}`} value={member.id}>
                   {formatScheduleLeadName(member.full_name, "Team Member")}
@@ -896,7 +900,7 @@ export function UnifiedScheduleSurface({
         </label>
         {!employeeOnlyMode ? (
           <label className="filter-field filter-field--checkbox">
-            <span>{simpleCalendarMode ? "My Schedule" : scheduleWorkspace ? "My Assignments Only" : "My Items Only"}</span>
+            <span>{simpleCalendarMode ? "My shifts" : scheduleWorkspace ? "My Assignments Only" : "My Items Only"}</span>
             <input type="checkbox" checked={myItemsOnly} onChange={(event) => setMyItemsOnly(event.target.checked)} />
           </label>
         ) : null}
@@ -1669,7 +1673,7 @@ function ScheduleDayBriefing({
 
       {selectedDayItems.length ? (
         <section className="shoot-briefing__section">
-          <div className="section-title">Day Queue</div>
+          <div className="section-title">Scheduled That Day</div>
           <div className="schedule-day-queue">
             {selectedDayItems.map((item) =>
               isShootItem(item) ? (
@@ -1685,11 +1689,12 @@ function ScheduleDayBriefing({
                     </span>
                     <span className="schedule-day-queue__time">{formatTimeRange(item.starts_at, item.ends_at)}</span>
                   </div>
-                  <strong>{item.shoot_code} | {item.title}</strong>
+                  <strong>{item.title}</strong>
                   <div className="muted" title={item.location_name || item.location_address || "Location pending"}>
                     {item.location_name || item.location_address || "Location pending"}
                   </div>
                   <div className="schedule-day-queue__meta">
+                    <span className="meta-pill">{item.shoot_code}</span>
                     {showStaffingDetails ? (
                       <span className={`risk-pill risk-pill--${item.under_staffed || item.missing_lead ? "critical" : "normal"}`}>
                         {(item.assigned_staff_count ?? 0)}/{item.planned_staff_count ?? item.assigned_staff_count ?? 0} staffed
@@ -1886,6 +1891,7 @@ function renderCalendarSurface(input: {
                 className={`schedule-month-day${day.inCurrentMonth ? "" : " schedule-month-day--outside"}${selected ? " schedule-month-day--selected" : ""}`}
                 onClick={() => focusDay(day.dateKey, items)}
               >
+                <span className="schedule-month-day__weekday">{formatDayLabel(day.dateKey, "30day")}</span>
                 <span className="schedule-month-day__number">{day.dayOfMonth}</span>
                 <span className="schedule-month-day__count">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span>
                 {items.slice(0, 2).map((item) => (
@@ -2471,9 +2477,9 @@ function enumerateDateKeys(startDate?: string, endDate?: string) {
   return days;
 }
 
-function formatDayLabel(dateKey: string, windowMode: WindowMode) {
+function formatDayLabel(dateKey: string, _windowMode: WindowMode) {
   return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: windowMode === "30day" ? "long" : "short",
+    weekday: "short",
     month: "short",
     day: "numeric"
   });

@@ -162,7 +162,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
         <div className="page-intro-actions">
           <a className="primary-button" href="#employees/attendance">Clocked Out</a>
           <details className="employee-date-disclosure">
-            <summary>Change week</summary>
+            <summary>Change dates</summary>
             <label className="filter-field">
               <span>Week starting</span>
               <input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
@@ -230,7 +230,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
               <div className="section-title">My Schedule This Week</div>
               <p className="section-subtitle">Short preview of published work. Choose an event only when you need field actions or details.</p>
             </div>
-            <a className="secondary-button" href="#my-schedule">View schedule</a>
+            <a className="secondary-button" href="#my-schedule">View My Schedule</a>
           </div>
 
           <div className="employee-schedule-stats" aria-label="Schedule week summary">

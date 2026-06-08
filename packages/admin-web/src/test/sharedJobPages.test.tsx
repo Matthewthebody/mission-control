@@ -2407,10 +2407,14 @@ beforeEach(() => {
     expect(screen.getByText("Job published")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Change Notices" })).toBeInTheDocument();
     expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to Jobs" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Jobs" }));
+    expect(window.location.hash).toBe("#sports/shoots");
     expect(screen.queryByRole("button", { name: "Financial" })).not.toBeInTheDocument();
 
     cleanup();
 
+    window.location.hash = "#sports/shoots/job-sports-1";
     getSharedJobDetailMock.mockResolvedValue(buildSportsDetail());
     render(<SharedJobDetailPage token="token-demo" currentUser={sportsFinanceViewer} departmentType="sports" routeBase="#sports/shoots" />);
     expect(await screen.findByRole("button", { name: "Financial" })).toBeInTheDocument();

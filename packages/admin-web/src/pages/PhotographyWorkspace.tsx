@@ -30,7 +30,7 @@ type Props = {
 const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: string; meta: WorkspaceHeaderMeta[] }> = {
   overview: {
     title: "Photography",
-    summary: "Today's shoots, staffing signals, travel details, job prep, upload handoffs, and the weekly calendar in one field-ready view.",
+    summary: "Today's shoots, travel details, job prep, closeout, and senior review in one field-ready view.",
     meta: [
       { label: "Today's shoots", tone: "info" },
       { label: "Travel and prep", tone: "success" },
@@ -47,7 +47,7 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
     ]
   },
   travel: {
-    title: "Travel & Logistics",
+    title: "Travel",
     summary:
       "Field-ready arrival, location, contact, parking, crew, and note context for photographers checking the next shoot before they leave.",
     meta: [
@@ -56,28 +56,28 @@ const FOCUS_COPY: Record<NonNullable<Props["focus"]>, { title: string; summary: 
     ]
   },
   pre_service: {
-    title: "Job Prep / Pre-Service",
+    title: "Job Prep",
     summary:
       "Job Prep is the pre-shoot packet for schedule, location, crew, briefing notes, readiness items, prior context, and reference material before crews launch.",
     meta: [
       { label: "Crew briefings", tone: "warning" },
-      { label: "Readiness inside Job Prep", tone: "info" },
+      { label: "Prep readiness", tone: "info" },
       { label: "Prep packet", tone: "success" }
     ]
   },
   readiness: {
-    title: "Job Prep / Pre-Service",
+    title: "Job Prep",
     summary:
-      "Readiness is part of Job Prep / Pre-Service so crews have one place to check briefing status, prep gaps, references, and customer context before the shoot.",
+      "Readiness lives inside Job Prep so crews have one place to check briefing status, prep gaps, references, and customer context before the shoot.",
     meta: [
       { label: "Compatibility route", tone: "neutral" },
       { label: "Prep packet", tone: "warning" }
     ]
   },
   workload: {
-    title: "Senior Photographer View",
+    title: "Senior Review",
     summary:
-      "Use the compact workload view to see who owns what, which jobs need field attention, and where senior photographers should look next.",
+      "Review trends, post-shoot evaluation highlights, customer feedback, and coaching opportunities without duplicating the schedule.",
     meta: [
       { label: "Owner balance", tone: "info" },
       { label: "Next action clarity", tone: "warning" }
@@ -98,12 +98,12 @@ type PhotographyActionLink = {
 
 const PRIMARY_LINKS: PhotographyActionLink[] = [
   { id: "shoots", label: "Today's Shoots", value: "Today", hash: "#studios/shoots", detail: "Same-day schedule, locations, leads, and crew status.", tone: "info" },
-  { id: "staffing", label: "Staffing Needs", value: "Check", hash: "#schedule", detail: "Open the shared schedule when coverage needs a look.", tone: "warning" },
-  { id: "travel", label: "Travel & Logistics", value: "Routes", hash: "#studios/travel", detail: "Arrival, parking, contacts, crew, and location guidance.", tone: "info" },
+  { id: "schedule", label: "Team Schedule", value: "Team", hash: "#studios/calendar", detail: "Open the Photography team calendar for the wider schedule.", tone: "info" },
+  { id: "travel", label: "Travel", value: "Route", hash: "#studios/travel", detail: "Arrival, parking, contacts, crew, and location guidance.", tone: "info" },
   { id: "pre-service", label: "Job Prep", value: "Prep", hash: "#studios/pre-service", detail: "Briefings, prep gaps, references, and client context.", tone: "warning" },
-  { id: "uploads", label: "Upload Queue", value: "Queue", hash: "#production/queue", detail: "Move post-shoot files into the production queue.", tone: "neutral" },
-  { id: "reviews", label: "Post-Shoot Reviews", value: "Reviews", hash: "#job-closeout", detail: "Closeout notes, mileage review, and post-shoot learning.", tone: "success" },
-  { id: "calendar", label: "Weekly Calendar", value: "Week", hash: "#studios/calendar", detail: "Open the full Photography calendar for the wider schedule.", tone: "info" }
+  { id: "closeout", label: "Closeout", value: "Follow-up", hash: "#job-closeout", detail: "Mileage, post-shoot notes, and evaluation follow-up.", tone: "success" },
+  { id: "references", label: "Reference Photos", value: "Refs", hash: "#studios/pre-service", detail: "Find prior-year examples and linked reference photos for a job.", tone: "neutral" },
+  { id: "senior-review", label: "Senior Review", value: "Review", hash: "#studios/workload", detail: "Review trends, feedback, and coaching opportunities.", tone: "neutral" }
 ];
 
 export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Props) {
@@ -133,11 +133,14 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
         actions={
           isOverview ? undefined : (
             <WorkspaceActionBar compact>
-              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-                Weekly Calendar
+              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios")}>
+                Back to Photography
               </button>
               <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
                 Today's Shoots
+              </button>
+              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
+                Team Schedule
               </button>
             </WorkspaceActionBar>
           )
@@ -185,7 +188,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
               Today's Shoots
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/pre-service")}>
-              Job Prep / Pre-Service
+              Job Prep
             </button>
           </div>
         </section>
@@ -202,7 +205,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
           token={token}
           department="photography"
           title="Photography Work Queue"
-          summary="Active shoot prep, travel, upload, and follow-up work that needs Photography attention."
+          summary="Active shoot prep, travel, closeout, and follow-up work that needs Photography attention."
           limit={6}
           variant="compact"
           maxItems={6}
@@ -215,7 +218,7 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
           token={token}
           currentUser={currentUser}
           title={copy.title}
-          summary="Field leadership view for shoot readiness, handoffs, photographer support, owner clarity, and the next safe action."
+          summary="Senior review view for readiness trends, photographer support, customer feedback, and the next safe action."
           routeHash="#studios/shoots"
           focus={focus}
           showDepartmentFilter={focus === "workload"}
@@ -255,7 +258,7 @@ function PhotographyOpenFirstPanel() {
   );
 }
 
-type PhotographyWeekFilter = "week" | "today" | "staffing" | "uploads";
+type PhotographyWeekFilter = "week" | "today" | "staffing" | "prep";
 
 function PhotographyWeeklyPreviewPanel({ token }: { token: string }) {
   const today = useMemo(() => getLocalDateKey(), []);
@@ -313,18 +316,21 @@ function PhotographyWeeklyPreviewPanel({ token }: { token: string }) {
     if (filter === "staffing") {
       return weekKeys.has(job.primary_day_date) && job.staffing_status !== "ready_confirmed";
     }
-    if (filter === "uploads") {
-      return weekKeys.has(job.primary_day_date) && job.production_required;
+    if (filter === "prep") {
+      return (
+        weekKeys.has(job.primary_day_date) &&
+        (job.readiness_status !== "ready" || job.blocker_count > 0 || job.open_watch_flag_count > 0)
+      );
     }
     return weekKeys.has(job.primary_day_date);
   });
   const jobsByDay = groupJobsByPrimaryDay(filteredJobs);
 
   return (
-    <section className="panel studios-workspace__week-panel" aria-label="Photography Weekly Calendar">
+    <section className="panel studios-workspace__week-panel" aria-label="Photography Team Schedule">
       <div className="studios-workspace__week-header">
         <div>
-          <div className="eyebrow">Weekly Calendar</div>
+          <div className="eyebrow">Team Schedule</div>
           <h3>This Week's Photography Schedule</h3>
           <p>Scan shoot load, assignments, and status before opening the full calendar.</p>
         </div>
@@ -333,7 +339,7 @@ function PhotographyWeeklyPreviewPanel({ token }: { token: string }) {
             { id: "today", label: "Today" },
             { id: "week", label: "This Week" },
             { id: "staffing", label: "Staffing" },
-            { id: "uploads", label: "Uploads" }
+            { id: "prep", label: "Prep Gaps" }
           ].map((option) => (
             <button
               key={option.id}
@@ -345,7 +351,7 @@ function PhotographyWeeklyPreviewPanel({ token }: { token: string }) {
             </button>
           ))}
           <button type="button" onClick={() => (window.location.hash = "#studios/calendar")}>
-            Open full calendar
+            Open Team Schedule
           </button>
         </div>
       </div>
@@ -466,7 +472,7 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
         summary="When a Photography job has schedule context, the prep packet will show the field details, readiness items, and briefing notes here."
         actions={
           <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-            Open Weekly Calendar
+            Open Team Schedule
           </button>
         }
       />
@@ -474,10 +480,10 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
   }
 
   return (
-    <section className="panel studios-workspace__job-prep-panel" aria-label="Job Prep / Pre-Service packet">
+    <section className="panel studios-workspace__job-prep-panel" aria-label="Job Prep packet">
       {compatibilityNotice ? (
         <div className="studios-workspace__job-prep-notice">
-          Readiness is part of Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.
+          Readiness is part of Job Prep. Use this packet for readiness, notes, resources, and crew context.
         </div>
       ) : null}
 
@@ -513,8 +519,8 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
         <PrepReadinessGroup items={prepContext.readinessItems} />
         <PrepInfoGroup title="Prior Evaluation" items={prepContext.priorEvaluationItems} placeholder="No prior post-shoot evaluation is in this seeded packet yet." />
         <PrepInfoGroup title="Customer Survey Notes" items={[]} placeholder="No customer survey notes are in this seeded packet yet." />
-        <PrepAttachmentGroup title="Shoot References" attachments={prepContext.documentAttachments} placeholder="No shoot references are attached to this prep packet yet." />
-        <PrepAttachmentGroup title="Setup References" attachments={prepContext.photoAttachments} placeholder="No setup references are attached to this prep packet yet." />
+        <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.documentAttachments} placeholder="No reference photos are attached to this prep packet yet." />
+        <PrepAttachmentGroup title="Setup Photos" attachments={prepContext.photoAttachments} placeholder="No setup photos are attached to this prep packet yet." />
       </div>
 
       <WorkspaceActionBar align="end" compact>
@@ -522,7 +528,7 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
           Travel Details
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", selectedJob.id))}>
-          Open work
+          Open Job Detail
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
           Open Project Tracking
@@ -559,7 +565,7 @@ function PrepInfoGroup({ title, items, placeholder = "Not available yet.", wide 
 function PrepReadinessGroup({ items }: { items: SharedJobReadinessItem[] }) {
   return (
     <article className="studios-workspace__prep-info-card">
-      <h4>Readiness Inside Job Prep</h4>
+      <h4>Prep Readiness</h4>
       {items.length ? (
         <ul>
           {items.slice(0, 6).map((item) => (
@@ -777,11 +783,11 @@ function PhotographyTravelPanel({ token }: { token: string }) {
   if (!selectedJob || !travelContext) {
     return (
       <WorkspaceEmptyState
-        title="No upcoming Travel & Logistics details are ready"
+        title="No upcoming travel details are ready"
         summary="When a Photography job has a date and location, the field travel overview will show where to go and what to know before leaving."
         actions={
           <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-            Open Weekly Calendar
+            Open Team Schedule
           </button>
         }
       />
@@ -814,7 +820,7 @@ function PhotographyTravelPanel({ token }: { token: string }) {
               Job Prep
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", selectedJob.id))}>
-              Open work
+              Open Job Detail
             </button>
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
               Open Project Tracking
@@ -1189,7 +1195,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                     Job Prep
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", job.id))}>
-                    Open work
+                    Open Job Detail
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
                     Open Project Tracking
@@ -1210,7 +1216,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
           summary="Use the weekly calendar to scan the next active shoot window."
           actions={
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-              Open Weekly Calendar
+              Open Team Schedule
             </button>
           }
         />

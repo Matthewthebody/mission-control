@@ -688,16 +688,17 @@ describe("StudiosWorkspace", () => {
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} />);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Photography" })).toBeInTheDocument();
-    expect(screen.getByText("Today's shoots, staffing signals, travel details, job prep, upload handoffs, and the weekly calendar in one field-ready view.")).toBeInTheDocument();
+    expect(screen.getByText("Today's shoots, travel details, job prep, closeout, and senior review in one field-ready view.")).toBeInTheDocument();
     expect(screen.getByText("Open First")).toBeInTheDocument();
     expect(screen.getByText("Start with the field work that matters today")).toBeInTheDocument();
     expect(screen.getAllByText("Today's Shoots").length).toBeGreaterThan(0);
-    expect(screen.getByText("Staffing Needs")).toBeInTheDocument();
-    expect(screen.getByText("Travel & Logistics")).toBeInTheDocument();
+    expect(screen.getAllByText("Team Schedule").length).toBeGreaterThan(0);
+    expect(screen.getByText("Travel")).toBeInTheDocument();
     expect(screen.getAllByText("Job Prep").length).toBeGreaterThan(0);
-    expect(screen.getByText("Upload Queue")).toBeInTheDocument();
-    expect(screen.getByText("Post-Shoot Reviews")).toBeInTheDocument();
-    expect(screen.getAllByText("Weekly Calendar").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Upload Queue")).not.toBeInTheDocument();
+    expect(screen.getByText("Closeout")).toBeInTheDocument();
+    expect(screen.getAllByText("Reference Photos").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Senior Review").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 3, name: "Photography Change Notices" })).toBeInTheDocument();
     expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
     expect(screen.getByText(/Review travel and parking notes before leaving for the shoot/i)).toBeInTheDocument();
@@ -716,16 +717,16 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Travel Details" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Job Prep" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open work" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Job Prep" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Open Job Detail" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Job Prep" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "This Week's Photography Schedule" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Today" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "This Week" })).toHaveClass("is-active");
     expect(screen.getByRole("button", { name: "Staffing" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Uploads" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open full calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Prep Gaps" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Team Schedule" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "Photography Work Queue" })).toBeInTheDocument();
     expect(screen.getByLabelText("Photography Work Queue summary")).toBeInTheDocument();
     expect(screen.getByText("Review post-shoot evaluation and setup references.")).toBeInTheDocument();
@@ -738,7 +739,7 @@ describe("StudiosWorkspace", () => {
       expect(window.location.hash).toBe("#studios/travel?job=job-home-early");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open full calendar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Team Schedule" }));
     await waitFor(() => {
       expect(window.location.hash).toBe("#studios/calendar");
     });
@@ -773,7 +774,7 @@ describe("StudiosWorkspace", () => {
 
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="pre_service" />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Job Prep" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
     expect(screen.getAllByText("North Metro Athletics").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 4, name: "Schedule" })).toBeInTheDocument();
@@ -793,10 +794,10 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Client check-in map PDF")).toBeInTheDocument();
     expect(screen.getByText("Best reference setup photo")).toBeInTheDocument();
     expect(screen.getByText("Fieldhouse reference photo")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 4, name: "Shoot References" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 4, name: "Setup References" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Reference Photos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Setup Photos" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Travel Details" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open work" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Job Detail" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Job Prep" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Travel Details" }));
@@ -819,10 +820,10 @@ describe("StudiosWorkspace", () => {
 
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="readiness" />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Job Prep / Pre-Service" })).toBeInTheDocument();
-    expect(screen.getByText("Readiness is part of Job Prep / Pre-Service. Use this packet for readiness, notes, resources, and crew context.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Job Prep" })).toBeInTheDocument();
+    expect(screen.getByText("Readiness is part of Job Prep. Use this packet for readiness, notes, resources, and crew context.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "North Metro Stadium Media Day" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 4, name: "Readiness Inside Job Prep" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Prep Readiness" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Compact List" })).not.toBeInTheDocument();
   });
 
@@ -882,7 +883,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Job Prep" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Travel Details" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open Job Detail" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Project Tracking" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Review Job Prep" }).length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -917,7 +918,7 @@ describe("StudiosWorkspace", () => {
 
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="travel" />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Travel & Logistics" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Travel" })).toBeInTheDocument();
     expect(await screen.findByText("North Metro Stadium Media Day")).toBeInTheDocument();
     expect(screen.getByText("North Metro Athletics")).toBeInTheDocument();
     expect(screen.getByText("North Metro Stadium")).toBeInTheDocument();
@@ -931,8 +932,8 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Lead photographer: Carisa Lead")).toBeInTheDocument();
     expect(screen.getByText(/Use the east athlete gate/i)).toBeInTheDocument();
     expect(screen.getByText("Leadership handles staffing and attendance review so this page stays focused on field travel.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Job Prep" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open work" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Job Prep" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Open Job Detail" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Job Prep" }));
     await waitFor(() => {
@@ -949,7 +950,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.queryByRole("button", { name: "Board" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More Filters" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Full Workspace" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Weekly Calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Team Schedule" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Today's Shoots" }).length).toBeGreaterThan(0);
   });
 
@@ -976,7 +977,7 @@ describe("StudiosWorkspace", () => {
     ]);
     expect(photographyRouteIds).not.toContain("studios-staffing");
     expect(photographyRouteIds).not.toContain("operations-attendance");
-    expect(getRouteById("studios-pre-service")?.label).toBe("Job Prep / Pre-Service");
+    expect(getRouteById("studios-pre-service")?.label).toBe("Job Prep");
     expect(getRouteById("studios-readiness")?.label).toBe("Readiness (Job Prep)");
     expect(getRouteById("studios-readiness")?.showInSectionNav).toBe(false);
 
@@ -1073,10 +1074,10 @@ describe("StudiosWorkspace", () => {
 
     render(<StudiosWorkspace token="token-demo" currentUser={currentUser} focus="workload" />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Senior Photographer View" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Senior Review" })).toBeInTheDocument();
     expect(screen.queryByText("Open First")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Open 30-Day Calendar/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Today's Shoots" }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Job Prep / Pre-Service" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Job Prep" }).length).toBeGreaterThan(0);
   });
 });

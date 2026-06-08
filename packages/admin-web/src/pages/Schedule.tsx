@@ -100,17 +100,20 @@ export function Schedule({ token, currentUser }: Props) {
   }, [canBroadenVisibility, currentUser, date, token]);
 
   const scopeLabel = useMemo(() => {
+    if (routeContext === "personal") {
+      return "My Schedule";
+    }
     if (photographySchedule) {
       return "Read-only calendar";
     }
     if (scheduleScope === "all") {
-      return "Team schedule";
+      return "Team Schedule";
     }
     if (scheduleScope === "department") {
       return `${humanizeLabel(currentUser.department)} schedule`;
     }
-    return employeeOnlyMode ? "My schedule" : "Personal schedule";
-  }, [currentUser.department, employeeOnlyMode, photographySchedule, scheduleScope]);
+    return employeeOnlyMode ? "My Schedule" : "Personal Schedule";
+  }, [currentUser.department, employeeOnlyMode, photographySchedule, routeContext, scheduleScope]);
 
   const headerCopy = getHeaderCopy(routeContext, currentView, employeeOnlyMode);
 
@@ -149,7 +152,7 @@ export function Schedule({ token, currentUser }: Props) {
       <WorkspaceFilterToolbar className="schedule-shell__toolbar">
         <div className="workspace-toolbar__group">
           <label className="filter-field">
-            <span>Date</span>
+            <span>Jump to date</span>
             <input
               type="date"
               value={date}
@@ -161,7 +164,7 @@ export function Schedule({ token, currentUser }: Props) {
             />
           </label>
           <label className="filter-field filter-field--wide">
-            <span>Search</span>
+            <span>Search schedule</span>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -185,7 +188,8 @@ export function Schedule({ token, currentUser }: Props) {
       <UnifiedScheduleSurface
         workspaceMode={workspaceMode}
         initialView={currentView}
-        initialRange={photographySchedule && currentView === "jobs" ? "30day" : undefined}
+        initialRange={(photographySchedule || routeContext === "global") && currentView === "jobs" ? "30day" : undefined}
+        defaultMyItemsOnly={routeContext === "personal" || employeeOnlyMode}
         presentationMode={photographySchedule ? "photography" : "default"}
         token={token}
         anchorDate={date}
@@ -241,7 +245,7 @@ function getScheduleRouteContext(hashValue: string, employeeOnlyMode: boolean): 
 }
 
 function getHeaderCopy(context: ScheduleRouteContext, view: MasterScheduleView, employeeOnlyMode: boolean) {
-  if (employeeOnlyMode) {
+  if (employeeOnlyMode || context === "personal") {
     return {
       eyebrow: undefined,
       title: "My Schedule",
@@ -263,15 +267,15 @@ function getHeaderCopy(context: ScheduleRouteContext, view: MasterScheduleView, 
   if (context === "operations") {
     return {
       eyebrow: undefined,
-      title: "Schedule",
-      summary: "A readable calendar for shifts, events, shoots, locations, and weekly planning."
+      title: "Team Schedule",
+      summary: "A readable team calendar for shifts, events, shoots, locations, and weekly planning."
     };
   }
 
   return {
     eyebrow: undefined,
-    title: "Schedule",
-    summary: "A readable calendar for shifts, events, shoots, locations, and weekly planning."
+    title: "Team Schedule",
+    summary: "A readable team calendar for shifts, events, shoots, locations, and weekly planning."
   };
 }
 

@@ -737,7 +737,7 @@ describe("My Work page", () => {
     expect(screen.getAllByText("Scheduled Hours: 3.8h").length).toBeGreaterThan(0);
     expect(screen.getByText("Worked Hours: 3.8h")).toBeInTheDocument();
     expect(screen.getByText("Remaining Hours: 0h")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View schedule" })).toHaveAttribute("href", "#my-schedule");
+    expect(screen.getByRole("link", { name: "View My Schedule" })).toHaveAttribute("href", "#my-schedule");
     expect(document.getElementById("my-work-schedule")).toHaveClass("employee-shift-rail--wide");
     expect(document.getElementById("my-work-schedule")?.closest(".employee-work-layout")).toHaveClass("employee-work-layout--launchpad");
     expect(screen.getByLabelText("Compact weekly schedule")).toBeInTheDocument();

@@ -1240,8 +1240,8 @@ const unifiedScheduleCalendar: UnifiedScheduleCalendarResponse = {
   anchor_date: "2026-03-24",
   window: "today",
   range: {
-    start_date: "2026-03-24",
-    end_date: "2026-03-24"
+    start_date: "2026-03-01",
+    end_date: "2026-03-31"
   },
   sync: {
     source_of_truth: "mission_control",
@@ -1355,6 +1355,43 @@ const unifiedScheduleCalendar: UnifiedScheduleCalendarResponse = {
       schedule_sync_state: "not_linked",
       schedule_sync_required: false,
       integration: disconnectedScheduleIntegration
+    },
+    {
+      item_kind: "shoot",
+      id: "shoot-weekend",
+      shoot_id: "shoot-weekend",
+      date_key: "2026-03-28",
+      title: "Saturday Senior Portraits",
+      shoot_code: "DEMO-003",
+      department: "schools",
+      shoot_category: "schools",
+      status: "scheduled",
+      starts_at: "2026-03-28T14:00:00.000Z",
+      ends_at: "2026-03-28T18:00:00.000Z",
+      arrival_time: "2026-03-28T13:30:00.000Z",
+      start_time: "2026-03-28T14:00:00.000Z",
+      end_time_est: "2026-03-28T18:00:00.000Z",
+      location_name: "Maple Grove High School",
+      location_address: "9800 Fernbrook Lane N, Maple Grove, MN",
+      navigation_url: "https://maps.example/maple-grove-high",
+      estimated_drive_minutes: 24,
+      projected_students: 42,
+      planned_staff_count: 2,
+      assigned_staff_count: 2,
+      required_lead_count: 1,
+      lead_coverage_count: 1,
+      lead_name: "Demo Photographer",
+      missing_fields: [],
+      open_alert_count: 0,
+      open_attendance_exception_count: 0,
+      schedule_sync_state: "not_linked",
+      schedule_sync_required: false,
+      integration: disconnectedScheduleIntegration,
+      staffing_state: "staffed",
+      scale_label: "Weekend shoot",
+      board_day_part: "Afternoon",
+      under_staffed: false,
+      missing_lead: false
     }
   ]
 };
@@ -5273,7 +5310,7 @@ describe("admin operations regressions", () => {
       expect(screen.queryByRole("dialog", { name: "New Shoot" })).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText("Friday Night Lights Media Day"));
+    fireEvent.click(screen.getAllByText("Friday Night Lights Media Day")[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Open Shoot Workspace" }));
 
     expect(await screen.findByText("Selected Location")).toBeInTheDocument();
@@ -5287,10 +5324,10 @@ describe("admin operations regressions", () => {
 
     fireEvent.change(screen.getByLabelText("Assignments"), { target: { value: "show_assignments" } });
     fireEvent.click(screen.getByRole("button", { name: "List" }));
-    expect(await screen.findByRole("button", { name: /Demo Photographer/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Demo Assistant/i })).toBeInTheDocument();
+    expect((await screen.findAllByRole("button", { name: /Demo Photographer/i })).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Demo Assistant/i }).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: /Demo Photographer/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Demo Photographer/i })[0]);
 
     expect(await screen.findByText("Shift Roster")).toBeInTheDocument();
     expect(screen.getByText("Secondary Scheduling Tools")).toBeInTheDocument();
@@ -5303,6 +5340,7 @@ describe("admin operations regressions", () => {
   }, 15000);
 
   it("renders the shared Schedule page as a calendar-first view without staffing command clutter", async () => {
+    window.location.hash = "#schedule/jobs?date=2026-03-24";
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/api/shifts/resources/members?anchor_date=")) {
         return [
@@ -5326,9 +5364,9 @@ describe("admin operations regressions", () => {
 
     render(<Schedule token="token" currentUser={leadershipUser} />);
 
-    expect(screen.getByRole("heading", { name: "Schedule" })).toBeInTheDocument();
-    expect(screen.getByText("A readable calendar for shifts, events, shoots, locations, and weekly planning.")).toBeInTheDocument();
-    expect(screen.getByText("Team schedule")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Team Schedule" })).toBeInTheDocument();
+    expect(screen.getByText("A readable team calendar for shifts, events, shoots, locations, and weekly planning.")).toBeInTheDocument();
+    expect(screen.getAllByText("Team Schedule").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Day / Week / Month")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Calendar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Staffing Schedule/i })).not.toBeInTheDocument();
@@ -5347,8 +5385,14 @@ describe("admin operations regressions", () => {
     expect(screen.queryByText("Pending updates")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Staffing Health")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Lead")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Staff")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "All staff" })).toBeInTheDocument();
+    expect(screen.getByLabelText("My shifts")).toBeInTheDocument();
 
     expect(await screen.findByText("Spring Portrait Day")).toBeInTheDocument();
+    expect(screen.getByText("Friday Night Lights Media Day")).toBeInTheDocument();
+    expect(screen.getByText("Saturday Senior Portraits")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled That Day")).toBeInTheDocument();
     expect(screen.getAllByText("Daily Ops Huddle").length).toBeGreaterThan(0);
     expect(
       apiFetchMock.mock.calls.some(
@@ -5358,6 +5402,7 @@ describe("admin operations regressions", () => {
   });
 
   it("renders the employee schedule as a filtered assignment calendar without manager staffing controls", async () => {
+    window.location.hash = "#my-schedule?date=2026-03-24";
     const personalScheduleCalendar: UnifiedScheduleCalendarResponse = {
       ...unifiedScheduleCalendar,
       items: unifiedScheduleCalendar.items
@@ -5403,8 +5448,8 @@ describe("admin operations regressions", () => {
     expect(screen.getByRole("heading", { name: "My Schedule" })).toBeInTheDocument();
     expect(screen.getAllByText("My Schedule").length).toBeLessThanOrEqual(2);
     expect(screen.getByText("Your shifts, events, linked jobs, times, and locations in one calendar view.")).toBeInTheDocument();
-    expect(screen.getByText("My schedule")).toBeInTheDocument();
-    expect(screen.getByText("Date")).toBeInTheDocument();
+    expect(screen.getAllByText("My Schedule").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Jump to date")).toBeInTheDocument();
     expect(screen.queryByText("Anchor Date")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Connected Standards")).not.toBeInTheDocument();

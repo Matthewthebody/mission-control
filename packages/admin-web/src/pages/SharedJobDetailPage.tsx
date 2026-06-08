@@ -728,6 +728,9 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       ]}
       actions={
         <WorkspaceActionBar align="end">
+          <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
+            Back to Jobs
+          </button>
           {canManageRecord ? (
             <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, `${detail.job.id}/edit`)}>
               Edit
