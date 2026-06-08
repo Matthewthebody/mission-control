@@ -743,21 +743,6 @@ function waitingOrBlockedLabelForRow(row: ProjectWorkflowJobRow) {
   return null;
 }
 
-function BoardCardMeta({
-  label,
-  value
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
 function ownerPresentation(row: ProjectWorkflowJobRow) {
   const department = departmentLabel(row.current_step?.department);
   if (row.owner_type === "user") {
@@ -1220,8 +1205,8 @@ function ProjectTrackingAreaFilterBar({
   return (
     <section className="project-tracking-area-panel" aria-label="Building work area filters">
       <div>
-        <strong>Project Tracking / Building Work Board</strong>
-        <span>Filter the building board by the work area people recognize first.</span>
+        <strong>Areas</strong>
+        <span>Filter by the work area people recognize first.</span>
       </div>
       <div className="project-tracking-area-filter-row">
         {areaCountsFor(rows).map((areaOption) => (
@@ -1253,8 +1238,8 @@ function ProjectTrackingBoardView({
   return (
     <section className="project-tracking-view-shell project-tracking-board-view" aria-label="Board View">
       <div className="project-tracking-view-intro">
-        <strong>Board</strong>
-        <span>Board-first view grouped by project status. Filters and search control the work shown here.</span>
+        <strong>Workflow lanes</strong>
+        <span>Scan owners, due dates, blockers, and next actions by stage.</span>
       </div>
       <div className="project-tracking-board-lanes" role="list" aria-label="Project Tracking board lanes">
         {PROJECT_TRACKING_BOARD_LANES.map((lane) => {
@@ -1281,8 +1266,10 @@ function ProjectTrackingBoardView({
                     const waiting = waitingOrBlockedLabelForRow(row);
                     const area = projectAreaForJob(row);
                     const secondaryDepartment = secondaryDepartmentBadgeForRow(row);
+                    const cardTone = healthToneForJob(row);
                     return (
-                      <article className={`project-tracking-board-card project-tracking-board-card--area-${area} ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
+                      <article className={`project-tracking-board-card project-tracking-board-card--area-${area} project-tracking-board-card--tone-${cardTone} ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
+                        <div className={`project-tracking-board-card__accent project-tracking-board-card__accent--${cardTone}`} aria-hidden="true" />
                         <div className="project-tracking-board-card__top">
                           <div>
                             <span>{workItemAccountLabel(row)}</span>
@@ -1293,16 +1280,23 @@ function ProjectTrackingBoardView({
                         <div className="project-tracking-board-card__chips">
                           <span className={`project-tracking-area-chip project-tracking-area-chip--${area}`}>{AREA_FILTER_LABELS[area]}</span>
                           {secondaryDepartment ? <span className="project-tracking-secondary-chip">{secondaryDepartment}</span> : null}
-                          <span className={`project-tracking-step-pill ${phase.pillClassName}`}>{phase.label}</span>
                           <span className={`project-tracking-priority-chip ${priorityChipClassForRow(row)}`} aria-label={`Priority: ${priorityLabelForRow(row)}`}>{priorityLabelForRow(row)}</span>
                           {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
                         </div>
-                        <dl>
-                          <BoardCardMeta label="Owner / Queue" value={owner.primary} />
-                          <BoardCardMeta label="Current Step" value={currentStepLabel(row)} />
-                          <BoardCardMeta label="Due" value={deadlineLabel(row)} />
-                        </dl>
-                        <p><strong>Next:</strong> {row.queue_intelligence.next_action}</p>
+                        <div className="project-tracking-board-card__meta-line">
+                          <span title={`${owner.primary} - ${owner.secondary}`}>
+                            <small>Owner</small>
+                            <strong className={owner.className}>{owner.primary}</strong>
+                          </span>
+                          <span title={row.next_deadline_at ?? undefined}>
+                            <small>Due</small>
+                            <strong>{deadlineLabel(row)}</strong>
+                          </span>
+                        </div>
+                        <p className="project-tracking-board-card__next" title={row.queue_intelligence.next_action}>
+                          <span>{currentStepLabel(row)}</span>
+                          {row.queue_intelligence.next_action}
+                        </p>
                         <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                       </article>
                     );
@@ -1564,7 +1558,7 @@ function ProjectTrackingJobBoard({
       <div className="project-tracking-panel__heading">
         <div>
           <div className="section-title">Kanban Board</div>
-          <p className="section-subtitle">Visual building work board for projects, owners, due dates, blockers, and next steps.</p>
+          <p className="section-subtitle">Workflow lanes for owners, due dates, blockers, and next actions.</p>
         </div>
         <div className="project-tracking-board-meta">
           <span className="badge">Showing {filteredRows.length} of {presetRows.length}</span>
@@ -2090,7 +2084,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
           <div>
             <p className="section-kicker">Operations</p>
             <h1>Building Work Board</h1>
-            <p>Project Tracking for active building work, owners, blockers, due dates, and next actions.</p>
+            <p>Active work, owners, blockers, due dates, and next actions.</p>
           </div>
           <div className="project-tracking-board-header__actions">
             <button className="button button-secondary" type="button" onClick={() => applyPreset("blocked")}>
@@ -2132,7 +2126,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             <div className="project-tracking-summary-strip__label">
               <strong>Work Pulse</strong>
               <span>{globalSummary.source === "true_totals" ? "All tracked work" : "Shown work"}</span>
-              <small>Quick scan for active, due-soon, blocked, and review-needed work.</small>
+              <small>Active, due-soon, blocked, and review-needed work.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (

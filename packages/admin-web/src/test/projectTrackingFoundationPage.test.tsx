@@ -521,7 +521,7 @@ describe("ProjectTrackingFoundation", () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("heading", { name: "Building Work Board" })).toBeInTheDocument();
-    expect(screen.getByText("Project Tracking for active building work, owners, blockers, due dates, and next actions.")).toBeInTheDocument();
+    expect(screen.getByText("Active work, owners, blockers, due dates, and next actions.")).toBeInTheDocument();
     expect(screen.queryByText("Open First")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
@@ -538,21 +538,23 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();
 
     const areaFilters = screen.getByLabelText("Building work area filters");
-    expect(within(areaFilters).getByText("Project Tracking / Building Work Board")).toBeInTheDocument();
+    expect(within(areaFilters).getByText("Areas")).toBeInTheDocument();
+    expect(within(areaFilters).getByText("Filter by the work area people recognize first.")).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /All, 4 items, active area/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(areaFilters).getByRole("button", { name: /Schools, 2 items/i })).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /Sports, 1 item/i })).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /Other, 1 item/i })).toBeInTheDocument();
 
     expect(screen.getByText("Kanban Board")).toBeInTheDocument();
-    expect(screen.getByText("Visual building work board for projects, owners, due dates, blockers, and next steps.")).toBeInTheDocument();
+    expect(screen.getByText("Workflow lanes for owners, due dates, blockers, and next actions.")).toBeInTheDocument();
     const viewModes = screen.getByLabelText("Project Tracking view modes");
     expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(viewModes).getByRole("button", { name: /List/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /Timeline/i })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByText("Board-first view grouped by project status. Filters and search control the work shown here.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Project Tracking board lanes")).toBeInTheDocument();
+    expect(screen.getByText("Scan owners, due dates, blockers, and next actions by stage.")).toBeInTheDocument();
+    const boardLanes = screen.getByLabelText("Project Tracking board lanes");
+    expect(boardLanes).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: /Ready, 0 items/i })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: /In Flight, 1 item/i })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: /Review, 1 item/i })).toBeInTheDocument();
@@ -573,6 +575,11 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByText("Operations").length).toBeGreaterThan(0);
     expect(screen.getAllByText("High").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Medium").length).toBeGreaterThan(0);
+    expect(boardLanes.querySelector(".project-tracking-board-card__accent")).not.toBeNull();
+    expect(boardLanes.querySelector(".project-tracking-board-card__meta-line")).not.toBeNull();
+    expect(boardLanes.querySelector(".project-tracking-board-card__next")).not.toBeNull();
+    expect(boardLanes.querySelector(".project-tracking-step-pill")).toBeNull();
+    expect(boardLanes.querySelector("dl")).toBeNull();
     expect(screen.getAllByText("Running late").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due soon").length).toBeGreaterThan(0);

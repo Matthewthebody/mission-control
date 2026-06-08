@@ -3883,14 +3883,14 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 
 .project-tracking-summary-strip {
   display: grid;
-  grid-template-columns: minmax(118px, 0.18fr) minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(104px, 0.16fr) minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid var(--pt-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--pt-surface);
-  box-shadow: 0 8px 22px rgba(31, 41, 55, 0.05);
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.04);
 }
 
 .project-tracking-summary-strip__label {
@@ -3901,7 +3901,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 
 .project-tracking-summary-strip__label strong {
   color: var(--pt-text);
-  font-size: 0.86rem;
+  font-size: 0.8rem;
 }
 
 .project-tracking-summary-strip__label span {
@@ -3911,55 +3911,56 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 
 .project-tracking-summary-strip__label small {
   color: var(--pt-muted);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   line-height: 1.35;
 }
 
 .project-tracking-area-panel {
   display: grid;
-  grid-template-columns: minmax(190px, 0.28fr) minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
-  padding: 8px;
+  padding: 6px 8px;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 10px;
-  background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%);
+  background: #f8fafc;
 }
 
 .project-tracking-area-panel > div:first-child {
   display: grid;
   gap: 2px;
+  width: 7.75rem;
   min-width: 0;
   color: var(--pt-muted);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   line-height: 1.25;
 }
 
 .project-tracking-area-panel > div:first-child strong {
   color: var(--pt-text);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
 .project-tracking-area-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .project-tracking-area-filter {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 32px;
+  gap: 5px;
+  min-height: 28px;
   border: 1px solid var(--pt-border);
   border-radius: 999px;
-  padding: 5px 9px;
+  padding: 4px 8px;
   background: #ffffff;
   color: var(--pt-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 900;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
@@ -4043,8 +4044,8 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 }
 
 .project-tracking-metric-grid {
-  grid-template-columns: repeat(5, minmax(118px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(92px, 1fr));
+  gap: 4px;
 }
 
 .project-tracking-metric-grid > button,
@@ -4058,7 +4059,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   border: 1px solid var(--pt-border);
   color: var(--pt-text);
@@ -4081,17 +4082,18 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   display: block;
   flex: 0 0 auto;
   margin-top: 0;
-  font-size: 0.98rem;
+  font-size: 0.88rem;
 }
 
 .project-tracking-job-board {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px;
+  min-width: 0;
   border: 1px solid var(--pt-border);
   border-radius: 12px;
-  background: var(--pt-surface);
-  box-shadow: 0 8px 22px rgba(31, 41, 55, 0.05);
+  background: #eef3f8;
+  box-shadow: 0 4px 14px rgba(31, 41, 55, 0.05);
 }
 
 .project-tracking-board-meta {
@@ -4106,7 +4108,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 }
 
 .project-tracking-job-board .section-title {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
 }
 
 .project-tracking-job-board > .project-tracking-panel__heading .section-subtitle {
@@ -4116,32 +4118,32 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-view-switcher {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
+  padding: 6px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 10px;
-  background: rgba(244, 248, 252, 0.92);
+  background: #ffffff;
 }
 
 .project-tracking-view-switcher > div:first-child {
   display: grid;
   gap: 2px;
-  min-width: 118px;
+  min-width: 86px;
   color: var(--pt-muted);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   line-height: 1.2;
 }
 
 .project-tracking-view-switcher > div:first-child strong {
   color: var(--pt-text);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .project-tracking-view-switcher__buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -4149,16 +4151,16 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   border: 1px solid var(--pt-border);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 4px 7px;
   background: #ffffff;
   color: var(--pt-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
@@ -4172,32 +4174,32 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-preset-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
+  padding: 6px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 10px;
-  background: rgba(248, 250, 252, 0.82);
+  background: #ffffff;
 }
 
 .project-tracking-preset-row__label {
   display: grid;
   gap: 2px;
-  min-width: 118px;
+  min-width: 86px;
   color: var(--pt-muted);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   line-height: 1.2;
 }
 
 .project-tracking-preset-row__label strong {
   color: var(--pt-text);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .project-tracking-preset-row__buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -4205,16 +4207,16 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
   border: 1px solid var(--pt-border);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 4px 7px;
   background: #ffffff;
   color: var(--pt-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -4258,16 +4260,16 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .project-tracking-filter-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid var(--pt-border);
   border-radius: 7px;
-  padding: 5px 8px;
+  padding: 4px 7px;
   background: #ffffff;
   color: var(--pt-muted);
   cursor: pointer;
@@ -4298,12 +4300,12 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-controls {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(150px, 0.28fr) minmax(170px, 0.3fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: end;
 }
 
 .project-tracking-controls--kanban {
-  grid-template-columns: minmax(240px, 1.6fr) repeat(auto-fit, minmax(128px, 1fr));
+  grid-template-columns: minmax(220px, 1.45fr) repeat(auto-fit, minmax(112px, 1fr));
 }
 
 .project-tracking-search,
@@ -4327,11 +4329,11 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   width: 100%;
   border: 1px solid var(--pt-border);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 7px;
   background: #ffffff;
   color: var(--pt-text);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   outline: none;
 }
 
@@ -4388,39 +4390,45 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   min-width: 0;
 }
 
+.project-tracking-board-view {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
 .project-tracking-view-intro {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 4px 8px;
   align-items: baseline;
   min-width: 0;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  padding: 0 2px;
   color: var(--pt-muted);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1.35;
 }
 
 .project-tracking-view-intro strong {
   color: var(--pt-text);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
 }
 
 .project-tracking-board-lanes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 8px;
-  min-width: 0;
+  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  gap: 6px;
+  min-width: min(1120px, 100%);
 }
 
 .project-tracking-board-lane,
 .project-tracking-timeline-group {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   border: 1px solid rgba(201, 211, 224, 0.92);
   border-radius: 10px;
-  padding: 8px;
+  padding: 6px;
   background: #f8fafc;
 }
 
@@ -4428,18 +4436,22 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-timeline-group header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: start;
   min-width: 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(201, 211, 224, 0.72);
 }
 
 .project-tracking-board-lane h3,
 .project-tracking-timeline-group h3 {
   margin: 0;
   color: var(--pt-text);
-  font-size: 0.82rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
   line-height: 1.2;
   overflow-wrap: anywhere;
+  text-transform: uppercase;
 }
 
 .project-tracking-board-lane header p,
@@ -4447,8 +4459,12 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-view-empty {
   margin: 2px 0 0;
   color: var(--pt-muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1.35;
+}
+
+.project-tracking-board-lane header p {
+  display: none;
 }
 
 .project-tracking-lane-count {
@@ -4490,21 +4506,46 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-board-lane__cards,
 .project-tracking-timeline-group__items {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
 }
 
 .project-tracking-board-card,
 .project-tracking-timeline-item {
+  position: relative;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--pt-border);
-  border-left: 4px solid var(--project-row-accent, rgba(148, 163, 184, 0.75));
+  border-top: 0;
   border-radius: 9px;
-  padding: 9px;
+  padding: 8px;
   background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.project-tracking-board-card__accent {
+  height: 3px;
+  margin: -8px -8px 0;
+  background: var(--project-row-accent, rgba(148, 163, 184, 0.75));
+}
+
+.project-tracking-board-card__accent--critical,
+.project-tracking-board-card__accent--warning {
+  background: var(--project-health-accent, var(--project-row-accent, #cbd5e1));
+}
+
+.project-tracking-board-card--tone-critical {
+  --project-health-accent: #dc2626;
+}
+
+.project-tracking-board-card--tone-warning {
+  --project-health-accent: #d97706;
+}
+
+.project-tracking-board-card--tone-success {
+  --project-health-accent: #16a34a;
 }
 
 .project-tracking-board-card--area-schools {
@@ -4519,6 +4560,13 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   --project-row-accent: #9b72d8;
 }
 
+.project-tracking-timeline-item {
+  gap: 8px;
+  border-top: 1px solid var(--pt-border);
+  border-left: 4px solid var(--project-row-accent, rgba(148, 163, 184, 0.75));
+  padding: 9px;
+}
+
 .project-tracking-board-card__top,
 .project-tracking-timeline-item {
   align-items: start;
@@ -4527,7 +4575,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-board-card__top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -4535,54 +4583,71 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-timeline-item span,
 .project-tracking-timeline-item small {
   color: var(--pt-muted);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 900;
   line-height: 1.3;
+}
+
+.project-tracking-board-card__top > div > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-tracking-board-card h4,
 .project-tracking-timeline-item strong {
   margin: 2px 0 0;
   color: var(--pt-text);
-  font-size: 0.82rem;
-  line-height: 1.25;
+  font-size: 0.78rem;
+  line-height: 1.22;
   overflow-wrap: anywhere;
+}
+
+.project-tracking-board-card h4 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .project-tracking-board-card__chips,
 .project-tracking-timeline-item__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
 }
 
-.project-tracking-board-card dl {
+.project-tracking-board-card__meta-line {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 
-.project-tracking-board-card dl > div {
+.project-tracking-board-card__meta-line > span {
   display: grid;
   gap: 2px;
   min-width: 0;
+  border: 1px solid rgba(201, 211, 224, 0.78);
+  border-radius: 7px;
+  padding: 5px 6px;
+  background: #f8fafc;
 }
 
-.project-tracking-board-card dt {
+.project-tracking-board-card__meta-line small {
   color: var(--pt-muted);
   font-size: 0.62rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-.project-tracking-board-card dd {
+.project-tracking-board-card__meta-line strong {
   min-width: 0;
   margin: 0;
   color: var(--pt-text);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 800;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -4591,13 +4656,26 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-board-card p {
   margin: 0;
   color: #394a60;
-  font-size: 0.75rem;
-  line-height: 1.35;
+  font-size: 0.72rem;
+  line-height: 1.32;
   overflow-wrap: anywhere;
 }
 
-.project-tracking-board-card p strong {
-  color: var(--pt-text);
+.project-tracking-board-card__next {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.project-tracking-board-card__next span {
+  display: block;
+  margin-bottom: 1px;
+  color: var(--pt-muted);
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .project-tracking-table-wrap {
@@ -4900,6 +4978,12 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   cursor: pointer;
 }
 
+.project-tracking-board-card .project-tracking-progress-link {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 0.68rem;
+}
+
 .project-tracking-details-toggle:hover {
   border-color: #9fbce4;
   background: #f8fbff;
@@ -4995,11 +5079,11 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 4px 7px;
+  padding: 3px 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 900;
 }
 
@@ -5036,11 +5120,11 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 4px 7px;
+  padding: 3px 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 900;
 }
 
@@ -6196,7 +6280,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   }
 
   .project-tracking-board-lanes,
-  .project-tracking-board-card dl,
+  .project-tracking-board-card__meta-line,
   .project-tracking-timeline-item {
     grid-template-columns: 1fr;
   }
