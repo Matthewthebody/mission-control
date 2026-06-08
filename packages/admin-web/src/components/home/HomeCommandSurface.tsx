@@ -17,6 +17,10 @@ import { WorkspaceActionBar } from "../workspace/WorkspaceActionBar";
 import { WorkspaceLoadingBlock } from "../workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader } from "../workspace/WorkspacePageHeader";
 import { WorkspaceSectionHeader } from "../workspace/WorkspaceSectionHeader";
+import {
+  buildHomeUrgentItemsFromWorkflowChangeNotices,
+  getWorkflowChangeNoticesForUser
+} from "../../workflowChangeNotices";
 
 type Props = {
   token: string;
@@ -531,7 +535,9 @@ function buildDailyBriefing(input: {
 }) {
   const lines: string[] = [];
   const todayShoots = input.payload?.widgets.today_shoots ?? null;
-  const urgentSummary = input.payload?.home_surface?.urgent_attention?.summary_line ?? null;
+  const urgentSummary = input.payload?.home_surface?.urgent_attention?.items.length
+    ? input.payload.home_surface.urgent_attention.summary_line
+    : null;
   const myDaySummary = input.payload?.home_surface?.my_day?.summary_line ?? null;
   const todayAndNextSummary = input.payload?.home_surface?.today_and_next_up?.summary_line ?? null;
 
@@ -674,9 +680,17 @@ export function HomeCommandSurface({
       }),
     [canOpenProductionQueue, canOpenProductionTasks, canOpenSchoolTasks, canOpenSportsTasks, canOpenStaffing, canOpenToday, dashboard, taskCounts]
   );
-  const urgentItems = dashboard?.home_surface?.urgent_attention?.visible
-    ? dashboard.home_surface.urgent_attention.items.slice(0, 4)
-    : [];
+  const dashboardUrgentItems = useMemo(
+    () => dashboard?.home_surface?.urgent_attention?.visible
+      ? dashboard.home_surface.urgent_attention.items
+      : [],
+    [dashboard]
+  );
+  const workflowUrgentItems = useMemo(
+    () => buildHomeUrgentItemsFromWorkflowChangeNotices(getWorkflowChangeNoticesForUser(currentUser, { includeAcknowledged: false })),
+    [currentUser]
+  );
+  const urgentItems = useMemo(() => [...workflowUrgentItems, ...dashboardUrgentItems].slice(0, 4), [dashboardUrgentItems, workflowUrgentItems]);
   const briefingCards = useMemo(
     () => [
       ...summaryCards.filter((card) => ["shoots_today", "staffing_gaps", "school_tasks", "sports_tasks"].includes(card.key)),

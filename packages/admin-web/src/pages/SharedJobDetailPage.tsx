@@ -64,6 +64,10 @@ import {
 } from "../permissions";
 import type { SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
 import type { DirectoryOwnerOption, SessionUser } from "../types";
+import {
+  getWorkflowChangeNoticesForJob,
+  WorkflowChangeNoticePanel
+} from "../workflowChangeNotices";
 
 type Props = {
   token: string;
@@ -186,6 +190,16 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const canManageDeliverables = hasPolicy ? Boolean(actions.manage_deliverables) : canManageProduction;
   const canManageWatchFlags = hasPolicy ? Boolean(actions.manage_watch_flags) : canManageRecord;
   const selectedDay = detail?.days.find((day) => day.id === selectedDayId) ?? detail?.days[0] ?? null;
+  const jobChangeNotices = useMemo(
+    () =>
+      detail
+        ? getWorkflowChangeNoticesForJob(detail.job.id, currentUser, {
+            includeAcknowledged: true,
+            includeAllAudience: true
+          })
+        : [],
+    [currentUser, detail]
+  );
   const operationalCards = detail ? adapter.getOperationalCards({ detail, currentUser, canViewFinance, selectedDay }) : [];
   const operationalCopy = adapter.getOperationalCopy();
   const adapterTabs = detail
@@ -316,6 +330,12 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       <div className="shared-job-detail__stack">
         {error ? <div className="shared-job-list__error" role="alert">{error}</div> : null}
         <JobOperationalCommandPanel token={token} jobId={detail.job.id} prepReadiness={detail.prep_readiness} />
+        <WorkflowChangeNoticePanel
+          notices={jobChangeNotices}
+          title="Job Change Notices"
+          summary="Recent location, schedule, staffing, and job-note changes tied to this job."
+          compact
+        />
         {sectionVisible("watch_flags") && detail.watch_flags.length ? (
           <section className="shared-job-detail__list-card">
             <h3>Open watch flags</h3>

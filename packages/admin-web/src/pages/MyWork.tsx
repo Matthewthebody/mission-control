@@ -17,6 +17,11 @@ import {
   type EmployeeMyWorkWorkflowStepRecord
 } from "../services/employeeExperience";
 import type { SessionUser } from "../types";
+import {
+  getWorkflowChangeNoticesForUser,
+  WorkflowChangeNoticeCard,
+  type WorkflowChangeNotice
+} from "../workflowChangeNotices";
 
 type Props = {
   token: string;
@@ -31,6 +36,7 @@ type HeadsUpItem = {
   summary: string;
   detail?: string | null;
   tone: "good" | "info" | "heads_up" | "action_needed";
+  workflowChangeNotice?: WorkflowChangeNotice;
 };
 
 type ActiveLaunchpadSection = "schedule" | "tasks" | "workflow" | "heads-up";
@@ -61,7 +67,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
   const scheduleStats = useMemo(() => buildScheduleWeekStats(payload), [payload]);
   const scheduleWeekDays = useMemo(() => buildScheduleWeekDays(payload), [payload]);
   const liveWorkflowSteps = payload?.live_workflow_steps ?? [];
-  const headsUpItems = useMemo(() => buildHeadsUpItems(payload), [payload]);
+  const headsUpItems = useMemo(() => buildHeadsUpItems(payload, currentUser), [currentUser, payload]);
 
   const selectedEvent = useMemo(
     () => payload?.events.find((event) => event.id === selectedEventId) ?? null,
@@ -322,7 +328,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
               getKey={(item) => item.id}
               empty="No important acknowledgements are waiting here."
               renderItem={(item) => <HeadsUpCard item={item} />}
-              limit={4}
+              limit={6}
             />
           ) : null}
         </section>
@@ -483,10 +489,19 @@ function buildLookaheadSummary(payload: EmployeeMyWorkResponse | null) {
   return `No additional published events are visible through ${endLabel}.`;
 }
 
-function buildHeadsUpItems(payload: EmployeeMyWorkResponse | null): HeadsUpItem[] {
+function buildHeadsUpItems(payload: EmployeeMyWorkResponse | null, currentUser: SessionUser): HeadsUpItem[] {
   if (!payload) {
     return [];
   }
+  const workflowChangeNotices: HeadsUpItem[] = getWorkflowChangeNoticesForUser(currentUser, { includeAcknowledged: true }).map((notice) => ({
+    id: `workflow-change-${notice.id}`,
+    label: notice.level === "urgent" ? "Urgent" : notice.level === "important" ? "Important" : "FYI",
+    title: notice.title,
+    summary: notice.summary,
+    detail: `${notice.changeLabel} - ${notice.audienceLabel}`,
+    tone: notice.level === "urgent" ? "action_needed" : notice.level === "important" ? "heads_up" : "info",
+    workflowChangeNotice: notice
+  }));
   const acknowledgements: HeadsUpItem[] = payload.acknowledgements.map((item) => ({
     id: `ack-${item.id}`,
     label: "Heads Up",
@@ -521,7 +536,7 @@ function buildHeadsUpItems(payload: EmployeeMyWorkResponse | null): HeadsUpItem[
       detail: item.department ? formatDepartmentLabel(item.department) : null,
       tone: item.tone
     }));
-  return [...acknowledgements, ...exceptions, ...approvals, ...recentChanges];
+  return [...workflowChangeNotices, ...acknowledgements, ...exceptions, ...approvals, ...recentChanges];
 }
 
 function calculateHoursBetween(startsAt: string, endsAt: string) {
@@ -686,6 +701,10 @@ function TaskCard({ task }: { task: EmployeeMyWorkTaskRecord }) {
 }
 
 function HeadsUpCard({ item }: { item: HeadsUpItem }) {
+  if (item.workflowChangeNotice) {
+    return <WorkflowChangeNoticeCard notice={item.workflowChangeNotice} compact />;
+  }
+
   return (
     <article className={`notification-card notification-card--${toneToNotificationClass(item.tone)}`}>
       <div className="employee-shift-card__top">

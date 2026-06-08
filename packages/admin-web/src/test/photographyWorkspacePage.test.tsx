@@ -698,6 +698,9 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Upload Queue")).toBeInTheDocument();
     expect(screen.getByText("Post-Shoot Reviews")).toBeInTheDocument();
     expect(screen.getAllByText("Weekly Calendar").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 3, name: "Photography Change Notices" })).toBeInTheDocument();
+    expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
+    expect(screen.getByText(/Review travel and parking notes before leaving for the shoot/i)).toBeInTheDocument();
     expect(screen.queryByText("Attention Needed")).not.toBeInTheDocument();
     expect(screen.queryByText("Photography Command Hub")).not.toBeInTheDocument();
     expect(screen.queryByText("Work Spine")).not.toBeInTheDocument();

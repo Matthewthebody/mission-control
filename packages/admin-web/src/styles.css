@@ -8271,6 +8271,129 @@ html[data-theme="light"] .leadership-shoot-workspace__slot-card {
   background: linear-gradient(180deg, rgba(211, 165, 106, 0.08), rgba(7, 18, 31, 0.68));
 }
 
+.workflow-change-notice-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-change-notice-panel__header h3,
+.workflow-change-notice-panel__header p,
+.workflow-change-notice-panel__more {
+  margin: 0;
+}
+
+.workflow-change-notice-panel__header p,
+.workflow-change-notice-panel__more {
+  color: var(--text-muted);
+}
+
+.workflow-change-notice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-change-notice-card {
+  border: 1px solid rgba(166, 194, 220, 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(7, 18, 31, 0.68);
+  padding: 14px;
+}
+
+.workflow-change-notice-card--compact {
+  padding: 12px;
+}
+
+.workflow-change-notice-card--important {
+  border-color: rgba(244, 201, 93, 0.36);
+  background: linear-gradient(135deg, rgba(244, 201, 93, 0.1), rgba(7, 18, 31, 0.68));
+}
+
+.workflow-change-notice-card--urgent {
+  border-color: rgba(182, 91, 91, 0.44);
+  background: linear-gradient(135deg, rgba(182, 91, 91, 0.14), rgba(7, 18, 31, 0.72));
+}
+
+.workflow-change-notice-card__top,
+.workflow-change-notice-card__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workflow-change-notice-card__top strong,
+.workflow-change-notice-card__top p,
+.workflow-change-notice-card__body p {
+  margin: 0;
+}
+
+.workflow-change-notice-card__top p,
+.workflow-change-notice-card__body {
+  color: var(--text-muted);
+}
+
+.workflow-change-notice-level {
+  flex: 0 0 auto;
+  border: 1px solid rgba(166, 194, 220, 0.22);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.workflow-change-notice-level--fyi {
+  color: #d7e7f8;
+  background: rgba(126, 162, 198, 0.14);
+}
+
+.workflow-change-notice-level--important {
+  color: #fff0c2;
+  border-color: rgba(244, 201, 93, 0.42);
+  background: rgba(244, 201, 93, 0.14);
+}
+
+.workflow-change-notice-level--urgent {
+  color: #ffdada;
+  border-color: rgba(182, 91, 91, 0.48);
+  background: rgba(182, 91, 91, 0.18);
+}
+
+.workflow-change-notice-card__meta,
+.workflow-change-notice-card__change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workflow-change-notice-card__meta span,
+.workflow-change-notice-card__change span {
+  border: 1px solid rgba(166, 194, 220, 0.18);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  background: rgba(166, 194, 220, 0.08);
+  font-size: 0.78rem;
+}
+
+.workflow-change-notice-card__change span {
+  border-radius: 10px;
+}
+
+.workflow-change-notice-card__ack:disabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
+@media (max-width: 720px) {
+  .workflow-change-notice-card__top,
+  .workflow-change-notice-card__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .badge-pill--draft {
   color: #d7e7f8;
   border-color: rgba(126, 162, 198, 0.38);

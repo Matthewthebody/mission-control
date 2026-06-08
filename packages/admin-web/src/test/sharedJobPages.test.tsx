@@ -2405,6 +2405,8 @@ beforeEach(() => {
     expect(screen.getByRole("button", { name: "Products" })).toBeInTheDocument();
     expect(screen.getByText("Published")).toBeInTheDocument();
     expect(screen.getByText("Job published")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Job Change Notices" })).toBeInTheDocument();
+    expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Financial" })).not.toBeInTheDocument();
 
     cleanup();

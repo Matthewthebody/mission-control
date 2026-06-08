@@ -618,9 +618,11 @@ const shiftDetailResponse = {
 describe("My Work page", () => {
   afterEach(() => {
     cleanup();
+    window.localStorage.clear();
   });
 
   beforeEach(() => {
+    window.localStorage.clear();
     apiFetchMock.mockReset();
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path === "/api/attendance/time-clock/state") {
@@ -780,6 +782,11 @@ describe("My Work page", () => {
 
     fireEvent.click(headsUpLaunchpadButton);
     expect(document.getElementById("my-work-heads-up")).toBeInTheDocument();
+    expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
+    expect(screen.getByText("Assigned photographers and the shoot lead")).toBeInTheDocument();
+    const acknowledgeChangeButton = screen.getByRole("button", { name: "Acknowledge" });
+    fireEvent.click(acknowledgeChangeButton);
+    expect(screen.getByRole("button", { name: "Acknowledged" })).toBeDisabled();
     expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
     expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();

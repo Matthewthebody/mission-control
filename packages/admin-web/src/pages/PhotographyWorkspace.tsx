@@ -16,6 +16,10 @@ import type {
 } from "../jobTruthTypes";
 import { getSharedJobDetail, listSharedJobs } from "../services/jobsApi";
 import type { SessionUser } from "../types";
+import {
+  getWorkflowChangeNoticesForSurface,
+  WorkflowChangeNoticePanel
+} from "../workflowChangeNotices";
 
 type Props = {
   token: string;
@@ -108,6 +112,16 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
   const isTodayFocus = focus === "today";
   const isTravelFocus = focus === "travel";
   const isPrepFocus = focus === "pre_service" || focus === "readiness";
+  const photographyChangeNotices = useMemo(
+    () =>
+      getWorkflowChangeNoticesForSurface({
+        surface: "photography",
+        currentUser,
+        includeAcknowledged: true,
+        includeAllAudience: true
+      }),
+    [currentUser]
+  );
 
   return (
     <div className="workspace-shell studios-workspace">
@@ -133,6 +147,13 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
       {isOverview ? (
         <>
           <PhotographyOpenFirstPanel />
+          <WorkflowChangeNoticePanel
+            notices={photographyChangeNotices}
+            title="Photography Change Notices"
+            summary="Location, call time, staffing, and parking changes field teams should review before leaving."
+            compact
+            maxItems={3}
+          />
           <PhotographyTodayShootsPanel token={token} />
           <PhotographyWeeklyPreviewPanel token={token} />
         </>
