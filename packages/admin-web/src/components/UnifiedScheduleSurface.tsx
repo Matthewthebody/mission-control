@@ -801,8 +801,8 @@ export function UnifiedScheduleSurface({
               <option value="">All Shoot Types</option>
               <option value="schools">Schools</option>
               <option value="sports">Sports</option>
-              <option value="events">Events</option>
-              <option value="studio">Studio</option>
+              <option value="specialty">Specialty</option>
+              <option value="office">Office</option>
             </select>
           </label>
         ) : null}
@@ -1878,8 +1878,14 @@ function renderCalendarSurface(input: {
   }
 
   if (input.viewMode === "month") {
+    const monthWeekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     return (
       <div className="schedule-month-layout">
+        <div className="schedule-month-weekdays" aria-label="Month weekday headers">
+          {monthWeekdayLabels.map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </div>
         <div className="schedule-month-grid">
           {buildMonthGrid(input.anchorDate).map((day) => {
             const items = input.dayGroups.find((group) => group.dateKey === day.dateKey)?.items ?? [];
@@ -1891,12 +1897,10 @@ function renderCalendarSurface(input: {
                 className={`schedule-month-day${day.inCurrentMonth ? "" : " schedule-month-day--outside"}${selected ? " schedule-month-day--selected" : ""}`}
                 onClick={() => focusDay(day.dateKey, items)}
               >
-                <span className="schedule-month-day__weekday">{formatDayLabel(day.dateKey, "30day")}</span>
                 <span className="schedule-month-day__number">{day.dayOfMonth}</span>
                 <span className="schedule-month-day__count">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span>
                 {items.slice(0, 2).map((item) => (
-                  <span key={getItemKey(item)} className="schedule-month-day__preview">
-                    <span>{getItemTimeLabel(item)}</span>
+                  <span key={getItemKey(item)} className={`schedule-month-day__preview schedule-month-day__preview--${getDepartmentCategory(item.department)}`}>
                     <strong>{getItemTitle(item)}</strong>
                   </span>
                 ))}
@@ -2041,7 +2045,7 @@ function renderCalendarSurface(input: {
                   ) : isEventItem(item) ? (
                     <button
                       key={item.id}
-                      className={`schedule-event-card${input.selectedItemKey === getItemKey(item) ? " is-selected" : ""}`}
+                      className={`schedule-event-card schedule-event-card--${getDepartmentCategory(item.department)}${input.selectedItemKey === getItemKey(item) ? " is-selected" : ""}`}
                       draggable={input.canManage}
                       onDragStart={(event) => event.dataTransfer.setData("application/json", JSON.stringify(item))}
                       onClick={() => input.handleEventSelect(item)}
@@ -2066,7 +2070,7 @@ function renderCalendarSurface(input: {
                     <button
                       key={item.id}
                       type="button"
-                      className={`schedule-event-card schedule-event-card--availability${input.selectedItemKey === getItemKey(item) ? " is-selected" : ""}`}
+                      className={`schedule-event-card schedule-event-card--availability schedule-event-card--${getDepartmentCategory(item.department)}${input.selectedItemKey === getItemKey(item) ? " is-selected" : ""}`}
                       onClick={() => input.handleAvailabilitySelect(item)}
                     >
                       <div className="schedule-event-card__top">
@@ -2145,11 +2149,12 @@ function CompactScheduleItemCard({
 }) {
   const issueCount = (item.open_alert_count ?? 0) + (item.open_attendance_exception_count ?? 0);
   const showRisk = issueCount > 0 || item.missing_lead || item.staffing_health_state === "coverage_gap";
+  const category = getDepartmentCategory(item.shoot_category ?? item.department);
 
   return (
     <button
       type="button"
-      className={`schedule-compact-item-card${selected ? " is-selected" : ""}`}
+      className={`schedule-compact-item-card schedule-compact-item-card--${category}${selected ? " is-selected" : ""}`}
       onClick={onSelect}
     >
       <div className="schedule-compact-item-card__top">
@@ -2158,9 +2163,17 @@ function CompactScheduleItemCard({
       </div>
       <strong>{item.title}</strong>
       <div className="schedule-compact-item-card__meta">
-        <span>{humanizeLabel(item.shoot_category ?? item.department)}</span>
+        <span className={`shoot-type-chip shoot-type-chip--${category}`}>{humanizeLabel(item.shoot_category ?? item.department)}</span>
         {item.location_name || item.location_address ? <span>{item.location_name || item.location_address}</span> : null}
       </div>
+      {selected ? (
+        <span className="schedule-compact-item-card__expanded">
+          <span>Lead: {formatScheduleLeadName(item.lead_name, "Lead pending")}</span>
+          <span>Start: {formatTime(item.starts_at)}</span>
+          <span>Location: {item.location_name || item.location_address || "Location pending"}</span>
+          <span>Staff: {item.assigned_staff_count ?? 0} assigned</span>
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -2546,16 +2559,20 @@ function formatTime(value?: string | null) {
 }
 
 function getDepartmentCategory(department?: string | null) {
-  if (department === "sports") {
+  const value = (department ?? "").toLowerCase();
+  if (value.includes("sports") || value.includes("sport") || value.includes("team") || value.includes("league")) {
     return "sports";
   }
-  if (department === "schools") {
+  if (value.includes("schools") || value.includes("school")) {
     return "schools";
   }
-  if (department === "studio" || department === "production") {
-    return "studio";
+  if (value.includes("studio") || value.includes("senior") || value.includes("portrait") || value.includes("specialty") || value.includes("event")) {
+    return "specialty";
   }
-  return "events";
+  if (value.includes("office") || value.includes("internal") || value.includes("production") || value.includes("ops")) {
+    return "office";
+  }
+  return "neutral";
 }
 
 function humanizeLabel(value?: string | null) {
@@ -2696,7 +2713,7 @@ function matchesShootFilters(
   }
 ) {
   if (filters.shootTypeFilter) {
-    const category = shoot.shoot_category ?? getDepartmentCategory(shoot.department);
+    const category = getDepartmentCategory(shoot.shoot_category ?? shoot.department);
     if (category !== filters.shootTypeFilter) {
       return false;
     }
@@ -2790,7 +2807,7 @@ function filterShiftRows(
         }
       }
       if (filters.shootTypeFilter) {
-        const category = shoot?.shoot_category ?? (shift.shift_kind === "shoot" ? getDepartmentCategory(shift.department) : null);
+        const category = getDepartmentCategory(shoot?.shoot_category ?? (shift.shift_kind === "shoot" ? shift.department : null));
         if (category !== filters.shootTypeFilter) {
           return false;
         }

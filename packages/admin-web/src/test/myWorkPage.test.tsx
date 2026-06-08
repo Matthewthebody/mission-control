@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MyWork } from "../pages/MyWork";
 import type { SessionUser } from "../types";
@@ -740,10 +740,15 @@ describe("My Work page", () => {
     expect(screen.getByRole("link", { name: "View My Schedule" })).toHaveAttribute("href", "#my-schedule");
     expect(document.getElementById("my-work-schedule")).toHaveClass("employee-shift-rail--wide");
     expect(document.getElementById("my-work-schedule")?.closest(".employee-work-layout")).toHaveClass("employee-work-layout--launchpad");
-    expect(screen.getByLabelText("Compact weekly schedule")).toBeInTheDocument();
+    const weekStrip = screen.getByLabelText("Compact weekly schedule");
+    expect(weekStrip).toBeInTheDocument();
+    expect(weekStrip).toHaveClass("employee-week-strip--seven-day");
     expect(screen.getByText("Thu")).toBeInTheDocument();
+    expect(within(weekStrip).getByText("Sat")).toBeInTheDocument();
+    expect(within(weekStrip).getByText("Sun")).toBeInTheDocument();
     expect(screen.getByText("Assigned shoot")).toBeInTheDocument();
     expect(screen.getAllByText("DEMO-001").length).toBeGreaterThan(0);
+    expect(within(weekStrip).getByRole("button", { name: /DEMO-001/i })).toHaveClass("employee-week-event--schools");
     expect(screen.getByText("Related jobs (1)")).toBeInTheDocument();
     expect(screen.queryByText("Assigned Jobs")).not.toBeInTheDocument();
     expect(screen.queryByText("Current Steps")).not.toBeInTheDocument();
@@ -812,6 +817,8 @@ describe("My Work page", () => {
 
     expect(apiFetchMock).toHaveBeenCalledWith("/api/employee/events/shift-1", "token");
     expect(screen.queryByText(/Choose an event from My Schedule This Week/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Lead: photographer")).toBeInTheDocument();
+    expect(screen.getByText("Location: Lincoln Elementary")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit Post-Shoot Eval" })).toBeInTheDocument();
   });
 });

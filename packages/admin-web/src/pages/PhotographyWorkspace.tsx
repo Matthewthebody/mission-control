@@ -136,12 +136,6 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
               <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios")}>
                 Back to Photography
               </button>
-              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/shoots")}>
-                Today's Shoots
-              </button>
-              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#studios/calendar")}>
-                Team Schedule
-              </button>
             </WorkspaceActionBar>
           )
         }
@@ -489,13 +483,21 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
 
       <div className="studios-workspace__job-prep-header">
         <div>
-          <div className="eyebrow">Job Prep Packet</div>
+          <div className="eyebrow">Selected Job Summary</div>
           <h3>{prepContext.jobName}</h3>
           <p>{prepContext.organizationName}</p>
         </div>
+      </div>
+
+      <div className="studios-workspace__job-prep-chooser">
+        <div>
+          <div className="eyebrow">Choose Job</div>
+          <h4>Choose Job</h4>
+          <p>Select the shoot first, then use this packet for prep, travel, references, and same-day closeout context.</p>
+        </div>
         {jobs.length > 1 ? (
           <label className="filter-field">
-            <span>Choose job</span>
+            <span>Job</span>
             <select value={selectedJob.id} onChange={(event) => setSelectedJobId(event.target.value)}>
               {jobs.slice(0, 8).map((job) => (
                 <option key={job.id} value={job.id}>
@@ -504,12 +506,15 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
               ))}
             </select>
           </label>
-        ) : null}
+        ) : (
+          <strong>{selectedJob.title}</strong>
+        )}
       </div>
 
       <div className="studios-workspace__prep-summary-grid">
+        <PrepInfoGroup title="Selected Job Summary" items={prepContext.summaryItems} />
         <PrepInfoGroup title="Schedule" items={prepContext.scheduleItems} />
-        <PrepInfoGroup title="Location" items={prepContext.locationItems} />
+        <PrepInfoGroup title="Travel & Location" items={prepContext.locationItems} />
         <PrepInfoGroup title="Contact" items={prepContext.contactItems} />
         <PrepInfoGroup title="Crew" items={prepContext.crewItems} />
       </div>
@@ -517,18 +522,29 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
       <div className="studios-workspace__prep-detail-grid">
         <PrepInfoGroup title="Briefing Notes" items={prepContext.briefingItems} wide />
         <PrepReadinessGroup items={prepContext.readinessItems} />
-        <PrepInfoGroup title="Prior Evaluation" items={prepContext.priorEvaluationItems} placeholder="No prior post-shoot evaluation is in this seeded packet yet." />
-        <PrepInfoGroup title="Customer Survey Notes" items={[]} placeholder="No customer survey notes are in this seeded packet yet." />
+        <PrepActionGroup
+          title="Location Details"
+          summary={prepContext.locationSummary}
+          actions={[
+            ...(prepContext.mapsUrl ? [{ label: "Open Map", href: prepContext.mapsUrl }] : []),
+            { label: "Location Details", href: prepContext.directoryHash }
+          ]}
+        />
+        <PrepInfoGroup title="Past Shoot References" items={prepContext.pastShootItems} placeholder="Past shoot references will appear when prior evaluations or setup notes are attached." />
         <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.documentAttachments} placeholder="No reference photos are attached to this prep packet yet." />
         <PrepAttachmentGroup title="Setup Photos" attachments={prepContext.photoAttachments} placeholder="No setup photos are attached to this prep packet yet." />
+        <PrepInfoGroup title="Closeout / Post-Shoot Eval" items={prepContext.closeoutItems} placeholder="Closeout status appears here after the shoot is completed." />
       </div>
 
       <WorkspaceActionBar align="end" compact>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildStudiosJobHash("#studios/travel", selectedJob.id))}>
-          Travel Details
+          Travel Overview
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", selectedJob.id))}>
           Open Job Detail
+        </button>
+        <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#job-closeout/jobs", selectedJob.id))}>
+          Closeout / Eval
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
           Open Project Tracking
@@ -582,6 +598,30 @@ function PrepReadinessGroup({ items }: { items: SharedJobReadinessItem[] }) {
   );
 }
 
+function PrepActionGroup({
+  title,
+  summary,
+  actions
+}: {
+  title: string;
+  summary: string;
+  actions: Array<{ label: string; href: string }>;
+}) {
+  return (
+    <article className="studios-workspace__prep-info-card">
+      <h4>{title}</h4>
+      <p>{summary}</p>
+      <div className="studios-workspace__prep-link-row">
+        {actions.map((action) => (
+          <a key={action.label} className="secondary-button" href={action.href}>
+            {action.label}
+          </a>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function PrepAttachmentGroup({
   title,
   attachments,
@@ -629,6 +669,9 @@ function buildJobPrepContext(job: SharedJobListItem | null, detail: SharedJobDet
   const priorEvaluationItems = (detail?.production_items ?? [])
     .map((item) => firstString(item.post_shoot_eval_summary, item.internal_notes))
     .filter((value): value is string => Boolean(value));
+  const mapsUrl = firstString(employeeLocation?.google_maps_url, buildGoogleMapsSearchLink(address ?? locationName));
+  const directoryHash = buildDirectoryHash(job);
+  const locationSummary = firstString(locationName, address, "Location details are not recorded yet.") ?? "Location details are not recorded yet.";
 
   const briefingItems = [
     ...briefingLines,
@@ -641,6 +684,12 @@ function buildJobPrepContext(job: SharedJobListItem | null, detail: SharedJobDet
   return {
     organizationName: detail?.summary.organization_name ?? job.organization_name ?? "Client pending",
     jobName: detail?.job.title ?? job.title,
+    summaryItems: [
+      detail?.job.job_number ?? job.job_number ? `Job number: ${detail?.job.job_number ?? job.job_number}` : null,
+      job.department_type ? `Type: ${humanizeTravelValue(job.department_type)}` : null,
+      job.job_status ? `Status: ${humanizeTravelValue(job.job_status)}` : null,
+      job.lead_owner_name ? `Lead: ${job.lead_owner_name}` : null
+    ].filter((value): value is string => Boolean(value)),
     scheduleItems: [
       formatDateLine(primaryDay?.date ?? job.primary_day_date),
       formatTimeLine(primaryDay?.start_time ?? job.primary_day_start_time, primaryDay?.end_time ?? job.primary_day_end_time),
@@ -658,6 +707,20 @@ function buildJobPrepContext(job: SharedJobListItem | null, detail: SharedJobDet
     briefingItems,
     readinessItems: (detail?.readiness_items ?? []).sort(compareReadinessItems),
     priorEvaluationItems,
+    pastShootItems: [
+      ...priorEvaluationItems,
+      firstString(primaryDay?.setup_notes, employeeLocation?.setup_area),
+      firstString(job.school_profile?.special_instructions, job.sports_profile?.client_expectations_notes)
+    ].filter((value): value is string => Boolean(value)),
+    closeoutItems: [
+      "Post-shoot evaluations feed Senior Review.",
+      "Review trends update from completed closeouts.",
+      job.production_status ? `Closeout status: ${humanizeTravelValue(job.production_status)}` : null,
+      detail?.job.production_status ? `Production handoff: ${humanizeTravelValue(detail.job.production_status)}` : null
+    ].filter((value): value is string => Boolean(value)),
+    mapsUrl,
+    directoryHash,
+    locationSummary,
     documentAttachments,
     photoAttachments
   };
@@ -1036,6 +1099,16 @@ function buildGoogleMapsSearchLink(query: string | null | undefined) {
   return cleaned ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleaned)}` : null;
 }
 
+function buildDirectoryHash(job: SharedJobListItem) {
+  if (job.primary_location_id) {
+    return `#directory/locations?location=${encodeURIComponent(job.primary_location_id)}`;
+  }
+  if (job.organization_id) {
+    return `#directory/organizations?organization=${encodeURIComponent(job.organization_id)}`;
+  }
+  return "#directory";
+}
+
 function formatDateLine(value: string | null | undefined) {
   if (!value) {
     return "Date pending";
@@ -1188,11 +1261,11 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
               <div className="studios-workspace__day-status">
                 <span className={`status-pill ${getTodayRiskClass(job)}`}>{describeTodayAttention(job)}</span>
                 <div className="studios-workspace__focus-actions">
-                  <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildStudiosJobHash("#studios/travel", job.id))}>
-                    Travel Details
-                  </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildStudiosJobHash("#studios/pre-service", job.id))}>
                     Job Prep
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#job-closeout/jobs", job.id))}>
+                    Closeout / Eval
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", job.id))}>
                     Open Job Detail

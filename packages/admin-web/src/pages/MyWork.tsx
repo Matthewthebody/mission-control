@@ -242,26 +242,37 @@ export function MyWork({ token, currentUser, socket }: Props) {
           {loading ? <div className="empty-state empty-state--panel">Loading your events...</div> : null}
           {!loading && !payload?.events.length ? <div className="empty-state empty-state--panel">No events are assigned right now.</div> : null}
 
-          <div className="employee-week-strip" aria-label="Compact weekly schedule">
+          <div className="employee-week-strip employee-week-strip--seven-day" aria-label="Compact weekly schedule">
             {scheduleWeekDays.map((day) => (
               <div key={day.key} className="employee-week-day">
                 <span>{day.label}</span>
                 <strong>{day.shortDate}</strong>
                 {day.events.length ? (
                   <div className="employee-week-day__events">
-                    {day.events.slice(0, 2).map((event) => (
-                      <button
-                        key={event.id}
-                        type="button"
-                        className={`employee-week-event${selectedEvent?.id === event.id ? " employee-week-event--selected" : ""}`}
-                        onClick={() => setSelectedEventId(event.id)}
-                      >
-                        <span className="employee-week-event__kind">{formatEventKind(event)}</span>
-                        <span>{formatShortWindow(event.starts_at, event.ends_at)}</span>
-                        <strong>{event.title}</strong>
-                        <small>{event.location_name || event.location_address || "Location pending"}</small>
-                      </button>
-                    ))}
+                    {day.events.slice(0, 2).map((event) => {
+                      const scheduleType = getEmployeeScheduleType(event);
+                      const selected = selectedEvent?.id === event.id;
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          className={`employee-week-event employee-week-event--${scheduleType}${selected ? " employee-week-event--selected" : ""}`}
+                          onClick={() => setSelectedEventId(event.id)}
+                        >
+                          <span className={`employee-week-event__kind employee-week-event__kind--${scheduleType}`}>{formatEventKind(event)}</span>
+                          <span>{formatShortWindow(event.starts_at, event.ends_at)}</span>
+                          <strong>{event.title}</strong>
+                          <small>{event.location_name || event.location_address || "Location pending"}</small>
+                          {selected ? (
+                            <span className="employee-week-event__expanded">
+                              <span>Lead: {formatScheduleLead(event)}</span>
+                              <span>Start: {formatShortWindow(event.starts_at, event.ends_at)}</span>
+                              <span>Location: {event.location_name || event.location_address || "Location pending"}</span>
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                     {day.events.length > 2 ? <small>{day.events.length - 2} more on schedule</small> : null}
                   </div>
                 ) : (
@@ -431,12 +442,7 @@ function buildScheduleWeekDays(payload: EmployeeMyWorkResponse | null) {
     return [];
   }
   const start = getMondayForDate(baseDate);
-  const hasWeekendWork = events.some((event) => {
-    const day = new Date(event.starts_at).getDay();
-    return day === 0 || day === 6;
-  });
-  const dayCount = hasWeekendWork ? 7 : 5;
-  return Array.from({ length: dayCount }, (_, index) => {
+  return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
     const key = date.toISOString().slice(0, 10);
@@ -447,6 +453,38 @@ function buildScheduleWeekDays(payload: EmployeeMyWorkResponse | null) {
       events: events.filter((event) => event.starts_at.slice(0, 10) === key)
     };
   });
+}
+
+function getEmployeeScheduleType(event: EmployeeMyWorkEventRecord) {
+  const haystack = [
+    event.department,
+    event.source,
+    event.source_record_type,
+    event.title,
+    event.subtitle,
+    event.linked_job_title,
+    event.action_label
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (haystack.includes("school")) {
+    return "schools";
+  }
+  if (haystack.includes("sport") || haystack.includes("league") || haystack.includes("team")) {
+    return "sports";
+  }
+  if (haystack.includes("office") || haystack.includes("internal") || haystack.includes("admin")) {
+    return "office";
+  }
+  if (haystack.includes("senior") || haystack.includes("studio") || haystack.includes("portrait") || haystack.includes("specialty")) {
+    return "specialty";
+  }
+  return "neutral";
+}
+
+function formatScheduleLead(event: EmployeeMyWorkEventRecord) {
+  return event.staffing_role || "Lead pending";
 }
 
 function getMondayForDate(date: Date) {
