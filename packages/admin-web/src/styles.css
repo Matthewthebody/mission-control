@@ -18858,6 +18858,23 @@ html[data-theme="light"] .home-task-hub__task-card {
 .home-task-hub__task-meta {
   color: var(--text-muted);
   font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+
+.home-task-hub__repeat-chip {
+  border: 1px solid rgba(99, 179, 237, 0.34);
+  border-radius: 999px;
+  background: rgba(34, 89, 143, 0.22);
+  color: rgba(213, 232, 255, 0.94);
+  padding: 0.16rem 0.48rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .home-task-hub__repeat-chip {
+  background: rgba(218, 237, 255, 0.92);
+  border-color: rgba(57, 117, 177, 0.32);
+  color: #17466f;
 }
 
 @media (max-width: 960px) {

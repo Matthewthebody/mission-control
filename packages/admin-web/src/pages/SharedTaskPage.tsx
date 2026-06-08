@@ -16,6 +16,14 @@ import { listSharedJobs } from "../services/jobsApi";
 import { listDirectoryOwnerOptions } from "../services/organizationApi";
 import { buildTaskPreCallContext } from "../services/preCallContextBuilders";
 import { createSharedTask, getSharedTaskDetail, updateSharedTask } from "../services/tasksApi";
+import {
+  buildTaskDescriptionWithRecurrence,
+  extractTaskRecurrence,
+  getTaskRecurrenceLabel,
+  stripTaskRecurrenceLine,
+  TASK_RECURRENCE_OPTIONS,
+  type TaskRecurrenceValue
+} from "../taskRecurrence";
 import type { SessionUser, DirectoryOwnerOption } from "../types";
 import type { SharedTaskCreateInput, SharedTaskDetailResponse, SharedTaskStatus, WorkDepartmentType, WorkModelSummary } from "../workModelTypes";
 
@@ -36,6 +44,7 @@ type TaskFormState = {
   status: SharedTaskStatus;
   priority: JobPriorityLevel;
   due_at: string;
+  recurrence: TaskRecurrenceValue;
   blocked_reason: string;
   proof_required: boolean;
   completion_notes: string;
@@ -84,6 +93,7 @@ function createBlankTaskFormState(department: WorkDepartmentType = "schools"): T
     status: "not_started",
     priority: "normal",
     due_at: "",
+    recurrence: "none",
     blocked_reason: "",
     proof_required: false,
     completion_notes: ""
@@ -118,7 +128,7 @@ function toDateTimeLocal(value: string | null | undefined) {
 function fromDetail(detail: SharedTaskDetailResponse): TaskFormState {
   return {
     title: detail.task.title,
-    description: detail.task.description ?? "",
+    description: stripTaskRecurrenceLine(detail.task.description),
     task_type: detail.task.task_type,
     department_type: detail.task.department_type,
     related_job_id: detail.task.related_job_id ?? "",
@@ -127,6 +137,7 @@ function fromDetail(detail: SharedTaskDetailResponse): TaskFormState {
     status: detail.task.status,
     priority: detail.task.priority,
     due_at: toDateTimeLocal(detail.task.due_at),
+    recurrence: extractTaskRecurrence(detail.task.description),
     blocked_reason: detail.task.blocked_reason ?? "",
     proof_required: detail.task.proof_required,
     completion_notes: detail.task.completion_notes ?? ""
@@ -136,7 +147,7 @@ function fromDetail(detail: SharedTaskDetailResponse): TaskFormState {
 function toPayload(form: TaskFormState): SharedTaskCreateInput {
   return {
     title: form.title.trim(),
-    description: form.description.trim() || null,
+    description: buildTaskDescriptionWithRecurrence(form.description, form.recurrence),
     task_type: form.task_type.trim() || null,
     department_type: form.department_type,
     related_job_id: form.related_job_id || null,
@@ -400,7 +411,7 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
               <input value={formState.title} onChange={(event) => updateField("title", event.target.value)} disabled={readOnly} />
             </label>
             <label className="filter-field">
-              <span>Department</span>
+              <span>Assign to Department</span>
               <select
                 value={formState.department_type}
                 onChange={(event) => updateField("department_type", event.target.value as WorkDepartmentType)}
@@ -441,6 +452,20 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
               <span>Due date / time</span>
               <input type="datetime-local" value={formState.due_at} onChange={(event) => updateField("due_at", event.target.value)} disabled={readOnly} />
             </label>
+            <label className="filter-field">
+              <span>Repeat</span>
+              <select
+                value={formState.recurrence}
+                onChange={(event) => updateField("recurrence", event.target.value as TaskRecurrenceValue)}
+                disabled={readOnly}
+              >
+                {TASK_RECURRENCE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="filter-field filter-field--wide">
               <span>Related Job / Event search</span>
               <input
@@ -463,17 +488,13 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
               <div className="shared-task-page__helper">Jobs / Events create workload. Tasks can belong to one when they are execution follow-through.</div>
             </label>
             <SharedStaffPicker
-              label="Assignee"
+              label="Assign to Team Member"
               value={formState.assigned_to_user_id}
               onChange={(value) => updateField("assigned_to_user_id", value)}
               options={ownerOptions}
-              emptyLabel="Choose assignee"
+              emptyLabel="Choose team member"
               disabled={readOnly}
             />
-            <label className="filter-field">
-              <span>Assigned team</span>
-              <input value={formState.assigned_team_id} onChange={(event) => updateField("assigned_team_id", event.target.value)} disabled={readOnly} />
-            </label>
             <label className="shared-job-form__toggle">
               <input
                 type="checkbox"
@@ -523,6 +544,11 @@ export function SharedTaskPage({ token, currentUser, mode }: Props) {
                 <span className="eyebrow">Assignee</span>
                 <strong>{effectiveAssigneeLabel || "Unassigned"}</strong>
                 <p>{effectiveAssigneeLabel ? "Internal execution owner" : "Assign now or leave open for triage."}</p>
+              </div>
+              <div>
+                <span className="eyebrow">Repeat</span>
+                <strong>{getTaskRecurrenceLabel(formState.recurrence)}</strong>
+                <p>{formState.recurrence === "none" ? "One-time task" : "Recurring task"}</p>
               </div>
             </div>
           </section>

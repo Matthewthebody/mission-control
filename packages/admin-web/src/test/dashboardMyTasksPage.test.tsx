@@ -65,7 +65,7 @@ function buildTaskItems(count: number, departmentLabel = "Operations") {
     tenant_id: "tenant-demo",
     task_number: `TASK-${index + 1}`,
     title: `Task ${index + 1}`,
-    description: null,
+    description: index === 0 ? "Check gallery export handoff.\n\nRepeat: Every month" : null,
     task_type: "follow_up",
     department_type: "operations",
     related_job_id: null,
@@ -133,6 +133,7 @@ describe("DashboardMyTasksPage", () => {
 
     expect(screen.getByText("Assigned to you")).toBeInTheDocument();
     expect(screen.getByText("Spring Portrait Day")).toBeInTheDocument();
+    expect(screen.getByText("Every month")).toBeInTheDocument();
 
     expect(screen.queryByText("Tasks are internal execution items that can stand alone or attach to a Job / Event.")).not.toBeInTheDocument();
   });

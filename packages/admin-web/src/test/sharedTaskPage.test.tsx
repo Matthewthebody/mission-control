@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SharedTaskPage } from "../pages/SharedTaskPage";
 import type { SessionUser } from "../types";
@@ -101,6 +101,7 @@ const communicationUser: SessionUser = {
 describe("SharedTaskPage", () => {
   beforeEach(() => {
     window.location.hash = "#tasks/new?department=production&jobId=job-1";
+    window.sessionStorage.clear();
     listSharedJobsMock.mockReset();
     listDirectoryOwnerOptionsMock.mockReset();
     createSharedTaskMock.mockReset();
@@ -294,8 +295,20 @@ describe("SharedTaskPage", () => {
 
     expect(screen.getByText(/Tasks are internal execution items/i)).toBeInTheDocument();
     expect(await screen.findByText("Demo User")).toBeInTheDocument();
+    expect(screen.getByLabelText("Assign to Department")).toHaveValue("production");
+    expect(screen.getByLabelText("Assign to Team Member")).toHaveValue("user-1");
+
+    const repeatSelect = screen.getByLabelText("Repeat") as HTMLSelectElement;
+    expect(Array.from(repeatSelect.options).map((option) => option.textContent)).toEqual([
+      "Does not repeat",
+      "Every day",
+      "Every week",
+      "Every month",
+      "Every year"
+    ]);
 
     fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Upload QA pass" } });
+    fireEvent.change(screen.getByLabelText("Repeat"), { target: { value: "weekly" } });
     fireEvent.click(screen.getByRole("button", { name: "Create Task" }));
 
     await waitFor(() => {
@@ -305,7 +318,8 @@ describe("SharedTaskPage", () => {
           title: "Upload QA pass",
           department_type: "production",
           related_job_id: "job-1",
-          assigned_to_user_id: "user-1"
+          assigned_to_user_id: "user-1",
+          description: "Repeat: Every week"
         })
       );
     });
@@ -315,6 +329,72 @@ describe("SharedTaskPage", () => {
     expect(await screen.findByText("Task created: Upload QA pass. It is now open and available in My Tasks.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open My Tasks" }));
     expect(window.location.hash).toBe("#tasks");
+  });
+
+  it("displays recurring task assignment metadata without requiring a backend recurrence field", async () => {
+    window.location.hash = "#tasks/task-1";
+    getSharedTaskDetailMock.mockResolvedValueOnce({
+      task: {
+        id: "task-1",
+        tenant_id: "tenant-demo",
+        task_number: "TSK-PRO-2026-0001",
+        title: "Review banner files",
+        description: "Confirm the current school logo before sending banners to production.\n\nRepeat: Every month",
+        task_type: "brand_review",
+        department_type: "production",
+        related_job_id: "job-1",
+        assigned_to_user_id: "user-1",
+        assigned_team_id: null,
+        status: "in_progress",
+        priority: "high",
+        due_at: "2026-04-03T18:00:00.000Z",
+        blocked_reason: null,
+        proof_required: false,
+        completion_notes: null,
+        created_by_user_id: "user-1",
+        updated_by_user_id: "user-1",
+        created_at: "2026-04-02T12:00:00.000Z",
+        updated_at: "2026-04-03T12:00:00.000Z",
+        assigned_to_name: "Demo User",
+        related_job_number: "SCH-100",
+        related_job_title: "Spring Picture Day",
+        related_job_status: "ready_to_execute",
+        related_job_department: "schools",
+        organization_name: "Lakeview",
+        department_label: "Production"
+      },
+      related_job: {
+        id: "job-1",
+        job_number: "SCH-100",
+        title: "Spring Picture Day",
+        department_type: "schools",
+        job_status: "ready_to_execute"
+      },
+      assignments: [],
+      work_model: [],
+      policy: {
+        permissions: [],
+        fields: {},
+        sections: {},
+        actions: { update: true },
+        reasons: {}
+      }
+    });
+
+    render(<SharedTaskPage token="token-demo" currentUser={currentUser} mode="detail" />);
+
+    expect(await screen.findByRole("heading", { name: "Review banner files" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Repeat")).toHaveValue("monthly");
+    const taskDetailPanel = screen.getByText("Task Detail").closest("section");
+    expect(taskDetailPanel).not.toBeNull();
+    expect(within(taskDetailPanel as HTMLElement).getByLabelText("Description")).toHaveValue(
+      "Confirm the current school logo before sending banners to production."
+    );
+
+    const summary = screen.getByRole("heading", { name: "Task Summary", level: 3 }).closest("section");
+    expect(summary).not.toBeNull();
+    expect(within(summary as HTMLElement).getByText("Every month")).toBeInTheDocument();
+    expect(within(summary as HTMLElement).getByText("Recurring task")).toBeInTheDocument();
   });
 
   it("shows Teams messaging and meeting actions on task detail when the user is communication-ready", async () => {

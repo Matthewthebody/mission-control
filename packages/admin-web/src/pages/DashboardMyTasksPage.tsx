@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { buildShellRouteHash } from "../navigation";
 import { canAccessRoute } from "../permissions";
 import { listSharedTasks } from "../services/tasksApi";
+import { extractTaskRecurrence, getTaskRecurrenceLabel } from "../taskRecurrence";
 import type { SessionUser } from "../types";
 import type { SharedTaskListItem } from "../workModelTypes";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
@@ -283,20 +284,24 @@ export function DashboardMyTasksPage({ token, currentUser }: Props) {
           />
           {snapshot.myTasks.length ? (
             <div className="home-task-hub__task-list">
-              {snapshot.myTasks.map((task) => (
-                <button key={task.id} type="button" className="home-task-hub__task-card" onClick={() => navigateToHash(`#tasks/${task.id}`)}>
-                  <div className="home-task-hub__task-top">
-                    <span>{task.department_label}</span>
-                    <em>{task.priority}</em>
-                  </div>
-                  <strong>{task.title}</strong>
-                  <p>{task.related_job_title ?? task.organization_name ?? "No related job linked yet."}</p>
-                  <div className="home-task-hub__task-meta">
-                    <span>{task.status.replace(/_/g, " ")}</span>
-                    <span>{formatDueLabel(task.due_at)}</span>
-                  </div>
-                </button>
-              ))}
+              {snapshot.myTasks.map((task) => {
+                const recurrence = extractTaskRecurrence(task.description);
+                return (
+                  <button key={task.id} type="button" className="home-task-hub__task-card" onClick={() => navigateToHash(`#tasks/${task.id}`)}>
+                    <div className="home-task-hub__task-top">
+                      <span>{task.department_label}</span>
+                      <em>{task.priority}</em>
+                    </div>
+                    <strong>{task.title}</strong>
+                    <p>{task.related_job_title ?? task.organization_name ?? "No related job linked yet."}</p>
+                    <div className="home-task-hub__task-meta">
+                      <span>{task.status.replace(/_/g, " ")}</span>
+                      {recurrence !== "none" ? <span className="home-task-hub__repeat-chip">{getTaskRecurrenceLabel(recurrence)}</span> : null}
+                      <span>{formatDueLabel(task.due_at)}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <WorkspaceEmptyState
