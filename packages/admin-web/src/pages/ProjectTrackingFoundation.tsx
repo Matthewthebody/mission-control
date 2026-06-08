@@ -39,6 +39,7 @@ type ProjectTrackingFilter =
   | "complete"
   | "no_workflow";
 type ProjectTrackingSort = "priority" | "organization" | "job" | "stage" | "owner" | "deadline" | "risk" | "updated";
+type ProjectTrackingAreaFilter = "all" | "schools" | "sports" | "other";
 type ProjectTrackingDepartmentFilter = "all" | "schools" | "sports" | "sessions" | "production" | "other";
 type ProjectTrackingPreset = "all_active" | "leadership_review" | "schools" | "sports" | "photography" | "blocked" | "due_soon" | "at_risk" | "completed_this_month";
 type ProjectTrackingViewMode = "command" | "board" | "table" | "timeline";
@@ -141,12 +142,28 @@ const PROJECT_TRACKING_VIEW_MODES: Array<{ id: ProjectTrackingViewMode; label: s
   { id: "timeline", label: "Timeline", summary: "Preview date pressure from the same filtered work." }
 ];
 
+const AREA_FILTER_LABELS: Record<ProjectTrackingAreaFilter, string> = {
+  all: "All",
+  schools: "Schools",
+  sports: "Sports",
+  other: "Other"
+};
+
+const AREA_FILTER_HELP: Record<ProjectTrackingAreaFilter, string> = {
+  all: "All active building work.",
+  schools: "School jobs, galleries, releases, retakes, and school client work.",
+  sports: "Sports leagues, teams, media days, releases, and athlete workflows.",
+  other: "Internal, production, graphics, customer service, admin, software, and general building work."
+};
+
+const PROJECT_TRACKING_AREA_FILTERS: ProjectTrackingAreaFilter[] = ["all", "schools", "sports", "other"];
+
 const PROJECT_TRACKING_BOARD_LANES: Array<{ id: ProjectTrackingBoardLaneId; label: string; description: string }> = [
-  { id: "todo", label: "To Do", description: "New or unstarted projects that need setup, owner clarity, or first action." },
-  { id: "in_progress", label: "In Progress", description: "Projects actively moving through field work, production, or internal handoffs." },
-  { id: "in_review", label: "In Review", description: "Proofing, QA, rework, approval, or release checks before completion." },
-  { id: "on_hold", label: "On Hold", description: "Blocked, late, waiting, ownerless, or missing the next action." },
-  { id: "complete", label: "Complete", description: "Completed projects still visible in the current filters." }
+  { id: "todo", label: "Ready", description: "Planned, queued, or ready for the first useful action." },
+  { id: "in_progress", label: "In Flight", description: "Work actively moving through field, production, or internal handoffs." },
+  { id: "on_hold", label: "Waiting / Blocked", description: "Blocked, late, waiting, ownerless, or missing the next action." },
+  { id: "in_review", label: "Review", description: "Proofing, QA, approvals, client review, or final checks." },
+  { id: "complete", label: "Delivered", description: "Recently completed work still visible in the current filters." }
 ];
 
 const PROJECT_TRACKING_TIMELINE_GROUPS: Array<{ id: ProjectTrackingTimelineGroupId; label: string; description: string }> = [
@@ -368,6 +385,55 @@ function departmentFilterForJob(row: ProjectWorkflowJobRow): ProjectTrackingDepa
   return "other";
 }
 
+function projectAreaForJob(row: ProjectWorkflowJobRow): ProjectTrackingAreaFilter {
+  const text = [
+    row.job_title,
+    row.job_number,
+    row.job_code,
+    row.organization_name,
+    row.account_name,
+    row.workflow_template_name,
+    row.current_step?.department,
+    row.current_step?.phase,
+    row.phase,
+    row.queue_intelligence.owner_lane,
+    row.queue_intelligence.reason,
+    ...row.health_reasons,
+    ...row.missing_info_flags
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/\b(school|schools|yearbook|retake|retakes|portrait|picture day|gallery|galleries)\b/.test(text)) {
+    return "schools";
+  }
+  if (/\b(sport|sports|athletic|athletics|team|league|game|media day|athlete|baseball|basketball|football|soccer|volleyball|hockey|softball)\b/.test(text)) {
+    return "sports";
+  }
+  return "other";
+}
+
+function matchesAreaFilter(row: ProjectWorkflowJobRow, areaFilter: ProjectTrackingAreaFilter) {
+  return areaFilter === "all" || projectAreaForJob(row) === areaFilter;
+}
+
+function areaCountsFor(rows: ProjectWorkflowJobRow[]) {
+  return PROJECT_TRACKING_AREA_FILTERS.map((filter) => ({
+    filter,
+    label: AREA_FILTER_LABELS[filter],
+    count: filter === "all" ? rows.length : rows.filter((row) => projectAreaForJob(row) === filter).length
+  }));
+}
+
+function secondaryDepartmentBadgeForRow(row: ProjectWorkflowJobRow) {
+  const department = departmentDisplayForRow(row);
+  if (department === "Department not set" || department === AREA_FILTER_LABELS[projectAreaForJob(row)]) {
+    return null;
+  }
+  return department;
+}
+
 function matchesDepartmentFilter(row: ProjectWorkflowJobRow, departmentFilter: ProjectTrackingDepartmentFilter) {
   return departmentFilter === "all" || departmentFilterForJob(row) === departmentFilter;
 }
@@ -431,6 +497,9 @@ function matchesPreset(row: ProjectWorkflowJobRow, preset: ProjectTrackingPreset
   }
   if (preset === "due_soon") {
     return isDueSoonWork(row);
+  }
+  if (preset === "completed_this_month") {
+    return isCompletedThisMonth(row);
   }
   return isAtRiskWork(row);
 }
@@ -820,6 +889,7 @@ function searchableTextForJob(row: ProjectWorkflowJobRow) {
     currentStep,
     owner.primary,
     owner.secondary,
+    AREA_FILTER_LABELS[projectAreaForJob(row)],
     departmentLabel(row.current_step?.department),
     DEPARTMENT_FILTER_LABELS[departmentFilterForJob(row)],
     row.workflow_template_name,
@@ -1138,6 +1208,41 @@ function ProjectTrackingViewSwitcher({
   );
 }
 
+function ProjectTrackingAreaFilterBar({
+  rows,
+  activeArea,
+  onAreaChange
+}: {
+  rows: ProjectWorkflowJobRow[];
+  activeArea: ProjectTrackingAreaFilter;
+  onAreaChange: (filter: ProjectTrackingAreaFilter) => void;
+}) {
+  return (
+    <section className="project-tracking-area-panel" aria-label="Building work area filters">
+      <div>
+        <strong>Project Tracking / Building Work Board</strong>
+        <span>Filter the building board by the work area people recognize first.</span>
+      </div>
+      <div className="project-tracking-area-filter-row">
+        {areaCountsFor(rows).map((areaOption) => (
+          <button
+            className={`project-tracking-area-filter project-tracking-area-filter--${areaOption.filter} ${activeArea === areaOption.filter ? "is-active" : ""}`}
+            type="button"
+            key={areaOption.filter}
+            aria-pressed={activeArea === areaOption.filter}
+            aria-label={`${areaOption.label}, ${areaOption.count} ${areaOption.count === 1 ? "item" : "items"}${activeArea === areaOption.filter ? ", active area" : ""}`}
+            title={AREA_FILTER_HELP[areaOption.filter]}
+            onClick={() => onAreaChange(areaOption.filter)}
+          >
+            <span>{areaOption.label}</span>
+            <strong>{areaOption.count}</strong>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ProjectTrackingBoardView({
   rows,
   onOpenWorkflow
@@ -1174,16 +1279,20 @@ function ProjectTrackingBoardView({
                     const phase = phasePresentation(row.phase, row.health);
                     const owner = ownerPresentation(row);
                     const waiting = waitingOrBlockedLabelForRow(row);
+                    const area = projectAreaForJob(row);
+                    const secondaryDepartment = secondaryDepartmentBadgeForRow(row);
                     return (
-                      <article className={`project-tracking-board-card ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
+                      <article className={`project-tracking-board-card project-tracking-board-card--area-${area} ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
                         <div className="project-tracking-board-card__top">
                           <div>
-                            <span>{departmentDisplayForRow(row)} / {workItemAccountLabel(row)}</span>
+                            <span>{workItemAccountLabel(row)}</span>
                             <h4 title={row.job_title}>{workItemName(row)}</h4>
                           </div>
                           <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`} aria-label={`Status: ${healthLabel(row.health)}`}>{healthLabel(row.health)}</span>
                         </div>
                         <div className="project-tracking-board-card__chips">
+                          <span className={`project-tracking-area-chip project-tracking-area-chip--${area}`}>{AREA_FILTER_LABELS[area]}</span>
+                          {secondaryDepartment ? <span className="project-tracking-secondary-chip">{secondaryDepartment}</span> : null}
                           <span className={`project-tracking-step-pill ${phase.pillClassName}`}>{phase.label}</span>
                           <span className={`project-tracking-priority-chip ${priorityChipClassForRow(row)}`} aria-label={`Priority: ${priorityLabelForRow(row)}`}>{priorityLabelForRow(row)}</span>
                           {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
@@ -1346,6 +1455,7 @@ function ProjectTrackingJobBoard({
   activeFilter,
   selectedPreset,
   selectedCommandGroup,
+  areaFilter,
   departmentFilter,
   priorityFilter,
   ownerFilter,
@@ -1378,6 +1488,7 @@ function ProjectTrackingJobBoard({
   activeFilter: ProjectTrackingFilter;
   selectedPreset: ProjectTrackingPreset;
   selectedCommandGroup: ProjectTrackingCommandGroupId | null;
+  areaFilter: ProjectTrackingAreaFilter;
   departmentFilter: ProjectTrackingDepartmentFilter;
   priorityFilter: ProjectTrackingPriorityFilter;
   ownerFilter: string;
@@ -1409,6 +1520,7 @@ function ProjectTrackingJobBoard({
   const filteredRows = sortRows(
     presetRows.filter(
       (row) =>
+        matchesAreaFilter(row, areaFilter) &&
         matchesDepartmentFilter(row, departmentFilter) &&
         matchesPriorityFilter(row, priorityFilter) &&
         matchesOwnerFilter(row, ownerFilter) &&
@@ -1421,10 +1533,11 @@ function ProjectTrackingJobBoard({
     sortKey
   );
   const presetCounts = presetCountsFor(rows);
-  const hasActiveControls = selectedPreset !== "all_active" || selectedCommandGroup !== null || activeFilter !== "all" || departmentFilter !== "all" || priorityFilter !== "all" || ownerFilter !== "all" || dueMonthFilter !== "all" || dueYearFilter !== "all" || statusFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
+  const hasActiveControls = selectedPreset !== "all_active" || selectedCommandGroup !== null || areaFilter !== "all" || activeFilter !== "all" || departmentFilter !== "all" || priorityFilter !== "all" || ownerFilter !== "all" || dueMonthFilter !== "all" || dueYearFilter !== "all" || statusFilter !== "all" || searchQuery.trim().length > 0 || sortKey !== "priority";
   const filterSummary = activeFilter === "all" ? "all work" : FILTER_LABELS[activeFilter].toLowerCase();
   const presetSummary = PRESET_LABELS[selectedPreset];
   const commandSummary = selectedCommandGroup ? COMMAND_GROUP_ORDER.find((group) => group.id === selectedCommandGroup)?.label : null;
+  const areaSummary = AREA_FILTER_LABELS[areaFilter];
   const departmentSummary = departmentFilter === "all" ? "all departments" : DEPARTMENT_FILTER_LABELS[departmentFilter];
   const prioritySummary = priorityFilter === "all" ? null : priorityFilter === "high" ? "High" : priorityFilter === "medium" ? "Medium" : priorityFilter === "complete" ? "Complete" : "Normal";
   const statusSummary = statusFilter === "all" ? null : PROJECT_TRACKING_BOARD_LANES.find((lane) => lane.id === statusFilter)?.label;
@@ -1450,8 +1563,8 @@ function ProjectTrackingJobBoard({
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Project Board</div>
-          <p className="section-subtitle">Kanban view of projects, owners, due dates, blockers, and next steps.</p>
+          <div className="section-title">Kanban Board</div>
+          <p className="section-subtitle">Visual building work board for projects, owners, due dates, blockers, and next steps.</p>
         </div>
         <div className="project-tracking-board-meta">
           <span className="badge">Showing {filteredRows.length} of {presetRows.length}</span>
@@ -1589,7 +1702,7 @@ function ProjectTrackingJobBoard({
       </div>
       <div className="project-tracking-active-filter" id={activeFilterSummaryId} aria-live="polite">
         <span>
-          Showing {filteredRows.length} of {presetRows.length} work items - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}
+          Showing {filteredRows.length} of {presetRows.length} work items - Area: {areaSummary} - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}
           {commandSummary ? ` - Needs Attention: ${commandSummary}` : ""}
           {prioritySummary ? ` - Priority: ${prioritySummary}` : ""}
           {ownerSummary ? ` - Owner: ${ownerSummary}` : ""}
@@ -1817,6 +1930,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   const [activeFilter, setActiveFilter] = useState<ProjectTrackingFilter>("all");
   const [selectedPreset, setSelectedPreset] = useState<ProjectTrackingPreset>("all_active");
   const [selectedCommandGroup, setSelectedCommandGroup] = useState<ProjectTrackingCommandGroupId | null>(null);
+  const [areaFilter, setAreaFilter] = useState<ProjectTrackingAreaFilter>("all");
   const [departmentFilter, setDepartmentFilter] = useState<ProjectTrackingDepartmentFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<ProjectTrackingPriorityFilter>("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
@@ -1866,17 +1980,18 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
 
   const globalSummary = summaryFor(globalCommandCenter);
   const jobBoardRows = buildJobBoardRows(globalCommandCenter);
+  const areaScopedRows = jobBoardRows.filter((row) => matchesAreaFilter(row, areaFilter));
   const summaryMetrics: Array<{ filter: ProjectTrackingFilter; label: string; value: number; title?: string }> = [
-    { filter: "all", label: "Active Projects", value: globalSummary.total_active_workflows },
+    { filter: "all", label: "Active", value: areaScopedRows.filter(isActiveWork).length },
     {
-      filter: "attention",
-      label: "Needs Attention",
-      value: globalSummary.total_needs_attention,
-      title: "Blocked, late, due-soon, or at-risk projects that need review."
+      filter: "due_soon",
+      label: "Due Soon",
+      value: areaScopedRows.filter(isDueSoonWork).length,
+      title: "Work due soon that is not necessarily blocked."
     },
-    { filter: "waiting_review", label: "At Risk", value: jobBoardRows.filter(isAtRiskWork).length },
-    { filter: "blocked", label: "Blocked", value: globalSummary.total_blocked },
-    { filter: "complete", label: "Completed This Month", value: jobBoardRows.filter((row) => isCompletedThisMonth(row)).length }
+    { filter: "blocked", label: "Blocked", value: areaScopedRows.filter(isBlockedWork).length },
+    { filter: "waiting_review", label: "Needs Review", value: areaScopedRows.filter(isAtRiskWork).length },
+    { filter: "complete", label: "Done Recently", value: areaScopedRows.filter((row) => isCompletedThisMonth(row)).length }
   ];
   const commandGroups = commandGroupsFor(jobBoardRows, globalCommandCenter?.generated_at);
   const commandCount = (groupId: ProjectTrackingCommandGroupId) => commandGroups.find((group) => group.id === groupId)?.rows.length ?? 0;
@@ -1895,6 +2010,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     setSelectedCommandGroup(null);
     setSelectedPreset("all_active");
     setActiveFilter("all");
+    setAreaFilter("all");
     setDepartmentFilter("all");
     setPriorityFilter("all");
     setOwnerFilter("all");
@@ -1908,6 +2024,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     setSelectedCommandGroup(null);
     setSelectedPreset(preset);
     setActiveFilter("all");
+    setAreaFilter("all");
     setDepartmentFilter("all");
     setPriorityFilter("all");
     setOwnerFilter("all");
@@ -1921,6 +2038,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
     setSelectedCommandGroup(group.id);
     setSelectedPreset("all_active");
     setActiveFilter("all");
+    setAreaFilter("all");
     setDepartmentFilter("all");
     setPriorityFilter("all");
     setOwnerFilter("all");
@@ -1971,8 +2089,8 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         <section className="project-tracking-board-header" aria-label="Project Tracking">
           <div>
             <p className="section-kicker">Operations</p>
-            <h1>Project Tracking</h1>
-            <p>Track internal projects, owners, blockers, milestones, and leadership decisions.</p>
+            <h1>Building Work Board</h1>
+            <p>Project Tracking for active building work, owners, blockers, due dates, and next actions.</p>
           </div>
           <div className="project-tracking-board-header__actions">
             <button className="button button-secondary" type="button" onClick={() => applyPreset("blocked")}>
@@ -2008,11 +2126,13 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         )
       ) : (
         <>
+          <ProjectTrackingAreaFilterBar rows={jobBoardRows} activeArea={areaFilter} onAreaChange={setAreaFilter} />
+
           <section className="project-tracking-summary-strip" aria-label="Project tracking summary filters">
             <div className="project-tracking-summary-strip__label">
-              <strong>Project Health</strong>
-              <span>{globalSummary.source === "true_totals" ? "All tracked projects" : "Shown projects"}</span>
-              <small>Review owners, blockers, due dates, and next actions.</small>
+              <strong>Work Pulse</strong>
+              <span>{globalSummary.source === "true_totals" ? "All tracked work" : "Shown work"}</span>
+              <small>Quick scan for active, due-soon, blocked, and review-needed work.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (
@@ -2041,6 +2161,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             activeFilter={activeFilter}
             selectedPreset={selectedPreset}
             selectedCommandGroup={selectedCommandGroup}
+            areaFilter={areaFilter}
             departmentFilter={departmentFilter}
             priorityFilter={priorityFilter}
             ownerFilter={ownerFilter}

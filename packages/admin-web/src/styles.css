@@ -3915,6 +3915,99 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   line-height: 1.35;
 }
 
+.project-tracking-area-panel {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.28fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%);
+}
+
+.project-tracking-area-panel > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--pt-muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.project-tracking-area-panel > div:first-child strong {
+  color: var(--pt-text);
+  font-size: 0.82rem;
+}
+
+.project-tracking-area-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-tracking-area-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  border: 1px solid var(--pt-border);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #ffffff;
+  color: var(--pt-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.project-tracking-area-filter strong {
+  min-width: 1.55rem;
+  border-radius: 999px;
+  padding: 1px 6px;
+  background: #eef2f7;
+  color: #334155;
+  text-align: center;
+  font-size: 0.68rem;
+}
+
+.project-tracking-area-filter--schools.is-active,
+.project-tracking-area-filter--schools:hover {
+  border-color: #8bc6b0;
+  background: #e9f8f2;
+  color: #14523e;
+}
+
+.project-tracking-area-filter--sports.is-active,
+.project-tracking-area-filter--sports:hover {
+  border-color: #9fbce4;
+  background: #eaf3ff;
+  color: #174b7d;
+}
+
+.project-tracking-area-filter--other.is-active,
+.project-tracking-area-filter--other:hover {
+  border-color: #d8b4fe;
+  background: #f4ecff;
+  color: #5b2c83;
+}
+
+.project-tracking-area-filter--all.is-active,
+.project-tracking-area-filter--all:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+  color: #1f2937;
+}
+
+.project-tracking-area-filter.is-active strong,
+.project-tracking-area-filter:hover strong {
+  background: rgba(255, 255, 255, 0.82);
+  color: currentColor;
+}
+
 .project-tracking-inline-notice {
   display: flex;
   flex-wrap: wrap;
@@ -4244,6 +4337,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 
 .project-tracking-search input:focus,
 .project-tracking-sort select:focus,
+.project-tracking-area-filter:focus-visible,
 .project-tracking-view-switcher__buttons button:focus-visible,
 .project-tracking-preset-button:focus-visible,
 .project-tracking-filter-button:focus-visible,
@@ -4411,6 +4505,18 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   border-radius: 9px;
   padding: 9px;
   background: #ffffff;
+}
+
+.project-tracking-board-card--area-schools {
+  --project-row-accent: #64b391;
+}
+
+.project-tracking-board-card--area-sports {
+  --project-row-accent: #5b93d6;
+}
+
+.project-tracking-board-card--area-other {
+  --project-row-accent: #9b72d8;
 }
 
 .project-tracking-board-card__top,
@@ -4878,6 +4984,47 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   color: #6c4312;
   background: #ffedd2;
   border-color: #f3c17d;
+}
+
+.project-tracking-area-chip,
+.project-tracking-secondary-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.project-tracking-area-chip--schools {
+  border-color: #9bd8c2;
+  color: #14523e;
+  background: #e7f8f1;
+}
+
+.project-tracking-area-chip--sports {
+  border-color: #a9cffb;
+  color: #16436f;
+  background: #e6f2ff;
+}
+
+.project-tracking-area-chip--other {
+  border-color: #d3b7f8;
+  color: #513076;
+  background: #f1eaff;
+}
+
+.project-tracking-secondary-chip {
+  border-color: #d6dee9;
+  color: #475569;
+  background: #f8fafc;
 }
 
 .project-tracking-status-chip,
@@ -6008,6 +6155,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   }
 
   .project-tracking-summary-strip,
+  .project-tracking-area-panel,
   .project-tracking-command-view .project-tracking-panel__heading,
   .project-tracking-view-switcher,
   .project-tracking-preset-row,

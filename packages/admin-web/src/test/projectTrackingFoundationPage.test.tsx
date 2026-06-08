@@ -129,20 +129,20 @@ const globalCommandCenter: ProjectWorkflowCommandCenter = {
   generated_at: "2026-05-01T12:00:00.000Z",
   view: "global",
   summary: {
-    open_steps: 2,
+    open_steps: 4,
     overdue_steps: 1,
-    due_soon_steps: 0,
+    due_soon_steps: 1,
     blocked_steps: 1,
     assigned_steps: 0,
-    rework_steps: 0,
-    at_risk_steps: 2,
-    total_active_workflows: 2,
-    total_open_work: 2,
-    total_needs_attention: 2,
+    rework_steps: 1,
+    at_risk_steps: 3,
+    total_active_workflows: 4,
+    total_open_work: 4,
+    total_needs_attention: 3,
     total_blocked: 1,
     total_running_late: 1,
-    total_due_soon: 0,
-    total_returned_for_fixes: 0,
+    total_due_soon: 1,
+    total_returned_for_fixes: 1,
     total_waiting_on_school: 0,
     total_waiting_on_kp: 0,
     total_missing_info: 1,
@@ -329,6 +329,130 @@ const globalCommandCenter: ProjectWorkflowCommandCenter = {
         operational_status: "blocked"
       },
       updated_at: "2026-05-01T11:00:00.000Z"
+    },
+    {
+      job_id: "job-sports-media-day",
+      job_number: "SPT-2026-0011",
+      job_code: "SPT-2026-0011",
+      job_title: "North Metro Baseball Media Day",
+      organization_id: "org-north-metro-athletics",
+      organization_name: "North Metro Athletics",
+      account_id: null,
+      account_name: null,
+      workflow_run_id: "workflow-sports-media-day",
+      workflow_template_id: "template-sports-1",
+      workflow_template_name: "Sports Media Day Workflow",
+      workflow_template_version: "v1",
+      current_step: {
+        ...step({
+          id: "step-sports-media-day",
+          workflow_run_id: "workflow-sports-media-day",
+          job_id: "job-sports-media-day",
+          milestone_key: "sports_release",
+          step_key: "prepare_sports_release",
+          name: "Prepare sports release",
+          department: "sports",
+          role_key: "sports_owner",
+          assigned_user_name: "Sam Sports",
+          status: "IN_PROGRESS",
+          timing: {
+            elapsed_minutes: 400,
+            remaining_minutes: 600,
+            overdue_minutes: 0,
+            idle_minutes: 0,
+            sla_percent: 45,
+            alert_level: "early_warning",
+            health_state: "yellow"
+          },
+          job_title: "North Metro Baseball Media Day",
+          organization_name: "North Metro Athletics"
+        }),
+        phase: "active"
+      },
+      phase: "active",
+      owner_display: "Sam Sports",
+      owner_type: "user",
+      job_date: "2026-05-03T16:00:00.000Z",
+      next_deadline_at: "2026-05-03T12:00:00.000Z",
+      deadline_state: "due_soon",
+      waiting_on_party: "none",
+      health: "due_soon",
+      health_reasons: ["Sports release is due soon"],
+      file_status: "in_production",
+      missing_info_flags: [],
+      rework_count: 0,
+      blocked_reason: null,
+      queue_intelligence: {
+        reason: "Sports release is due soon.",
+        trigger: "Workflow deadline is approaching.",
+        owner_lane: "Sports Queue",
+        next_action: "Review athlete proof status and prepare the release handoff.",
+        clear_condition: "Clear when release preparation is complete.",
+        operational_status: "active"
+      },
+      updated_at: "2026-05-01T11:05:00.000Z"
+    },
+    {
+      job_id: "job-internal-crm",
+      job_number: "INT-2026-0003",
+      job_code: "INT-2026-0003",
+      job_title: "Internal CRM Cleanup",
+      organization_id: null,
+      organization_name: null,
+      account_id: "account-internal",
+      account_name: "Kemmetmueller Operations",
+      workflow_run_id: "workflow-internal-crm",
+      workflow_template_id: "template-internal-1",
+      workflow_template_name: "Internal Operations Workflow",
+      workflow_template_version: "v1",
+      current_step: {
+        ...step({
+          id: "step-internal-crm",
+          workflow_run_id: "workflow-internal-crm",
+          job_id: "job-internal-crm",
+          milestone_key: "internal_review",
+          step_key: "review_cleanup_plan",
+          name: "Review cleanup plan",
+          department: "operations",
+          role_key: "operations_owner",
+          assigned_user_name: "Operations Lead",
+          status: "IN_PROGRESS",
+          timing: {
+            elapsed_minutes: 300,
+            remaining_minutes: 900,
+            overdue_minutes: 0,
+            idle_minutes: 0,
+            sla_percent: 60,
+            alert_level: "risk",
+            health_state: "yellow"
+          },
+          job_title: "Internal CRM Cleanup",
+          organization_name: "Kemmetmueller Operations"
+        }),
+        phase: "qa"
+      },
+      phase: "qa",
+      owner_display: "Operations Lead",
+      owner_type: "user",
+      job_date: null,
+      next_deadline_at: "2026-05-08T12:00:00.000Z",
+      deadline_state: "none",
+      waiting_on_party: "none",
+      health: "at_risk",
+      health_reasons: ["Needs review before the cleanup plan moves forward"],
+      file_status: "not_connected",
+      missing_info_flags: [],
+      rework_count: 0,
+      blocked_reason: null,
+      queue_intelligence: {
+        reason: "Cleanup plan needs operations review.",
+        trigger: "Returned for review.",
+        owner_lane: "Operations Queue",
+        next_action: "Review the cleanup plan and confirm the next owner.",
+        clear_condition: "Clear when the plan is approved or assigned.",
+        operational_status: "needs_action"
+      },
+      updated_at: "2026-05-01T11:10:00.000Z"
     }
   ]
 };
@@ -396,24 +520,32 @@ describe("ProjectTrackingFoundation", () => {
   it("renders Project Tracking as a board-first kanban surface with owners, due dates, priority, and attention signals", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
-    expect(screen.getByText("Track internal projects, owners, blockers, milestones, and leadership decisions.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Building Work Board" })).toBeInTheDocument();
+    expect(screen.getByText("Project Tracking for active building work, owners, blockers, due dates, and next actions.")).toBeInTheDocument();
     expect(screen.queryByText("Open First")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
     expect(screen.queryByText(/Work Spine/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Project Health")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Active Projects/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Needs Attention/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /At Risk/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Work Pulse")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Active/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Project Tracking Needs Attention Review")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Needs Review/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Completed This Month/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Done Recently/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Review Blocked / At Risk" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review Blocked / At Risk" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();
 
-    expect(screen.getByText("Project Board")).toBeInTheDocument();
-    expect(screen.getByText("Kanban view of projects, owners, due dates, blockers, and next steps.")).toBeInTheDocument();
+    const areaFilters = screen.getByLabelText("Building work area filters");
+    expect(within(areaFilters).getByText("Project Tracking / Building Work Board")).toBeInTheDocument();
+    expect(within(areaFilters).getByRole("button", { name: /All, 4 items, active area/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(areaFilters).getByRole("button", { name: /Schools, 2 items/i })).toBeInTheDocument();
+    expect(within(areaFilters).getByRole("button", { name: /Sports, 1 item/i })).toBeInTheDocument();
+    expect(within(areaFilters).getByRole("button", { name: /Other, 1 item/i })).toBeInTheDocument();
+
+    expect(screen.getByText("Kanban Board")).toBeInTheDocument();
+    expect(screen.getByText("Visual building work board for projects, owners, due dates, blockers, and next steps.")).toBeInTheDocument();
     const viewModes = screen.getByLabelText("Project Tracking view modes");
     expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(viewModes).getByRole("button", { name: /List/i })).toHaveAttribute("aria-pressed", "false");
@@ -421,27 +553,48 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(viewModes).getByRole("button", { name: /Timeline/i })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("Board-first view grouped by project status. Filters and search control the work shown here.")).toBeInTheDocument();
     expect(screen.getByLabelText("Project Tracking board lanes")).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /To Do, 0 items/i })).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /In Progress, 0 items/i })).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /In Review, 0 items/i })).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /On Hold, 2 items/i })).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: /Complete, 0 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Ready, 0 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /In Flight, 1 item/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Review, 1 item/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Waiting \/ Blocked, 2 items/i })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Delivered, 0 items/i })).toBeInTheDocument();
     expect(screen.getAllByText("Owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Priority").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Status").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Confirm Files Received").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Maple Grove Senior High").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("North Metro Baseball Media Day").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Internal CRM Cleanup").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Schools").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Sports").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Other").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Operations").length).toBeGreaterThan(0);
     expect(screen.getAllByText("High").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Medium").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Running late").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Needs Attention").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Due soon").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Needs attention").length).toBeGreaterThan(0);
     const runningLateStatusChip = screen.getAllByText("Running late").find((element) => element.classList.contains("project-tracking-status-chip"));
     expect(runningLateStatusChip).toHaveClass("project-tracking-status-chip--blocked");
     const blockedStatusChip = screen.getAllByText("Blocked").find((element) => element.classList.contains("project-tracking-status-chip"));
     expect(blockedStatusChip).toHaveClass("project-tracking-status-chip--blocked");
+    const dueSoonStatusChip = screen.getAllByText("Due soon").find((element) => element.classList.contains("project-tracking-status-chip"));
+    expect(dueSoonStatusChip).toHaveClass("project-tracking-status-chip--at-risk");
+    const needsAttentionStatusChip = screen.getAllByText("Needs attention").find((element) => element.classList.contains("project-tracking-status-chip"));
+    expect(needsAttentionStatusChip).toHaveClass("project-tracking-status-chip--at-risk");
+    const schoolsAreaChip = screen.getAllByText("Schools").find((element) => element.classList.contains("project-tracking-area-chip"));
+    expect(schoolsAreaChip).toHaveClass("project-tracking-area-chip--schools");
+    const sportsAreaChip = screen.getAllByText("Sports").find((element) => element.classList.contains("project-tracking-area-chip"));
+    expect(sportsAreaChip).toHaveClass("project-tracking-area-chip--sports");
+    const otherAreaChip = screen.getAllByText("Other").find((element) => element.classList.contains("project-tracking-area-chip"));
+    expect(otherAreaChip).toHaveClass("project-tracking-area-chip--other");
     const highPriorityChip = screen.getAllByText("High").find((element) => element.classList.contains("project-tracking-priority-chip"));
     expect(highPriorityChip).toHaveClass("project-tracking-priority-chip--high");
+    const mediumPriorityChip = screen.getAllByText("Medium").find((element) => element.classList.contains("project-tracking-priority-chip"));
+    expect(mediumPriorityChip).toHaveClass("project-tracking-priority-chip--medium");
     expect(screen.getAllByRole("button", { name: /View workflow for/i }).length).toBeGreaterThan(0);
     expect(screen.queryByText("School Portraits Workflow")).not.toBeInTheDocument();
     expect(screen.queryByText("mission_control_demo_school_portraits")).not.toBeInTheDocument();
@@ -449,10 +602,10 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByText("Job record")).not.toBeInTheDocument();
 
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
-    expect(within(presetLenses).getByRole("button", { name: /All Active, 2 items, active preset/i })).toHaveAttribute("aria-pressed", "true");
-    expect(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /All Active, 4 items, active preset/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(presetLenses).getByRole("button", { name: /Leadership Review, 4 items/i })).toBeInTheDocument();
     expect(within(presetLenses).getByRole("button", { name: /Schools, 1 item/i })).toBeInTheDocument();
-    expect(within(presetLenses).getByRole("button", { name: /Sports, 0 items/i })).toBeInTheDocument();
+    expect(within(presetLenses).getByRole("button", { name: /Sports, 1 item/i })).toBeInTheDocument();
     expect(within(presetLenses).getByRole("button", { name: /Photography, 0 items/i })).toBeInTheDocument();
     expect(within(presetLenses).getByRole("button", { name: /Completed This Month, 0 items/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search work, schools, owners, next steps...")).toBeInTheDocument();
@@ -465,7 +618,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByRole("combobox", { name: "Sort" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Saved views planned/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mine filter" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.click(within(viewModes).getByRole("button", { name: /Table/i }));
     expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "true");
@@ -525,10 +678,12 @@ describe("ProjectTrackingFoundation", () => {
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 2 work items - Preset: All Active - Schools - Filtered by all work")).toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("North Metro Baseball Media Day")).not.toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("Internal CRM Cleanup")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 4 work items - Area: All - Preset: All Active - Schools - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Clear Project Tracking filters/i }));
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
     const filters = screen.getByLabelText("Project tracking filters");
     fireEvent.click(within(filters).getByRole("button", { name: "Blocked filter" }));
@@ -537,13 +692,13 @@ describe("ProjectTrackingFoundation", () => {
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 2 work items - Preset: All Active - all departments - Filtered by blocked")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by blocked")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Clear Project Tracking filters/i }));
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("combobox", { name: "Priority" }), { target: { value: "high" } });
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: All Active - all departments - Filtered by all work - Priority: High")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by all work - Priority: High")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Clear Project Tracking filters/i }));
     fireEvent.change(screen.getByPlaceholderText("Search work, schools, owners, next steps..."), { target: { value: "Maple Grove" } });
@@ -551,6 +706,47 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
+  });
+
+  it("filters the Building Work Board by all, schools, sports, and other work areas", async () => {
+    render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
+
+    await screen.findByLabelText("Project Tracking board lanes");
+    const areaFilters = screen.getByLabelText("Building work area filters");
+
+    fireEvent.click(within(areaFilters).getByRole("button", { name: /Schools, 2 items/i }));
+    let board = screen.getByLabelText("Project Tracking board lanes").closest("section");
+    expect(board).not.toBeNull();
+    expect(within(areaFilters).getByRole("button", { name: /Schools, 2 items, active area/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("North Metro Baseball Media Day")).not.toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("Internal CRM Cleanup")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 4 work items - Area: Schools - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+
+    fireEvent.click(within(areaFilters).getByRole("button", { name: /Sports, 1 item/i }));
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("North Metro Baseball Media Day")).toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 4 work items - Area: Sports - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+
+    fireEvent.click(within(areaFilters).getByRole("button", { name: /Other, 1 item/i }));
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("Internal CRM Cleanup")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("Operations")).toBeInTheDocument();
+    expect(within(board as HTMLElement).queryByText("North Metro Baseball Media Day")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 4 work items - Area: Other - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
+
+    fireEvent.click(within(areaFilters).getByRole("button", { name: /All, 4 items/i }));
+    board = screen.getByLabelText("Project Tracking board lanes").closest("section");
+    expect(board).not.toBeNull();
+    expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("North Metro Baseball Media Day")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("Internal CRM Cleanup")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
   });
 
   it("shows a calm Project Tracking data notice instead of raw unavailable error copy", async () => {
@@ -564,8 +760,8 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByText(/Project dashboard is unavailable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Internal server error/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByText("Project Health")).toBeInTheDocument();
-    expect(screen.getByText("Project Board")).toBeInTheDocument();
+    expect(screen.getByText("Work Pulse")).toBeInTheDocument();
+    expect(screen.getByText("Kanban Board")).toBeInTheDocument();
   });
 
   it("uses Needs Attention Review actions as temporary filters without breaking preset lenses", async () => {
@@ -581,17 +777,19 @@ describe("ProjectTrackingFoundation", () => {
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 1 work items - Preset: All Active - all departments - Filtered by all work - Needs Attention: Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 work items - Area: All - Preset: All Active - all departments - Filtered by all work - Needs Attention: Blocked")).toBeInTheDocument();
     expect(screen.getByLabelText("Blocked command group, active command filter")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Active command filter: blocked work" })).toHaveAttribute("aria-pressed", "true");
 
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
-    fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i }));
+    fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 4 items/i }));
     board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("North Metro Baseball Media Day")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("Internal CRM Cleanup")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
     expect(screen.queryByText(/Needs Attention: Blocked/)).not.toBeInTheDocument();
   });
 
@@ -606,7 +804,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).queryByText("Maple Grove Senior High Retakes")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 1 work items - Preset: Schools - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 work items - Area: All - Preset: Schools - all departments - Filtered by all work")).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Search work, schools, owners, next steps..."), { target: { value: "missing search text" } });
     expect(screen.getByText('No work items match "missing search text" inside Schools. Clear the search or filters to broaden the view.')).toBeInTheDocument();
@@ -614,12 +812,14 @@ describe("ProjectTrackingFoundation", () => {
     fireEvent.click(within(presetLenses).getByRole("button", { name: /Photography, 0 items/i }));
     expect(screen.getByText("No Photography active work found.")).toBeInTheDocument();
 
-    fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 2 items/i }));
+    fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 4 items/i }));
     board = screen.getByLabelText("Project Tracking board lanes").closest("section");
     expect(board).not.toBeNull();
     expect(within(board as HTMLElement).getByText("White Bear Lake High School Fall Portraits")).toBeInTheDocument();
     expect(within(board as HTMLElement).getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 work items - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("North Metro Baseball Media Day")).toBeInTheDocument();
+    expect(within(board as HTMLElement).getByText("Internal CRM Cleanup")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: Leadership Review - all departments - Filtered by all work")).toBeInTheDocument();
   });
 
   it("renders department queues from the current workflow step department only", async () => {
