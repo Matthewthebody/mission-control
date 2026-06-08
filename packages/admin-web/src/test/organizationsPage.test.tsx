@@ -2243,9 +2243,9 @@ describe("organizations workflow surface", () => {
     expect(screen.getByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
     expect(screen.getByLabelText("Directory view")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Organizations" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Contacts" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Locations" })).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("Directory record summary")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open full details" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Organization portal")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Contacts and Organizations source-of-truth checks")).not.toBeInTheDocument();
     expect(screen.queryByText("Current view")).not.toBeInTheDocument();
     expect(screen.queryByText("Needs follow-up")).not.toBeInTheDocument();
@@ -2259,6 +2259,10 @@ describe("organizations workflow surface", () => {
     createDirectoryHarness();
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
+
+    expect(await screen.findByLabelText("Directory record summary")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Organization portal")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open full details" }));
 
     const portal = await screen.findByLabelText("Organization portal");
 
@@ -2296,6 +2300,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Open full details" }));
     const portal = await screen.findByLabelText("Organization portal");
 
     expect(within(portal).getAllByText(status).length).toBeGreaterThan(0);
@@ -2307,6 +2312,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Open full details" }));
     const portal = await screen.findByLabelText("Organization portal");
 
     expect(within(portal).getByText("No contacts connected yet.")).toBeInTheDocument();
@@ -2515,6 +2521,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={communicationReadyUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Open full details" }));
     expect(await screen.findByText("Organization Teams Meeting")).toBeInTheDocument();
     expect(await screen.findByText("Pre-Call Context")).toBeInTheDocument();
     expect(await screen.findByText("Key Contacts")).toBeInTheDocument();
@@ -2527,6 +2534,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={communicationReadyUser} entryView="locations" />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Open full details" }));
     expect(await screen.findByText("Location Teams Messaging")).toBeInTheDocument();
     expect(screen.getByText("Location Teams Meeting")).toBeInTheDocument();
     expect(await screen.findByText("Pre-Call Context")).toBeInTheDocument();

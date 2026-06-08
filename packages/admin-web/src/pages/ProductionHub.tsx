@@ -20,10 +20,21 @@ type HubSectionItem = {
   tone?: HubTone;
 };
 
+type ProductionWorkAreaId = "initial" | "in_production" | "d_card" | "gallery_portal" | "review_exceptions";
+
+type ProductionWorkArea = {
+  id: ProductionWorkAreaId;
+  label: string;
+  summary: string;
+  items: HubSectionItem[];
+  empty: string;
+};
+
 export function ProductionHub({ token, currentUser }: Props) {
   const [payload, setPayload] = useState<SharedProductionQueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeWorkArea, setActiveWorkArea] = useState<ProductionWorkAreaId>("initial");
 
   async function load() {
     setLoading(true);
@@ -51,6 +62,7 @@ export function ProductionHub({ token, currentUser }: Props) {
   const atRisk = useMemo(() => buildAtRisk(items), [items]);
   const recentlyCompleted = useMemo(() => buildRecentlyCompleted(items), [items]);
   const helpNeeded = useMemo(() => buildHelpNeeded(items), [items]);
+  const workAreas = useMemo(() => buildProductionWorkAreas(items), [items]);
   const waitingCount = countWaitingForProcessing(items);
   const editingCount = countEditing(items);
   const readyForQaCount = qaNeeded.length || summary?.qa_pending_count || 0;
@@ -121,6 +133,8 @@ export function ProductionHub({ token, currentUser }: Props) {
 
       {loading ? <div className="panel empty-state empty-state--panel">Loading Production work...</div> : null}
 
+      <ProductionWorkAreaTabs workAreas={workAreas} activeWorkArea={activeWorkArea} onChange={setActiveWorkArea} />
+
       <section className="production-hub__grid">
         <ProductionSection
           title="Due This Week"
@@ -156,6 +170,67 @@ export function ProductionHub({ token, currentUser }: Props) {
         </div>
       </section>
     </div>
+  );
+}
+
+function ProductionWorkAreaTabs({
+  workAreas,
+  activeWorkArea,
+  onChange
+}: {
+  workAreas: ProductionWorkArea[];
+  activeWorkArea: ProductionWorkAreaId;
+  onChange: (workArea: ProductionWorkAreaId) => void;
+}) {
+  const selectedWorkArea = workAreas.find((area) => area.id === activeWorkArea) ?? workAreas[0];
+
+  return (
+    <section className="panel production-hub__work-areas" aria-label="Production work areas">
+      <div className="production-hub__work-areas-heading">
+        <div>
+          <div className="section-title">Production Work Areas</div>
+          <p className="section-subtitle">Job type stays with Schools, Sports, or Specialty. These tabs show where the same work sits in Production.</p>
+        </div>
+      </div>
+      <div className="production-work-tabs" role="tablist" aria-label="Production work area tabs">
+        {workAreas.map((area) => (
+          <button
+            key={area.id}
+            type="button"
+            role="tab"
+            aria-selected={selectedWorkArea.id === area.id}
+            aria-controls={`production-work-area-${area.id}`}
+            id={`production-work-tab-${area.id}`}
+            className={selectedWorkArea.id === area.id ? "is-active" : ""}
+            onClick={() => onChange(area.id)}
+          >
+            <span>{area.label}</span>
+            <strong>{area.items.length}</strong>
+          </button>
+        ))}
+      </div>
+      <article
+        className="production-work-tab-panel"
+        role="tabpanel"
+        id={`production-work-area-${selectedWorkArea.id}`}
+        aria-labelledby={`production-work-tab-${selectedWorkArea.id}`}
+      >
+        <div className="production-work-tab-panel__heading">
+          <div>
+            <strong>{selectedWorkArea.label}</strong>
+            <p>{selectedWorkArea.summary}</p>
+          </div>
+          <span className="metric-pill">{selectedWorkArea.items.length} {selectedWorkArea.items.length === 1 ? "item" : "items"}</span>
+        </div>
+        <div className="production-hub__list">
+          {selectedWorkArea.items.length ? (
+            selectedWorkArea.items.slice(0, 5).map((item) => <ProductionListItem key={item.id} item={item} />)
+          ) : (
+            <div className="empty-state">{selectedWorkArea.empty}</div>
+          )}
+        </div>
+      </article>
+    </section>
   );
 }
 
@@ -255,6 +330,111 @@ function buildHelpNeeded(items: SharedProductionQueueItem[]): HubSectionItem[] {
     }
   }
   return help.slice(0, 5);
+}
+
+function buildProductionWorkAreas(items: SharedProductionQueueItem[]): ProductionWorkArea[] {
+  const initialItems = items
+    .filter(isInitialProductionItem)
+    .sort(compareDueDates)
+    .map((item) => toHubItem(item, "Initial Process", `Job type: ${formatDepartment(item.department_type)}. Next: confirm files, owner, and intake readiness.`, "#production/queue", item.file_receipt_state === "missing_receipt" || !item.assigned_to_user_id ? "watch" : "info"));
+  const inProductionItems = items
+    .filter(isInProductionItem)
+    .sort(compareDueDates)
+    .map((item) => toHubItem(item, "In Production", `Job type: ${formatDepartment(item.department_type)}. Next: ${nextProductionAction(item)}.`, "#production/workload", "info"));
+  const dCardItems = items
+    .filter(isDCardItem)
+    .sort(compareDueDates)
+    .map((item) => toHubItem(item, "D-Card Process", `Job type: ${formatDepartment(item.department_type)}. Next: verify D-card or roster output before release.`, "#production/queue", "watch"));
+  const galleryPortalItems = items
+    .filter(isGalleryPortalItem)
+    .sort(compareDueDates)
+    .map((item) => toHubItem(item, "Gallery / Portal", `Job type: ${formatDepartment(item.department_type)}. Next: confirm upload, portal, approval, or release readiness.`, "#production/release", item.approval_required && item.approval_status !== "approved" ? "watch" : "info"));
+  const reviewExceptionItems = items
+    .filter(isReviewExceptionItem)
+    .sort((left, right) => riskRank(right) - riskRank(left))
+    .map((item) => toHubItem(item, "Review / Exceptions", `Job type: ${formatDepartment(item.department_type)}. Next: clear QA, blocker, or exception before delivery.`, "#production/qa", item.blocker_count || item.blocking_issue_count || item.days_past_due ? "danger" : "watch"));
+
+  return [
+    {
+      id: "initial",
+      label: "Initial Process",
+      summary: "Jobs being checked in, confirmed, assigned, or prepared for production.",
+      items: initialItems,
+      empty: "No intake or setup work is visible in the current queue."
+    },
+    {
+      id: "in_production",
+      label: "In Production",
+      summary: "Work currently moving through editing, graphics, proofing, or finishing.",
+      items: inProductionItems,
+      empty: "No active editing or finishing work is visible right now."
+    },
+    {
+      id: "d_card",
+      label: "D-Card Process",
+      summary: "Jobs waiting on or moving through D-card, ID-card, roster, or card-output work.",
+      items: dCardItems,
+      empty: "No D-card-specific work is visible in this queue."
+    },
+    {
+      id: "gallery_portal",
+      label: "Gallery / Portal",
+      summary: "Jobs preparing for gallery upload, portal review, approval, release, or delivery.",
+      items: galleryPortalItems,
+      empty: "No gallery, portal, or release work is visible right now."
+    },
+    {
+      id: "review_exceptions",
+      label: "Review / Exceptions",
+      summary: "Blocked, at-risk, QA-needed, ownerless, or review-needed production work.",
+      items: reviewExceptionItems,
+      empty: "No review or exception work is blocking Production right now."
+    }
+  ];
+}
+
+function isInitialProductionItem(item: SharedProductionQueueItem) {
+  const workflowStatus = statusValue(item.workflow_status);
+  const productionStatus = statusValue(item.status);
+  return ["WAITING_ON_FILES", "INTAKE_REVIEW", "READY_FOR_PRODUCTION"].includes(workflowStatus) || ["queued", "awaiting_ingest", "approved_for_production"].includes(productionStatus) || item.file_receipt_state === "missing_receipt" || item.file_receipt_state === "partial_receipt" || !item.assigned_to_user_id;
+}
+
+function isInProductionItem(item: SharedProductionQueueItem) {
+  const workflowStatus = statusValue(item.workflow_status);
+  const productionStatus = statusValue(item.status);
+  return ["IN_PRODUCTION", "IN_PEER_REVIEW", "REWORK_REQUIRED", "READY_FOR_UPLOAD", "UPLOADING"].includes(workflowStatus) || ["editing", "awaiting_internal_review", "proof_build", "revisions_requested", "in_final_production"].includes(productionStatus);
+}
+
+function isDCardItem(item: SharedProductionQueueItem) {
+  const searchable = [
+    item.job_type,
+    item.production_template_key,
+    item.completion_rule_key,
+    item.job_title,
+    item.title,
+    item.client_visible_label,
+    item.production_notes,
+    item.internal_notes,
+    item.gallery_or_output_reference
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return /\b(d[-\s]?card|id[-\s]?card|card output|roster card)\b/.test(searchable);
+}
+
+function isGalleryPortalItem(item: SharedProductionQueueItem) {
+  const workflowStatus = statusValue(item.workflow_status);
+  const releaseStatus = statusValue(item.release_status);
+  const uploadStatus = statusValue(item.upload_status);
+  const deliverableStatus = statusValue(item.deliverable_status);
+  return ["READY_FOR_UPLOAD", "UPLOADING", "READY_FOR_RELEASE", "RELEASED"].includes(workflowStatus) || ["READY_FOR_RELEASE", "RELEASED", "IN_REVIEW"].includes(releaseStatus) || uploadStatus !== "NOT_STARTED" || ["ready", "delivered"].includes(deliverableStatus) || Boolean(item.release_due_at || item.gallery_or_output_reference || item.approval_required);
+}
+
+function isReviewExceptionItem(item: SharedProductionQueueItem) {
+  const healthState = statusValue(item.health_state);
+  const needsQa = item.qa_required && (!item.peer_review_complete || !item.final_release_review_complete || item.qa_summary_status !== "passed");
+  return needsQa || item.blocker_count > 0 || item.blocking_issue_count > 0 || item.risk_flag || healthState === "BLOCKED" || healthState === "AT_RISK" || (item.days_past_due ?? 0) > 0 || !item.roster_received || (item.approval_required && item.approval_status !== "approved") || !item.assigned_to_user_id;
 }
 
 function toHubItem(item: SharedProductionQueueItem, metaPrefix: string, detail: string, href: string, tone: HubTone): HubSectionItem {

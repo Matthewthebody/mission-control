@@ -3382,7 +3382,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   color: var(--pt-text);
   font-family: "Barlow Semi Condensed", sans-serif;
   font-size: clamp(1.45rem, 2.4vw, 1.95rem);
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .project-tracking-board-header p {
@@ -4112,7 +4112,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 }
 
 .project-tracking-job-board > .project-tracking-panel__heading .section-subtitle {
-  display: none;
+  max-width: 48rem;
 }
 
 .project-tracking-view-switcher {
@@ -13636,6 +13636,97 @@ html[data-theme="light"] .shoot-priority-chip {
   min-width: 0;
 }
 
+.production-hub__work-areas {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.production-hub__work-areas-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.production-work-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.production-work-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(7, 18, 31, 0.56);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.production-work-tabs button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.production-work-tabs button strong {
+  flex: 0 0 auto;
+  min-width: 1.5rem;
+  border-radius: 999px;
+  padding: 1px 6px;
+  background: rgba(126, 162, 198, 0.14);
+  color: var(--text);
+  text-align: center;
+  font-size: 0.74rem;
+}
+
+.production-work-tabs button.is-active,
+.production-work-tabs button:hover,
+.production-work-tabs button:focus-visible {
+  border-color: var(--border-strong);
+  background: rgba(126, 162, 198, 0.13);
+  color: var(--text);
+}
+
+.production-work-tab-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(7, 18, 31, 0.42);
+}
+
+.production-work-tab-panel__heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.production-work-tab-panel__heading strong,
+.production-work-tab-panel__heading p {
+  margin: 0;
+}
+
+.production-work-tab-panel__heading p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .production-hub__tiles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -14057,7 +14148,8 @@ html[data-theme="light"] .checkbox-field {
     grid-template-columns: 1fr;
   }
 
-  .production-hub__hero {
+  .production-hub__hero,
+  .production-hub__work-areas-heading {
     display: grid;
   }
 
@@ -15100,6 +15192,24 @@ html[data-theme="light"] .sales-resurface-strip {
 
 .directory-workspace__hero-content {
   align-items: center;
+}
+
+.directory-workspace__compact-summary,
+.directory-workspace__expanded-details {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.directory-compact-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.directory-workspace__details-toggle {
+  flex: 0 0 auto;
 }
 
 .directory-workspace__hero-content > div,

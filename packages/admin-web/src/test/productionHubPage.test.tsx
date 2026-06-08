@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductionHub } from "../pages/ProductionHub";
 import type { SessionUser } from "../types";
@@ -246,6 +246,21 @@ describe("ProductionHub", () => {
     expect(screen.getAllByText("Recently Completed").length).toBeGreaterThan(0);
     expect(screen.getByText("Department Help Needed")).toBeInTheDocument();
     expect(screen.getByText("Viewing as Production Lead")).toBeInTheDocument();
+    expect(screen.getByText("Production Work Areas")).toBeInTheDocument();
+    expect(screen.getByText("Job type stays with Schools, Sports, or Specialty. These tabs show where the same work sits in Production.")).toBeInTheDocument();
+
+    const workAreaTabs = screen.getByRole("tablist", { name: "Production work area tabs" });
+    expect(within(workAreaTabs).getByRole("tab", { name: /Initial Process\s*2/i })).toHaveAttribute("aria-selected", "true");
+    expect(within(workAreaTabs).getByRole("tab", { name: /In Production\s*1/i })).toBeInTheDocument();
+    expect(within(workAreaTabs).getByRole("tab", { name: /D-Card Process\s*0/i })).toBeInTheDocument();
+    expect(within(workAreaTabs).getByRole("tab", { name: /Gallery \/ Portal\s*4/i })).toBeInTheDocument();
+    expect(within(workAreaTabs).getByRole("tab", { name: /Review \/ Exceptions\s*3/i })).toBeInTheDocument();
+    expect(screen.getByText("Jobs being checked in, confirmed, assigned, or prepared for production.")).toBeInTheDocument();
+
+    fireEvent.click(within(workAreaTabs).getByRole("tab", { name: /Review \/ Exceptions\s*3/i }));
+    expect(within(workAreaTabs).getByRole("tab", { name: /Review \/ Exceptions\s*3/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Blocked, at-risk, QA-needed, ownerless, or review-needed production work.")).toBeInTheDocument();
+    expect(screen.getAllByText(/Kennedy Underclass/).length).toBeGreaterThan(0);
 
     expect(screen.getByRole("link", { name: /Open Production Queue/i })).toHaveAttribute("href", "#production/queue");
     expect(screen.getByRole("link", { name: /Review QA/i })).toHaveAttribute("href", "#production/qa");

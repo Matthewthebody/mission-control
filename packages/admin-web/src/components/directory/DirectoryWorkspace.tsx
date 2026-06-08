@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type {
   DirectoryContactDetailResponse,
   DirectoryDuplicateReviewRecord,
@@ -176,6 +177,7 @@ export function DirectoryWorkspace({
   onUpdateRelationshipMemory,
   onUpdateRelationshipFollowUp
 }: Props) {
+  const [expandedDetailsOpen, setExpandedDetailsOpen] = useState(false);
   const fallbackContact = detail?.contacts.find((contact) => contact.id === selectedContactId) ?? detail?.contacts[0] ?? null;
   const selectedContact =
     view === "contacts" && contactDetail && (!selectedContactId || contactDetail.contact.id === selectedContactId)
@@ -194,6 +196,10 @@ export function DirectoryWorkspace({
       ? contactTouchpoints[0] ?? null
       : (selectedContact ? touchpoints.find((touchpoint) => touchpoint.contact_id === selectedContact.id) : null) ?? touchpoints[0] ?? null;
   const visibleTabs = WORKSPACE_TAB_OPTIONS.filter((tab) => canManage || tab.value !== "duplicates");
+
+  useEffect(() => {
+    setExpandedDetailsOpen(false);
+  }, [view, detail?.organization.id, selectedContactId, selectedLocationId]);
 
   if (loading) {
     return <div className="request-card empty-state empty-state--panel">Loading this Directory profile...</div>;
@@ -224,6 +230,8 @@ export function DirectoryWorkspace({
     locationContacts: selectedLocationContacts
   });
   const isSchoolOrganization = view === "organizations" && isSchoolAccountType(detail.organization.account_type);
+  const compactFacts = buildDirectoryCompactFacts(view, detail, selectedContact, selectedLocation, selectedLocationContacts, touchpoints);
+  const expandedDetailsId = "directory-expanded-details";
   return (
     <section className="directory-workspace">
       <div className="request-card directory-workspace__hero">
@@ -314,103 +322,134 @@ export function DirectoryWorkspace({
         </section>
       ) : null}
 
-      {view === "organizations" ? <OrganizationPortalSections detail={detail} /> : null}
+      <section className="request-card directory-workspace__compact-summary" aria-label="Directory record summary">
+        <div className="directory-card__header">
+          <div>
+            <strong>Record Summary</strong>
+            <div className="muted">Start here, then open the full portal, files, and communication history only when needed.</div>
+          </div>
+          <button
+            type="button"
+            className="secondary-button directory-workspace__details-toggle"
+            aria-expanded={expandedDetailsOpen}
+            aria-controls={expandedDetailsId}
+            onClick={() => setExpandedDetailsOpen((isOpen) => !isOpen)}
+          >
+            {expandedDetailsOpen ? "Hide full details" : "Open full details"}
+          </button>
+        </div>
+        <div className="directory-compact-fact-grid">
+          {compactFacts.map((fact) => (
+            <div className="directory-mini-card" key={fact.label}>
+              <span className="directory-mini-card__label">{fact.label}</span>
+              <strong>{fact.value}</strong>
+              {fact.detail ? <div className="muted">{fact.detail}</div> : null}
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {view === "organizations" ? (
-        <RecordResourcesPanel
-          token={token}
-          objectType="organization"
-          objectId={detail.organization.id}
-          summary="Keep SOPs, contracts, setup references, and support documents attached to the organization record."
-        />
-      ) : null}
+      {expandedDetailsOpen ? (
+        <section className="directory-workspace__expanded-details" id={expandedDetailsId} aria-label="Directory expanded details">
+          {view === "organizations" ? <OrganizationPortalSections detail={detail} /> : null}
 
-      {view === "organizations" ? (
-        <TeamsCommunicationPanel
-          token={token}
-          currentUser={currentUser}
-          objectType="organization"
-          objectId={detail.organization.id}
-          title="Organization Teams Messaging"
-          summary="Open the linked Teams destination or send a short internal update tied to this organization relationship."
-        />
-      ) : null}
-
-      {view === "organizations" ? (
-        <TeamsMeetingPanel
-          token={token}
-          currentUser={currentUser}
-          objectType="organization"
-          objectId={detail.organization.id}
-          title="Organization Teams Meeting"
-          summary="Create or join the internal Teams meeting linked to this organization when planning needs a live handoff."
-          renderPreCallContext={(meetingView) => (
-            <PreCallContextPanel
+          {view === "organizations" ? (
+            <RecordResourcesPanel
               token={token}
-              definition={buildOrganizationPreCallContext(detail, touchpoints, meetingView)}
+              objectType="organization"
+              objectId={detail.organization.id}
+              summary="Keep SOPs, contracts, setup references, and support documents attached to the organization record."
             />
-          )}
-        />
-      ) : null}
+          ) : null}
 
-      {view === "organizations" ? (
-        <CommunicationHistoryPanel
-          token={token}
-          currentUser={currentUser}
-          objectType="organization"
-          objectId={detail.organization.id}
-          title="Organization Communication History"
-          summary="Show the latest Teams messaging and meeting metadata tied to this organization without mixing it into client-facing touchpoint history."
-        />
-      ) : null}
-
-      {view === "locations" && selectedLocation ? (
-        <RecordResourcesPanel
-          token={token}
-          objectType="location"
-          objectId={selectedLocation.id}
-          title="Location Resources"
-          summary="Keep room references, access photos, site notes, and support documents attached to the focused location."
-        />
-      ) : null}
-
-      {view === "locations" && selectedLocation ? (
-        <TeamsCommunicationPanel
-          token={token}
-          currentUser={currentUser}
-          objectType="location"
-          objectId={selectedLocation.id}
-          title="Location Teams Messaging"
-          summary="Open the linked Teams destination or send a short internal update tied to this location's day-of context."
-        />
-      ) : null}
-
-      {view === "locations" && selectedLocation ? (
-        <TeamsMeetingPanel
-          token={token}
-          currentUser={currentUser}
-          objectType="location"
-          objectId={selectedLocation.id}
-          title="Location Teams Meeting"
-          summary="Start or join a Teams call tied to this location when site access, setup, or room coordination needs a quick handoff."
-          renderPreCallContext={(meetingView) => (
-            <PreCallContextPanel
+          {view === "organizations" ? (
+            <TeamsCommunicationPanel
               token={token}
-              definition={buildLocationPreCallContext(detail, selectedLocation, selectedLocationContacts, meetingView)}
+              currentUser={currentUser}
+              objectType="organization"
+              objectId={detail.organization.id}
+              title="Organization Teams Messaging"
+              summary="Open the linked Teams destination or send a short internal update tied to this organization relationship."
             />
-          )}
-        />
-      ) : null}
+          ) : null}
 
-      {view === "locations" && selectedLocation ? (
-        <CommunicationHistoryPanel
-          token={token}
-          currentUser={currentUser}
-          objectType="location"
-          objectId={selectedLocation.id}
-          title="Location Communication History"
-          summary="Show the latest Teams message and meeting metadata tied to this location so room-level coordination stays visible on the record."
-        />
+          {view === "organizations" ? (
+            <TeamsMeetingPanel
+              token={token}
+              currentUser={currentUser}
+              objectType="organization"
+              objectId={detail.organization.id}
+              title="Organization Teams Meeting"
+              summary="Create or join the internal Teams meeting linked to this organization when planning needs a live handoff."
+              renderPreCallContext={(meetingView) => (
+                <PreCallContextPanel
+                  token={token}
+                  definition={buildOrganizationPreCallContext(detail, touchpoints, meetingView)}
+                />
+              )}
+            />
+          ) : null}
+
+          {view === "organizations" ? (
+            <CommunicationHistoryPanel
+              token={token}
+              currentUser={currentUser}
+              objectType="organization"
+              objectId={detail.organization.id}
+              title="Organization Communication History"
+              summary="Show the latest Teams messaging and meeting metadata tied to this organization without mixing it into client-facing touchpoint history."
+            />
+          ) : null}
+
+          {view === "locations" && selectedLocation ? (
+            <RecordResourcesPanel
+              token={token}
+              objectType="location"
+              objectId={selectedLocation.id}
+              title="Location Resources"
+              summary="Keep room references, access photos, site notes, and support documents attached to the focused location."
+            />
+          ) : null}
+
+          {view === "locations" && selectedLocation ? (
+            <TeamsCommunicationPanel
+              token={token}
+              currentUser={currentUser}
+              objectType="location"
+              objectId={selectedLocation.id}
+              title="Location Teams Messaging"
+              summary="Open the linked Teams destination or send a short internal update tied to this location's day-of context."
+            />
+          ) : null}
+
+          {view === "locations" && selectedLocation ? (
+            <TeamsMeetingPanel
+              token={token}
+              currentUser={currentUser}
+              objectType="location"
+              objectId={selectedLocation.id}
+              title="Location Teams Meeting"
+              summary="Start or join a Teams call tied to this location when site access, setup, or room coordination needs a quick handoff."
+              renderPreCallContext={(meetingView) => (
+                <PreCallContextPanel
+                  token={token}
+                  definition={buildLocationPreCallContext(detail, selectedLocation, selectedLocationContacts, meetingView)}
+                />
+              )}
+            />
+          ) : null}
+
+          {view === "locations" && selectedLocation ? (
+            <CommunicationHistoryPanel
+              token={token}
+              currentUser={currentUser}
+              objectType="location"
+              objectId={selectedLocation.id}
+              title="Location Communication History"
+              summary="Show the latest Teams message and meeting metadata tied to this location so room-level coordination stays visible on the record."
+            />
+          ) : null}
+        </section>
       ) : null}
 
       {view === "contacts" && selectedContact ? (
@@ -1033,6 +1072,90 @@ export function DirectoryWorkspace({
       ) : null}
     </section>
   );
+}
+
+function buildDirectoryCompactFacts(
+  view: DirectoryView,
+  detail: OrganizationDetail,
+  selectedContact: OrganizationContact | null,
+  selectedLocation: OrganizationLocation | null,
+  selectedLocationContacts: OrganizationContact[],
+  touchpoints: DirectoryTouchpointRecord[]
+) {
+  if (view === "contacts" && selectedContact) {
+    return [
+      {
+        label: "Organization",
+        value: detail.organization.display_name,
+        detail: labelForAccountType(detail.organization.account_type)
+      },
+      {
+        label: "Direct Contact",
+        value: selectedContact.email || selectedContact.phone || "Needs update",
+        detail: selectedContact.title || "No title on file"
+      },
+      {
+        label: "Owner",
+        value: selectedContact.primary_internal_owner?.full_name ?? "Unassigned",
+        detail: selectedContact.backup_internal_owner?.full_name ? `Backup: ${selectedContact.backup_internal_owner.full_name}` : "No backup owner yet"
+      },
+      {
+        label: "Freshness",
+        value: labelForFreshnessState(selectedContact.freshness_state),
+        detail: selectedContact.last_confirmed_at ? `Confirmed ${formatDateLabel(selectedContact.last_confirmed_at)}` : "Not confirmed yet"
+      }
+    ];
+  }
+
+  if (view === "locations" && selectedLocation) {
+    return [
+      {
+        label: "Organization",
+        value: detail.organization.display_name,
+        detail: labelForAccountType(detail.organization.account_type)
+      },
+      {
+        label: "Address",
+        value: buildLocationAddress(selectedLocation),
+        detail: labelForActiveStatus(selectedLocation.active_status)
+      },
+      {
+        label: "Mapped Contacts",
+        value: String(selectedLocationContacts.length),
+        detail: selectedLocationContacts[0]?.full_name ?? "No location contact mapped yet"
+      },
+      {
+        label: "Location Notes",
+        value: summarizeText(selectedLocation.notes, "No location note saved yet."),
+        detail: selectedLocation.maps_url ? "Map link on file" : "No map link on file"
+      }
+    ];
+  }
+
+  const primaryContact = detail.contacts.find((contact) => contact.is_primary) ?? detail.contacts[0] ?? null;
+  const primaryLocation = detail.locations[0] ?? null;
+  return [
+    {
+      label: "Type",
+      value: labelForAccountType(detail.organization.account_type),
+      detail: labelForActiveStatus(detail.organization.active_status)
+    },
+    {
+      label: "Primary Contact",
+      value: primaryContact?.full_name ?? "Not assigned",
+      detail: primaryContact?.title || primaryContact?.email || "Add contact context"
+    },
+    {
+      label: "Primary Location",
+      value: primaryLocation?.location_name ?? "No location",
+      detail: primaryLocation ? buildLocationAddress(primaryLocation) : "Add a location before day-of work"
+    },
+    {
+      label: "Recent Context",
+      value: touchpoints.length ? `${touchpoints.length} touchpoints` : "No touchpoints",
+      detail: detail.next_shoot ? `Next shoot ${formatDateLabel(detail.next_shoot.shoot_date)}` : "No next shoot linked"
+    }
+  ];
 }
 
 function OrganizationPortalSections({ detail }: { detail: OrganizationDetail }) {

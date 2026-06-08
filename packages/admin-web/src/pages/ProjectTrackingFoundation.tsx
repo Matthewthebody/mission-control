@@ -150,10 +150,10 @@ const AREA_FILTER_LABELS: Record<ProjectTrackingAreaFilter, string> = {
 };
 
 const AREA_FILTER_HELP: Record<ProjectTrackingAreaFilter, string> = {
-  all: "All active building work.",
+  all: "All active jobs and internal project work.",
   schools: "School jobs, galleries, releases, retakes, and school client work.",
   sports: "Sports leagues, teams, media days, releases, and athlete workflows.",
-  other: "Internal, production, graphics, customer service, admin, software, and general building work."
+  other: "Internal, production, graphics, customer service, admin, software, and general project work."
 };
 
 const PROJECT_TRACKING_AREA_FILTERS: ProjectTrackingAreaFilter[] = ["all", "schools", "sports", "other"];
@@ -1171,8 +1171,8 @@ function ProjectTrackingViewSwitcher({
   return (
     <div className="project-tracking-view-switcher" aria-label="Project Tracking view modes">
       <div>
-        <strong>View</strong>
-        <span>Same filtered projects</span>
+        <strong>Change view</strong>
+        <span>One view at a time</span>
       </div>
       <div className="project-tracking-view-switcher__buttons">
         {PROJECT_TRACKING_VIEW_MODES.map((mode) => (
@@ -1203,10 +1203,10 @@ function ProjectTrackingAreaFilterBar({
   onAreaChange: (filter: ProjectTrackingAreaFilter) => void;
 }) {
   return (
-    <section className="project-tracking-area-panel" aria-label="Building work area filters">
+    <section className="project-tracking-area-panel" aria-label="Job type area filters">
       <div>
-        <strong>Areas</strong>
-        <span>Filter by the work area people recognize first.</span>
+        <strong>Job type</strong>
+        <span>Schools/Sports identify the job. Lanes show workflow stage.</span>
       </div>
       <div className="project-tracking-area-filter-row">
         {areaCountsFor(rows).map((areaOption) => (
@@ -1238,7 +1238,7 @@ function ProjectTrackingBoardView({
   return (
     <section className="project-tracking-view-shell project-tracking-board-view" aria-label="Board View">
       <div className="project-tracking-view-intro">
-        <strong>Workflow lanes</strong>
+        <strong>Workflow stage lanes</strong>
         <span>Scan owners, due dates, blockers, and next actions by stage.</span>
       </div>
       <div className="project-tracking-board-lanes" role="list" aria-label="Project Tracking board lanes">
@@ -1557,8 +1557,8 @@ function ProjectTrackingJobBoard({
     <section className="project-tracking-job-board">
       <div className="project-tracking-panel__heading">
         <div>
-          <div className="section-title">Kanban Board</div>
-          <p className="section-subtitle">Workflow lanes for owners, due dates, blockers, and next actions.</p>
+          <div className="section-title">Job Progress Board</div>
+          <p className="section-subtitle">Board lanes show workflow stage; area chips show job type.</p>
         </div>
         <div className="project-tracking-board-meta">
           <span className="badge">Showing {filteredRows.length} of {presetRows.length}</span>
@@ -2083,8 +2083,8 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
         <section className="project-tracking-board-header" aria-label="Project Tracking">
           <div>
             <p className="section-kicker">Operations</p>
-            <h1>Building Work Board</h1>
-            <p>Active work, owners, blockers, due dates, and next actions.</p>
+            <h1>Project Tracking</h1>
+            <p>Track what work exists, who owns it, where it sits in the workflow, and what needs attention next.</p>
           </div>
           <div className="project-tracking-board-header__actions">
             <button className="button button-secondary" type="button" onClick={() => applyPreset("blocked")}>

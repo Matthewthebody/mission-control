@@ -520,8 +520,8 @@ describe("ProjectTrackingFoundation", () => {
   it("renders Project Tracking as a board-first kanban surface with owners, due dates, priority, and attention signals", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Building Work Board" })).toBeInTheDocument();
-    expect(screen.getByText("Active work, owners, blockers, due dates, and next actions.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
+    expect(screen.getByText("Track what work exists, who owns it, where it sits in the workflow, and what needs attention next.")).toBeInTheDocument();
     expect(screen.queryByText("Open First")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
@@ -537,16 +537,16 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByRole("link", { name: "Review Blocked / At Risk" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();
 
-    const areaFilters = screen.getByLabelText("Building work area filters");
-    expect(within(areaFilters).getByText("Areas")).toBeInTheDocument();
-    expect(within(areaFilters).getByText("Filter by the work area people recognize first.")).toBeInTheDocument();
+    const areaFilters = screen.getByLabelText("Job type area filters");
+    expect(within(areaFilters).getByText("Job type")).toBeInTheDocument();
+    expect(within(areaFilters).getByText("Schools/Sports identify the job. Lanes show workflow stage.")).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /All, 4 items, active area/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(areaFilters).getByRole("button", { name: /Schools, 2 items/i })).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /Sports, 1 item/i })).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /Other, 1 item/i })).toBeInTheDocument();
 
-    expect(screen.getByText("Kanban Board")).toBeInTheDocument();
-    expect(screen.getByText("Workflow lanes for owners, due dates, blockers, and next actions.")).toBeInTheDocument();
+    expect(screen.getByText("Job Progress Board")).toBeInTheDocument();
+    expect(screen.getByText("Board lanes show workflow stage; area chips show job type.")).toBeInTheDocument();
     const viewModes = screen.getByLabelText("Project Tracking view modes");
     expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(viewModes).getByRole("button", { name: /List/i })).toHaveAttribute("aria-pressed", "false");
@@ -715,11 +715,11 @@ describe("ProjectTrackingFoundation", () => {
     await waitFor(() => expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalled());
   });
 
-  it("filters the Building Work Board by all, schools, sports, and other work areas", async () => {
+  it("filters Project Tracking by all, schools, sports, and other work areas", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     await screen.findByLabelText("Project Tracking board lanes");
-    const areaFilters = screen.getByLabelText("Building work area filters");
+    const areaFilters = screen.getByLabelText("Job type area filters");
 
     fireEvent.click(within(areaFilters).getByRole("button", { name: /Schools, 2 items/i }));
     let board = screen.getByLabelText("Project Tracking board lanes").closest("section");
@@ -768,7 +768,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByText(/Internal server error/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("Work Pulse")).toBeInTheDocument();
-    expect(screen.getByText("Kanban Board")).toBeInTheDocument();
+    expect(screen.getByText("Job Progress Board")).toBeInTheDocument();
   });
 
   it("uses Needs Attention Review actions as temporary filters without breaking preset lenses", async () => {
