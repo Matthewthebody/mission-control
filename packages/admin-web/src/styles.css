@@ -14657,6 +14657,66 @@ html[data-theme="light"] .sales-resurface-strip {
   min-width: 0;
 }
 
+.organization-portal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.organization-portal__section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.organization-portal__section--wide {
+  grid-column: 1 / -1;
+}
+
+.organization-portal__overview-grid,
+.organization-portal__notes-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  min-width: 0;
+}
+
+.organization-portal__list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.organization-portal__row {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(166, 194, 220, 0.12);
+  border-radius: 16px;
+  background: rgba(9, 24, 41, 0.5);
+}
+
+.organization-portal__row > div {
+  min-width: 0;
+}
+
+.organization-portal__row p,
+.organization-portal__notes-grid p {
+  margin-bottom: 0;
+}
+
+.organization-portal__thumbnail {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  border: 1px solid rgba(166, 194, 220, 0.14);
+  object-fit: cover;
+  background: rgba(12, 28, 46, 0.82);
+}
+
 .directory-profile-media {
   display: flex;
   align-items: center;
@@ -15958,8 +16018,15 @@ html[data-theme="light"] .sales-resurface-strip {
 
   .directory-rail__filters,
   .directory-command-strip__grid,
-  .directory-form__grid {
+  .directory-form__grid,
+  .organization-portal,
+  .organization-portal__overview-grid,
+  .organization-portal__notes-grid {
     grid-template-columns: 1fr;
+  }
+
+  .organization-portal__row {
+    flex-direction: column;
   }
 
   .directory-rail__advanced-toggle-row {

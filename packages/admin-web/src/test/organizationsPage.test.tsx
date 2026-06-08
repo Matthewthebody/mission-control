@@ -17,6 +17,7 @@ import type {
   OrganizationContact,
   OrganizationDetail,
   OrganizationLocation,
+  OrganizationSummary,
   OrganizationOperationsHub,
   SchoolActivityLog,
   SchoolProfile,
@@ -98,8 +99,10 @@ const communicationReadyUser: SessionUser = {
   }
 };
 
-function createDirectoryHarness(options: { seedOrganizationOnlyTouchpoint?: boolean; unresolvedImportOrganization?: boolean } = {}) {
-  const organization = {
+function createDirectoryHarness(
+  options: { seedOrganizationOnlyTouchpoint?: boolean; unresolvedImportOrganization?: boolean; emptyOrganizationPortal?: boolean } = {}
+) {
+  const organization: OrganizationSummary = {
     id: "organization-1",
     canonical_name: "White Bear Lake High School",
     logo_url: "https://images.example/wbl-logo.png",
@@ -323,6 +326,24 @@ function createDirectoryHarness(options: { seedOrganizationOnlyTouchpoint?: bool
       updated_at: "2026-03-28T08:30:00.000Z"
     }
   ];
+  if (options.emptyOrganizationPortal) {
+    organization.logo_url = null;
+    organization.notes = null;
+    contacts = [];
+    locations = [];
+    schoolProfile = {
+      ...schoolProfile,
+      relationship_summary: null,
+      primary_internal_owner: null,
+      backup_internal_owner: null,
+      primary_location_id: null,
+      primary_location_name: null,
+      primary_location_address: null,
+      notes: null,
+      tags: []
+    };
+    schoolRules = [];
+  }
   let schoolActivity: SchoolActivityLog[] = [
     {
       id: "school-activity-1",
@@ -548,12 +569,14 @@ function createDirectoryHarness(options: { seedOrganizationOnlyTouchpoint?: bool
       school_rules: schoolRules,
       school_activity: schoolActivity,
       touchpoints,
-      recent_shoots: [recentShoot],
-      next_shoot: {
-        ...recentShoot,
-        showtime: "08:00:00",
-        start_time: "2027-04-12T08:30:00.000Z"
-      },
+      recent_shoots: options.emptyOrganizationPortal ? [] : [recentShoot],
+      next_shoot: options.emptyOrganizationPortal
+        ? null
+        : {
+            ...recentShoot,
+            showtime: "08:00:00",
+            start_time: "2027-04-12T08:30:00.000Z"
+          },
       sales_opportunities: [],
       account_overview: {
         contract_status: "Active",
@@ -2032,7 +2055,7 @@ describe("organizations workflow surface", () => {
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
     expect(await screen.findByText("Operational Role")).toBeInTheDocument();
-    expect(screen.getByText("Contact Record")).toBeInTheDocument();
+    expect(screen.getByText("Contact Profile")).toBeInTheDocument();
     expect(screen.queryByLabelText("Directory related work links")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open organization" })).not.toBeInTheDocument();
   });
@@ -2209,6 +2232,47 @@ describe("organizations workflow surface", () => {
     expect(screen.queryByText("Primary contacts")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View in Project Tracking" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
+  });
+
+  it("renders organization details as a useful client portal", async () => {
+    createDirectoryHarness();
+
+    render(<Organizations token="token" currentUser={leadershipUser} />);
+
+    const portal = await screen.findByLabelText("Organization portal");
+
+    expect(within(portal).getByText("Organization Overview")).toBeInTheDocument();
+    expect(within(portal).getByText("Contacts")).toBeInTheDocument();
+    expect(within(portal).getByText("Jobs Attached to This Organization")).toBeInTheDocument();
+    expect(within(portal).getByText("Locations")).toBeInTheDocument();
+    expect(within(portal).getByText("Reference Images")).toBeInTheDocument();
+    expect(within(portal).getByText("Documents & Files")).toBeInTheDocument();
+    expect(within(portal).getByText("Notes / Requirements")).toBeInTheDocument();
+
+    expect(within(portal).getAllByText("Jamie Carlson").length).toBeGreaterThan(0);
+    expect(within(portal).getByText(/Activities Director - White Bear Lake High School/i)).toBeInTheDocument();
+    expect(within(portal).getByText("Spring Sports")).toBeInTheDocument();
+    expect(within(portal).getByRole("link", { name: "Open Jobs database" })).toHaveAttribute("href", "#jobs");
+    expect(within(portal).getAllByText("South Gym").length).toBeGreaterThan(0);
+    expect(within(portal).getByText("Logo reference")).toBeInTheDocument();
+    expect(within(portal).getByText("Subject directory delivery")).toBeInTheDocument();
+    expect(within(portal).queryByRole("button", { name: /upload/i })).not.toBeInTheDocument();
+    expect(within(portal).queryByText(/entity mapping|object relationship|read model|command record|portal contract|file spine/i)).not.toBeInTheDocument();
+  });
+
+  it("shows calm organization portal empty states when linked data is missing", async () => {
+    createDirectoryHarness({ emptyOrganizationPortal: true });
+
+    render(<Organizations token="token" currentUser={leadershipUser} />);
+
+    const portal = await screen.findByLabelText("Organization portal");
+
+    expect(within(portal).getByText("No contacts connected yet.")).toBeInTheDocument();
+    expect(within(portal).getByText("No jobs linked to this organization yet.")).toBeInTheDocument();
+    expect(within(portal).getByText("No locations connected yet.")).toBeInTheDocument();
+    expect(within(portal).getByText("No reference images added yet.")).toBeInTheDocument();
+    expect(within(portal).getByText("No documents added yet.")).toBeInTheDocument();
+    expect(within(portal).queryByRole("button", { name: /upload/i })).not.toBeInTheDocument();
   });
 
   it("shows a focused import workflow with duplicate warnings from the Contacts workspace", async () => {

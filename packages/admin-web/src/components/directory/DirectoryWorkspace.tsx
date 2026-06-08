@@ -9,6 +9,8 @@ import type {
   OrganizationContact,
   OrganizationDetail,
   OrganizationLocation,
+  OrganizationRecentShoot,
+  OrganizationUpcomingShoot,
   OrganizationOperationsHub,
   SessionUser
 } from "../../types";
@@ -35,6 +37,7 @@ import {
   labelForRelationshipStrength,
   labelForRoleCategory,
   labelForSchoolRelationshipHealth,
+  labelForSchoolRuleType,
   labelForTouchpointChannel,
   summarizeText
 } from "./directoryOptions";
@@ -193,7 +196,7 @@ export function DirectoryWorkspace({
   const visibleTabs = WORKSPACE_TAB_OPTIONS.filter((tab) => canManage || tab.value !== "duplicates");
 
   if (loading) {
-    return <div className="request-card empty-state empty-state--panel">Loading the trusted directory record...</div>;
+    return <div className="request-card empty-state empty-state--panel">Loading this Directory profile...</div>;
   }
 
   if (error) {
@@ -201,7 +204,7 @@ export function DirectoryWorkspace({
   }
 
   if (!detail) {
-    return <div className="request-card empty-state empty-state--panel">Choose an organization or contact to open its trusted directory record.</div>;
+    return <div className="request-card empty-state empty-state--panel">Choose an organization, contact, or location to open details.</div>;
   }
 
   const contactMaintenanceSignals = selectedContact?.maintenance_signals ?? [];
@@ -235,17 +238,17 @@ export function DirectoryWorkspace({
             <p className="eyebrow">
               {view === "contacts"
                 ? selectedContact?.organization_id === detail.organization.id && detail.organization.account_type === "internal"
-                  ? "Company Directory Record"
-                  : "Contact Record"
+                  ? "Company Contact"
+                  : "Contact Profile"
                 : view === "locations"
-                  ? "Location Record"
-                  : "Organization Record"}
+                  ? "Location Profile"
+                  : "Organization Portal"}
             </p>
             <h2>{view === "contacts" && selectedContact ? selectedContact.full_name : detail.organization.display_name}</h2>
             <p className="muted">
               {view === "contacts" && selectedContact
                 ? `${selectedContact.title || "No title on file"} - ${detail.organization.display_name}. Confirm who this person is and which organization they are tied to.`
-                : "Confirm the account, primary contacts, locations, and reference details from one trusted address book record."}
+                : "Review account details, contacts, jobs, locations, files, and notes in one place."}
             </p>
           </div>
         </div>
@@ -310,6 +313,8 @@ export function DirectoryWorkspace({
           ))}
         </section>
       ) : null}
+
+      {view === "organizations" ? <OrganizationPortalSections detail={detail} /> : null}
 
       {view === "organizations" ? (
         <RecordResourcesPanel
@@ -523,7 +528,7 @@ export function DirectoryWorkspace({
               <article className="request-card">
                 <div className="directory-card__header">
                   <div>
-                    <strong>Contact Record</strong>
+                    <strong>Contact Details</strong>
                     <div className="muted">Operational identity, ownership, and the fastest path to the right person.</div>
                   </div>
                 </div>
@@ -817,7 +822,7 @@ export function DirectoryWorkspace({
             <div className="directory-card__header">
               <div>
                 <strong>Locations</strong>
-                <div className="muted">Attach contacts at the relationship layer so day-of ownership is visible and maintainable.</div>
+                <div className="muted">Connect contacts to the places where day-of work happens.</div>
               </div>
               {canManage ? (
                 <div className="page-intro-actions page-intro-actions--compact">
@@ -1030,6 +1035,205 @@ export function DirectoryWorkspace({
   );
 }
 
+function OrganizationPortalSections({ detail }: { detail: OrganizationDetail }) {
+  const primaryContact = detail.contacts.find((contact) => contact.is_primary) ?? detail.contacts[0] ?? null;
+  const directoryDetails = parseDirectoryDetails(detail.organization.notes);
+  const linkedJobs = buildOrganizationPortalJobs(detail);
+  const referenceImages = detail.organization.logo_url
+    ? [
+        {
+          title: "Logo reference",
+          imageUrl: detail.organization.logo_url,
+          summary: "Current organization logo reference."
+        }
+      ]
+    : [];
+  const documentItems = (detail.school_rules ?? []).slice(0, 4).map((rule) => ({
+    id: rule.id,
+    title: rule.title,
+    meta: labelForSchoolRuleType(rule.rule_type),
+    summary: summarizeText(rule.summary, "Requirement saved for this organization.")
+  }));
+  const notes = [
+    {
+      title: "Team Notes",
+      body: stripDirectoryDetails(detail.organization.notes)
+    },
+    {
+      title: "Relationship Summary",
+      body: detail.school_profile?.relationship_summary ?? null
+    },
+    {
+      title: "Requirements",
+      body: detail.school_profile?.notes ?? null
+    }
+  ].filter((note) => note.body?.trim());
+
+  const overviewItems = [
+    { label: "Short Name", value: detail.organization.display_name || detail.organization.canonical_name },
+    { label: "Account Type", value: labelForAccountType(detail.organization.account_type) },
+    { label: "Status", value: labelForActiveStatus(detail.organization.active_status) },
+    { label: "Internal Owner", value: getOrganizationOwnerLabel(detail, directoryDetails) },
+    { label: "Primary Contact", value: primaryContact?.full_name ?? "Not assigned" },
+    { label: "Primary Color", value: directoryDetails.get("Primary Color") ?? "Not set" },
+    { label: "Secondary Color", value: directoryDetails.get("Secondary Color") ?? "Not set" },
+    { label: "Mascot", value: directoryDetails.get("Mascot") ?? "Not set" }
+  ];
+
+  return (
+    <section className="organization-portal" aria-label="Organization portal">
+      <article className="request-card organization-portal__section organization-portal__section--wide">
+        <div className="directory-card__header">
+          <div>
+            <strong>Organization Overview</strong>
+            <div className="muted">Account basics, owner, contact, and brand notes.</div>
+          </div>
+        </div>
+        <div className="organization-portal__overview-grid">
+          {overviewItems.map((item) => (
+            <div key={item.label} className="directory-mini-card">
+              <span className="directory-mini-card__label">{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="request-card organization-portal__section">
+        <div className="directory-card__header">
+          <div>
+            <strong>Contacts</strong>
+            <div className="muted">People to call, email, or confirm before work starts.</div>
+          </div>
+        </div>
+        <div className="organization-portal__list">
+          {detail.contacts.slice(0, 4).map((contact) => (
+            <div key={contact.id} className="organization-portal__row">
+              <DirectoryAvatar name={contact.full_name} imageUrl={contact.photo_url} size="sm" />
+              <div>
+                <strong>{contact.full_name}</strong>
+                <div className="muted">{contact.title || "No title"} - {detail.organization.display_name}</div>
+                <div className="muted">{contact.email || "No email on file"}{contact.phone ? ` - ${contact.phone}` : ""}</div>
+                <div className="directory-chip-row">
+                  <span className="meta-pill">Preferred: {contact.email ? "Email" : contact.phone ? "Phone" : "Not set"}</span>
+                  {contact.is_primary ? <span className="meta-pill">Primary contact</span> : null}
+                  <span className="meta-pill">{linkedJobs.length} linked jobs</span>
+                </div>
+                <p>{summarizeText(contact.notes, "No notes saved for this contact yet.")}</p>
+              </div>
+            </div>
+          ))}
+          {!detail.contacts.length ? <div className="empty-state empty-state--panel">No contacts connected yet.</div> : null}
+        </div>
+      </article>
+
+      <article className="request-card organization-portal__section">
+        <div className="directory-card__header">
+          <div>
+            <strong>Jobs Attached to This Organization</strong>
+            <div className="muted">Upcoming and recent work connected to this account.</div>
+          </div>
+          {linkedJobs.length ? (
+            <a className="secondary-button" href="#jobs">
+              Open Jobs database
+            </a>
+          ) : null}
+        </div>
+        <div className="organization-portal__list">
+          {linkedJobs.map((job) => (
+            <div key={job.id} className="directory-mini-card">
+              <span className="directory-mini-card__label">{job.statusLabel}</span>
+              <strong>{job.title}</strong>
+              <div className="muted">{job.dateLabel} - {job.departmentLabel}</div>
+              <div className="muted">{job.locationName || "Location not set"}</div>
+              <p>{job.nextStep}</p>
+            </div>
+          ))}
+          {!linkedJobs.length ? <div className="empty-state empty-state--panel">No jobs linked to this organization yet.</div> : null}
+        </div>
+      </article>
+
+      <article className="request-card organization-portal__section">
+        <div className="directory-card__header">
+          <div>
+            <strong>Locations</strong>
+            <div className="muted">Places, access notes, and room context tied to this organization.</div>
+          </div>
+        </div>
+        <div className="organization-portal__list">
+          {detail.locations.slice(0, 4).map((location) => (
+            <div key={location.id} className="directory-mini-card">
+              <span className="directory-mini-card__label">{labelForActiveStatus(location.active_status)}</span>
+              <strong>{location.location_name}</strong>
+              <div className="muted">{buildLocationAddress(location)}</div>
+              <p>{summarizeText(location.notes, "No location notes added yet.")}</p>
+            </div>
+          ))}
+          {!detail.locations.length ? <div className="empty-state empty-state--panel">No locations connected yet.</div> : null}
+        </div>
+      </article>
+
+      <article className="request-card organization-portal__section">
+        <div className="directory-card__header">
+          <div>
+            <strong>Reference Images</strong>
+            <div className="muted">Visual references already saved for this account.</div>
+          </div>
+        </div>
+        <div className="organization-portal__list">
+          {referenceImages.map((image) => (
+            <div key={image.title} className="organization-portal__row organization-portal__row--media">
+              <img className="organization-portal__thumbnail" src={image.imageUrl} alt="" />
+              <div>
+                <strong>{image.title}</strong>
+                <p>{image.summary}</p>
+              </div>
+            </div>
+          ))}
+          {!referenceImages.length ? <div className="empty-state empty-state--panel">No reference images added yet.</div> : null}
+        </div>
+      </article>
+
+      <article className="request-card organization-portal__section">
+        <div className="directory-card__header">
+          <div>
+            <strong>Documents & Files</strong>
+            <div className="muted">Requirements, specs, and saved account files.</div>
+          </div>
+        </div>
+        <div className="organization-portal__list">
+          {documentItems.map((item) => (
+            <div key={item.id} className="directory-mini-card">
+              <span className="directory-mini-card__label">{item.meta}</span>
+              <strong>{item.title}</strong>
+              <p>{item.summary}</p>
+            </div>
+          ))}
+          {!documentItems.length ? <div className="empty-state empty-state--panel">No documents added yet.</div> : null}
+        </div>
+      </article>
+
+      <article className="request-card organization-portal__section organization-portal__section--wide">
+        <div className="directory-card__header">
+          <div>
+            <strong>Notes / Requirements</strong>
+            <div className="muted">Important instructions that should follow this organization into planning work.</div>
+          </div>
+        </div>
+        <div className="organization-portal__notes-grid">
+          {notes.map((note) => (
+            <div key={note.title} className="directory-mini-card">
+              <span className="directory-mini-card__label">{note.title}</span>
+              <p>{note.body}</p>
+            </div>
+          ))}
+          {!notes.length ? <div className="empty-state empty-state--panel">No notes or requirements added yet.</div> : null}
+        </div>
+      </article>
+    </section>
+  );
+}
+
 function isSchoolAccountType(accountType: OrganizationDetail["organization"]["account_type"]) {
   return accountType === "schools_underclass_portraits" || accountType === "schools_events";
 }
@@ -1043,6 +1247,101 @@ function groupContactsByRoleCategory(contacts: OrganizationContact[]) {
     groups.set(key, list);
   }
   return [...groups.entries()].sort((left, right) => right[1].length - left[1].length);
+}
+
+function parseDirectoryDetails(notes?: string | null) {
+  const details = new Map<string, string>();
+  if (!notes) {
+    return details;
+  }
+  let inDetails = false;
+  for (const line of notes.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (trimmed.toLowerCase() === "directory details:") {
+      inDetails = true;
+      continue;
+    }
+    if (!inDetails) {
+      continue;
+    }
+    const separatorIndex = trimmed.indexOf(":");
+    if (separatorIndex === -1) {
+      continue;
+    }
+    const label = trimmed.slice(0, separatorIndex).trim();
+    const value = trimmed.slice(separatorIndex + 1).trim();
+    if (label && value) {
+      details.set(label, value);
+    }
+  }
+  return details;
+}
+
+function stripDirectoryDetails(notes?: string | null) {
+  if (!notes?.trim()) {
+    return null;
+  }
+  const markerIndex = notes.indexOf("Directory Details:");
+  const visibleNote = markerIndex >= 0 ? notes.slice(0, markerIndex) : notes;
+  return visibleNote.trim() || null;
+}
+
+function getOrganizationOwnerLabel(detail: OrganizationDetail, directoryDetails: Map<string, string>) {
+  return (
+    detail.school_profile?.primary_internal_owner?.full_name ??
+    directoryDetails.get("Internal Owner") ??
+    detail.contacts.find((contact) => contact.primary_internal_owner)?.primary_internal_owner?.full_name ??
+    "Not assigned"
+  );
+}
+
+function buildOrganizationPortalJobs(detail: OrganizationDetail) {
+  const departmentLabel = labelForAccountType(detail.organization.account_type);
+  const jobs: Array<{
+    id: string;
+    title: string;
+    dateLabel: string;
+    departmentLabel: string;
+    locationName: string | null;
+    statusLabel: string;
+    nextStep: string;
+  }> = [];
+  const addedIds = new Set<string>();
+
+  if (detail.next_shoot) {
+    jobs.push(buildOrganizationPortalJob(detail.next_shoot, departmentLabel, "Upcoming", "Confirm prep, contacts, and location before the shoot."));
+    addedIds.add(detail.next_shoot.id);
+  }
+
+  for (const shoot of detail.recent_shoots) {
+    if (addedIds.has(shoot.id)) {
+      continue;
+    }
+    jobs.push(buildOrganizationPortalJob(shoot, departmentLabel, "Recent", "Use this job history when planning follow-up work."));
+    addedIds.add(shoot.id);
+  }
+
+  return jobs;
+}
+
+function buildOrganizationPortalJob(
+  shoot: OrganizationRecentShoot | OrganizationUpcomingShoot,
+  departmentLabel: string,
+  statusLabel: string,
+  nextStep: string
+) {
+  return {
+    id: `${shoot.id}-${statusLabel}`,
+    title: shoot.title,
+    dateLabel: formatDateLabel(shoot.shoot_date),
+    departmentLabel,
+    locationName: shoot.location_name,
+    statusLabel,
+    nextStep
+  };
 }
 
 function buildRelationshipMap(input: {
