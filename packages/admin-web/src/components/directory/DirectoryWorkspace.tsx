@@ -1038,13 +1038,16 @@ export function DirectoryWorkspace({
 function OrganizationPortalSections({ detail }: { detail: OrganizationDetail }) {
   const primaryContact = detail.contacts.find((contact) => contact.is_primary) ?? detail.contacts[0] ?? null;
   const directoryDetails = parseDirectoryDetails(detail.organization.notes);
+  const logoStatus = getLogoStatus(detail, directoryDetails);
+  const logoLastUpdated = directoryDetails.get("Logo Last Updated") ?? "";
+  const logoNotes = directoryDetails.get("Logo Notes") ?? "";
   const linkedJobs = buildOrganizationPortalJobs(detail);
   const referenceImages = detail.organization.logo_url
     ? [
         {
           title: "Logo reference",
           imageUrl: detail.organization.logo_url,
-          summary: "Current organization logo reference."
+          summary: `${logoStatus.label} - ${logoNotes || "Review the logo status before production use."}`
         }
       ]
     : [];
@@ -1087,6 +1090,35 @@ function OrganizationPortalSections({ detail }: { detail: OrganizationDetail }) 
           <div>
             <strong>Organization Overview</strong>
             <div className="muted">Account basics, owner, contact, and brand notes.</div>
+          </div>
+        </div>
+        <div className="organization-logo-card">
+          {detail.organization.logo_url ? (
+            <img className="organization-logo-card__preview" src={detail.organization.logo_url} alt="" />
+          ) : (
+            <div className="organization-logo-card__empty">No logo on file yet.</div>
+          )}
+          <div>
+            <div className="directory-card__header">
+              <div>
+                <strong>Logo</strong>
+                <div className="muted">Logo confidence for production, banners, and client-facing work.</div>
+              </div>
+              <span className={`organization-logo-status organization-logo-status--${logoStatus.tone}`}>{logoStatus.label}</span>
+            </div>
+            <div className="organization-logo-card__meta">
+              <div>
+                <span className="directory-mini-card__label">Logo Last Updated</span>
+                <strong>{logoLastUpdated ? formatLogoDateLabel(logoLastUpdated) : "Logo update date not recorded."}</strong>
+              </div>
+              <div>
+                <span className="directory-mini-card__label">Logo Notes</span>
+                <p>{logoNotes || (detail.organization.logo_url ? "No logo notes recorded." : "No logo on file yet.")}</p>
+              </div>
+            </div>
+            {logoStatus.tone === "review" || logoStatus.tone === "needs-new" ? (
+              <p className="muted">Logo needs review before production use.</p>
+            ) : null}
           </div>
         </div>
         <div className="organization-portal__overview-grid">
@@ -1296,6 +1328,41 @@ function getOrganizationOwnerLabel(detail: OrganizationDetail, directoryDetails:
     detail.contacts.find((contact) => contact.primary_internal_owner)?.primary_internal_owner?.full_name ??
     "Not assigned"
   );
+}
+
+function getLogoStatus(detail: OrganizationDetail, directoryDetails: Map<string, string>) {
+  const savedStatus = directoryDetails.get("Logo Status")?.trim().toLowerCase();
+  if (savedStatus === "current") {
+    return { label: "Current", tone: "current" };
+  }
+  if (savedStatus === "needs new logo") {
+    return { label: "Needs New Logo", tone: "needs-new" };
+  }
+  if (savedStatus === "needs review") {
+    return { label: "Needs Review", tone: "review" };
+  }
+  if (savedStatus === "missing logo") {
+    return { label: "Missing Logo", tone: "missing" };
+  }
+  if (!detail.organization.logo_url) {
+    return { label: "Missing Logo", tone: "missing" };
+  }
+  return { label: "Needs Review", tone: "review" };
+}
+
+function formatLogoDateLabel(value: string) {
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
 }
 
 function buildOrganizationPortalJobs(detail: OrganizationDetail) {

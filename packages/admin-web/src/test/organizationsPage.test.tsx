@@ -100,17 +100,25 @@ const communicationReadyUser: SessionUser = {
 };
 
 function createDirectoryHarness(
-  options: { seedOrganizationOnlyTouchpoint?: boolean; unresolvedImportOrganization?: boolean; emptyOrganizationPortal?: boolean } = {}
+  options: {
+    seedOrganizationOnlyTouchpoint?: boolean;
+    unresolvedImportOrganization?: boolean;
+    emptyOrganizationPortal?: boolean;
+    logoStatus?: "Current" | "Needs New Logo" | "Needs Review" | "Missing Logo";
+    logoUrl?: string | null;
+  } = {}
 ) {
+  const logoStatus = options.logoStatus ?? "Current";
+  const logoUrl = options.logoUrl === undefined ? "https://images.example/wbl-logo.png" : options.logoUrl;
   const organization: OrganizationSummary = {
     id: "organization-1",
     canonical_name: "White Bear Lake High School",
-    logo_url: "https://images.example/wbl-logo.png",
+    logo_url: logoUrl,
     display_name: "White Bear Lake High School",
     account_type: "schools_underclass_portraits" as const,
     active_status: "active" as const,
     aliases: ["WBL High School"],
-    notes: "Canonical school account for scheduling.",
+    notes: `Canonical school account for scheduling.\n\nDirectory Details:\nLogo Last Updated: 2026-03-12\nLogo Status: ${logoStatus}\nLogo Notes: Use athletic logo, not district seal.`,
     contact_count: 1,
     location_count: 1,
     created_at: "2026-03-27T12:00:00.000Z",
@@ -1891,6 +1899,9 @@ describe("organizations workflow surface", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pat.morgan@example.com" } });
     fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "651-555-0199" } });
     fireEvent.change(screen.getByLabelText("Preferred Contact Method"), { target: { value: "Email" } });
+    fireEvent.change(screen.getByLabelText("Logo Last Updated"), { target: { value: "2026-03-12" } });
+    fireEvent.change(screen.getByLabelText("Logo Status"), { target: { value: "Needs Review" } });
+    fireEvent.change(screen.getByLabelText("Logo Notes"), { target: { value: "Use athletic logo, not district seal." } });
     fireEvent.change(screen.getByLabelText("Primary Color"), { target: { value: "Navy" } });
     fireEvent.change(screen.getByLabelText("Secondary Color"), { target: { value: "Gold" } });
     fireEvent.change(screen.getByLabelText("Mascot"), { target: { value: "Bears" } });
@@ -1918,6 +1929,9 @@ describe("organizations workflow surface", () => {
     expect(notes).toContain("Directory Details:");
     expect(notes).toContain("Status: Returning Client");
     expect(notes).toContain("Internal Owner: Jessica");
+    expect(notes).toContain("Logo Last Updated: 2026-03-12");
+    expect(notes).toContain("Logo Status: Needs Review");
+    expect(notes).toContain("Logo Notes: Use athletic logo, not district seal.");
     expect(notes).toContain("Website: https://northshore.example.com");
     expect(notes).toContain("Primary Color: Navy");
     expect(notes).toContain("Secondary Color: Gold");
@@ -2184,6 +2198,13 @@ describe("organizations workflow surface", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Phone")).toBeInTheDocument();
     expect(screen.getByLabelText("Preferred Contact Method")).toBeInTheDocument();
+    expect(screen.getByLabelText("Logo Last Updated")).toBeInTheDocument();
+    expect(screen.getByLabelText("Logo Status")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Current" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Needs New Logo" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Needs Review" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Missing Logo" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Logo Notes")).toBeInTheDocument();
     expect(screen.getByLabelText("Primary Color")).toBeInTheDocument();
     expect(screen.getByLabelText("Secondary Color")).toBeInTheDocument();
     expect(screen.getByLabelText("Mascot")).toBeInTheDocument();
@@ -2255,9 +2276,30 @@ describe("organizations workflow surface", () => {
     expect(within(portal).getByRole("link", { name: "Open Jobs database" })).toHaveAttribute("href", "#jobs");
     expect(within(portal).getAllByText("South Gym").length).toBeGreaterThan(0);
     expect(within(portal).getByText("Logo reference")).toBeInTheDocument();
+    expect(within(portal).getByText("Current")).toBeInTheDocument();
+    expect(within(portal).getByText("Logo Last Updated")).toBeInTheDocument();
+    expect(within(portal).getByText("March 12, 2026")).toBeInTheDocument();
+    expect(within(portal).getByText("Logo Notes")).toBeInTheDocument();
+    expect(within(portal).getAllByText("Use athletic logo, not district seal.").length).toBeGreaterThan(0);
     expect(within(portal).getByText("Subject directory delivery")).toBeInTheDocument();
     expect(within(portal).queryByRole("button", { name: /upload/i })).not.toBeInTheDocument();
     expect(within(portal).queryByText(/entity mapping|object relationship|read model|command record|portal contract|file spine/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { status: "Current" as const, logoUrl: "https://images.example/current-logo.png", expectedCopy: "Current" },
+    { status: "Needs New Logo" as const, logoUrl: "https://images.example/old-logo.png", expectedCopy: "Logo needs review before production use." },
+    { status: "Needs Review" as const, logoUrl: "https://images.example/review-logo.png", expectedCopy: "Logo needs review before production use." },
+    { status: "Missing Logo" as const, logoUrl: null, expectedCopy: "No logo on file yet." }
+  ])("shows the $status logo status in the organization portal", async ({ status, logoUrl, expectedCopy }) => {
+    createDirectoryHarness({ logoStatus: status, logoUrl });
+
+    render(<Organizations token="token" currentUser={leadershipUser} />);
+
+    const portal = await screen.findByLabelText("Organization portal");
+
+    expect(within(portal).getAllByText(status).length).toBeGreaterThan(0);
+    expect(within(portal).getByText(expectedCopy)).toBeInTheDocument();
   });
 
   it("shows calm organization portal empty states when linked data is missing", async () => {
@@ -2270,6 +2312,9 @@ describe("organizations workflow surface", () => {
     expect(within(portal).getByText("No contacts connected yet.")).toBeInTheDocument();
     expect(within(portal).getByText("No jobs linked to this organization yet.")).toBeInTheDocument();
     expect(within(portal).getByText("No locations connected yet.")).toBeInTheDocument();
+    expect(within(portal).getAllByText("Missing Logo").length).toBeGreaterThan(0);
+    expect(within(portal).getByText("Logo update date not recorded.")).toBeInTheDocument();
+    expect(within(portal).getAllByText("No logo on file yet.").length).toBeGreaterThan(0);
     expect(within(portal).getByText("No reference images added yet.")).toBeInTheDocument();
     expect(within(portal).getByText("No documents added yet.")).toBeInTheDocument();
     expect(within(portal).queryByRole("button", { name: /upload/i })).not.toBeInTheDocument();

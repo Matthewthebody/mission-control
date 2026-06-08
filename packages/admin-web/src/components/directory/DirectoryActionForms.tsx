@@ -127,6 +127,9 @@ export function OrganizationEditorForm({
   const [primaryContactEmail, setPrimaryContactEmail] = useState("");
   const [primaryContactPhone, setPrimaryContactPhone] = useState("");
   const [preferredContactMethod, setPreferredContactMethod] = useState("");
+  const [logoLastUpdated, setLogoLastUpdated] = useState("");
+  const [logoStatus, setLogoStatus] = useState("");
+  const [logoNotes, setLogoNotes] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
   const [secondaryColor, setSecondaryColor] = useState("");
   const [mascot, setMascot] = useState("");
@@ -183,6 +186,9 @@ export function OrganizationEditorForm({
           notes: buildOrganizationNotes({
             relationshipStatus,
             internalOwner,
+            logoLastUpdated,
+            logoStatus,
+            logoNotes,
             primaryColor,
             secondaryColor,
             mascot,
@@ -239,6 +245,24 @@ export function OrganizationEditorForm({
               />
               {uploadingLogo ? <span className="muted">Uploading logo...</span> : null}
             </div>
+          </label>
+          <label className="directory-field">
+            <span>Logo Last Updated</span>
+            <input type="date" value={logoLastUpdated} onChange={(event) => setLogoLastUpdated(event.target.value)} />
+          </label>
+          <label className="directory-field">
+            <span>Logo Status</span>
+            <select value={logoStatus} onChange={(event) => setLogoStatus(event.target.value)}>
+              <option value="">Not recorded</option>
+              <option value="Current">Current</option>
+              <option value="Needs New Logo">Needs New Logo</option>
+              <option value="Needs Review">Needs Review</option>
+              <option value="Missing Logo">Missing Logo</option>
+            </select>
+          </label>
+          <label className="directory-field directory-field--wide">
+            <span>Logo Notes</span>
+            <textarea value={logoNotes} onChange={(event) => setLogoNotes(event.target.value)} rows={2} placeholder="Example: Use athletic logo, not district seal." />
           </label>
           <label className="directory-field">
             <span>Internal Owner</span>
@@ -343,6 +367,9 @@ export function OrganizationEditorForm({
 function buildOrganizationNotes(input: {
   relationshipStatus: string;
   internalOwner: string;
+  logoLastUpdated: string;
+  logoStatus: string;
+  logoNotes: string;
   primaryColor: string;
   secondaryColor: string;
   mascot: string;
@@ -358,6 +385,9 @@ function buildOrganizationNotes(input: {
   const details = [
     ["Status", input.relationshipStatus],
     ["Internal Owner", input.internalOwner],
+    ["Logo Last Updated", input.logoLastUpdated],
+    ["Logo Status", input.logoStatus],
+    ["Logo Notes", input.logoNotes],
     ["Website", input.website],
     ["Main Phone", input.mainPhone],
     ["Primary Color", input.primaryColor],
