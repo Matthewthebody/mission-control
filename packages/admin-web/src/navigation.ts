@@ -2023,7 +2023,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "photography") {
     return pickVisibleRoute("studios", availableTabs, employeeOnlyMode);
   }
-  if (path === "photography/pre-service") {
+  if (path === "photography/pre-service" || path === "photography/job-prep") {
     return pickVisibleRoute("studios-pre-service", availableTabs, employeeOnlyMode);
   }
   if (path === "photography/staffing") {
@@ -2059,7 +2059,7 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "studios") {
     return pickVisibleRoute("studios", availableTabs, employeeOnlyMode);
   }
-  if (path === "studios/pre-service") {
+  if (path === "studios/pre-service" || path === "studios/job-prep") {
     return pickVisibleRoute("studios-pre-service", availableTabs, employeeOnlyMode);
   }
   if (path === "studios/staffing") {

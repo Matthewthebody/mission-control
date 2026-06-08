@@ -1430,6 +1430,8 @@ describe("app auth bootstrap", () => {
     expect(resolveRouteId("#studios", availableTabs, false)).toBe("studios");
     expect(resolveRouteId("#photography/shoots", availableTabs, false)).toBe("studios-shoots");
     expect(resolveRouteId("#photography/pre-service", availableTabs, false)).toBe("studios-pre-service");
+    expect(resolveRouteId("#photography/job-prep", availableTabs, false)).toBe("studios-pre-service");
+    expect(resolveRouteId("#studios/job-prep", availableTabs, false)).toBe("studios-pre-service");
     expect(resolveRouteId("#photography/travel", availableTabs, false)).toBe("studios-travel");
     expect(resolveRouteId("#operations/travel", availableTabs, false)).toBe("studios-travel");
     expect(resolveRouteId("#photography/readiness", availableTabs, false)).toBe("studios-readiness");
