@@ -544,7 +544,7 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
           Open Job Detail
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#job-closeout/jobs", selectedJob.id))}>
-          Closeout / Eval
+          Closeout and Eval
         </button>
         <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
           Open Project Tracking
@@ -1265,7 +1265,7 @@ function PhotographyTodayShootsPanel({ token }: { token: string }) {
                     Job Prep
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#job-closeout/jobs", job.id))}>
-                    Closeout / Eval
+                    Closeout and Eval
                   </button>
                   <button type="button" className="secondary-button" onClick={() => (window.location.hash = buildSharedJobHash("#jobs", job.id))}>
                     Open Job Detail

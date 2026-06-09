@@ -538,8 +538,8 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByText("Jobs Blocked")).toBeInTheDocument();
     expect(screen.getByText("Jobs At Risk")).toBeInTheDocument();
     expect(screen.getByText("Department Workload")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review Blocked / At Risk" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Review Blocked / At Risk" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review Blocked and At Risk" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review Blocked and At Risk" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();
 
     const areaFilters = screen.getByLabelText("Job type area filters");

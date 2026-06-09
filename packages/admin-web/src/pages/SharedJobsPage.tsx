@@ -638,7 +638,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
               </label>
               {databaseOptions.releaseStatuses.length ? (
                 <label className="filter-field">
-                  <span>Gallery / Release Status</span>
+                  <span>Gallery and Release Status</span>
                   <select value={filters.releaseStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, releaseStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
                     <option value="">All release statuses</option>
                     {databaseOptions.releaseStatuses.map((option) => (

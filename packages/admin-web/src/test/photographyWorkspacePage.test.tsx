@@ -717,7 +717,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Job Prep" }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Closeout / Eval" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Closeout and Eval" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Job Detail" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Job Prep" })).toBeInTheDocument();
@@ -734,7 +734,7 @@ describe("StudiosWorkspace", () => {
     expect(workflowLinks).toContain("#project-tracking/workflows/workflow-photo-1");
     expect(workflowLinks).toContain("#project-tracking/workflows/workflow-photo-action");
 
-    fireEvent.click(screen.getByRole("button", { name: "Closeout / Eval" }));
+    fireEvent.click(screen.getByRole("button", { name: "Closeout and Eval" }));
     await waitFor(() => {
       expect(window.location.hash).toBe("#job-closeout/jobs/job-home-early");
     });
@@ -808,7 +808,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Post-shoot evaluations feed Senior Review.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Travel Overview" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Job Detail" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Closeout / Eval" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Closeout and Eval" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Project Tracking" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Job Prep" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Travel Overview" }));
@@ -894,12 +894,12 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText(/82% ready/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Job Prep" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Closeout / Eval" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Closeout and Eval" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Job Detail" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open Project Tracking" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Review Job Prep" }).length).toBeGreaterThan(0);
     expect(screen.getByText("North Metro Stadium Media Day").compareDocumentPosition(screen.getByText("Senior Banner Session"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    fireEvent.click(screen.getAllByRole("button", { name: "Closeout / Eval" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Closeout and Eval" })[0]);
     await waitFor(() => {
       expect(window.location.hash).toBe("#job-closeout/jobs/job-today-early");
     });

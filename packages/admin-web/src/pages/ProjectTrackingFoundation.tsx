@@ -190,10 +190,10 @@ const COMMAND_GROUP_ORDER: Array<{
   { id: "due_today", label: "Due Today", emptyCopy: "Nothing due today.", sortKey: "deadline" },
   { id: "due_this_week", label: "Due This Week", emptyCopy: "Nothing due this week.", sortKey: "deadline" },
   { id: "blocked", label: "Blocked", emptyCopy: "No blocked work right now.", sortKey: "risk" },
-  { id: "waiting_school_client", label: "Waiting on School / Client", emptyCopy: "No waiting-on-school items found.", sortKey: "updated" },
+  { id: "waiting_school_client", label: "Waiting on School or Client", emptyCopy: "No waiting-on-school items found.", sortKey: "updated" },
   { id: "waiting_internal", label: "Waiting on Internal Team", emptyCopy: "No internal handoff blockers found.", sortKey: "updated" },
   { id: "recently_completed", label: "Recently Completed", emptyCopy: "No recently completed work found.", sortKey: "updated" },
-  { id: "missing_owner_info", label: "Missing Owner / Info", emptyCopy: "No missing owner or info flags found.", sortKey: "risk" }
+  { id: "missing_owner_info", label: "Missing Owner or Info", emptyCopy: "No missing owner or info flags found.", sortKey: "risk" }
 ];
 
 const SORT_LABELS: Record<ProjectTrackingSort, string> = {
@@ -2167,7 +2167,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
           </div>
           <div className="project-tracking-board-header__actions">
             <button className="button button-secondary" type="button" onClick={() => applyPreset("blocked")}>
-              Review Blocked / At Risk
+              Review Blocked and At Risk
             </button>
             {featureFlags.workflowTemplateBuilderV1 && canManageWorkflowTemplates(currentUser) ? (
               <a className="button button-secondary" href="#project-tracking/workflow-templates">

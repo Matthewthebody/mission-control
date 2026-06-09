@@ -2297,7 +2297,7 @@ beforeEach(() => {
     expect(screen.getByLabelText("Owner")).toBeInTheDocument();
     expect(screen.getByLabelText("Needs Attention")).toBeInTheDocument();
     expect(screen.getByLabelText("Production Status")).toBeInTheDocument();
-    expect(screen.getByLabelText("Gallery / Release Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Gallery and Release Status")).toBeInTheDocument();
     expect(screen.getByLabelText("Job management summary")).toBeInTheDocument();
     expect(screen.getByText("Job Management")).toBeInTheDocument();
     expect(screen.getByText("Intake Review Queue")).toBeInTheDocument();
