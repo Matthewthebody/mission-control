@@ -14,6 +14,7 @@ import {
   JobIntakeReadinessPanel,
   JobProgressTimeline,
   JobWorkPackagesPanel,
+  type JobRoutingPreview,
   buildJobChangeNotices,
   buildJobIntakeManagementSummaryFromDetail,
   buildRoutingPreviewFromDetail
@@ -119,6 +120,67 @@ function extractWorkflowValidation(error: unknown) {
   }
   const details = error.details as { workflow_validation?: SharedWorkflowTransitionValidation };
   return details.workflow_validation ?? null;
+}
+
+function presentValue(value: string | null | undefined, fallback = "Not recorded") {
+  return value && value.trim() ? value : fallback;
+}
+
+type JobTruthSnapshotTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+type JobTruthSnapshotItem = {
+  label: string;
+  value: string;
+  tone?: JobTruthSnapshotTone;
+  wide?: boolean;
+};
+
+function buildJobTruthSnapshot(
+  detail: SharedJobDetailResponse,
+  calendarReadiness: ReturnType<typeof buildJobCalendarReadiness> | null,
+  missingInfoChecklist: ReturnType<typeof buildJobMissingInfoChecklist>,
+  routingPreview: JobRoutingPreview
+): JobTruthSnapshotItem[] {
+  const shootDate = detail.summary.primary_day_date ?? detail.job.scheduled_start_at?.slice(0, 10) ?? null;
+  return [
+    { label: "Job name", value: detail.job.title || detail.job.event_name || detail.job.job_number || "Untitled job" },
+    { label: "Organization", value: detail.summary.organization_name ?? "Organization not set" },
+    { label: "Job type", value: humanizeToken(detail.job.job_category) },
+    { label: "Shoot date", value: shootDate ? formatDate(shootDate) : "Date TBD" },
+    { label: "Calendar readiness", value: calendarReadiness?.label ?? "Needs date", tone: calendarReadiness?.tone ?? "warning" },
+    { label: "Staffing readiness", value: humanizeToken(detail.job.staffing_status), tone: statusTone(detail.job.staffing_status) },
+    { label: "Current stage", value: humanizeToken(routingPreview.currentStage) },
+    { label: "Current owner", value: routingPreview.currentOwner },
+    { label: "Next action", value: missingInfoChecklist.activeCount ? missingInfoChecklist.nextAction : routingPreview.firstNextAction, wide: true },
+    { label: "Blocked status", value: routingPreview.blockerLabel, tone: routingPreview.blockerStatus === "blocked" ? "danger" : routingPreview.blockerStatus === "watch" ? "warning" : "success" },
+    { label: "Missing info", value: `${missingInfoChecklist.activeCount} open`, tone: missingInfoChecklist.activeCount ? "warning" : "success" },
+    { label: "Priority", value: humanizeToken(detail.job.priority_level), tone: detail.job.priority_level === "urgent" || detail.job.priority_level === "high" ? "danger" : detail.job.priority_level === "normal" ? "neutral" : "info" }
+  ];
+}
+
+function buildJobNotes(detail: SharedJobDetailResponse, selectedDay: SharedJobDetailResponse["days"][number] | null) {
+  const clientNotes =
+    detail.prep_readiness?.client_prep?.primary_location?.client_facing_notes ??
+    detail.job.contact_override_note ??
+    detail.sports_profile?.client_expectations_notes ??
+    detail.school_profile?.special_instructions ??
+    null;
+  const shootNotes = [
+    selectedDay?.access_notes ? `Access: ${selectedDay.access_notes}` : null,
+    selectedDay?.parking_notes ? `Parking: ${selectedDay.parking_notes}` : null,
+    selectedDay?.setup_notes ? `Setup: ${selectedDay.setup_notes}` : null,
+    selectedDay?.travel_notes ? `Travel: ${selectedDay.travel_notes}` : null,
+    detail.prep_readiness?.employee_briefing?.primary_location?.employee_facing_notes ?? null
+  ].filter((note): note is string => Boolean(note && note.trim()));
+  const productionNotes = detail.production_items
+    .map((item) => item.production_notes ?? item.internal_notes ?? item.post_shoot_eval_summary)
+    .filter((note): note is string => Boolean(note && note.trim()));
+  return [
+    { label: "Client-facing notes", value: presentValue(clientNotes, "No client-facing notes recorded.") },
+    { label: "Internal notes", value: presentValue(detail.job.description_internal, "No internal notes recorded.") },
+    { label: "Shoot notes", value: shootNotes.length ? shootNotes.slice(0, 3).join(" ") : "No shoot notes recorded." },
+    { label: "Production notes", value: productionNotes.length ? productionNotes.slice(0, 2).join(" ") : "No production notes recorded." }
+  ];
 }
 
 export function SharedJobDetailPage({ token, currentUser, departmentType, routeBase }: Props) {
@@ -325,8 +387,27 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   ];
   const resolvedTab = tabs.some((tab) => tab.key === activeTab) ? activeTab : "summary";
   const missingInfoChecklist = buildJobMissingInfoChecklist(detail);
+  const routingPreview = buildRoutingPreviewFromDetail(detail);
+  const intakeSummary = buildJobIntakeManagementSummaryFromDetail(detail);
+  const routingChangeNotices = buildJobChangeNotices(detail);
+  const jobTruthSnapshot = buildJobTruthSnapshot(detail, calendarReadiness, missingInfoChecklist, routingPreview);
+  const jobNotes = buildJobNotes(detail, selectedDay);
 
   const summaryCards = [
+    {
+      key: "truth-snapshot",
+      title: "Job Truth Snapshot",
+      body: (
+        <div className="shared-job-truth-snapshot" aria-label="Job truth snapshot">
+          {jobTruthSnapshot.map((item) => (
+            <div key={item.label} className={item.wide ? "shared-job-truth-snapshot__item shared-job-truth-snapshot__item--wide" : "shared-job-truth-snapshot__item"}>
+              <span>{item.label}</span>
+              {item.tone ? <StatusPill label={item.value} tone={item.tone} /> : <strong>{item.value}</strong>}
+            </div>
+          ))}
+        </div>
+      )
+    },
     {
       key: "overview",
       title: "Overview",
@@ -398,27 +479,20 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
     }
   ].filter((card) => card.key !== "watch" || sectionVisible("watch_flags"));
 
-  if (detail) {
-    const routingPreview = buildRoutingPreviewFromDetail(detail);
-    const intakeSummary = buildJobIntakeManagementSummaryFromDetail(detail);
-    const changeNotices = buildJobChangeNotices(detail);
-    summaryCards.unshift({
-      key: "routing-foundation",
-      title: "Job Progress",
-      body: (
-        <div className="shared-job-form__stack">
-          <JobIntakeReadinessPanel summary={intakeSummary} />
-          <JobOwnershipPanel preview={routingPreview} />
-          <JobProgressTimeline preview={routingPreview} />
-          <JobHandoffCard preview={routingPreview} />
-          <JobWorkPackagesPanel preview={routingPreview} compact />
-          <JobDepartmentTaskPlan preview={routingPreview} compact />
-          <JobNotificationFoundation preview={routingPreview} />
-          <JobChangeNoticesPanel notices={changeNotices} />
-        </div>
-      )
-    });
-  }
+  summaryCards.splice(1, 0, {
+    key: "routing-foundation",
+    title: "Job Progress",
+    body: (
+      <div className="shared-job-form__stack">
+        <JobIntakeReadinessPanel summary={intakeSummary} />
+        <JobOwnershipPanel preview={routingPreview} compact />
+        <JobProgressTimeline preview={routingPreview} />
+        <JobHandoffCard preview={routingPreview} />
+        <JobNotificationFoundation preview={routingPreview} />
+        <JobChangeNoticesPanel notices={routingChangeNotices} />
+      </div>
+    )
+  });
 
   summaryCards.push(
     ...operationalCards
@@ -487,6 +561,33 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
               ))}
             </div>
           ) : null}
+        </section>
+        <section className="shared-job-detail__list-card" aria-label="Department tasks and work packages">
+          <div className="shared-job-detail__list-card-header">
+            <div>
+              <h3>Department Tasks and Work Packages</h3>
+              <p className="shared-job-sidebar__muted">The active department route, owner, due date, status, and next package are kept together here.</p>
+            </div>
+            <StatusPill label={`${routingPreview.workPackages.length} packages`} tone="info" />
+          </div>
+          <JobWorkPackagesPanel preview={routingPreview} />
+          <JobDepartmentTaskPlan preview={routingPreview} compact />
+        </section>
+        <section className="shared-job-detail__list-card" aria-label="Job notes">
+          <div className="shared-job-detail__list-card-header">
+            <div>
+              <h3>Notes</h3>
+              <p className="shared-job-sidebar__muted">Client, internal, shoot, and production notes that help the next team act without hunting through tabs.</p>
+            </div>
+          </div>
+          <div className="shared-job-notes-grid">
+            {jobNotes.map((note) => (
+              <article key={note.label}>
+                <span>{note.label}</span>
+                <p>{note.value}</p>
+              </article>
+            ))}
+          </div>
         </section>
         <section className="shared-job-detail__list-card">
           <h3>Evaluations and Closeout</h3>

@@ -2437,6 +2437,60 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   text-transform: uppercase;
 }
 
+.shared-job-truth-snapshot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.shared-job-truth-snapshot__item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(2, 6, 23, 0.14);
+}
+
+.shared-job-truth-snapshot__item--wide {
+  grid-column: span 2;
+}
+
+.shared-job-truth-snapshot__item span,
+.shared-job-notes-grid article span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.shared-job-truth-snapshot__item strong,
+.shared-job-notes-grid article p {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.shared-job-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.shared-job-notes-grid article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.12);
+}
+
 .shared-job-form__stack,
 .job-ownership-card,
 .job-work-packages,
@@ -2787,6 +2841,12 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   border-radius: 8px;
   padding: 9px;
   background: rgba(2, 6, 23, 0.14);
+}
+
+@media (max-width: 700px) {
+  .shared-job-truth-snapshot__item--wide {
+    grid-column: span 1;
+  }
 }
 
 .job-department-task-plan__list article {

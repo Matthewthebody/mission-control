@@ -2535,7 +2535,7 @@ beforeEach(() => {
 
   it("renders shared and sports adapter detail tabs while hiding finance for disallowed roles", async () => {
     window.location.hash = "#sports/shoots/job-sports-1";
-    getSharedJobDetailMock.mockResolvedValue(buildSportsDetail());
+    getSharedJobDetailMock.mockResolvedValue(buildOperationalSportsDetail());
 
     render(<SharedJobDetailPage token="token-demo" currentUser={sportsCoordinator} departmentType="sports" routeBase="#sports/shoots" />);
 
@@ -2554,6 +2554,20 @@ beforeEach(() => {
     expect(screen.getByRole("button", { name: "Products" })).toBeInTheDocument();
     expect(screen.getAllByText("Published").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Job published").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Job Truth Snapshot" })).toBeInTheDocument();
+    const truthSnapshot = within(screen.getByLabelText("Job truth snapshot"));
+    expect(truthSnapshot.getByText("Job name")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Organization")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Job type")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Shoot date")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Calendar readiness")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Staffing readiness")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Current stage")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Current owner")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Next action")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Blocked status")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Missing info")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Priority")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Progress" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Calendar Readiness" })).toBeInTheDocument();
     expect(screen.getAllByText("Date conflict").length).toBeGreaterThan(0);
@@ -2576,6 +2590,14 @@ beforeEach(() => {
     expect(screen.getByLabelText("Job change notices")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Change Notices" })).toBeInTheDocument();
     expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Department Tasks and Work Packages" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Department tasks and work packages")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Job notes")).toBeInTheDocument();
+    expect(screen.getByText("Shoot notes")).toBeInTheDocument();
+    expect(screen.getByText(/Use east gate/i)).toBeInTheDocument();
+    expect(screen.getByText("Job Resources")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent activity" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to Jobs" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back to Jobs" }));
     expect(window.location.hash).toBe("#sports/shoots");
