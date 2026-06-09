@@ -2374,7 +2374,7 @@ beforeEach(() => {
     expect(screen.getAllByText("Department Task Plan").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Notification Signals")).toBeInTheDocument();
     expect(screen.getByText("Assignment Needed")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start the Package" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Start Job Package" })).toBeInTheDocument();
     expect(screen.getByLabelText("Job type")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "School Picture Day" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Retake Day" })).toBeInTheDocument();

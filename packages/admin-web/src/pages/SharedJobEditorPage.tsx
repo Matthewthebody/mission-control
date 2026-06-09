@@ -387,7 +387,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "core-identity",
       slot: "identity.after" as const,
-      title: isGlobalJobIntake ? "Start the Package" : "Core Identity",
+      title: isGlobalJobIntake ? "Start Job Package" : "Core Identity",
       summary: isGlobalJobIntake
         ? "Choose the job type, client, name, owner, and priority. Mission Control will show the next handoff above."
         : "Shared identity fields render once here, with department-specific sections injected after them.",
