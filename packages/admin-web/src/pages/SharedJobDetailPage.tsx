@@ -5,6 +5,11 @@ import { useActionAvailability, useVisibleSections } from "../components/Permiss
 import { SharedJobDetailShell } from "../components/jobs/SharedJobDetailShell";
 import { ActivityTimelineList } from "../components/jobs/ActivityTimelineList";
 import { getDepartmentJobAdapterUI } from "../components/jobs/DepartmentJobAdapterUIRegistry";
+import {
+  JobHandoffCard,
+  JobProgressTimeline,
+  buildRoutingPreviewFromDetail
+} from "../components/jobs/JobRoutingFoundation";
 import { JobOperationalCommandPanel } from "../components/jobs/JobOperationalCommandPanel";
 import { WorkflowValidationPanel } from "../components/jobs/WorkflowValidationPanel";
 import {
@@ -313,6 +318,20 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       body: detail.watch_flags.length ? <div className="shared-job-detail__kv">{detail.watch_flags.slice(0, 4).map((flag) => <span key={flag.id}>{flag.title}</span>)}</div> : <div className="shared-job-sidebar__muted">No open watch flags.</div>
     }
   ].filter((card) => card.key !== "watch" || sectionVisible("watch_flags"));
+
+  if (detail) {
+    const routingPreview = buildRoutingPreviewFromDetail(detail);
+    summaryCards.unshift({
+      key: "routing-foundation",
+      title: "Job Progress",
+      body: (
+        <div className="shared-job-form__stack">
+          <JobProgressTimeline preview={routingPreview} />
+          <JobHandoffCard preview={routingPreview} compact />
+        </div>
+      )
+    });
+  }
 
   summaryCards.push(
     ...operationalCards

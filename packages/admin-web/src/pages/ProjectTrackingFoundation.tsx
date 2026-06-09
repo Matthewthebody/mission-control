@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { ProjectWorkflowMap } from "../components/projectTracking/ProjectWorkflowMap";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
+import {
+  JobHandoffCard,
+  buildRoutingPreviewFromProjectRow
+} from "../components/jobs/JobRoutingFoundation";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { featureFlags } from "../featureFlags";
 import { canManageWorkflowTemplates } from "../permissions";
@@ -1297,6 +1301,7 @@ function ProjectTrackingBoardView({
                           <span>{currentStepLabel(row)}</span>
                           {row.queue_intelligence.next_action}
                         </p>
+                        <JobHandoffCard preview={buildRoutingPreviewFromProjectRow(row)} compact />
                         <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                       </article>
                     );

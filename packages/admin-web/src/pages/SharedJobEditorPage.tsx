@@ -18,6 +18,15 @@ import {
   type SharedJobFormValidationIssue
 } from "../components/jobs/DepartmentJobAdapterUIRegistry";
 import { JobDayManager } from "../components/jobs/JobDayManager";
+import {
+  JOB_INTAKE_TYPE_OPTIONS,
+  JobHandoffCard,
+  JobProgressTimeline,
+  applyJobIntakeType,
+  buildRoutingPreviewFromForm,
+  inferJobIntakeTypeId,
+  type JobIntakeTypeId
+} from "../components/jobs/JobRoutingFoundation";
 import { SharedContactPicker, SharedLocationPicker, SharedOrganizationPicker, SharedStaffPicker } from "../components/jobs/SharedJobPickers";
 import { buildSharedJobHash, navigateToSharedJobHash, parseSharedJobIdFromPath } from "../components/jobs/sharedJobRouting";
 import { StatusPill, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
@@ -146,6 +155,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const ignoreDirtyRef = useRef(false);
 
   const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
+  const isGlobalJobIntake = departmentType == null && mode === "create";
   const permissionContext = { departmentType: formState.department_type };
   const canCreateJob = usePermission(currentUser, "job.create", permissionContext);
   const canUpdateJob = usePermission(currentUser, "job.update", permissionContext);
@@ -153,6 +163,14 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const canViewFinance = formState.department_type === "sports" ? usePermission(currentUser, "finance.view_summary", permissionContext) : false;
   const readOnly = mode === "create" ? !canCreateJob : !canUpdateJob;
   const fieldErrors: SharedJobFieldErrors = useMemo(() => buildFieldErrorMap(validationIssues), [validationIssues]);
+  const selectedOwnerName = useMemo(
+    () => ownerOptions.find((owner) => owner.user_id === formState.account_owner_user_id)?.full_name ?? null,
+    [formState.account_owner_user_id, ownerOptions]
+  );
+  const routingPreview = useMemo(
+    () => buildRoutingPreviewFromForm(formState, selectedOwnerName),
+    [formState, selectedOwnerName]
+  );
 
   useEffect(() => {
     if (!jobId || mode !== "edit") {
@@ -294,6 +312,20 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
 
   const adapterSections = adapter.getSectionDefinitions({ state: formState, setState: updateState, errors: fieldErrors, currentUser, canViewFinance });
   const sidebarCards = [
+    ...(isGlobalJobIntake
+      ? [
+          {
+            key: "routing-preview",
+            title: "Workflow Route",
+            body: (
+              <div className="shared-job-form__stack">
+                <JobProgressTimeline preview={routingPreview} />
+                <JobHandoffCard preview={routingPreview} />
+              </div>
+            )
+          }
+        ]
+      : []),
     ...(readOnly
       ? [
           {
@@ -322,13 +354,15 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "core-identity",
       slot: "identity.after" as const,
-      title: "Core Identity",
-      summary: "Shared identity fields render once here, with department-specific sections injected after them.",
+      title: isGlobalJobIntake ? "Job Intake" : "Core Identity",
+      summary: isGlobalJobIntake
+        ? "Choose the job type, client, name, owner, and risk level before the package moves downstream."
+        : "Shared identity fields render once here, with department-specific sections injected after them.",
       fields: ["department_type", "organization_id", "title", "event_name", "job_category", "description_internal"],
       body: (
         <div className="field-grid shared-job-form__grid">
           <label className="filter-field">
-            <span>Department</span>
+            <span>{isGlobalJobIntake ? "Current department" : "Department"}</span>
             {departmentType ? (
               <div className="job-intake__static-field">{humanizeToken(formState.department_type)}</div>
             ) : (
@@ -339,9 +373,20 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             )}
           </label>
           <label className="filter-field">
-            <span>Job category</span>
-            <select value={formState.job_category} onChange={(event) => updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))}>
-              {getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <span>{isGlobalJobIntake ? "Job type" : "Job category"}</span>
+            <select
+              value={isGlobalJobIntake ? inferJobIntakeTypeId(formState) : formState.job_category}
+              onChange={(event) =>
+                updateState((current) =>
+                  isGlobalJobIntake
+                    ? applyJobIntakeType(current, event.target.value as JobIntakeTypeId)
+                    : { ...current, job_category: event.target.value as SharedJobFormState["job_category"] }
+                )
+              }
+            >
+              {isGlobalJobIntake
+                ? JOB_INTAKE_TYPE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)
+                : getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <div className="filter-field filter-field--wide">
@@ -375,18 +420,22 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             <span>{adapter.labels.eventNameLabel}</span>
             <input value={formState.event_name} onChange={(event) => updateState((current) => ({ ...current, event_name: event.target.value }))} />
           </label>
-          <label className="filter-field filter-field--wide">
-            <span>Internal description</span>
-            <textarea rows={3} value={formState.description_internal} onChange={(event) => updateState((current) => ({ ...current, description_internal: event.target.value }))} />
-          </label>
+          {!isGlobalJobIntake ? (
+            <label className="filter-field filter-field--wide">
+              <span>Internal description</span>
+              <textarea rows={3} value={formState.description_internal} onChange={(event) => updateState((current) => ({ ...current, description_internal: event.target.value }))} />
+            </label>
+          ) : null}
         </div>
       )
     },
     {
       key: "schedule-location",
       slot: "schedule.after" as const,
-      title: "Schedule and Location",
-      summary: "Shared summary schedule, timezone, location, and day manager entry point.",
+      title: isGlobalJobIntake ? "Shoot Date and Location" : "Schedule and Location",
+      summary: isGlobalJobIntake
+        ? "Capture when the job happens and where the team should go. Details can be refined later."
+        : "Shared summary schedule, timezone, location, and day manager entry point.",
       fields: ["scheduled_start_at", "scheduled_end_at", "timezone", "primary_location_id"],
       body: (
         <div className="field-grid shared-job-form__grid">
@@ -402,15 +451,17 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "contacts-ownership",
       slot: "contacts.after" as const,
-      title: "Contacts and Ownership",
-      summary: "Primary contact and owner fields stay shared even when the adapter changes labels and extra context.",
+      title: isGlobalJobIntake ? "Organization, Contact, and Owner" : "Contacts and Ownership",
+      summary: isGlobalJobIntake
+        ? "Connect the client, primary contact, and owner so everyone knows who is responsible next."
+        : "Primary contact and owner fields stay shared even when the adapter changes labels and extra context.",
       fields: ["primary_contact_id", "account_owner_user_id"],
       body: (
         <div className="shared-job-form__stack">
           <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={contactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={(value) => updateState((current) => ({ ...current, primary_contact_id: value }))} errors={fieldErrors.primary_contact_id} />
           <div className="field-grid shared-job-form__grid">
-            <SharedStaffPicker label="Account owner" value={formState.account_owner_user_id} onChange={(value) => updateState((current) => ({ ...current, account_owner_user_id: value }))} options={ownerOptions} required errors={fieldErrors.account_owner_user_id} />
-            <label className="filter-field"><span>Priority</span><select value={formState.priority_level} onChange={(event) => updateState((current) => ({ ...current, priority_level: event.target.value as SharedJobFormState["priority_level"] }))}>{getSharedJobPriorityOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <SharedStaffPicker label={isGlobalJobIntake ? "Current owner" : "Account owner"} value={formState.account_owner_user_id} onChange={(value) => updateState((current) => ({ ...current, account_owner_user_id: value }))} options={ownerOptions} required errors={fieldErrors.account_owner_user_id} />
+            <label className="filter-field"><span>{isGlobalJobIntake ? "Priority/risk flag" : "Priority"}</span><select value={formState.priority_level} onChange={(event) => updateState((current) => ({ ...current, priority_level: event.target.value as SharedJobFormState["priority_level"] }))}>{getSharedJobPriorityOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           </div>
         </div>
       )
@@ -418,13 +469,16 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "shared-production",
       slot: "production.after" as const,
-      title: "Shared Delivery and Production Basics",
-      summary: "Delivery, gallery, deadlines, and downstream production remain a shared operational language across departments.",
-      fields: ["delivery_type", "gallery_type", "client_deadline_at", "production_deadline_at"],
+      title: isGlobalJobIntake ? "Volume and Services" : "Shared Delivery and Production Basics",
+      summary: isGlobalJobIntake
+        ? "Record expected volume, requested services, and delivery deadlines before the package leaves intake."
+        : "Delivery, gallery, deadlines, and downstream production remain a shared operational language across departments.",
+      fields: ["delivery_type", "gallery_type", "client_deadline_at", "production_deadline_at", "estimated_subject_count"],
       body: (
         <div className="field-grid shared-job-form__grid">
-          <label className="filter-field"><span>Delivery type</span><select value={formState.delivery_type} onChange={(event) => updateState((current) => ({ ...current, delivery_type: event.target.value }))}>{getSharedDeliveryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className="filter-field"><span>Gallery type</span><select value={formState.gallery_type} onChange={(event) => updateState((current) => ({ ...current, gallery_type: event.target.value }))}>{getSharedGalleryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="filter-field"><span>Expected volume</span><input value={formState.estimated_subject_count} onChange={(event) => updateState((current) => ({ ...current, estimated_subject_count: event.target.value }))} inputMode="numeric" /></label>
+          <label className="filter-field"><span>{isGlobalJobIntake ? "Requested products/services" : "Delivery type"}</span><select value={formState.delivery_type} onChange={(event) => updateState((current) => ({ ...current, delivery_type: event.target.value }))}>{getSharedDeliveryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="filter-field"><span>Gallery or output</span><select value={formState.gallery_type} onChange={(event) => updateState((current) => ({ ...current, gallery_type: event.target.value }))}>{getSharedGalleryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <label className="filter-field"><span>Client deadline</span><input type="date" value={formState.client_deadline_at} onChange={(event) => updateState((current) => ({ ...current, client_deadline_at: event.target.value }))} /></label>
           <label className="filter-field"><span>Production deadline</span><input type="date" value={formState.production_deadline_at} onChange={(event) => updateState((current) => ({ ...current, production_deadline_at: event.target.value }))} /></label>
           <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.production_required} onChange={(event) => updateState((current) => ({ ...current, production_required: event.target.checked }))} /><span>Downstream production required</span></label>
@@ -435,12 +489,14 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "shared-notes",
       slot: "notes.after" as const,
-      title: "Shared Operational Notes",
-      summary: "Shared notes stay centralized even when adapters layer in their own operational context.",
+      title: isGlobalJobIntake ? "Important Notes" : "Shared Operational Notes",
+      summary: isGlobalJobIntake
+        ? "Add the details people will need to plan, shoot, produce, deliver, or unblock the job."
+        : "Shared notes stay centralized even when adapters layer in their own operational context.",
       fields: ["description_internal"],
       body: (
         <label className="filter-field filter-field--wide">
-          <span>Internal notes</span>
+          <span>{isGlobalJobIntake ? "Important notes" : "Internal notes"}</span>
           <textarea rows={4} value={formState.description_internal} onChange={(event) => updateState((current) => ({ ...current, description_internal: event.target.value }))} />
         </label>
       )
@@ -465,9 +521,13 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
 
   return (
     <SharedJobFormShell
-      eyebrow={adapter.labels.departmentBadge}
-      title={mode === "edit" ? adapter.editTitle : adapter.createTitle}
-      summary="One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
+      eyebrow={isGlobalJobIntake ? "Job Intake" : adapter.labels.departmentBadge}
+      title={isGlobalJobIntake ? "New Job Intake" : mode === "edit" ? adapter.editTitle : adapter.createTitle}
+      summary={
+        isGlobalJobIntake
+          ? "Start a clean job package, route the first owner, and create the first next action without filling out a board."
+          : "One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
+      }
       meta={headerMeta}
       actions={
         <WorkspaceActionBar align="end">

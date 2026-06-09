@@ -2340,6 +2340,50 @@ beforeEach(() => {
     expect(screen.getAllByText("Proof-required sports jobs need an approval owner.").length).toBeGreaterThan(0);
   });
 
+  it("renders the global New Job Intake route with routing foundation fields", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "New Job Intake" })).toBeInTheDocument();
+    expect(screen.getByText("Start a clean job package, route the first owner, and create the first next action without filling out a board.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Job Intake" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Job type")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "School Picture Day" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Retake Day" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sports League" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Team Photos" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Graduation" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Event" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Specialty" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Shoot Date and Location" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Organization, Contact, and Owner" })).toBeInTheDocument();
+    expect(getControlWithinLabel("Current owner", "select")).toBeInTheDocument();
+    expect(getControlWithinLabel("Priority/risk flag", "select")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Volume and Services" })).toBeInTheDocument();
+    expect(getControlWithinLabel("Expected volume", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("Requested products/services", "select")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Important notes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Workflow Route" })).toBeInTheDocument();
+    expect(screen.getByText("Handoff Card")).toBeInTheDocument();
+
+    const timeline = screen.getByLabelText("Job progress timeline");
+    expect(within(timeline).getByText("Intake")).toBeInTheDocument();
+    expect(within(timeline).getByText("Planning")).toBeInTheDocument();
+    expect(within(timeline).getByText("Scheduling")).toBeInTheDocument();
+    expect(within(timeline).getByText("Shoot Ready")).toBeInTheDocument();
+    expect(within(timeline).getByText("Capture Complete")).toBeInTheDocument();
+    expect(within(timeline).getByText("Production")).toBeInTheDocument();
+    expect(within(timeline).getByText("Delivery")).toBeInTheDocument();
+    expect(within(timeline).getByText("Closed")).toBeInTheDocument();
+
+    fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: "sports_league" } });
+
+    await waitFor(() => expect(screen.getByText("Sports League workflow")).toBeInTheDocument());
+    expect(getControlWithinLabel("Current department", "select")).toHaveValue("sports");
+    expect(getControlWithinLabel("Requested products/services", "select")).toHaveValue("mixed");
+  });
+
   it("saves school drafts through the shared shell and preserves adapter fields", async () => {
     window.location.hash = "#schools/jobs/new";
     render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType="schools" routeBase="#schools/jobs" mode="create" />);
@@ -2405,6 +2449,14 @@ beforeEach(() => {
     expect(screen.getByRole("button", { name: "Products" })).toBeInTheDocument();
     expect(screen.getByText("Published")).toBeInTheDocument();
     expect(screen.getByText("Job published")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Job Progress" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Job progress timeline")).toBeInTheDocument();
+    expect(screen.getByText("Handoff Card")).toBeInTheDocument();
+    expect(screen.getByText("Current department")).toBeInTheDocument();
+    expect(screen.getByText("Current owner")).toBeInTheDocument();
+    expect(screen.getByText("Waiting on")).toBeInTheDocument();
+    expect(screen.getByText("Next department")).toBeInTheDocument();
+    expect(screen.getByText("Next action")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Change Notices" })).toBeInTheDocument();
     expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to Jobs" })).toBeInTheDocument();

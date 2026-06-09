@@ -641,9 +641,9 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "job-new",
-    label: "New Job",
+    label: "Job Intake",
     sectionKey: null,
-    description: "Shared job create shell for global job operations.",
+    description: "Shared job intake shell for starting and routing cross-department work.",
     canonicalHash: "#jobs/new",
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
