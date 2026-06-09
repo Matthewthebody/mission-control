@@ -20,6 +20,7 @@ type OrganizationPickerProps = SharedPickerProps & {
   onSelectOrganization: (organization: OrganizationSummary) => void;
   collapseResults?: boolean;
   showUnresolvedField?: boolean;
+  typeaheadOnly?: boolean;
 };
 
 type LocationPickerProps = SharedPickerProps & {
@@ -71,6 +72,7 @@ export function SharedOrganizationPicker(props: OrganizationPickerProps) {
       errors={props.errors}
       collapseResults={props.collapseResults}
       showUnresolvedField={props.showUnresolvedField}
+      typeaheadOnly={props.typeaheadOnly}
     />
   );
 }

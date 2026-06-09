@@ -67,6 +67,7 @@ type OrganizationLookupFieldProps = SharedLookupProps & {
   onSelectOrganization: (organization: OrganizationSummary) => void;
   collapseResults?: boolean;
   showUnresolvedField?: boolean;
+  typeaheadOnly?: boolean;
 };
 
 type LocationLookupFieldProps = SharedLookupProps & {
@@ -300,13 +301,29 @@ export function OrganizationLookupField({
   helperText,
   errors = [],
   collapseResults = false,
-  showUnresolvedField = true
+  showUnresolvedField = true,
+  typeaheadOnly = false
 }: OrganizationLookupFieldProps) {
-  const filteredResults = results.filter((organization) =>
+  const query = searchValue.trim().toLowerCase();
+  const departmentResults = results.filter((organization) =>
     department === "sports"
       ? organization.account_type === "sports"
       : organization.account_type === "schools_underclass_portraits" || organization.account_type === "schools_events"
   );
+  const filteredResults =
+    typeaheadOnly && query
+      ? departmentResults.filter((organization) =>
+          [organization.display_name, organization.canonical_name, ...organization.aliases]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+        )
+      : typeaheadOnly
+        ? []
+        : departmentResults;
+  const shouldShowTypeaheadResults = typeaheadOnly && query.length > 0 && filteredResults.length > 0;
+  const shouldShowNoMatch = typeaheadOnly && query.length > 0 && !loading && filteredResults.length === 0 && !selectedOrganization;
 
   return (
     <div className="job-intake__lookup">
@@ -337,7 +354,22 @@ export function OrganizationLookupField({
         </div>
       ) : null}
       {loading ? <div className="job-intake__helper">Searching organizations…</div> : null}
-      {!loading && filteredResults.length && collapseResults ? (
+      {shouldShowTypeaheadResults ? (
+        <div className="job-intake__lookup-results" role="list">
+          {filteredResults.slice(0, 6).map((organization) => (
+            <LookupOptionButton
+              key={organization.id}
+              selected={selectedOrganization?.id === organization.id}
+              primary={organization.display_name}
+              secondary={`${organization.contact_count} contacts | ${organization.location_count} locations`}
+              tertiary={organization.aliases.length ? `Also known as: ${organization.aliases.slice(0, 2).join(", ")}` : null}
+              onClick={() => onSelectOrganization(organization)}
+            />
+          ))}
+        </div>
+      ) : null}
+      {shouldShowNoMatch ? <div className="job-intake__helper">No matching organization found. Choose an existing organization for now.</div> : null}
+      {!typeaheadOnly && !loading && filteredResults.length && collapseResults ? (
         <details className="job-intake__lookup-results-disclosure">
           <summary>{filteredResults.length} matching organization{filteredResults.length === 1 ? "" : "s"}</summary>
           <div className="job-intake__lookup-results" role="list">
@@ -354,7 +386,7 @@ export function OrganizationLookupField({
           </div>
         </details>
       ) : null}
-      {!loading && filteredResults.length && !collapseResults ? (
+      {!typeaheadOnly && !loading && filteredResults.length && !collapseResults ? (
         <div className="job-intake__lookup-results" role="list">
           {filteredResults.slice(0, 6).map((organization) => (
             <LookupOptionButton

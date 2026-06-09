@@ -306,6 +306,23 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     updateState((current) => applyJobIntakeType(current, value));
   }
 
+  function updateOrganizationSearch(value: string) {
+    setOrganizationSearch(value);
+    if (!selectedOrganization) {
+      return;
+    }
+    const selectedLabels = [selectedOrganization.display_name, selectedOrganization.canonical_name, ...selectedOrganization.aliases].map((label) =>
+      label.trim().toLowerCase()
+    );
+    if (!selectedLabels.includes(value.trim().toLowerCase())) {
+      setSelectedOrganization(null);
+      updateState((current) => ({
+        ...current,
+        organization_id: ""
+      }));
+    }
+  }
+
   async function persist(target: "draft" | "publish") {
     if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
       setError(target === "publish" ? "You do not have permission to publish this job." : "You do not have permission to edit this job.");
@@ -472,7 +489,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             <SharedOrganizationPicker
               departmentType={formState.department_type === "schools" ? "schools" : "sports"}
               searchValue={organizationSearch}
-              onSearchChange={setOrganizationSearch}
+              onSearchChange={isGlobalJobIntake ? updateOrganizationSearch : setOrganizationSearch}
               unresolvedValue=""
               onUnresolvedChange={() => {}}
               loading={false}
@@ -480,6 +497,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               selectedOrganization={selectedOrganization}
               onSelectOrganization={(organization) => {
                 setSelectedOrganization(organization);
+                setOrganizationSearch(organization.display_name);
                 updateState((current) => ({
                   ...current,
                   organization_id: organization.id
@@ -490,6 +508,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               helperText={isGlobalJobIntake ? "Pick the client or organization this job belongs to." : "Schools and Sports both resolve through the same shared organization record."}
               collapseResults={isGlobalJobIntake}
               showUnresolvedField={!isGlobalJobIntake}
+              typeaheadOnly={isGlobalJobIntake}
             />
           </div>
           {!isGlobalJobIntake ? (

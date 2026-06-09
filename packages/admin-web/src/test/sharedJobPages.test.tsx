@@ -237,7 +237,8 @@ const sportsOrganization = {
   id: "org-sports",
   canonical_name: "Metro Football Club",
   display_name: "Metro Football Club",
-  account_type: "sports"
+  account_type: "sports",
+  aliases: ["Metro Athletics"]
 };
 
 function buildJobListItem(overrides: Record<string, unknown>) {
@@ -2454,10 +2455,16 @@ beforeEach(() => {
     expect(screen.queryByLabelText("Starting team")).not.toBeInTheDocument();
     expect(screen.queryByText("Unresolved organization placeholder")).not.toBeInTheDocument();
     expect(screen.queryByText("Organization not selected yet")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /North High/i })).not.toBeInTheDocument();
     fireEvent.change(jobTypeSelect, { target: { value: "school_picture_day" } });
-    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "North" } });
-    expect(await screen.findByText("1 matching organization")).toBeInTheDocument();
-    expect(screen.getByText("1 matching organization").closest("details")).not.toHaveAttribute("open");
+    const organizationInput = screen.getByPlaceholderText("Search canonical organizations");
+    fireEvent.change(organizationInput, { target: { value: "zzzz" } });
+    expect(await screen.findByText("No matching organization found. Choose an existing organization for now.")).toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
+    fireEvent.change(organizationInput, { target: { value: "North" } });
+    expect(await screen.findByRole("button", { name: /North High/i })).toBeInTheDocument();
+    expect(screen.queryByText("No matching organization found. Choose an existing organization for now.")).not.toBeInTheDocument();
     expect(getControlWithinLabel("Current owner", "select")).toBeInTheDocument();
     expect(getControlWithinLabel("Priority", "select")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
@@ -2503,6 +2510,25 @@ beforeEach(() => {
 
     fireEvent.change(jobTypeSelect, { target: { value: "sports_picture_day" } });
     await waitFor(() => expect(getControlWithinLabel("Products and services", "select")).toHaveValue("mixed"));
+  });
+
+  it("uses organization typeahead on global intake and saves the selected organization id", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "Metro Athletics Intake" } });
+    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "Athletics" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Metro Football Club/i }));
+
+    expect(screen.getByText("sports")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    await waitFor(() => expect(createSharedJobDraftMock).toHaveBeenCalled());
+    const payload = createSharedJobDraftMock.mock.calls[0][1];
+    expect(payload.organization_id).toBe("org-sports");
   });
 
   it("saves school drafts through the shared shell and preserves adapter fields", async () => {
