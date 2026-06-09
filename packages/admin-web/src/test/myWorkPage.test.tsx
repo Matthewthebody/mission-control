@@ -788,9 +788,9 @@ describe("My Work page", () => {
     expect(screen.getByText("Shared note: Edit proof set before parent preview.")).toBeInTheDocument();
     fireEvent.click(confirmFilesButton);
     expect(await screen.findByLabelText("Move to next step")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Assign / Status" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Assign and Status" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Update step" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Assign / Status current step")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Assign and Status current step")).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open work detail" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-run-1");
 
     fireEvent.click(headsUpLaunchpadButton);

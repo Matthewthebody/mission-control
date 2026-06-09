@@ -115,7 +115,7 @@ export function QuickWorkflowStepEditor({ token, step, workflowRunId, onSaved }:
   };
 
   return (
-    <div className="quick-workflow-step-editor" aria-label="Assign / Status current step" onKeyDown={(event) => event.stopPropagation()}>
+    <div className="quick-workflow-step-editor" aria-label="Assign and Status current step" onKeyDown={(event) => event.stopPropagation()}>
       <div className="quick-workflow-step-editor__header">
         <div>
           <strong>Update current step</strong>

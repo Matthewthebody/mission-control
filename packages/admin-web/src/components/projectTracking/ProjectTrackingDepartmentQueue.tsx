@@ -426,7 +426,7 @@ export function ProjectTrackingDepartmentQueue({
         ) : (
         <div className="project-tracking-department-queue__table" role="table" aria-label={title}>
           <div className="project-tracking-department-queue__row project-tracking-department-queue__row--head" role="row">
-            <span role="columnheader">Organization / account</span>
+            <span role="columnheader">Organization and account</span>
             <span role="columnheader">Job</span>
             <span role="columnheader">Current step</span>
             <span role="columnheader">Department</span>
@@ -473,7 +473,7 @@ export function ProjectTrackingDepartmentQueue({
               {row.workflow_run_id && row.current_step ? (
                 <span className="project-tracking-department-queue__workflow-actions">
                   <button type="button" onClick={() => setEditingStepId(editingStepId === row.current_step?.id ? null : row.current_step?.id ?? null)}>
-                    Assign / Status
+                    Assign and Status
                   </button>
                   <a href={workflowRouteInfo(row).href}>Open Workflow</a>
                   <button type="button" aria-expanded={expanded} onClick={() => setExpandedRowId(expanded ? null : row.job_id)}>

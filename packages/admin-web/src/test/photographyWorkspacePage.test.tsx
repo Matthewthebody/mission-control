@@ -804,7 +804,7 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Fieldhouse reference photo")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Reference Photos" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Setup Photos" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 4, name: "Closeout / Post-Shoot Eval" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: "Closeout and Post-Shoot Eval" })).toBeInTheDocument();
     expect(screen.getByText("Post-shoot evaluations feed Senior Review.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Travel Overview" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Job Detail" })).toBeInTheDocument();

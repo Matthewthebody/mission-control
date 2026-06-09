@@ -533,7 +533,7 @@ function PhotographyJobPrepPanel({ token, compatibilityNotice }: { token: string
         <PrepInfoGroup title="Past Shoot References" items={prepContext.pastShootItems} placeholder="Past shoot references will appear when prior evaluations or setup notes are attached." />
         <PrepAttachmentGroup title="Reference Photos" attachments={prepContext.documentAttachments} placeholder="No reference photos are attached to this prep packet yet." />
         <PrepAttachmentGroup title="Setup Photos" attachments={prepContext.photoAttachments} placeholder="No setup photos are attached to this prep packet yet." />
-        <PrepInfoGroup title="Closeout / Post-Shoot Eval" items={prepContext.closeoutItems} placeholder="Closeout status appears here after the shoot is completed." />
+        <PrepInfoGroup title="Closeout and Post-Shoot Eval" items={prepContext.closeoutItems} placeholder="Closeout status appears here after the shoot is completed." />
       </div>
 
       <WorkspaceActionBar align="end" compact>

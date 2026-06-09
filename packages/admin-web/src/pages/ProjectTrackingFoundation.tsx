@@ -166,7 +166,7 @@ const PROJECT_TRACKING_AREA_FILTERS: ProjectTrackingAreaFilter[] = ["all", "scho
 const PROJECT_TRACKING_BOARD_LANES: Array<{ id: ProjectTrackingBoardLaneId; label: string; description: string }> = [
   { id: "todo", label: "Ready", description: "Planned, queued, or ready for the first useful action." },
   { id: "in_progress", label: "In Flight", description: "Work actively moving through field, production, or internal handoffs." },
-  { id: "on_hold", label: "Waiting / Blocked", description: "Blocked, late, waiting, ownerless, or missing the next action." },
+  { id: "on_hold", label: "Waiting or Blocked", description: "Blocked, late, waiting, ownerless, or missing the next action." },
   { id: "in_review", label: "Review", description: "Proofing, QA, approvals, client review, or final checks." },
   { id: "complete", label: "Delivered", description: "Recently completed work still visible in the current filters." }
 ];
@@ -1396,12 +1396,12 @@ function ProjectTrackingTableView({
               <th scope="col">Work</th>
               <th scope="col">Department</th>
               <th scope="col">Account</th>
-              <th scope="col">Owner / Queue</th>
-              <th scope="col">Status / Phase</th>
+              <th scope="col">Owner and Queue</th>
+              <th scope="col">Status and Phase</th>
               <th scope="col">Current Step</th>
               <th scope="col">Due</th>
               <th scope="col">Health</th>
-              <th scope="col">Waiting / Blocked</th>
+              <th scope="col">Waiting or Blocked</th>
               <th scope="col">Action</th>
             </tr>
           </thead>
@@ -1898,7 +1898,7 @@ function ProjectTrackingJobBoard({
                       </div>
                     </section>
                     <section>
-                      <h4>Owner / Queue</h4>
+                      <h4>Owner and Queue</h4>
                       <div className="project-tracking-job-row__detail-grid">
                         <div>
                           <span>Owner</span>
@@ -1936,7 +1936,7 @@ function ProjectTrackingJobBoard({
                       </div>
                     </section>
                     <section>
-                      <h4>Blockers / Waiting</h4>
+                      <h4>Blockers and Waiting</h4>
                       <div className="project-tracking-job-row__detail-grid">
                         <div>
                           <span>Waiting On</span>
@@ -1959,7 +1959,7 @@ function ProjectTrackingJobBoard({
                       </section>
                     ) : null}
                     <section>
-                      <h4>Related Job / Account</h4>
+                      <h4>Related Job and Account</h4>
                       <div className="project-tracking-job-row__detail-grid">
                         <div>
                           <span>Job record</span>
