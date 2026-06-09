@@ -2410,9 +2410,10 @@ beforeEach(() => {
     expect(screen.queryByText("Start with the basics. Choose the job type, then Mission Control will help identify missing info and next steps.")).not.toBeInTheDocument();
     expect(container.querySelector(".shared-job-shell--clean-intake")).toBeInTheDocument();
     expect(container.querySelector(".shared-job-shell__form-layout--single")).toBeInTheDocument();
+    expect(container.querySelector(".shared-job-shell__clean-intake-actions")).not.toBeInTheDocument();
     expect(container.querySelector(".workspace-page-header")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Workspace status")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "What happens after submit" })).not.toBeInTheDocument();
     expect(screen.queryByText("Handoff Plan")).not.toBeInTheDocument();

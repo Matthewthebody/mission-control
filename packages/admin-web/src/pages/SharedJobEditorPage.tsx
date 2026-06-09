@@ -722,15 +722,6 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           </button>
         </WorkspaceActionBar>
       }
-      formIntro={
-        isGlobalJobIntake ? (
-          <div className="shared-job-shell__clean-intake-actions">
-            <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
-              Back
-            </button>
-          </div>
-        ) : null
-      }
       sections={sections}
       sidebarCards={sidebarCards}
       footer={

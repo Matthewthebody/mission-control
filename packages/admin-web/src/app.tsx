@@ -642,6 +642,13 @@ export default function App() {
     window.location.hash = buildShellRouteHash(nextRouteId);
   }
 
+  const jobIntakeBackAction =
+    guardedRouteId === "job-new" ? (
+      <button type="button" className="secondary-button" onClick={() => navigateToRoute("jobs")}>
+        Back
+      </button>
+    ) : null;
+
   function handleLoggedIn() {
     setAuthNotice("");
     setSessionError("");
@@ -884,6 +891,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="shell-topbar__actions">
+                  {jobIntakeBackAction}
                   <button
                     type="button"
                     className="concierge-shell-trigger"
@@ -1088,6 +1096,7 @@ export default function App() {
               </div>
               <div className="shell-context-bar__title-row">
                 <div className="shell-context-bar__title">{currentRoute.label}</div>
+                {jobIntakeBackAction}
                 {currentRoute.utility ? <span className="shell-context-bar__tag">Utility Surface</span> : null}
               </div>
             </section>
