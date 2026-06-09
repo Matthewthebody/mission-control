@@ -48,6 +48,46 @@ type Props = {
   mode: "create" | "edit";
 };
 
+type IntakeWorkArea = "sports" | "schools" | "studio";
+
+const INTAKE_WORK_AREA_OPTIONS: Array<{
+  key: IntakeWorkArea;
+  label: string;
+  summary: string;
+  defaultType: JobIntakeTypeId;
+  typeIds: JobIntakeTypeId[];
+}> = [
+  {
+    key: "sports",
+    label: "Sports",
+    summary: "Teams, leagues, media days, and athlete workflows.",
+    defaultType: "sports_picture_day",
+    typeIds: ["sports_picture_day", "sports_league", "team_photos"]
+  },
+  {
+    key: "schools",
+    label: "Schools",
+    summary: "Picture day, retakes, graduation, yearbook, and school events.",
+    defaultType: "school_picture_day",
+    typeIds: ["school_picture_day", "retake_day", "graduation", "cap_and_gown", "yearbook"]
+  },
+  {
+    key: "studio",
+    label: "In-Studio Work",
+    summary: "Specialty, event, and studio-safe work using the closest supported route.",
+    defaultType: "specialty",
+    typeIds: ["specialty", "event", "other"]
+  }
+];
+
+function getWorkAreaForIntakeType(value: JobIntakeTypeId): IntakeWorkArea {
+  return INTAKE_WORK_AREA_OPTIONS.find((option) => option.typeIds.includes(value))?.key ?? "sports";
+}
+
+function getWorkAreaOption(value: IntakeWorkArea) {
+  return INTAKE_WORK_AREA_OPTIONS.find((option) => option.key === value) ?? INTAKE_WORK_AREA_OPTIONS[0];
+}
+
 function placeholderOrganization(id: string, label: string, departmentType: "schools" | "sports") {
   return {
     id,
@@ -175,6 +215,12 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     () => buildRoutingPreviewFromForm(formState, selectedOwnerName, isGlobalJobIntake ? selectedIntakeType ?? inferJobIntakeTypeId(formState) : undefined),
     [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
+  const activeIntakeType = selectedIntakeType ?? inferJobIntakeTypeId(formState);
+  const activeWorkArea = getWorkAreaForIntakeType(activeIntakeType);
+  const workAreaOption = getWorkAreaOption(activeWorkArea);
+  const visibleIntakeTypeOptions = isGlobalJobIntake
+    ? JOB_INTAKE_TYPE_OPTIONS.filter((option) => workAreaOption.typeIds.includes(option.id))
+    : JOB_INTAKE_TYPE_OPTIONS;
   const intakeManagementSummary = useMemo(() => buildJobIntakeManagementSummary(formState), [formState]);
   const calendarReadiness = useMemo(
     () =>
@@ -288,6 +334,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   function applyIntakeType(value: JobIntakeTypeId) {
     setSelectedIntakeType(value);
     updateState((current) => applyJobIntakeType(current, value));
+  }
+
+  function applyWorkArea(value: IntakeWorkArea) {
+    applyIntakeType(getWorkAreaOption(value).defaultType);
   }
 
   async function persist(target: "draft" | "publish") {
@@ -407,36 +457,70 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         : "Shared identity fields render once here, with department-specific sections injected after them.",
       fields: ["department_type", "organization_id", "title", "event_name", "job_category", "description_internal"],
       body: (
-        <div className="field-grid shared-job-form__grid">
-          <label className="filter-field">
-            <span>{isGlobalJobIntake ? "Starting team" : "Department"}</span>
-            {departmentType ? (
-              <div className="job-intake__static-field">{humanizeToken(formState.department_type)}</div>
-            ) : (
-              <select value={formState.department_type} onChange={(event) => updateState((current) => ({ ...current, department_type: event.target.value as "schools" | "sports" }))}>
-                <option value="schools">Schools</option>
-                <option value="sports">Sports</option>
+        <div className="shared-job-form__stack">
+          {isGlobalJobIntake ? (
+            <div className="job-intake-work-area" aria-label="Work area">
+              {INTAKE_WORK_AREA_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`job-intake-work-area__button${activeWorkArea === option.key ? " is-selected" : ""}`}
+                  aria-pressed={activeWorkArea === option.key}
+                  onClick={() => applyWorkArea(option.key)}
+                >
+                  <strong>{option.label}</strong>
+                  <span>{option.summary}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="field-grid shared-job-form__grid">
+            {!isGlobalJobIntake ? (
+              <label className="filter-field">
+                <span>Department</span>
+                {departmentType ? (
+                  <div className="job-intake__static-field">{humanizeToken(formState.department_type)}</div>
+                ) : (
+                  <select value={formState.department_type} onChange={(event) => updateState((current) => ({ ...current, department_type: event.target.value as "schools" | "sports" }))}>
+                    <option value="schools">Schools</option>
+                    <option value="sports">Sports</option>
+                  </select>
+                )}
+              </label>
+            ) : null}
+            <label className="filter-field">
+              <span>{isGlobalJobIntake ? "Job type" : "Job category"}</span>
+              <select
+                value={isGlobalJobIntake ? activeIntakeType : formState.job_category}
+                onChange={(event) =>
+                  isGlobalJobIntake
+                    ? applyIntakeType(event.target.value as JobIntakeTypeId)
+                    : updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))
+                }
+              >
+                {isGlobalJobIntake
+                  ? visibleIntakeTypeOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)
+                  : getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-            )}
-          </label>
-          <label className="filter-field">
-            <span>{isGlobalJobIntake ? "Job type" : "Job category"}</span>
-            <select
-              value={isGlobalJobIntake ? selectedIntakeType ?? inferJobIntakeTypeId(formState) : formState.job_category}
-              onChange={(event) =>
-                isGlobalJobIntake
-                  ? applyIntakeType(event.target.value as JobIntakeTypeId)
-                  : updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))
-              }
-            >
-              {isGlobalJobIntake
-                ? JOB_INTAKE_TYPE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)
-                : getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+            </label>
+            <label className="filter-field filter-field--wide">
+              <span>{isGlobalJobIntake ? "Job Name" : adapter.labels.titleLabel}</span>
+              <input
+                value={formState.title}
+                onChange={(event) =>
+                  updateState((current) => ({
+                    ...current,
+                    title: event.target.value,
+                    event_name: isGlobalJobIntake ? event.target.value : current.event_name
+                  }))
+                }
+              />
+              {fieldErrors.title ? <div className="shared-job-form__field-errors" role="alert">{fieldErrors.title.map((message) => <div key={message}>{message}</div>)}</div> : null}
+            </label>
+          </div>
           <div className="filter-field filter-field--wide">
             <SharedOrganizationPicker
-              departmentType={formState.department_type === "schools" ? "schools" : "sports"}
+              departmentType={activeWorkArea === "schools" ? "schools" : "sports"}
               searchValue={organizationSearch}
               onSearchChange={setOrganizationSearch}
               unresolvedValue=""
@@ -453,18 +537,17 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               }}
               required
               errors={fieldErrors.organization_id}
-              helperText={isGlobalJobIntake ? "Pick the client record this job belongs to." : "Schools and Sports both resolve through the same shared organization record."}
+              helperText={isGlobalJobIntake ? "Pick the client or organization this job belongs to." : "Schools and Sports both resolve through the same shared organization record."}
+              collapseResults={isGlobalJobIntake}
+              showUnresolvedField={!isGlobalJobIntake}
             />
           </div>
-          <label className="filter-field filter-field--wide">
-            <span>{isGlobalJobIntake ? "Job name" : adapter.labels.titleLabel}</span>
-            <input value={formState.title} onChange={(event) => updateState((current) => ({ ...current, title: event.target.value }))} />
-            {fieldErrors.title ? <div className="shared-job-form__field-errors" role="alert">{fieldErrors.title.map((message) => <div key={message}>{message}</div>)}</div> : null}
-          </label>
-          <label className="filter-field filter-field--wide">
-            <span>{adapter.labels.eventNameLabel}</span>
-            <input value={formState.event_name} onChange={(event) => updateState((current) => ({ ...current, event_name: event.target.value }))} />
-          </label>
+          {!isGlobalJobIntake ? (
+            <label className="filter-field filter-field--wide">
+              <span>{adapter.labels.eventNameLabel}</span>
+              <input value={formState.event_name} onChange={(event) => updateState((current) => ({ ...current, event_name: event.target.value }))} />
+            </label>
+          ) : null}
           {!isGlobalJobIntake ? (
             <label className="filter-field filter-field--wide">
               <span>Internal description</span>
@@ -658,7 +741,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       title={isGlobalJobIntake ? "New Job Intake" : mode === "edit" ? adapter.editTitle : adapter.createTitle}
       summary={
         isGlobalJobIntake
-          ? "Start with the basics. Mission Control will help identify missing info and next steps."
+          ? "Start with the basics. Choose whether this is Sports, Schools, or In-Studio work, and Mission Control will help identify missing info and next steps."
           : "One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
       }
       meta={headerMeta}

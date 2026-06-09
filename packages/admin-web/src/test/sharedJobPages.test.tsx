@@ -2405,7 +2405,7 @@ beforeEach(() => {
     render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
 
     expect(await screen.findByRole("heading", { name: "New Job Intake" })).toBeInTheDocument();
-    expect(screen.getByText("Start with the basics. Mission Control will help identify missing info and next steps.")).toBeInTheDocument();
+    expect(screen.getByText("Start with the basics. Choose whether this is Sports, Schools, or In-Studio work, and Mission Control will help identify missing info and next steps.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "What happens after submit" })).not.toBeInTheDocument();
     expect(screen.queryByText("Handoff Plan")).not.toBeInTheDocument();
     expect(screen.queryByText("Ownership")).not.toBeInTheDocument();
@@ -2422,24 +2422,60 @@ beforeEach(() => {
     expect(screen.getByText("What Mission Control will prepare")).toBeInTheDocument();
     expect(screen.getByLabelText("Job setup next steps")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+
+    const workArea = screen.getByLabelText("Work area");
+    const sportsButton = within(workArea).getByRole("button", { name: /Sports/ });
+    const schoolsButton = within(workArea).getByRole("button", { name: /Schools/ });
+    const studioButton = within(workArea).getByRole("button", { name: /In-Studio Work/ });
+    expect(sportsButton).toBeInTheDocument();
+    expect(schoolsButton).toBeInTheDocument();
+    expect(studioButton).toBeInTheDocument();
+
     expect(screen.getByLabelText("Job type")).toBeInTheDocument();
+
+    fireEvent.click(schoolsButton);
+    expect(schoolsButton).toHaveAttribute("aria-pressed", "true");
+    expect(sportsButton).toHaveAttribute("aria-pressed", "false");
+    expect(getControlWithinLabel("Job type", "select")).toHaveValue("school_picture_day");
     expect(screen.getByRole("option", { name: "School Picture Day" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Retake Day" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Sports Picture Day" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Sports League" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Team Photos" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Graduation" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Cap & Gown" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Yearbook" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Sports League" })).not.toBeInTheDocument();
+
+    fireEvent.click(sportsButton);
+    expect(sportsButton).toHaveAttribute("aria-pressed", "true");
+    expect(schoolsButton).toHaveAttribute("aria-pressed", "false");
+    expect(getControlWithinLabel("Job type", "select")).toHaveValue("sports_picture_day");
+    expect(screen.getByRole("option", { name: "Sports Picture Day" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sports League" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Team Photos" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "School Picture Day" })).not.toBeInTheDocument();
+
+    fireEvent.click(studioButton);
+    expect(studioButton).toHaveAttribute("aria-pressed", "true");
+    expect(sportsButton).toHaveAttribute("aria-pressed", "false");
+    expect(getControlWithinLabel("Job type", "select")).toHaveValue("specialty");
     expect(screen.getByRole("option", { name: "Event" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Specialty" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Other" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Sports Picture Day" })).not.toBeInTheDocument();
+
+    expect(screen.getByLabelText("Job Name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Event Name")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Date and Location" })).toBeInTheDocument();
     expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
     expect(screen.getAllByText("Needs date").length).toBeGreaterThan(0);
     expect(screen.getByText(/Next: Set the requested shoot date\./)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Organization and Contact" })).toBeInTheDocument();
-    expect(getControlWithinLabel("Starting team", "select")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Starting team")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unresolved organization placeholder")).not.toBeInTheDocument();
+    expect(screen.queryByText("Organization not selected yet")).not.toBeInTheDocument();
+    fireEvent.click(schoolsButton);
+    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "North" } });
+    expect(await screen.findByText("1 matching organization")).toBeInTheDocument();
+    expect(screen.getByText("1 matching organization").closest("details")).not.toHaveAttribute("open");
     expect(getControlWithinLabel("Current owner", "select")).toBeInTheDocument();
     expect(getControlWithinLabel("Priority", "select")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
@@ -2465,25 +2501,28 @@ beforeEach(() => {
     expect(screen.queryByText("Requested products/services")).not.toBeInTheDocument();
 
     const routeExpectations = [
-      { value: "school_picture_day", route: "School Picture Day route", department: "schools" },
-      { value: "retake_day", route: "Retake Day route", department: "schools" },
-      { value: "sports_picture_day", route: "Sports Picture Day route", department: "sports" },
-      { value: "sports_league", route: "Sports League route", department: "sports" },
-      { value: "team_photos", route: "Team Photos route", department: "sports" },
-      { value: "graduation", route: "Graduation route", department: "schools" },
-      { value: "cap_and_gown", route: "Cap & Gown route", department: "schools" },
-      { value: "yearbook", route: "Yearbook route", department: "schools" },
-      { value: "event", route: "Event route", department: "schools" },
-      { value: "specialty", route: "Specialty route", department: "sports" },
-      { value: "other", route: "Custom Event route", department: "schools" }
+      { area: schoolsButton, areaName: "Schools", value: "school_picture_day", route: "School Picture Day route" },
+      { area: schoolsButton, areaName: "Schools", value: "retake_day", route: "Retake Day route" },
+      { area: sportsButton, areaName: "Sports", value: "sports_picture_day", route: "Sports Picture Day route" },
+      { area: sportsButton, areaName: "Sports", value: "sports_league", route: "Sports League route" },
+      { area: sportsButton, areaName: "Sports", value: "team_photos", route: "Team Photos route" },
+      { area: schoolsButton, areaName: "Schools", value: "graduation", route: "Graduation route" },
+      { area: schoolsButton, areaName: "Schools", value: "cap_and_gown", route: "Cap & Gown route" },
+      { area: schoolsButton, areaName: "Schools", value: "yearbook", route: "Yearbook route" },
+      { area: studioButton, areaName: "In-Studio Work", value: "event", route: "Event route" },
+      { area: studioButton, areaName: "In-Studio Work", value: "specialty", route: "Specialty route" },
+      { area: studioButton, areaName: "In-Studio Work", value: "other", route: "Custom Event route" }
     ];
 
     for (const expectation of routeExpectations) {
+      fireEvent.click(expectation.area);
+      expect(expectation.area).toHaveAttribute("aria-pressed", "true");
       fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: expectation.value } });
       await waitFor(() => expect(screen.getAllByText(expectation.route).length).toBeGreaterThan(0));
-      expect(getControlWithinLabel("Starting team", "select")).toHaveValue(expectation.department);
+      expect(within(workArea).getByRole("button", { name: new RegExp(expectation.areaName) })).toHaveAttribute("aria-pressed", "true");
     }
 
+    fireEvent.click(sportsButton);
     fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: "sports_league" } });
     await waitFor(() => expect(getControlWithinLabel("Products and services", "select")).toHaveValue("mixed"));
   });

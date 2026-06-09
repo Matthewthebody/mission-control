@@ -65,6 +65,8 @@ type OrganizationLookupFieldProps = SharedLookupProps & {
   results: OrganizationSummary[];
   selectedOrganization: OrganizationSummary | null;
   onSelectOrganization: (organization: OrganizationSummary) => void;
+  collapseResults?: boolean;
+  showUnresolvedField?: boolean;
 };
 
 type LocationLookupFieldProps = SharedLookupProps & {
@@ -296,7 +298,9 @@ export function OrganizationLookupField({
   disabled = false,
   required = false,
   helperText,
-  errors = []
+  errors = [],
+  collapseResults = false,
+  showUnresolvedField = true
 }: OrganizationLookupFieldProps) {
   const filteredResults = results.filter((organization) =>
     department === "sports"
@@ -333,7 +337,24 @@ export function OrganizationLookupField({
         </div>
       ) : null}
       {loading ? <div className="job-intake__helper">Searching organizations…</div> : null}
-      {!loading && filteredResults.length ? (
+      {!loading && filteredResults.length && collapseResults ? (
+        <details className="job-intake__lookup-results-disclosure">
+          <summary>{filteredResults.length} matching organization{filteredResults.length === 1 ? "" : "s"}</summary>
+          <div className="job-intake__lookup-results" role="list">
+            {filteredResults.slice(0, 6).map((organization) => (
+              <LookupOptionButton
+                key={organization.id}
+                selected={selectedOrganization?.id === organization.id}
+                primary={organization.display_name}
+                secondary={`${organization.contact_count} contacts | ${organization.location_count} locations`}
+                tertiary={organization.aliases.length ? `Aliases: ${organization.aliases.slice(0, 2).join(", ")}` : null}
+                onClick={() => onSelectOrganization(organization)}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
+      {!loading && filteredResults.length && !collapseResults ? (
         <div className="job-intake__lookup-results" role="list">
           {filteredResults.slice(0, 6).map((organization) => (
             <LookupOptionButton
@@ -347,15 +368,17 @@ export function OrganizationLookupField({
           ))}
         </div>
       ) : null}
-      <label className="filter-field filter-field--wide">
-        <span>Unresolved organization placeholder</span>
-        <input
-          value={unresolvedValue}
-          onChange={(event) => onUnresolvedChange(event.target.value)}
-          placeholder="Use only when the organization has not been resolved yet"
-          disabled={disabled}
-        />
-      </label>
+      {showUnresolvedField ? (
+        <label className="filter-field filter-field--wide">
+          <span>Organization not selected yet</span>
+          <input
+            value={unresolvedValue}
+            onChange={(event) => onUnresolvedChange(event.target.value)}
+            placeholder="New organization details can be reviewed later"
+            disabled={disabled}
+          />
+        </label>
+      ) : null}
     </div>
   );
 }
