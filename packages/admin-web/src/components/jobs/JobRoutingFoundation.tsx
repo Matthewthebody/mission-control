@@ -1222,37 +1222,148 @@ function noticeToneClass(level: ChangeNoticeLevel) {
 
 export function buildJobChangeNotices(detail: SharedJobDetailResponse): JobChangeNotice[] {
   const notices: JobChangeNotice[] = [];
-  if (detail.status.blocker_count > 0 || detail.watch_flags.length > 0) {
-    notices.push({
+
+  function addNotice(notice: JobChangeNotice) {
+    if (!notices.some((existing) => existing.id === notice.id)) {
+      notices.push(notice);
+    }
+  }
+
+  const openFlags = detail.watch_flags.filter((flag) => !["resolved", "dismissed"].includes(flag.status));
+  const resolvedFlags = detail.watch_flags.filter((flag) => flag.status === "resolved");
+  const rosterItems = detail.readiness_items.filter((item) => {
+    const text = `${item.label} ${item.section_key} ${item.source_template_key ?? ""}`.toLowerCase();
+    return text.includes("roster") || text.includes("team list");
+  });
+  const openRosterItems = rosterItems.filter((item) => item.is_required && !item.is_complete);
+  const resolvedRosterItems = rosterItems.filter((item) => item.is_complete);
+  const leadAssignments = detail.staff_assignments.filter((assignment) => {
+    const role = assignment.assignment_role.toLowerCase();
+    return role.includes("lead") || role.includes("manager");
+  });
+  const activityText = detail.activity.map((entry) => `${entry.event_type} ${entry.action_label} ${entry.summary} ${entry.detail ?? ""}`.toLowerCase()).join(" ");
+
+  if (detail.status.blocker_count > 0 || openFlags.length > 0) {
+    addNotice({
       id: "blocker-added",
       level: "Urgent",
-      title: "Blocker needs action",
-      summary: `${detail.status.blocker_count || detail.watch_flags.length} attention item${(detail.status.blocker_count || detail.watch_flags.length) === 1 ? "" : "s"} must be cleared before the next handoff.`
+      title: "Blocker added",
+      summary: `${detail.status.blocker_count || openFlags.length} active blocker or attention item${(detail.status.blocker_count || openFlags.length) === 1 ? "" : "s"} must be cleared before the next handoff.`
     });
   }
-  if (detail.job.scheduled_start_at) {
-    notices.push({
-      id: "date-confirmed",
+  if (resolvedFlags.length > 0 || activityText.includes("resolved")) {
+    addNotice({
+      id: "blocker-resolved",
       level: "Important",
-      title: "Shoot date recorded",
-      summary: `Calendar is tracking ${formatDate(detail.job.scheduled_start_at.slice(0, 10))}.`
+      title: "Blocker resolved",
+      summary: resolvedFlags[0]?.title ? `${resolvedFlags[0].title} was resolved. Confirm the next team can continue.` : "A blocker was resolved. Confirm the next team can continue."
+    });
+  }
+  if (openRosterItems.length > 0) {
+    addNotice({
+      id: "roster-still-missing",
+      level: "Urgent",
+      title: openRosterItems[0]?.label.toLowerCase().includes("team") ? "Team list still missing" : "Roster still missing",
+      summary: `${openRosterItems[0]?.label ?? "Roster"} is still open. The job should not move cleanly until this is cleared.`
+    });
+  } else if (resolvedRosterItems.length > 0) {
+    addNotice({
+      id: "roster-received",
+      level: "FYI",
+      title: resolvedRosterItems[0]?.label.toLowerCase().includes("team") ? "Team list received" : "Roster received",
+      summary: `${resolvedRosterItems[0]?.label ?? "Roster"} is complete. Verify quality before the next department relies on it.`
+    });
+  }
+  if (detail.job.scheduled_start_at || detail.summary.primary_day_date) {
+    const date = detail.summary.primary_day_date ?? detail.job.scheduled_start_at?.slice(0, 10);
+    addNotice({
+      id: activityText.includes("date") || activityText.includes("schedule") ? "shoot-date-changed" : "date-confirmed",
+      level: activityText.includes("date") || activityText.includes("schedule") ? "Important" : "FYI",
+      title: activityText.includes("date") || activityText.includes("schedule") ? "Shoot date changed" : "Shoot date recorded",
+      summary: date ? `Calendar is tracking ${formatDate(date)}. Confirm staffing and downstream deadlines still line up.` : "Calendar is tracking this job."
+    });
+  }
+  if (detail.days.some((day) => day.start_time || day.end_time) || activityText.includes("call time")) {
+    addNotice({
+      id: "call-time-changed",
+      level: activityText.includes("call time") ? "Important" : "FYI",
+      title: activityText.includes("call time") ? "Call time changed" : "Call time recorded",
+      summary: "Review day timing before confirming staffing, travel, or client communication."
     });
   }
   if (detail.job.primary_location_id || detail.summary.primary_location_name) {
-    notices.push({
-      id: "location-linked",
-      level: "FYI",
-      title: "Location linked",
-      summary: detail.summary.primary_location_name ? `${detail.summary.primary_location_name} is connected to this job.` : "A canonical location is connected to this job."
+    addNotice({
+      id: activityText.includes("location") ? "location-changed" : "location-linked",
+      level: activityText.includes("location") ? "Important" : "FYI",
+      title: activityText.includes("location") ? "Location changed" : "Location linked",
+      summary: detail.summary.primary_location_name ? `${detail.summary.primary_location_name} is connected to this job. Confirm travel and setup notes still match.` : "A canonical location is connected to this job."
     });
   }
-  if (detail.activity.length) {
-    const latest = detail.activity[0];
-    notices.push({
-      id: `activity-${latest.id}`,
-      level: latest.tone === "danger" ? "Urgent" : latest.tone === "warning" ? "Important" : "FYI",
-      title: latest.action_label || "Latest change",
-      summary: latest.summary
+  if (detail.job.primary_contact_id || detail.summary.primary_contact_name || activityText.includes("contact")) {
+    addNotice({
+      id: "contact-changed",
+      level: activityText.includes("contact") ? "Important" : "FYI",
+      title: activityText.includes("contact") ? "Primary contact changed" : "Primary contact recorded",
+      summary: detail.summary.primary_contact_name ? `${detail.summary.primary_contact_name} is the current contact. Use this before sending confirmations.` : "A primary contact is connected to this job."
+    });
+  }
+  if (detail.job.priority_level === "urgent" || detail.job.priority_level === "high" || activityText.includes("priority")) {
+    addNotice({
+      id: "priority-changed",
+      level: detail.job.priority_level === "urgent" ? "Urgent" : "Important",
+      title: activityText.includes("priority") ? "Priority changed" : "Priority needs attention",
+      summary: `${humanizeToken(detail.job.priority_level)} priority is active. Confirm owner and next action today.`
+    });
+  }
+  if (detail.job.client_deadline_at || detail.job.production_deadline_at || activityText.includes("deadline")) {
+    const deadline = detail.job.client_deadline_at?.slice(0, 10) ?? detail.job.production_deadline_at?.slice(0, 10);
+    addNotice({
+      id: "gallery-deadline-changed",
+      level: "Important",
+      title: activityText.includes("deadline") ? "Gallery deadline changed" : "Gallery deadline recorded",
+      summary: deadline ? `Delivery timing is tracking ${formatDate(deadline)}. Confirm Production and Client Success can still meet it.` : "Delivery timing is attached to this job."
+    });
+  }
+  if (leadAssignments.length > 0 || detail.summary.lead_owner_name) {
+    addNotice({
+      id: "shoot-manager-assigned",
+      level: "FYI",
+      title: "Shoot manager assigned",
+      summary: `${leadAssignments[0]?.user_name ?? detail.summary.lead_owner_name ?? "A shoot manager"} is attached to the job. Use that person as the day-of escalation point.`
+    });
+  } else {
+    addNotice({
+      id: "shoot-manager-needed",
+      level: "Important",
+      title: "Shoot manager still needed",
+      summary: "Assign the day-of owner before calling the job ready."
+    });
+  }
+  for (const entry of detail.activity.slice(0, 3)) {
+    const entryText = `${entry.event_type} ${entry.action_label} ${entry.summary}`.toLowerCase();
+    if (entryText.includes("publish") || entryText.includes("launch")) {
+      addNotice({
+        id: `job-launched-${entry.id}`,
+        level: "FYI",
+        title: "Job launched",
+        summary: `${entry.summary} The route is ready for department follow-through.`
+      });
+      continue;
+    }
+    if (entryText.includes("assignment") || entryText.includes("reassign")) {
+      addNotice({
+        id: `task-reassigned-${entry.id}`,
+        level: entry.tone === "danger" ? "Urgent" : "Important",
+        title: "Task reassigned",
+        summary: `${entry.summary} Confirm the new owner knows the next action.`
+      });
+      continue;
+    }
+    addNotice({
+      id: `activity-${entry.id}`,
+      level: entry.tone === "danger" ? "Urgent" : entry.tone === "warning" ? "Important" : "FYI",
+      title: entry.action_label || "Latest change",
+      summary: entry.summary
     });
   }
   if (!notices.length) {
@@ -1263,7 +1374,8 @@ export function buildJobChangeNotices(detail: SharedJobDetailResponse): JobChang
       summary: "No urgent changes are attached to this job yet."
     });
   }
-  return notices.slice(0, 4);
+  const levelRank: Record<ChangeNoticeLevel, number> = { Urgent: 0, Important: 1, FYI: 2 };
+  return notices.sort((a, b) => levelRank[a.level] - levelRank[b.level]).slice(0, 6);
 }
 
 export function JobIntakeReadinessPanel({ summary }: { summary: JobIntakeManagementSummary }) {

@@ -59,12 +59,34 @@ describe("workflow change notices", () => {
     render(<WorkflowChangeNoticePanel notices={DEMO_WORKFLOW_CHANGE_NOTICES} title="Test Change Notices" />);
 
     expect(screen.getByRole("heading", { name: "Test Change Notices" })).toBeInTheDocument();
-    expect(screen.getByText("FYI")).toBeInTheDocument();
-    expect(screen.getByText("Important")).toBeInTheDocument();
-    expect(screen.getByText("Urgent")).toBeInTheDocument();
+    expect(screen.getAllByText("FYI").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Important").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Urgent").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Who needs to know:").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Next action:").length).toBeGreaterThan(0);
     expect(screen.queryByText(/push pipeline|entity watcher|notification contract|mutation event/i)).not.toBeInTheDocument();
+  });
+
+  it("covers the core demo change notice examples with plain operational language", () => {
+    const labels = DEMO_WORKFLOW_CHANGE_NOTICES.map((notice) => notice.changeLabel);
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "Shoot date changed",
+        "Call time changed",
+        "Location changed",
+        "Roster received",
+        "Roster still missing",
+        "Priority changed",
+        "Blocker added",
+        "Blocker resolved",
+        "Job launched",
+        "Gallery deadline changed",
+        "Shoot manager assigned",
+        "Shoot manager still needed"
+      ])
+    );
+    expect(DEMO_WORKFLOW_CHANGE_NOTICES.some((notice) => notice.requiresAcknowledgement && notice.level === "urgent")).toBe(true);
+    expect(DEMO_WORKFLOW_CHANGE_NOTICES.every((notice) => notice.actionNeeded && notice.audienceLabel)).toBe(true);
   });
 
   it("keeps urgent acknowledgement local and visible", () => {
@@ -85,11 +107,21 @@ describe("workflow change notices", () => {
   it("converts unacknowledged urgent notices into Home urgent issue items", () => {
     const homeItems = buildHomeUrgentItemsFromWorkflowChangeNotices(getWorkflowChangeNoticesForUser(userPhoto));
 
-    expect(homeItems).toHaveLength(1);
-    expect(homeItems[0]).toMatchObject({
+    expect(homeItems.length).toBeGreaterThanOrEqual(3);
+    expect(homeItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({
       title: "Location changed: Maple Grove Baseball Media Day",
       urgency_label: "Urgent",
       action_hash: "#studios/travel?job=job-sports-1"
-    });
+      }),
+      expect.objectContaining({
+        title: "Roster still missing: Lakeview Elementary Picture Day",
+        urgency_label: "Urgent"
+      }),
+      expect.objectContaining({
+        title: "Blocker added: assistant coverage missing",
+        urgency_label: "Urgent"
+      })
+    ]));
   });
 });

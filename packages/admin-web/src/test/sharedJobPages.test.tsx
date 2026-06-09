@@ -2590,6 +2590,12 @@ beforeEach(() => {
     expect(screen.getByLabelText("Job change notices")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Change Notices" })).toBeInTheDocument();
     expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
+    expect(screen.getAllByText("Blocker added").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Shoot manager assigned").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Task reassigned").length).toBeGreaterThan(0);
+    expect(screen.getByText("Shoot date changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
+    expect(screen.getByText("Blocker resolved: parking plan confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Shoot manager still needed: Maple Grove Baseball Media Day")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Department Tasks and Work Packages" })).toBeInTheDocument();
     expect(screen.getByLabelText("Department tasks and work packages")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();

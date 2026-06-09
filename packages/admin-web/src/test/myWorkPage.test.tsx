@@ -797,13 +797,16 @@ describe("My Work page", () => {
     expect(document.getElementById("my-work-heads-up")).toBeInTheDocument();
     expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
     expect(screen.getByText("Assigned photographers and the shoot lead")).toBeInTheDocument();
-    const acknowledgeChangeButton = screen.getByRole("button", { name: "Acknowledge" });
+    const locationChangeNotice = screen.getByText("Location changed: Maple Grove Baseball Media Day").closest("article");
+    expect(locationChangeNotice).not.toBeNull();
+    const acknowledgeChangeButton = within(locationChangeNotice as HTMLElement).getByRole("button", {
+      name: "Acknowledge"
+    });
     fireEvent.click(acknowledgeChangeButton);
-    expect(screen.getByRole("button", { name: "Acknowledged" })).toBeDisabled();
-    expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Running Late Notice/i)).toBeInTheDocument();
-    expect(screen.getByText("Approve lead coverage change")).toBeInTheDocument();
-    expect(screen.getByText(/Blocking downstream work until reviewed/i)).toBeInTheDocument();
+    expect(within(locationChangeNotice as HTMLElement).getByRole("button", { name: "Acknowledged" })).toBeDisabled();
+    expect(screen.getByText("Roster still missing: Lakeview Elementary Picture Day")).toBeInTheDocument();
+    expect(screen.getByText("Blocker added: assistant coverage missing")).toBeInTheDocument();
+    expect(screen.queryByText(/Acknowledge notes/i)).not.toBeInTheDocument();
 
     expect(screen.queryByText("My Shifts")).not.toBeInTheDocument();
     expect(screen.queryByText("Attendance Risk")).not.toBeInTheDocument();
