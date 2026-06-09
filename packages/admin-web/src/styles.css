@@ -21309,9 +21309,18 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  .job-change-notices__list article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .job-intake-readiness__list article em,
   .job-change-notice > span {
     grid-column: 2;
+  }
+
+  .job-change-notice > span {
+    grid-column: auto;
+    justify-self: start;
   }
 
   .project-workflow-handoff-history__header,
