@@ -1166,47 +1166,186 @@ function ProjectTrackingCommandView({
   );
 }
 
-function ProjectTrackingLeadershipVisibility({ rows }: { rows: ProjectWorkflowJobRow[] }) {
-  const waitingAssignment = rows.filter(isMissingOwnerOrInfo).length;
-  const blocked = rows.filter(isBlockedWork).length;
-  const atRisk = rows.filter((row) => isAtRiskWork(row) || isDueSoonWork(row) || row.health === "running_late").length;
+function isOverdueLeadershipWork(row: ProjectWorkflowJobRow) {
+  return row.health === "running_late" || row.deadline_state === "running_late" || row.queue_intelligence.operational_status === "overdue" || row.current_step?.status === "OVERDUE";
+}
+
+function isUnassignedLeadershipWork(row: ProjectWorkflowJobRow) {
+  return row.current_step?.assignment_status === "needs_assignment" || row.missing_info_flags.includes("missing_owner") || row.owner_type === "unknown";
+}
+
+function isClientRiskWork(row: ProjectWorkflowJobRow) {
+  const text = [row.blocked_reason, row.queue_intelligence.reason, row.queue_intelligence.next_action, ...row.health_reasons]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hasSchoolClientWaitSignal(row) || /\b(client|approval|risk|parent|school)\b/.test(text);
+}
+
+function isProductionBottleneck(row: ProjectWorkflowJobRow) {
+  const department = departmentFilterForJob(row);
+  return (
+    department === "production" &&
+    row.health !== "complete" &&
+    (isBlockedWork(row) || isOverdueLeadershipWork(row) || isWaitingWork(row) || row.file_status === "waiting_for_files" || row.file_status === "qa_review")
+  );
+}
+
+function isCalendarNotReady(row: ProjectWorkflowJobRow) {
+  if (row.health === "complete") {
+    return false;
+  }
+  const flags = row.missing_info_flags.join(" ").toLowerCase();
+  return !row.job_date || /\b(date|location|call|calendar|time)\b/.test(flags);
+}
+
+function workDateForLeadership(row: ProjectWorkflowJobRow) {
+  return row.job_date ?? row.next_deadline_at;
+}
+
+function isWithinNextDays(row: ProjectWorkflowJobRow, referenceDate: Date, days: number) {
+  const value = workDateForLeadership(row);
+  if (!value || row.health === "complete") {
+    return false;
+  }
+  const date = new Date(value).getTime();
+  if (Number.isNaN(date)) {
+    return false;
+  }
+  const start = new Date(referenceDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + days);
+  end.setHours(23, 59, 59, 999);
+  return date >= start.getTime() && date <= end.getTime();
+}
+
+function stageSummaryFor(rows: ProjectWorkflowJobRow[]) {
+  const counts = PROJECT_TRACKING_BOARD_LANES.map((lane) => ({
+    label: lane.label,
+    count: rows.filter((row) => boardLaneForRow(row) === lane.id && row.health !== "complete").length
+  })).filter((item) => item.count > 0);
+  return counts.length ? counts.map((item) => `${item.label}: ${item.count}`).join(" | ") : "No active stage load.";
+}
+
+function departmentWorkloadSummary(rows: ProjectWorkflowJobRow[]) {
   const departmentWorkload = rows.reduce<Record<string, number>>((counts, row) => {
+    if (row.health === "complete") {
+      return counts;
+    }
     const department = departmentDisplayForRow(row);
     counts[department] = (counts[department] ?? 0) + 1;
     return counts;
   }, {});
-  const topDepartments = Object.entries(departmentWorkload)
+  return Object.entries(departmentWorkload)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3)
     .map(([department, count]) => `${department}: ${count}`)
-    .join(" | ");
+    .join(" | ") || "No active department load.";
+}
+
+function leadershipWorkItemSummary(row: ProjectWorkflowJobRow) {
+  const owner = ownerPresentation(row);
+  return `${workItemAccountLabel(row)} - ${owner.primary} - ${deadlineLabel(row)}`;
+}
+
+function ProjectTrackingLeadershipVisibility({
+  rows,
+  generatedAt
+}: {
+  rows: ProjectWorkflowJobRow[];
+  generatedAt: string | null | undefined;
+}) {
+  const referenceDate = commandReferenceDate(generatedAt);
+  const blocked = rows.filter(isBlockedWork).length;
+  const missingInfo = rows.filter((row) => row.missing_info_flags.length > 0).length;
+  const upcoming7 = rows.filter((row) => isWithinNextDays(row, referenceDate, 7)).length;
+  const upcoming14 = rows.filter((row) => isWithinNextDays(row, referenceDate, 14)).length;
+  const upcoming30 = rows.filter((row) => isWithinNextDays(row, referenceDate, 30)).length;
+  const overdue = rows.filter(isOverdueLeadershipWork).length;
+  const unassigned = rows.filter(isUnassignedLeadershipWork).length;
+  const waitingOnClient = rows.filter((row) => row.health !== "complete" && hasSchoolClientWaitSignal(row)).length;
+  const waitingOnInternal = rows.filter((row) => row.health !== "complete" && hasInternalWaitSignal(row)).length;
+  const clientRisk = rows.filter((row) => row.health !== "complete" && isClientRiskWork(row)).length;
+  const productionBottlenecks = rows.filter(isProductionBottleneck).length;
+  const calendarNotReady = rows.filter(isCalendarNotReady).length;
+  const urgentChangeNotices = rows.filter((row) => row.health !== "complete" && (isBlockedWork(row) || isOverdueLeadershipWork(row)) && Boolean(row.updated_at)).length;
+  const priorRiskIntelligence = rows.filter((row) => /\b(prior|previous|lesson|repeat|risk)\b/i.test(row.health_reasons.join(" "))).length;
   const cards = [
     {
-      label: "Jobs Waiting Assignment",
-      value: waitingAssignment,
-      detail: waitingAssignment ? "Department-owned work needs a person." : "No missing owner flags."
+      label: "Active Jobs by Stage",
+      value: rows.filter(isActiveWork).length,
+      detail: stageSummaryFor(rows)
     },
     {
-      label: "Jobs Blocked",
+      label: "Blocked Jobs",
       value: blocked,
       detail: blocked ? "Review blockers before handoff." : "No blocked jobs in this view."
     },
     {
-      label: "Jobs At Risk",
-      value: atRisk,
-      detail: atRisk ? "Due-soon or at-risk work needs review." : "No risk signals in this view."
+      label: "Jobs Missing Info",
+      value: missingInfo,
+      detail: missingInfo ? "Missing details are stopping clean handoffs." : "No missing-info flags."
+    },
+    {
+      label: "Upcoming Work",
+      value: upcoming30,
+      detail: `7 days: ${upcoming7} | 14 days: ${upcoming14} | 30 days: ${upcoming30}`
     },
     {
       label: "Department Workload",
-      value: rows.length,
-      detail: topDepartments || "No department workload yet."
+      value: rows.filter(isActiveWork).length,
+      detail: departmentWorkloadSummary(rows)
+    },
+    {
+      label: "Overdue Tasks",
+      value: overdue,
+      detail: overdue ? "Past due work needs leadership visibility." : "No overdue work in this view."
+    },
+    {
+      label: "Unassigned Work",
+      value: unassigned,
+      detail: unassigned ? "Department-owned work needs assignment." : "No unassigned work found."
+    },
+    {
+      label: "Waiting Split",
+      value: waitingOnClient + waitingOnInternal,
+      detail: `Client: ${waitingOnClient} | Internal: ${waitingOnInternal}`
+    },
+    {
+      label: "Production Bottlenecks",
+      value: productionBottlenecks,
+      detail: productionBottlenecks ? "Production work needs release pressure review." : "No production bottlenecks."
+    },
+    {
+      label: "Calendar Readiness",
+      value: calendarNotReady,
+      detail: calendarNotReady ? "Jobs need date, time, or location readiness." : "Calendar-ready for visible work."
+    },
+    {
+      label: "Client-Risk Jobs",
+      value: clientRisk,
+      detail: clientRisk ? "Client-facing risk or approval needs attention." : "No client-risk signals."
+    },
+    {
+      label: "Urgent Changes",
+      value: urgentChangeNotices,
+      detail: urgentChangeNotices ? "Recently changed blocked or overdue work." : "No urgent change notices."
+    },
+    {
+      label: "Prior-Risk Intelligence",
+      value: priorRiskIntelligence,
+      detail: priorRiskIntelligence ? "Repeat-job lessons are attached." : "No prior-risk notes on these rows."
     }
   ];
+  const stuckRows = sortRows(rows.filter((row) => isBlockedWork(row) || row.missing_info_flags.length > 0 || isOverdueLeadershipWork(row) || isWaitingWork(row)), "risk").slice(0, 4);
+  const upcomingRows = sortRows(rows.filter((row) => isWithinNextDays(row, referenceDate, 14)), "deadline").slice(0, 4);
+  const leadershipRows = sortRows(rows.filter((row) => isUnassignedLeadershipWork(row) || isClientRiskWork(row) || isProductionBottleneck(row) || isCalendarNotReady(row)), "risk").slice(0, 4);
   return (
-    <section className="project-tracking-leadership-strip" aria-label="Leadership visibility">
+    <section className="project-tracking-leadership-strip project-tracking-leadership-report" aria-label="Leadership operating report">
       <div className="project-tracking-leadership-strip__label">
-        <strong>Leadership Visibility</strong>
-        <span>Assignment, blockers, risk, and workload from the same tracked jobs.</span>
+        <strong>Leadership Operating Report</strong>
+        <span>Stuck work, upcoming load, assignments, waiting split, and readiness from the same tracked jobs.</span>
       </div>
       <div className="project-tracking-leadership-strip__cards">
         {cards.map((card) => (
@@ -1214,6 +1353,30 @@ function ProjectTrackingLeadershipVisibility({ rows }: { rows: ProjectWorkflowJo
             <span>{card.label}</span>
             <strong>{card.value}</strong>
             <small>{card.detail}</small>
+          </article>
+        ))}
+      </div>
+      <div className="project-tracking-leadership-report__lists" aria-label="Leadership reporting short lists">
+        {[
+          { label: "What Is Stuck", rows: stuckRows, empty: "No blocked, overdue, waiting, or missing-info work." },
+          { label: "What Is Coming Up", rows: upcomingRows, empty: "No visible work due in the next 14 days." },
+          { label: "Leadership Attention", rows: leadershipRows, empty: "No unassigned, client-risk, production, or calendar-readiness items." }
+        ].map((group) => (
+          <article key={group.label}>
+            <h3>{group.label}</h3>
+            {group.rows.length ? (
+              <ul>
+                {group.rows.map((row) => (
+                  <li key={`${group.label}:${row.job_id}`}>
+                    <strong>{workItemName(row)}</strong>
+                    <span>{leadershipWorkItemSummary(row)}</span>
+                    <small>{row.queue_intelligence.next_action}</small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>{group.empty}</p>
+            )}
           </article>
         ))}
       </div>
@@ -2226,7 +2389,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
             </div>
           </section>
 
-          <ProjectTrackingLeadershipVisibility rows={areaScopedRows} />
+          <ProjectTrackingLeadershipVisibility rows={areaScopedRows} generatedAt={globalCommandCenter?.generated_at} />
 
           <ProjectTrackingJobBoard
             token={token}

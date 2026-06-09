@@ -4751,7 +4751,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 
 .project-tracking-leadership-strip__cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
   min-width: 0;
 }
@@ -4781,6 +4781,70 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-leadership-strip__cards small {
   font-size: 0.66rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-leadership-report {
+  align-items: start;
+}
+
+.project-tracking-leadership-report__lists {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-tracking-leadership-report__lists article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(201, 211, 224, 0.76);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.project-tracking-leadership-report__lists h3 {
+  margin: 0;
+  color: var(--pt-text);
+  font-size: 0.78rem;
+}
+
+.project-tracking-leadership-report__lists ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-tracking-leadership-report__lists li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-block: 2px;
+}
+
+.project-tracking-leadership-report__lists li + li {
+  border-top: 1px solid rgba(201, 211, 224, 0.68);
+  padding-top: 6px;
+}
+
+.project-tracking-leadership-report__lists strong {
+  color: var(--pt-text);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.project-tracking-leadership-report__lists span,
+.project-tracking-leadership-report__lists small,
+.project-tracking-leadership-report__lists p {
+  margin: 0;
+  color: var(--pt-muted);
+  font-size: 0.66rem;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
@@ -7041,6 +7105,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   }
 
   .project-tracking-leadership-strip__cards,
+  .project-tracking-leadership-report__lists,
   .employee-operational-queue__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -7059,6 +7124,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   }
 
   .project-tracking-leadership-strip__cards,
+  .project-tracking-leadership-report__lists,
   .employee-operational-queue__grid {
     grid-template-columns: minmax(0, 1fr);
   }
