@@ -23,15 +23,17 @@ type Props = {
   summary: ReactNode;
   meta?: WorkspaceHeaderMeta[];
   actions?: ReactNode;
+  formIntro?: ReactNode;
   sections: FormSection[];
   sidebarCards?: SidebarCard[];
   footer: ReactNode;
 };
 
-export function SharedJobFormShell({ eyebrow, title, summary, meta = [], actions = null, sections, sidebarCards = [], footer }: Props) {
+export function SharedJobFormShell({ eyebrow, title, summary, meta = [], actions = null, formIntro = null, sections, sidebarCards = [], footer }: Props) {
   return (
     <div className="shared-job-shell shared-job-shell--form">
       <WorkspacePageHeader eyebrow={eyebrow} title={title} summary={summary} meta={meta} actions={actions} compact />
+      {formIntro}
       <div className="shared-job-shell__form-layout">
         <div className="shared-job-shell__form-main">
           {sections.map((section) => (

@@ -55,7 +55,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "School Picture Day",
     department: "schools",
     category: "photo_day",
-    routeLabel: "School Picture Day workflow",
+    routeLabel: "School Picture Day route",
     firstOwnerDepartment: "Schools",
     nextDepartment: "Photography",
     defaultNextAction: "Confirm organization, date, location, and roster status.",
@@ -66,7 +66,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "Retake Day",
     department: "schools",
     category: "makeup_day",
-    routeLabel: "Retake Day workflow",
+    routeLabel: "Retake Day route",
     firstOwnerDepartment: "Schools",
     nextDepartment: "Photography",
     defaultNextAction: "Confirm retake date, eligible students, and release expectations.",
@@ -77,7 +77,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "Sports League",
     department: "sports",
     category: "media_day",
-    routeLabel: "Sports League workflow",
+    routeLabel: "Sports League route",
     firstOwnerDepartment: "Sports",
     nextDepartment: "Photography",
     defaultNextAction: "Confirm league, teams, shoot schedule, and proof owner.",
@@ -89,7 +89,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "Team Photos",
     department: "sports",
     category: "media_day",
-    routeLabel: "Team Photos workflow",
+    routeLabel: "Team Photos route",
     firstOwnerDepartment: "Sports",
     nextDepartment: "Photography",
     defaultNextAction: "Confirm teams, coach contact, photo order, and proof requirements.",
@@ -101,7 +101,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "Graduation",
     department: "schools",
     category: "event",
-    routeLabel: "Graduation workflow",
+    routeLabel: "Graduation route",
     firstOwnerDepartment: "Schools",
     nextDepartment: "Photography",
     defaultNextAction: "Confirm ceremony schedule, access notes, and delivery deadline.",
@@ -113,7 +113,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "Event",
     department: "schools",
     category: "event",
-    routeLabel: "Event workflow",
+    routeLabel: "Event route",
     firstOwnerDepartment: "Client Success",
     nextDepartment: "Photography",
     defaultNextAction: "Confirm event owner, date, location, expected volume, and services.",
@@ -124,7 +124,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     label: "Specialty",
     department: "sports",
     category: "specialty",
-    routeLabel: "Specialty workflow",
+    routeLabel: "Specialty route",
     firstOwnerDepartment: "Client Success",
     nextDepartment: "Production",
     defaultNextAction: "Confirm requested specialty products, due date, and approval owner.",
@@ -173,14 +173,14 @@ export function applyJobIntakeType(formState: SharedJobFormState, id: JobIntakeT
     production_required: option.defaults?.production_required ?? formState.production_required,
     delivery_type: option.defaults?.delivery_type ?? formState.delivery_type,
     gallery_type: option.defaults?.gallery_type ?? formState.gallery_type,
-    school_profile: { ...formState.school_profile, ...option.schoolDefaults },
-    sports_profile: { ...formState.sports_profile, ...option.sportsDefaults }
+    school_profile: { ...formState.school_profile, school_type: "", ...option.schoolDefaults },
+    sports_profile: { ...formState.sports_profile, team_structure: "", ...option.sportsDefaults }
   };
 }
 
 export function buildWorkflowRouteHint(typeId: JobIntakeTypeId) {
   const option = getJobIntakeTypeOption(typeId);
-  return `${option.routeLabel} attaches when the draft is saved. Open Project Tracking from the job record after submit.`;
+  return `${option.routeLabel} starts when the package is saved. Open Project Tracking from the job record to keep it moving.`;
 }
 
 function firstPresent(values: Array<string | null | undefined>, fallback: string) {
@@ -242,7 +242,7 @@ export function buildRoutingPreviewFromForm(
     dueDateLabel: dueDateFromForm(formState),
     blockerStatus: status,
     blockerLabel: blockerLabel(status),
-    firstNextAction: missing > 0 ? "Complete the missing intake fields before publish." : option.defaultNextAction,
+    firstNextAction: missing > 0 ? "Fill in the missing intake fields before starting the package." : option.defaultNextAction,
     currentStage: "intake"
   };
 }
@@ -345,8 +345,8 @@ export function buildRoutingPreviewFromDetail(detail: SharedJobDetailResponse): 
   );
   return {
     jobTypeLabel: humanizeToken(detail.job.job_category),
-    workflowRouteLabel: `${departmentFromJobType(detail.job.department_type, "Job")} workflow`,
-    workflowRouteHint: "Open Project Tracking to review the connected workflow route and next owner.",
+    workflowRouteLabel: `${departmentFromJobType(detail.job.department_type, "Job")} route`,
+    workflowRouteHint: "Open Project Tracking to review the connected route and next owner.",
     currentDepartment: stage === "intake" ? "Intake" : nextDepartmentFromStage(stage, detail) === "Closed" ? "Closed" : departmentFromJobType(detail.job.department_type, "Operations"),
     currentOwner: detail.summary.lead_owner_name ?? detail.summary.account_owner_name ?? "Owner not assigned",
     waitingOn: blocked ? `${detail.status.blocker_count || detail.status.open_watch_flag_count} attention item${(detail.status.blocker_count || detail.status.open_watch_flag_count) === 1 ? "" : "s"}` : "No blocker",
@@ -385,10 +385,10 @@ export function buildRoutingPreviewFromProjectRow(row: ProjectWorkflowJobRow): J
   const status: JobRoutingPreview["blockerStatus"] = blocked ? "blocked" : watch ? "watch" : "clear";
   return {
     jobTypeLabel: row.workflow_template_name ?? "Job workflow",
-    workflowRouteLabel: row.workflow_run_id ? "Connected workflow route" : "Workflow route pending",
+    workflowRouteLabel: row.workflow_run_id ? "Connected route" : "Route pending",
     workflowRouteHint: row.workflow_run_id
       ? `#project-tracking/workflows/${row.workflow_run_id}`
-      : "Create or attach a workflow route before this can move through Project Tracking.",
+      : "Create or attach a route before this can move through Project Tracking.",
     currentDepartment: row.current_step?.department ? `${humanizeToken(row.current_step.department)} team` : departmentFromJobType(row.job_title, "Operations"),
     currentOwner: row.owner_display || "Owner not assigned",
     waitingOn: row.waiting_on_party && row.waiting_on_party !== "none" ? humanizeToken(row.waiting_on_party) : "No blocker",
@@ -418,41 +418,56 @@ export function JobProgressTimeline({ preview }: { preview: JobRoutingPreview })
   );
 }
 
+export function JobRoutingOutcome({ preview }: { preview: JobRoutingPreview }) {
+  return (
+    <section className="panel job-routing-outcome">
+      <div className="job-routing-outcome__header">
+        <div>
+          <span className="eyebrow">Workflow Route</span>
+          <h3>What happens after submit</h3>
+          <p>{preview.workflowRouteHint}</p>
+        </div>
+        <span className={`job-routing-card__status job-routing-card__status--${preview.blockerStatus}`}>{preview.blockerLabel}</span>
+      </div>
+      <JobProgressTimeline preview={preview} />
+      <JobHandoffCard preview={preview} />
+    </section>
+  );
+}
+
 export function JobHandoffCard({ preview, compact = false }: { preview: JobRoutingPreview; compact?: boolean }) {
+  const compactItems = [
+    { label: "Owner", value: preview.currentOwner },
+    { label: "Waiting on", value: preview.waitingOn },
+    { label: "Next", value: preview.nextDepartment },
+    { label: "Due", value: preview.dueDateLabel }
+  ];
+  const fullItems = [
+    { label: "Current team", value: preview.currentDepartment },
+    { label: "Current owner", value: preview.currentOwner },
+    { label: "Waiting on", value: preview.waitingOn },
+    { label: "Next team", value: preview.nextDepartment },
+    { label: "Due date", value: preview.dueDateLabel },
+    { label: "Next action", value: preview.firstNextAction }
+  ];
+  const items = compact ? compactItems : fullItems;
+
   return (
     <section className={`job-routing-card${compact ? " job-routing-card--compact" : ""}`}>
       <div className="job-routing-card__header">
         <div>
-          <strong>Handoff Card</strong>
+          <strong>{compact ? "Handoff" : "Handoff Plan"}</strong>
           <span>{preview.workflowRouteLabel}</span>
         </div>
         <span className={`job-routing-card__status job-routing-card__status--${preview.blockerStatus}`}>{preview.blockerLabel}</span>
       </div>
       <div className="job-routing-card__grid">
-        <div>
-          <span>Current department</span>
-          <strong>{preview.currentDepartment}</strong>
-        </div>
-        <div>
-          <span>Current owner</span>
-          <strong>{preview.currentOwner}</strong>
-        </div>
-        <div>
-          <span>Waiting on</span>
-          <strong>{preview.waitingOn}</strong>
-        </div>
-        <div>
-          <span>Next department</span>
-          <strong>{preview.nextDepartment}</strong>
-        </div>
-        <div>
-          <span>Due date</span>
-          <strong>{preview.dueDateLabel}</strong>
-        </div>
-        <div>
-          <span>Next action</span>
-          <strong>{preview.firstNextAction}</strong>
-        </div>
+        {items.map((item) => (
+          <div key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
       </div>
       {!compact ? <p>{preview.workflowRouteHint}</p> : null}
     </section>

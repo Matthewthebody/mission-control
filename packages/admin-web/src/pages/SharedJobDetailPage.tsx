@@ -327,7 +327,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       body: (
         <div className="shared-job-form__stack">
           <JobProgressTimeline preview={routingPreview} />
-          <JobHandoffCard preview={routingPreview} compact />
+          <JobHandoffCard preview={routingPreview} />
         </div>
       )
     });

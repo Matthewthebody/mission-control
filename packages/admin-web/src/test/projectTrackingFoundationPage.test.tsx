@@ -579,10 +579,12 @@ describe("ProjectTrackingFoundation", () => {
     expect(boardLanes.querySelector(".project-tracking-board-card__meta-line")).not.toBeNull();
     expect(boardLanes.querySelector(".project-tracking-board-card__next")).not.toBeNull();
     expect(boardLanes.querySelector(".job-routing-card--compact")).not.toBeNull();
-    expect(within(boardLanes).getAllByText("Handoff Card").length).toBeGreaterThan(0);
-    expect(within(boardLanes).getAllByText("Current department").length).toBeGreaterThan(0);
+    expect(within(boardLanes).getAllByText("Handoff").length).toBeGreaterThan(0);
+    expect(within(boardLanes).getAllByText("Owner").length).toBeGreaterThan(0);
     expect(within(boardLanes).getAllByText("Waiting on").length).toBeGreaterThan(0);
-    expect(within(boardLanes).getAllByText("Next department").length).toBeGreaterThan(0);
+    expect(within(boardLanes).getAllByText("Next").length).toBeGreaterThan(0);
+    expect(within(boardLanes).getAllByText("Due").length).toBeGreaterThan(0);
+    expect(within(boardLanes).queryByText("Current department")).not.toBeInTheDocument();
     expect(boardLanes.querySelector(".project-tracking-step-pill")).toBeNull();
     expect(boardLanes.querySelector("dl")).toBeNull();
     expect(screen.getAllByText("Running late").length).toBeGreaterThan(0);

@@ -2299,6 +2299,25 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.7fr);
 }
 
+.shared-job-shell__form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.55fr);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+
+.shared-job-shell__form-main,
+.shared-job-shell__form-sidebar {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.shared-job-shell__form-sidebar {
+  align-content: start;
+}
+
 .shared-job-shell__surface,
 .shared-job-shell__preview,
 .shared-job-shell__toolbar,
@@ -2429,6 +2448,40 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 .shared-job-form__stack {
   display: grid;
   gap: 12px;
+}
+
+.job-routing-outcome {
+  display: grid;
+  gap: 14px;
+  border-color: rgba(96, 165, 250, 0.28);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.1), rgba(15, 23, 42, 0.34));
+}
+
+.job-routing-outcome__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.job-routing-outcome__header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.job-routing-outcome__header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.2;
+}
+
+.job-routing-outcome__header p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .job-routing-timeline {
@@ -2573,11 +2626,12 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .project-tracking-board-card .job-routing-card--compact .job-routing-card__grid {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (max-width: 980px) {
-  .shared-job-shell__split--preview {
+  .shared-job-shell__split--preview,
+  .shared-job-shell__form-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
