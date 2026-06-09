@@ -2402,10 +2402,17 @@ beforeEach(() => {
 
   it("renders the global New Job Intake route with routing foundation fields", async () => {
     window.location.hash = "#jobs/new";
-    render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+    const { container } = render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
 
-    expect(await screen.findByRole("heading", { name: "New Job Intake" })).toBeInTheDocument();
-    expect(screen.getByText("Start with the basics. Choose the job type, then Mission Control will help identify missing info and next steps.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "New Job Intake" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Start with the basics. Choose the job type, then Mission Control will help identify missing info and next steps.")).not.toBeInTheDocument();
+    expect(container.querySelector(".shared-job-shell--clean-intake")).toBeInTheDocument();
+    expect(container.querySelector(".shared-job-shell__form-layout--single")).toBeInTheDocument();
+    expect(container.querySelector(".workspace-page-header")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Workspace status")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "What happens after submit" })).not.toBeInTheDocument();
     expect(screen.queryByText("Handoff Plan")).not.toBeInTheDocument();
     expect(screen.queryByText("Ownership")).not.toBeInTheDocument();
@@ -2421,7 +2428,6 @@ beforeEach(() => {
     expect(screen.queryByText("Assignment Needed")).not.toBeInTheDocument();
     expect(screen.getByText("What Mission Control will prepare")).toBeInTheDocument();
     expect(screen.getByLabelText("Job setup next steps")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Work area")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Job type")).toBeInTheDocument();
     const jobTypeSelect = getControlWithinLabel("Job type", "select");

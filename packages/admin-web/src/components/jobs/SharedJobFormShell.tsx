@@ -27,13 +27,27 @@ type Props = {
   sections: FormSection[];
   sidebarCards?: SidebarCard[];
   footer: ReactNode;
+  hideHeader?: boolean;
+  shellClassName?: string;
 };
 
-export function SharedJobFormShell({ eyebrow, title, summary, meta = [], actions = null, formIntro = null, sections, sidebarCards = [], footer }: Props) {
+export function SharedJobFormShell({
+  eyebrow,
+  title,
+  summary,
+  meta = [],
+  actions = null,
+  formIntro = null,
+  sections,
+  sidebarCards = [],
+  footer,
+  hideHeader = false,
+  shellClassName = ""
+}: Props) {
   const hasSidebar = sidebarCards.length > 0;
   return (
-    <div className="shared-job-shell shared-job-shell--form">
-      <WorkspacePageHeader eyebrow={eyebrow} title={title} summary={summary} meta={meta} actions={actions} compact />
+    <div className={`shared-job-shell shared-job-shell--form${shellClassName ? ` ${shellClassName}` : ""}`}>
+      {hideHeader ? null : <WorkspacePageHeader eyebrow={eyebrow} title={title} summary={summary} meta={meta} actions={actions} compact />}
       {formIntro}
       <div className={`shared-job-shell__form-layout${hasSidebar ? "" : " shared-job-shell__form-layout--single"}`}>
         <div className="shared-job-shell__form-main">

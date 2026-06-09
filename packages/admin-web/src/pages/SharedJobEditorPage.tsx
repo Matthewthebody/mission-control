@@ -696,21 +696,29 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       }
       meta={headerMeta}
       actions={
-        <WorkspaceActionBar align="end">
+        isGlobalJobIntake ? null : <WorkspaceActionBar align="end">
           {detail?.job.published_at ? <StatusPill label={humanizeToken(detail.job.job_status)} tone={statusTone(detail.job.job_status)} /> : null}
           <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
             Back
           </button>
         </WorkspaceActionBar>
       }
-      formIntro={null}
+      formIntro={
+        isGlobalJobIntake ? (
+          <div className="shared-job-shell__clean-intake-actions">
+            <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
+              Back
+            </button>
+          </div>
+        ) : null
+      }
       sections={sections}
       sidebarCards={sidebarCards}
       footer={
         <>
-          <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
+          {!isGlobalJobIntake ? <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
             Cancel
-          </button>
+          </button> : null}
           {!readOnly && isGlobalJobIntake ? (
             <>
               <button type="button" className="secondary-button" onClick={() => void persist("draft")} disabled={saving || publishing}>
@@ -735,6 +743,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {error ? <span className="shared-job-form__error" role="alert">{error}</span> : null}
         </>
       }
+      hideHeader={isGlobalJobIntake}
+      shellClassName={isGlobalJobIntake ? "shared-job-shell--clean-intake" : ""}
     />
   );
 }

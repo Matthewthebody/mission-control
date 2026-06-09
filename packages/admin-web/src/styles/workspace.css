@@ -1154,6 +1154,19 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.shared-job-shell--clean-intake {
+  padding-bottom: 96px;
+}
+
+.shared-job-shell--clean-intake .shared-job-shell__form-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shared-job-shell__clean-intake-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .shared-job-shell__form-main,
 .shared-job-shell__form-sidebar,
 .shared-job-detail__stack,
@@ -1182,6 +1195,15 @@
   position: sticky;
   bottom: 16px;
   z-index: 5;
+}
+
+.shared-job-shell--clean-intake .shared-job-shell__sticky-footer {
+  position: static;
+  padding: 14px 16px;
+}
+
+.shared-job-shell--clean-intake .shared-job-shell__sticky-footer .workspace-action-bar {
+  justify-content: flex-start;
 }
 
 .shared-job-shell__issue-badge {
