@@ -2741,6 +2741,16 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   gap: 6px;
 }
 
+.job-work-package__details {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .job-work-package__status,
 .job-routing-notification {
   display: inline-flex;

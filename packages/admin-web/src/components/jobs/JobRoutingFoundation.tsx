@@ -40,6 +40,7 @@ type OperationalNotificationTone = "info" | "warning" | "critical" | "success";
 type IntakeReadinessTone = "success" | "warning" | "critical" | "neutral";
 type IntakeReviewState = "Draft Intake" | "Intake Review" | "Missing Info" | "Ready To Launch";
 type ChangeNoticeLevel = "FYI" | "Important" | "Urgent";
+export type JobWorkflowAssignmentRuleType = "department_lead" | "direct_owner" | "needs_owner" | "role_fallback";
 
 export type JobOperationalWorkPackage = {
   id: string;
@@ -47,10 +48,15 @@ export type JobOperationalWorkPackage = {
   name: string;
   summary: string;
   ownerDepartment: string;
-  assignmentRule: "Department Lead" | "Direct Owner" | "Manual Assignment";
+  assignmentRule: "Department Lead" | "Direct Owner" | "Needs Owner" | "Role Fallback";
+  assignmentRuleType: JobWorkflowAssignmentRuleType;
   assignedPerson: string;
   dueDateLabel: string;
   status: OperationalPackageStatus;
+  readinessChecks: string[];
+  commonBlockers: string[];
+  completionCriteria: string;
+  handoffToDepartment: string;
 };
 
 export type JobOperationalNotification = {
@@ -102,6 +108,36 @@ export type JobChangeNotice = {
   level: ChangeNoticeLevel;
   title: string;
   summary: string;
+};
+
+type JobWorkflowTemplateTask = Omit<
+  JobOperationalWorkPackage,
+  "id" | "assignmentRule" | "assignedPerson" | "dueDateLabel" | "status" | "handoffToDepartment"
+> & {
+  assignmentRuleType: JobWorkflowAssignmentRuleType;
+  directOwner?: string;
+  fallbackDepartment?: string;
+  dueDateLogic: string;
+};
+
+type JobWorkflowTemplateTaskSeed = Omit<
+  JobWorkflowTemplateTask,
+  "assignmentRuleType" | "readinessChecks" | "commonBlockers" | "completionCriteria" | "dueDateLogic"
+> & {
+  assignmentRule?: "Department Lead" | "Direct Owner" | "Manual Assignment";
+  assignmentRuleType?: JobWorkflowAssignmentRuleType;
+  readinessChecks?: string[];
+  commonBlockers?: string[];
+  completionCriteria?: string;
+  dueDateLogic?: string;
+};
+
+export type JobWorkflowTemplateDefinition = {
+  typeId: JobIntakeTypeId;
+  jobType: string;
+  departmentsInvolved: string[];
+  handoffSequence: string[];
+  defaultTasks: JobWorkflowTemplateTask[];
 };
 
 export const JOB_INTAKE_TYPE_OPTIONS: Array<{
@@ -271,85 +307,214 @@ const DEPARTMENT_LEADS: Record<string, string> = {
   Closed: "Complete"
 };
 
-const WORK_PACKAGE_TEMPLATES: Record<JobIntakeTypeId, Array<Omit<JobOperationalWorkPackage, "id" | "assignedPerson" | "dueDateLabel" | "status">>> = {
+const WORK_PACKAGE_TEMPLATE_SEEDS: Record<JobIntakeTypeId, JobWorkflowTemplateTaskSeed[]> = {
   school_picture_day: [
     { phase: "Planning", name: "Roster Collection", summary: "Request or verify roster, grade range, and ID-matching needs.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
-    { phase: "Scheduling", name: "Photographer Assignment", summary: "Confirm date, arrival window, lead photographer, and coverage level.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
-    { phase: "Photography", name: "Picture Day Capture", summary: "Execute picture day with setup, access, and day-of roster notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Scheduling", name: "Photographer Assignment", summary: "Confirm date, arrival window, lead photographer, and coverage level.", ownerDepartment: "Photography", assignmentRuleType: "needs_owner" },
+    { phase: "Photography", name: "Picture Day Capture", summary: "Execute picture day with setup, access, and day-of roster notes.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Image QA", summary: "Ingest, verify data match, crop, QA, and prepare required outputs.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Gallery Release", summary: "Release gallery, school deliverables, and client follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   retake_day: [
     { phase: "Planning", name: "Retake List Collection", summary: "Confirm eligible students, missing-image list, and makeup rules.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
-    { phase: "Scheduling", name: "Retake Photographer Assignment", summary: "Confirm makeup date, arrival window, and staffing needs.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
-    { phase: "Photography", name: "Retake Capture", summary: "Capture makeup images and flag record-matching exceptions.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Scheduling", name: "Retake Photographer Assignment", summary: "Confirm makeup date, arrival window, and staffing needs.", ownerDepartment: "Photography", assignmentRuleType: "needs_owner" },
+    { phase: "Photography", name: "Retake Capture", summary: "Capture makeup images and flag record-matching exceptions.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Retake Image QA", summary: "Match retake files, verify replacement rules, and update outputs.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Retake Gallery Release", summary: "Release retakes and notify school or families as needed.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   sports_picture_day: [
     { phase: "Planning", name: "Team List and QR Readiness", summary: "Collect team list, coach contact, QR/barcode plan, and late-arrival rules.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
     { phase: "Scheduling", name: "Sports Photo Flow", summary: "Set order of teams, individual flow, team photo flow, and staffing coverage.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
-    { phase: "Photography", name: "Sports Capture", summary: "Execute team and individual photos with coach/team exceptions captured.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Sports Capture", summary: "Execute team and individual photos with coach/team exceptions captured.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Sports Sorting and QA", summary: "Sort by team, verify graphics/product needs, and QA release readiness.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Sports Gallery Release", summary: "Release proof/gallery and handle coach or league follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   sports_league: [
     { phase: "Planning", name: "Team and Roster Collection", summary: "Confirm league structure, teams, coaches, rosters, and proof owner.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
     { phase: "Scheduling", name: "Game and Media Day Schedule", summary: "Confirm date grid, location flow, and staffing by team block.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
-    { phase: "Photography", name: "Media Day Capture", summary: "Capture teams and individuals with late-arrival and coach exceptions.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Media Day Capture", summary: "Capture teams and individuals with late-arrival and coach exceptions.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Sports Image QA", summary: "Sort, QA, verify specialty products, and prepare release.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Sports Release", summary: "Release proofs, final galleries, and league follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   team_photos: [
     { phase: "Planning", name: "Team List Confirmation", summary: "Confirm teams, coaches, counts, and proof requirements.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
     { phase: "Scheduling", name: "Team Photo Schedule", summary: "Set team time slots, location notes, and staffing expectations.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
-    { phase: "Photography", name: "Team Photo Capture", summary: "Capture team and individual images with notes for production.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Team Photo Capture", summary: "Capture team and individual images with notes for production.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Product and Proof Prep", summary: "Prepare proofing, products, banners, or specialty outputs.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Team Gallery Release", summary: "Release gallery and client/team communication.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   graduation: [
     { phase: "Planning", name: "Ceremony Details", summary: "Confirm ceremony schedule, stage positions, access, and deliverables.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
-    { phase: "Scheduling", name: "Graduation Photographer Assignment", summary: "Assign ceremony coverage, portrait station, and timing notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
-    { phase: "Photography", name: "Graduation Capture", summary: "Capture ceremony, portraits, and key coverage notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Scheduling", name: "Graduation Photographer Assignment", summary: "Assign ceremony coverage, portrait station, and timing notes.", ownerDepartment: "Photography", assignmentRuleType: "needs_owner" },
+    { phase: "Photography", name: "Graduation Capture", summary: "Capture ceremony, portraits, and key coverage notes.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Graduation Gallery QA", summary: "QA ceremony images and prepare family gallery delivery.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Family Gallery Delivery", summary: "Release gallery and manage family/client follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   cap_and_gown: [
     { phase: "Planning", name: "Cap & Gown Scope", summary: "Confirm portrait station, school expectations, and student flow.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
-    { phase: "Scheduling", name: "Portrait Station Schedule", summary: "Confirm room, arrival, setup, and staffing coverage.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
-    { phase: "Photography", name: "Cap & Gown Capture", summary: "Capture portraits and note exceptions or retake needs.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Scheduling", name: "Portrait Station Schedule", summary: "Confirm room, arrival, setup, and staffing coverage.", ownerDepartment: "Photography", assignmentRuleType: "needs_owner" },
+    { phase: "Photography", name: "Cap & Gown Capture", summary: "Capture portraits and note exceptions or retake needs.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Portrait QA", summary: "QA portraits, crop, match records, and prepare gallery.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Cap & Gown Delivery", summary: "Release gallery and follow up with school contact.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   yearbook: [
     { phase: "Planning", name: "Yearbook Requirements", summary: "Confirm export specs, roster source, deadline, and advisor contact.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
     { phase: "Scheduling", name: "Yearbook Data Readiness", summary: "Verify required fields, ID matching, and submission timing.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
-    { phase: "Photography", name: "Reference Capture Check", summary: "Confirm any needed image replacement or reference work.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Reference Capture Check", summary: "Confirm any needed image replacement or reference work.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Yearbook Export", summary: "Prepare PSPA/yearbook export and validate file requirements.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Advisor Delivery", summary: "Send export and confirm advisor acceptance.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   event: [
     { phase: "Planning", name: "Event Details", summary: "Confirm event owner, scope, audience, restrictions, and deliverables.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
-    { phase: "Scheduling", name: "Coverage Scheduling", summary: "Assign photographer and confirm arrival, coverage, and teardown.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
-    { phase: "Photography", name: "Event Capture", summary: "Capture event with client-facing notes and coverage exceptions.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Scheduling", name: "Coverage Scheduling", summary: "Assign photographer and confirm arrival, coverage, and teardown.", ownerDepartment: "Photography", assignmentRuleType: "needs_owner" },
+    { phase: "Photography", name: "Event Capture", summary: "Capture event with client-facing notes and coverage exceptions.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Event Image QA", summary: "Cull, QA, and prepare client-ready delivery.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Client Delivery", summary: "Deliver gallery/files and complete follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   specialty: [
     { phase: "Planning", name: "Product Scope", summary: "Confirm specialty product, reference files, approval owner, and due date.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
-    { phase: "Scheduling", name: "Due Date Scheduling", summary: "Confirm priority, production window, and leadership approval if needed.", ownerDepartment: "Leadership", assignmentRule: "Direct Owner" },
-    { phase: "Photography", name: "Reference Capture", summary: "Capture or collect needed reference images and usage notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Scheduling", name: "Due Date Scheduling", summary: "Confirm priority, production window, and leadership approval if needed.", ownerDepartment: "Leadership", assignmentRule: "Direct Owner", directOwner: "Brandon" },
+    { phase: "Photography", name: "Reference Capture", summary: "Capture or collect needed reference images and usage notes.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Specialty Production", summary: "Build, QA, and prepare specialty output.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Client Delivery", summary: "Deliver final product and confirm acceptance.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   other: [
     { phase: "Planning", name: "Custom Scope Review", summary: "Clarify what the client needs and which department owns the package.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
     { phase: "Scheduling", name: "Calendar Readiness", summary: "Confirm date, location, access, and staffing assumptions.", ownerDepartment: "Operations", assignmentRule: "Department Lead" },
-    { phase: "Photography", name: "Coverage Plan", summary: "Confirm whether photography is needed and who should handle it.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Coverage Plan", summary: "Confirm whether photography is needed and who should handle it.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
     { phase: "Production", name: "Output Plan", summary: "Confirm production, graphics, or file delivery requirements.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Client Closeout", summary: "Confirm final delivery and any follow-up owner.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ]
 };
+
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+export function assignmentRuleLabel(ruleType: JobWorkflowAssignmentRuleType): JobOperationalWorkPackage["assignmentRule"] {
+  if (ruleType === "direct_owner") {
+    return "Direct Owner";
+  }
+  if (ruleType === "needs_owner") {
+    return "Needs Owner";
+  }
+  if (ruleType === "role_fallback") {
+    return "Role Fallback";
+  }
+  return "Department Lead";
+}
+
+function assignmentRuleTypeForTask(task: JobWorkflowTemplateTaskSeed): JobWorkflowAssignmentRuleType {
+  if (task.assignmentRuleType) {
+    return task.assignmentRuleType;
+  }
+  if (task.assignmentRule === "Direct Owner") {
+    return "direct_owner";
+  }
+  if (task.assignmentRule === "Manual Assignment") {
+    return "needs_owner";
+  }
+  return "department_lead";
+}
+
+function defaultReadinessChecks(task: JobWorkflowTemplateTaskSeed) {
+  if (task.readinessChecks?.length) {
+    return task.readinessChecks;
+  }
+  if (task.phase === "Planning") {
+    return ["Client, scope, contact, and missing-info list reviewed."];
+  }
+  if (task.phase === "Scheduling") {
+    return ["Shoot date, time window, location, and owner assignment confirmed."];
+  }
+  if (task.phase === "Photography") {
+    return ["Prep notes, call time, equipment needs, and day-of owner confirmed."];
+  }
+  if (task.phase === "Production") {
+    return ["Files, data, production deadline, and QA expectations confirmed."];
+  }
+  return ["Delivery destination, communication owner, and closeout expectation confirmed."];
+}
+
+function defaultCommonBlockers(task: JobWorkflowTemplateTaskSeed) {
+  if (task.commonBlockers?.length) {
+    return task.commonBlockers;
+  }
+  const name = `${task.name} ${task.summary}`.toLowerCase();
+  if (name.includes("roster") || name.includes("student")) {
+    return ["Missing roster", "Waiting on client", "Missing price sheet"];
+  }
+  if (name.includes("team") || name.includes("qr") || name.includes("barcode")) {
+    return ["Missing team list", "Missing QR or barcode workflow", "Waiting on client"];
+  }
+  if (name.includes("photographer") || name.includes("capture") || name.includes("coverage")) {
+    return ["Missing photographer assignment", "Missing call time", "Calendar conflict"];
+  }
+  if (task.phase === "Production") {
+    return ["Missing production deadline", "Waiting on internal team", "Missing gallery or platform setup"];
+  }
+  if (task.phase === "Delivery") {
+    return ["Client approval needed", "Waiting on client", "Gallery or delivery destination not confirmed"];
+  }
+  return ["Missing contact", "Missing location details", "Waiting on internal team"];
+}
+
+function defaultDueDateLogic(task: JobWorkflowTemplateTaskSeed) {
+  if (task.dueDateLogic) {
+    return task.dueDateLogic;
+  }
+  if (task.phase === "Planning") {
+    return "Due before calendar confirmation.";
+  }
+  if (task.phase === "Scheduling") {
+    return "Due before staffing can be treated as ready.";
+  }
+  if (task.phase === "Photography") {
+    return "Due before shoot day or at day-of closeout.";
+  }
+  if (task.phase === "Production") {
+    return "Due before client or gallery release deadline.";
+  }
+  return "Due before client follow-up can close the job.";
+}
+
+function enrichWorkflowTemplateTask(task: JobWorkflowTemplateTaskSeed, nextDepartment: string): JobWorkflowTemplateTask {
+  const assignmentRuleType = assignmentRuleTypeForTask(task);
+  return {
+    ...task,
+    assignmentRuleType,
+    readinessChecks: defaultReadinessChecks(task),
+    commonBlockers: defaultCommonBlockers(task),
+    completionCriteria: task.completionCriteria ?? `${task.name} complete and ready for ${nextDepartment}.`,
+    dueDateLogic: defaultDueDateLogic(task)
+  };
+}
+
+function buildWorkflowTemplateDefinition(typeId: JobIntakeTypeId): JobWorkflowTemplateDefinition {
+  const option = getJobIntakeTypeOption(typeId);
+  const seeds = WORK_PACKAGE_TEMPLATE_SEEDS[typeId] ?? WORK_PACKAGE_TEMPLATE_SEEDS.school_picture_day;
+  const defaultTasks = seeds.map((task, index) => enrichWorkflowTemplateTask(task, seeds[index + 1]?.ownerDepartment ?? "Closed"));
+  const departmentsInvolved = uniqueValues(defaultTasks.map((task) => task.ownerDepartment));
+  return {
+    typeId,
+    jobType: option.label,
+    departmentsInvolved,
+    handoffSequence: uniqueValues(["Intake", ...departmentsInvolved, "Closed"]),
+    defaultTasks
+  };
+}
+
+export const JOB_WORKFLOW_TEMPLATES: Record<JobIntakeTypeId, JobWorkflowTemplateDefinition> = JOB_INTAKE_TYPE_OPTIONS.reduce(
+  (templates, option) => ({
+    ...templates,
+    [option.id]: buildWorkflowTemplateDefinition(option.id)
+  }),
+  {} as Record<JobIntakeTypeId, JobWorkflowTemplateDefinition>
+);
+
+export function getJobWorkflowTemplate(typeId: JobIntakeTypeId) {
+  return JOB_WORKFLOW_TEMPLATES[typeId] ?? JOB_WORKFLOW_TEMPLATES.school_picture_day;
+}
 
 export function getJobIntakeTypeOption(id: JobIntakeTypeId) {
   return JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id) ?? JOB_INTAKE_TYPE_OPTIONS[0];
@@ -407,7 +572,7 @@ function assignmentForOwner(owner: string, currentDepartment: string) {
 }
 
 function templateForRouting(typeId: JobIntakeTypeId) {
-  return WORK_PACKAGE_TEMPLATES[typeId] ?? WORK_PACKAGE_TEMPLATES.school_picture_day;
+  return getJobWorkflowTemplate(typeId).defaultTasks;
 }
 
 function packageIndexForStage(stage: RoutingStageKey) {
@@ -464,9 +629,23 @@ function dueDateForPackage(index: number, currentIndex: number, preview: JobRout
   return "Planned later";
 }
 
-function assignedPersonForPackage(index: number, currentIndex: number, templateDepartment: string, preview: JobRoutingPreviewSeed & { assignedPerson: string }) {
+function assignedPersonForPackage(
+  index: number,
+  currentIndex: number,
+  workPackage: JobWorkflowTemplateTask,
+  preview: JobRoutingPreviewSeed & { assignedPerson: string }
+) {
   if (index < currentIndex) {
-    return departmentLeadFor(templateDepartment);
+    return departmentLeadFor(workPackage.ownerDepartment);
+  }
+  if (workPackage.assignmentRuleType === "direct_owner") {
+    return workPackage.directOwner ?? departmentLeadFor(workPackage.ownerDepartment);
+  }
+  if (workPackage.assignmentRuleType === "department_lead") {
+    return departmentLeadFor(workPackage.ownerDepartment);
+  }
+  if (workPackage.assignmentRuleType === "role_fallback") {
+    return departmentLeadFor(workPackage.fallbackDepartment ?? workPackage.ownerDepartment);
   }
   if (index === currentIndex) {
     return preview.assignedPerson;
@@ -482,13 +661,24 @@ function buildOperationalWorkPackages(
   typeId: JobIntakeTypeId
 ): JobOperationalWorkPackage[] {
   const currentIndex = packageIndexForStage(preview.currentStage);
-  return templateForRouting(typeId).map((workPackage, index) => ({
-    ...workPackage,
-    id: `${typeId}:${workPackage.phase}`,
-    assignedPerson: assignedPersonForPackage(index, currentIndex, workPackage.ownerDepartment, preview),
-    dueDateLabel: dueDateForPackage(index, currentIndex, preview),
-    status: statusForPackage(index, currentIndex, preview)
-  }));
+  const template = templateForRouting(typeId);
+  return template.map((workPackage, index) => {
+    const assignedPerson = assignedPersonForPackage(index, currentIndex, workPackage, preview);
+    const assignmentState = assignedPerson === "Unassigned" ? "waiting_assignment" : "assigned";
+    return {
+      ...workPackage,
+      id: `${typeId}:${workPackage.phase}`,
+      assignmentRule: assignmentRuleLabel(workPackage.assignmentRuleType),
+      assignedPerson,
+      dueDateLabel: dueDateForPackage(index, currentIndex, preview),
+      status: statusForPackage(index, currentIndex, {
+        ...preview,
+        assignedPerson,
+        assignmentState
+      }),
+      handoffToDepartment: template[index + 1]?.ownerDepartment ?? "Closed"
+    };
+  });
 }
 
 function buildOperationalNotifications(
@@ -1125,11 +1315,13 @@ export function JobDepartmentTaskPlan({ preview, compact = false }: { preview: J
               <span>{workPackage.phase}</span>
               <strong>{workPackage.name}</strong>
               <small>{workPackage.summary}</small>
+              <small>Complete when: {workPackage.completionCriteria}</small>
             </div>
             <div>
               <span>{workPackage.ownerDepartment}</span>
               <strong>{workPackage.assignedPerson}</strong>
               <small>{workPackage.assignmentRule}</small>
+              <small>Checks: {workPackage.readinessChecks.slice(0, 2).join(" ")}</small>
             </div>
             <span className={`job-work-package__status job-work-package__status--${packageStatusClass(workPackage.status)}`}>{workPackage.status}</span>
           </article>
@@ -1231,6 +1423,11 @@ export function JobWorkPackagesPanel({
             <span className={`job-work-package__status job-work-package__status--${packageStatusClass(workPackage.status)}`}>
               {workPackage.status}
             </span>
+            <div className="job-work-package__details">
+              <span>Readiness: {workPackage.readinessChecks.slice(0, 2).join(" ")}</span>
+              <span>Common blockers: {workPackage.commonBlockers.slice(0, 3).join(", ")}</span>
+              <span>Complete when: {workPackage.completionCriteria}</span>
+            </div>
           </article>
         ))}
       </div>
