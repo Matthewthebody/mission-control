@@ -40,6 +40,14 @@ type HeadsUpItem = {
 };
 
 type ActiveLaunchpadSection = "schedule" | "tasks" | "workflow" | "heads-up";
+type EmployeeOperationalBucket = {
+  id: "assigned" | "needs-assignment" | "waiting" | "completed";
+  title: string;
+  count: number;
+  detail: string;
+  sample: string;
+  tone: "good" | "info" | "heads_up" | "action_needed";
+};
 
 function launchpadTargetId(section: ActiveLaunchpadSection) {
   switch (section) {
@@ -68,6 +76,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
   const scheduleWeekDays = useMemo(() => buildScheduleWeekDays(payload), [payload]);
   const liveWorkflowSteps = payload?.live_workflow_steps ?? [];
   const headsUpItems = useMemo(() => buildHeadsUpItems(payload, currentUser), [currentUser, payload]);
+  const operationalBuckets = useMemo(() => buildEmployeeOperationalBuckets(payload, currentUser), [currentUser, payload]);
 
   const selectedEvent = useMemo(
     () => payload?.events.find((event) => event.id === selectedEventId) ?? null,
@@ -345,6 +354,25 @@ export function MyWork({ token, currentUser, socket }: Props) {
         </section>
       ) : null}
 
+      <section className="panel employee-operational-queue" aria-label="My operating queue">
+        <div className="employee-section-heading">
+          <div>
+            <div className="section-title">My Operating Queue</div>
+            <p className="section-subtitle">Ownership, assignment gaps, waits, and recently cleared work from your current job package view.</p>
+          </div>
+        </div>
+        <div className="employee-operational-queue__grid">
+          {operationalBuckets.map((bucket) => (
+            <article key={bucket.id} className={`employee-operational-bucket employee-operational-bucket--${bucket.tone}`}>
+              <span>{bucket.title}</span>
+              <strong>{bucket.count}</strong>
+              <p>{bucket.detail}</p>
+              <small>{bucket.sample}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {selectedEventId || detailLoading || selectedEventDetail ? (
       <section className="panel employee-detail-panel">
         <div className="section-title">Selected Event Detail</div>
@@ -575,6 +603,54 @@ function buildHeadsUpItems(payload: EmployeeMyWorkResponse | null, currentUser: 
       tone: item.tone
     }));
   return [...workflowChangeNotices, ...acknowledgements, ...exceptions, ...approvals, ...recentChanges];
+}
+
+function buildEmployeeOperationalBuckets(payload: EmployeeMyWorkResponse | null, currentUser: SessionUser): EmployeeOperationalBucket[] {
+  const tasks = payload?.tasks ?? [];
+  const steps = payload?.live_workflow_steps ?? [];
+  const recentChanges = payload?.recent_changes ?? [];
+  const assignedSteps = steps.filter((step) => step.assigned_user_id === currentUser.id || step.assignment_status === "assigned");
+  const assignedCount = tasks.length + assignedSteps.length;
+  const needsAssignmentSteps = steps.filter((step) => !step.assigned_user_id || step.assignment_status === "needs_assignment" || step.assignment_status === "queued");
+  const waitingItems = [
+    ...tasks.filter((task) => Boolean(task.blocked_reason)),
+    ...steps.filter((step) => Boolean(step.waiting_detail) || step.operational_status === "waiting" || step.operational_status === "blocked")
+  ];
+  const completedChanges = recentChanges.filter((change) => change.tone === "good" || change.title.toLowerCase().includes("complete") || change.summary.toLowerCase().includes("complete"));
+  return [
+    {
+      id: "assigned",
+      title: "Assigned To Me",
+      count: assignedCount,
+      detail: "Tasks and workflow steps that already have your name on them.",
+      sample: assignedCount ? `${assignedCount} assigned item${assignedCount === 1 ? "" : "s"} visible from your launchpad.` : "No assigned package work is visible right now.",
+      tone: assignedCount ? "info" : "good"
+    },
+    {
+      id: "needs-assignment",
+      title: "Needs Assignment",
+      count: needsAssignmentSteps.length,
+      detail: "Department-owned work that still needs a person before it can move cleanly.",
+      sample: needsAssignmentSteps.length ? `${needsAssignmentSteps.length} department-owned item${needsAssignmentSteps.length === 1 ? "" : "s"} need assignment.` : "No unassigned workflow steps are visible to you.",
+      tone: needsAssignmentSteps.length ? "heads_up" : "good"
+    },
+    {
+      id: "waiting",
+      title: "Waiting On Others",
+      count: waitingItems.length,
+      detail: "Work you can see that is blocked by another person, client, or department.",
+      sample: waitingItems.length ? `${waitingItems.length} item${waitingItems.length === 1 ? "" : "s"} need outside input before moving.` : "No waiting-on-others item is visible right now.",
+      tone: waitingItems.length ? "action_needed" : "good"
+    },
+    {
+      id: "completed",
+      title: "Recently Completed",
+      count: completedChanges.length,
+      detail: "Recently cleared work stays visible briefly so handoffs do not disappear.",
+      sample: completedChanges.length ? `${completedChanges.length} recent completion signal${completedChanges.length === 1 ? "" : "s"} visible.` : "No recently completed package work is visible right now.",
+      tone: "info"
+    }
+  ];
 }
 
 function calculateHoursBetween(startsAt: string, endsAt: string) {

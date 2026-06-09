@@ -533,6 +533,11 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: /Needs Review/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Done Recently/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Leadership Visibility")).toBeInTheDocument();
+    expect(screen.getByText("Jobs Waiting Assignment")).toBeInTheDocument();
+    expect(screen.getByText("Jobs Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Jobs At Risk")).toBeInTheDocument();
+    expect(screen.getByText("Department Workload")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Blocked / At Risk" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review Blocked / At Risk" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();
@@ -579,6 +584,9 @@ describe("ProjectTrackingFoundation", () => {
     expect(boardLanes.querySelector(".project-tracking-board-card__meta-line")).not.toBeNull();
     expect(boardLanes.querySelector(".project-tracking-board-card__next")).not.toBeNull();
     expect(boardLanes.querySelector(".job-routing-card--compact")).not.toBeNull();
+    expect(boardLanes.querySelector(".job-work-package-summary")).not.toBeNull();
+    expect(within(boardLanes).getAllByText("Work Package").length).toBeGreaterThan(0);
+    expect(within(boardLanes).getAllByText(/Image QA|Product and Proof Prep|Gallery QA/).length).toBeGreaterThan(0);
     expect(within(boardLanes).getAllByText("Handoff").length).toBeGreaterThan(0);
     expect(within(boardLanes).getAllByText("Owner").length).toBeGreaterThan(0);
     expect(within(boardLanes).getAllByText("Waiting on").length).toBeGreaterThan(0);

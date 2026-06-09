@@ -722,6 +722,14 @@ describe("My Work page", () => {
     expect(screen.getAllByText("Assigned Tasks")).toHaveLength(1);
     expect(screen.getAllByText("Workflow Steps Waiting on Me")).toHaveLength(1);
     expect(screen.getAllByText("Heads Up")).toHaveLength(1);
+    expect(screen.getByLabelText("My operating queue")).toBeInTheDocument();
+    expect(screen.getByText("My Operating Queue")).toBeInTheDocument();
+    expect(screen.getByText("Assigned To Me")).toBeInTheDocument();
+    expect(screen.getByText("Needs Assignment")).toBeInTheDocument();
+    expect(screen.getByText("Waiting On Others")).toBeInTheDocument();
+    expect(screen.getByText("Recently Completed")).toBeInTheDocument();
+    expect(screen.getByText("Tasks and workflow steps that already have your name on them.")).toBeInTheDocument();
+    expect(screen.getByText("Department-owned work that still needs a person before it can move cleanly.")).toBeInTheDocument();
     const scheduleLaunchpadButton = screen.getByRole("button", { name: /My Schedule This Week/i });
     const tasksLaunchpadButton = screen.getByRole("button", { name: /Assigned Tasks/i });
     const workflowLaunchpadButton = screen.getByRole("button", { name: /Workflow Steps Waiting on Me/i });

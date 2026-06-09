@@ -3,6 +3,7 @@ import { ProjectWorkflowMap } from "../components/projectTracking/ProjectWorkflo
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
 import {
   JobHandoffCard,
+  JobWorkPackageSummary,
   buildRoutingPreviewFromProjectRow
 } from "../components/jobs/JobRoutingFoundation";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
@@ -1165,6 +1166,61 @@ function ProjectTrackingCommandView({
   );
 }
 
+function ProjectTrackingLeadershipVisibility({ rows }: { rows: ProjectWorkflowJobRow[] }) {
+  const waitingAssignment = rows.filter(isMissingOwnerOrInfo).length;
+  const blocked = rows.filter(isBlockedWork).length;
+  const atRisk = rows.filter((row) => isAtRiskWork(row) || isDueSoonWork(row) || row.health === "running_late").length;
+  const departmentWorkload = rows.reduce<Record<string, number>>((counts, row) => {
+    const department = departmentDisplayForRow(row);
+    counts[department] = (counts[department] ?? 0) + 1;
+    return counts;
+  }, {});
+  const topDepartments = Object.entries(departmentWorkload)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([department, count]) => `${department}: ${count}`)
+    .join(" | ");
+  const cards = [
+    {
+      label: "Jobs Waiting Assignment",
+      value: waitingAssignment,
+      detail: waitingAssignment ? "Department-owned work needs a person." : "No missing owner flags."
+    },
+    {
+      label: "Jobs Blocked",
+      value: blocked,
+      detail: blocked ? "Review blockers before handoff." : "No blocked jobs in this view."
+    },
+    {
+      label: "Jobs At Risk",
+      value: atRisk,
+      detail: atRisk ? "Due-soon or at-risk work needs review." : "No risk signals in this view."
+    },
+    {
+      label: "Department Workload",
+      value: rows.length,
+      detail: topDepartments || "No department workload yet."
+    }
+  ];
+  return (
+    <section className="project-tracking-leadership-strip" aria-label="Leadership visibility">
+      <div className="project-tracking-leadership-strip__label">
+        <strong>Leadership Visibility</strong>
+        <span>Assignment, blockers, risk, and workload from the same tracked jobs.</span>
+      </div>
+      <div className="project-tracking-leadership-strip__cards">
+        {cards.map((card) => (
+          <article key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.detail}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ProjectTrackingViewSwitcher({
   viewMode,
   onViewModeChange
@@ -1271,6 +1327,7 @@ function ProjectTrackingBoardView({
                     const area = projectAreaForJob(row);
                     const secondaryDepartment = secondaryDepartmentBadgeForRow(row);
                     const cardTone = healthToneForJob(row);
+                    const routingPreview = buildRoutingPreviewFromProjectRow(row);
                     return (
                       <article className={`project-tracking-board-card project-tracking-board-card--area-${area} project-tracking-board-card--tone-${cardTone} ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
                         <div className={`project-tracking-board-card__accent project-tracking-board-card__accent--${cardTone}`} aria-hidden="true" />
@@ -1301,7 +1358,8 @@ function ProjectTrackingBoardView({
                           <span>{currentStepLabel(row)}</span>
                           {row.queue_intelligence.next_action}
                         </p>
-                        <JobHandoffCard preview={buildRoutingPreviewFromProjectRow(row)} compact />
+                        <JobHandoffCard preview={routingPreview} compact />
+                        <JobWorkPackageSummary preview={routingPreview} />
                         <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                       </article>
                     );
@@ -2167,6 +2225,8 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
               ))}
             </div>
           </section>
+
+          <ProjectTrackingLeadershipVisibility rows={areaScopedRows} />
 
           <ProjectTrackingJobBoard
             token={token}

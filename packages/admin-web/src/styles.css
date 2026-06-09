@@ -2438,6 +2438,8 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .shared-job-form__stack,
+.job-ownership-card,
+.job-work-packages,
 .job-routing-card,
 .job-routing-card__header,
 .job-routing-card__grid,
@@ -2604,6 +2606,160 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 .job-routing-card p {
   margin: 0;
   line-height: 1.35;
+}
+
+.job-ownership-card,
+.job-work-packages,
+.job-routing-notifications {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.job-work-packages__header,
+.job-routing-notifications {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-work-packages__header > div,
+.job-routing-notifications > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.job-work-packages__header span,
+.job-routing-notifications span,
+.job-work-packages small {
+  color: var(--text-muted);
+}
+
+.job-work-packages__list {
+  display: grid;
+  gap: 8px;
+}
+
+.job-work-package {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(2, 6, 23, 0.16);
+}
+
+.job-work-package > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.job-work-package span,
+.job-work-package__meta {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.job-work-package strong {
+  overflow-wrap: anywhere;
+}
+
+.job-work-package__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.job-work-package__status,
+.job-routing-notification {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 7px;
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.job-work-package__status--complete,
+.job-routing-notification--success {
+  color: #b9f6d2;
+  border-color: rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.job-work-package__status--assigned,
+.job-work-package__status--ready-for-next-department,
+.job-routing-notification--info {
+  color: #cfe8ff;
+  border-color: rgba(96, 165, 250, 0.26);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.job-work-package__status--due-soon,
+.job-work-package__status--waiting-assignment,
+.job-work-package__status--waiting-on-others,
+.job-routing-notification--warning {
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.job-work-package__status--blocked,
+.job-routing-notification--critical {
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.job-work-package__status--not-started {
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.job-routing-notifications__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.job-work-package-summary {
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(2, 6, 23, 0.14);
+}
+
+.job-work-package-summary span,
+.job-work-package-summary small {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.job-work-package-summary strong {
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
 }
 
 .job-routing-card--compact {
@@ -4125,6 +4281,72 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   color: var(--pt-muted);
   font-size: 0.64rem;
   line-height: 1.35;
+}
+
+.project-tracking-leadership-strip {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.32fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+  border: 1px solid var(--pt-border);
+  border-radius: 10px;
+  padding: 8px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.04);
+}
+
+.project-tracking-leadership-strip__label {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.project-tracking-leadership-strip__label strong,
+.project-tracking-leadership-strip__cards strong {
+  color: var(--pt-text);
+}
+
+.project-tracking-leadership-strip__label span,
+.project-tracking-leadership-strip__cards span,
+.project-tracking-leadership-strip__cards small {
+  color: var(--pt-muted);
+}
+
+.project-tracking-leadership-strip__cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-tracking-leadership-strip__cards article {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid rgba(201, 211, 224, 0.82);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #f8fafc;
+}
+
+.project-tracking-leadership-strip__cards span {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.project-tracking-leadership-strip__cards strong {
+  font-size: 1.08rem;
+  line-height: 1.1;
+}
+
+.project-tracking-leadership-strip__cards small {
+  font-size: 0.66rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .project-tracking-area-panel {
@@ -6377,9 +6599,35 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   .project-tracking-command-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .project-tracking-leadership-strip,
+  .job-work-package {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-tracking-leadership-strip__cards,
+  .employee-operational-queue__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
+  .job-routing-outcome__header,
+  .job-routing-card__header,
+  .job-work-packages__header,
+  .job-routing-notifications {
+    flex-direction: column;
+  }
+
+  .job-routing-notifications__chips {
+    justify-content: flex-start;
+  }
+
+  .project-tracking-leadership-strip__cards,
+  .employee-operational-queue__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .project-tracking-department-queue__summary,
   .project-tracking-department-queue__facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -13790,6 +14038,63 @@ html[data-theme="light"] .shoot-priority-chip {
   display: grid;
   gap: 10px;
   min-height: 0;
+}
+
+.employee-operational-queue {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.employee-operational-queue__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.employee-operational-bucket {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: rgba(7, 18, 31, 0.38);
+}
+
+.employee-operational-bucket > span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.employee-operational-bucket > strong {
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.employee-operational-bucket p,
+.employee-operational-bucket small {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.employee-operational-bucket--good {
+  border-color: rgba(74, 196, 141, 0.24);
+}
+
+.employee-operational-bucket--heads_up {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.employee-operational-bucket--action_needed {
+  border-color: rgba(224, 84, 84, 0.34);
 }
 
 .employee-compact-detail {

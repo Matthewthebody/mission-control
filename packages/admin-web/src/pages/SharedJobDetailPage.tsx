@@ -7,7 +7,10 @@ import { ActivityTimelineList } from "../components/jobs/ActivityTimelineList";
 import { getDepartmentJobAdapterUI } from "../components/jobs/DepartmentJobAdapterUIRegistry";
 import {
   JobHandoffCard,
+  JobNotificationFoundation,
+  JobOwnershipPanel,
   JobProgressTimeline,
+  JobWorkPackagesPanel,
   buildRoutingPreviewFromDetail
 } from "../components/jobs/JobRoutingFoundation";
 import { JobOperationalCommandPanel } from "../components/jobs/JobOperationalCommandPanel";
@@ -326,8 +329,11 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       title: "Job Progress",
       body: (
         <div className="shared-job-form__stack">
+          <JobOwnershipPanel preview={routingPreview} />
           <JobProgressTimeline preview={routingPreview} />
           <JobHandoffCard preview={routingPreview} />
+          <JobWorkPackagesPanel preview={routingPreview} compact />
+          <JobNotificationFoundation preview={routingPreview} />
         </div>
       )
     });
