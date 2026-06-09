@@ -47,6 +47,7 @@ import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import type { WorkspaceHeaderMetaTone } from "../components/workspace/WorkspacePageHeader";
+import { buildJobPriorIntelligence, type JobPriorIntelligenceItem } from "../jobPriorIntelligence";
 import { listDirectoryOwnerOptions } from "../services/organizationApi";
 import { buildJobPreCallContext } from "../services/preCallContextBuilders";
 import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
@@ -392,6 +393,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const routingChangeNotices = buildJobChangeNotices(detail);
   const jobTruthSnapshot = buildJobTruthSnapshot(detail, calendarReadiness, missingInfoChecklist, routingPreview);
   const jobNotes = buildJobNotes(detail, selectedDay);
+  const priorIntelligence = buildJobPriorIntelligence(detail);
 
   const summaryCards = [
     {
@@ -602,6 +604,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
             </button>
           </div>
         </section>
+        <JobPriorIntelligencePanel intelligence={priorIntelligence} />
         <RecordResourcesPanel
           token={token}
           objectType="job"
@@ -997,5 +1000,51 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       bodyIntro={workflowIntro}
       body={body}
     />
+  );
+}
+
+function JobPriorIntelligencePanel({
+  intelligence
+}: {
+  intelligence: ReturnType<typeof buildJobPriorIntelligence>;
+}) {
+  return (
+    <section className="shared-job-detail__list-card" aria-label="Prior job intelligence">
+      <div className="shared-job-detail__list-card-header">
+        <div>
+          <h3>Prior Job Intelligence</h3>
+          <p className="shared-job-sidebar__muted">Institutional memory from Resource Library, organization notes, prior closeouts, and similar work.</p>
+        </div>
+        <StatusPill label={`${intelligence.items.length} memory item${intelligence.items.length === 1 ? "" : "s"}`} tone={intelligence.items.length ? "info" : "neutral"} />
+      </div>
+      {intelligence.items.length ? (
+        <div className="shared-job-notes-grid">
+          {intelligence.items.slice(0, 6).map((item) => (
+            <PriorIntelligenceCard key={item.id} item={item} />
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state empty-state--panel">
+          <strong>{intelligence.emptyTitle}</strong>
+          <p>{intelligence.emptySummary}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PriorIntelligenceCard({ item }: { item: JobPriorIntelligenceItem }) {
+  return (
+    <article>
+      <span>{item.label}</span>
+      <p><strong>{item.title}</strong></p>
+      <p>{item.summary}</p>
+      <div className="shared-job-preview__status-row">
+        <StatusPill label={item.owner} tone={item.tone} />
+        <span className="meta-pill">{item.source}</span>
+      </div>
+      {item.updatedAt ? <small>Updated {formatDate(item.updatedAt)}</small> : null}
+      {item.href ? <a className="secondary-button" href={item.href}>Open related context</a> : null}
+    </article>
   );
 }

@@ -2602,6 +2602,13 @@ beforeEach(() => {
     expect(screen.getByLabelText("Job notes")).toBeInTheDocument();
     expect(screen.getByText("Shoot notes")).toBeInTheDocument();
     expect(screen.getByText(/Use east gate/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Prior Job Intelligence" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Prior job intelligence")).toBeInTheDocument();
+    expect(screen.getByText("Sports flow")).toBeInTheDocument();
+    expect(screen.getByText("Separate varsity and JV QR lanes")).toBeInTheDocument();
+    expect(screen.getByText("Confirm banner crop before QA")).toBeInTheDocument();
+    expect(screen.getByText("Sponsor proofs drive client confidence")).toBeInTheDocument();
+    expect(screen.getByText("Stadium A tunnel team-photo reference")).toBeInTheDocument();
     expect(screen.getByText("Job Resources")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent activity" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to Jobs" })).toBeInTheDocument();
@@ -2615,6 +2622,60 @@ beforeEach(() => {
     getSharedJobDetailMock.mockResolvedValue(buildSportsDetail());
     render(<SharedJobDetailPage token="token-demo" currentUser={sportsFinanceViewer} departmentType="sports" routeBase="#sports/shoots" />);
     expect(await screen.findByRole("button", { name: "Financial" })).toBeInTheDocument();
+  });
+
+  it("surfaces school prior-job intelligence and calm empty memory states on job detail", async () => {
+    window.location.hash = "#schools/jobs/job-school-ops";
+    getSharedJobDetailMock.mockResolvedValue(buildOperationalSchoolDetail());
+
+    const { unmount } = render(<SharedJobDetailPage token="token-demo" currentUser={schoolsManager} departmentType="schools" routeBase="#schools/jobs" />);
+
+    expect(await screen.findByRole("heading", { name: "SCH-2026-0042" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Prior Job Intelligence" })).toBeInTheDocument();
+    expect(screen.getByText("Parking and load-in")).toBeInTheDocument();
+    expect(screen.getByText("North High uses the front office entrance")).toBeInTheDocument();
+    expect(screen.getByText("Prior-year lesson")).toBeInTheDocument();
+    expect(screen.getByText("Run ID card work before lunch")).toBeInTheDocument();
+    expect(screen.getByText("Contact preference")).toBeInTheDocument();
+    expect(screen.getByText("Main Gym three-station setup")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open related context" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /upload/i })).not.toBeInTheDocument();
+
+    unmount();
+
+    window.location.hash = "#sports/shoots/job-empty";
+    getSharedJobDetailMock.mockResolvedValue(
+      buildSportsDetail({
+        job: buildJobListItem({
+          id: "job-empty",
+          job_number: "SPT-2026-0999",
+          department_type: "sports",
+          title: "One-Off Specialty Event",
+          event_name: "Specialty Event",
+          organization_id: "org-empty",
+          organization_name: "New Client",
+          primary_location_id: null,
+          primary_contact_id: null,
+          school_profile: null,
+          sports_profile: null
+        }),
+        summary: {
+          ...buildSportsDetail().summary,
+          organization_name: "New Client",
+          organization_account_type: "events",
+          primary_location_name: null,
+          primary_contact_name: null
+        },
+        sports_profile: null
+      })
+    );
+
+    render(<SharedJobDetailPage token="token-demo" currentUser={sportsCoordinator} departmentType="sports" routeBase="#sports/shoots" />);
+
+    expect(await screen.findByRole("heading", { name: "SPT-2026-0999" })).toBeInTheDocument();
+    expect(screen.getByText("No prior notes or resources are linked yet.")).toBeInTheDocument();
+    expect(screen.getByText(/parking notes, setup references, prior lessons, and production learnings/i)).toBeInTheDocument();
+    expect(screen.queryByText("Internal server error")).not.toBeInTheDocument();
   });
 
   it("renders the job detail missing-info checklist with waiting and resolved blocker states", async () => {
