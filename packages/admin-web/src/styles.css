@@ -2506,48 +2506,6 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   gap: 12px;
 }
 
-.job-intake-work-area {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  min-width: 0;
-}
-
-.job-intake-work-area__button {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  height: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
-  padding: 11px 12px;
-  text-align: left;
-  color: var(--text);
-  background: rgba(15, 23, 42, 0.24);
-  box-shadow: none;
-}
-
-.job-intake-work-area__button:hover {
-  border-color: rgba(96, 165, 250, 0.48);
-  background: rgba(30, 41, 59, 0.42);
-}
-
-.job-intake-work-area__button.is-selected {
-  border-color: rgba(96, 165, 250, 0.72);
-  background: rgba(37, 99, 235, 0.18);
-}
-
-.job-intake-work-area__button strong {
-  font-size: 0.9rem;
-  line-height: 1.2;
-}
-
-.job-intake-work-area__button span {
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  line-height: 1.35;
-}
-
 .job-intake__lookup-results-disclosure {
   display: grid;
   gap: 8px;
@@ -21390,10 +21348,6 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 
   .job-management-summary__cards,
   .intake-review-queue__cards {
-    grid-template-columns: 1fr;
-  }
-
-  .job-intake-work-area {
     grid-template-columns: 1fr;
   }
 

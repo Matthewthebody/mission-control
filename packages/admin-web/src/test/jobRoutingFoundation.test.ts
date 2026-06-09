@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  JOB_INTAKE_TYPE_OPTIONS,
   JOB_WORKFLOW_TEMPLATES,
   applyJobIntakeType,
   buildRoutingPreviewFromForm,
@@ -96,6 +97,10 @@ describe("job workflow templates and assignment rules", () => {
     const needsOwnerTask = getJobWorkflowTemplate("event").defaultTasks.find((task) => task.name === "Coverage Scheduling");
     const roleFallbackPackage = specialtyPreview.workPackages.find((workPackage) => workPackage.name === "Reference Capture");
 
+    expect(JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === "specialty")).toMatchObject({
+      label: "In-Studio Work",
+      routeLabel: "In-Studio Work route"
+    });
     expect(directOwnerPackage).toMatchObject({
       assignedPerson: "Brandon",
       assignmentRule: "Direct Owner"

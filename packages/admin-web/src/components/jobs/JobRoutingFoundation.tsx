@@ -166,7 +166,7 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
   },
   {
     id: "retake_day",
-    label: "Retake Day",
+    label: "Retake / Makeup Day",
     department: "schools",
     category: "makeup_day",
     routeLabel: "Retake Day route",
@@ -260,13 +260,13 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
   },
   {
     id: "specialty",
-    label: "Specialty",
+    label: "In-Studio Work",
     department: "sports",
     category: "specialty",
-    routeLabel: "Specialty route",
+    routeLabel: "In-Studio Work route",
     firstOwnerDepartment: "Client Success",
     nextDepartment: "Production",
-    defaultNextAction: "Confirm requested specialty products, due date, and approval owner.",
+    defaultNextAction: "Confirm the studio request, due date, reference files, and approval owner.",
     defaults: { production_required: true, delivery_type: "specialty_only", gallery_type: "none" },
     sportsDefaults: { specialty_products_required: true, banner_work_required: true }
   },
@@ -372,10 +372,10 @@ const WORK_PACKAGE_TEMPLATE_SEEDS: Record<JobIntakeTypeId, JobWorkflowTemplateTa
     { phase: "Delivery", name: "Client Delivery", summary: "Deliver gallery/files and complete follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   specialty: [
-    { phase: "Planning", name: "Product Scope", summary: "Confirm specialty product, reference files, approval owner, and due date.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
+    { phase: "Planning", name: "Studio Scope", summary: "Confirm studio request, reference files, approval owner, and due date.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
     { phase: "Scheduling", name: "Due Date Scheduling", summary: "Confirm priority, production window, and leadership approval if needed.", ownerDepartment: "Leadership", assignmentRule: "Direct Owner", directOwner: "Brandon" },
     { phase: "Photography", name: "Reference Capture", summary: "Capture or collect needed reference images and usage notes.", ownerDepartment: "Photography", assignmentRuleType: "role_fallback", fallbackDepartment: "Photography" },
-    { phase: "Production", name: "Specialty Production", summary: "Build, QA, and prepare specialty output.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Production", name: "Studio Production", summary: "Build, QA, and prepare the final output.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
     { phase: "Delivery", name: "Client Delivery", summary: "Deliver final product and confirm acceptance.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   other: [

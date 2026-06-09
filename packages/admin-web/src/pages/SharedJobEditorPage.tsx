@@ -48,45 +48,17 @@ type Props = {
   mode: "create" | "edit";
 };
 
-type IntakeWorkArea = "sports" | "schools" | "studio";
-
-const INTAKE_WORK_AREA_OPTIONS: Array<{
-  key: IntakeWorkArea;
-  label: string;
-  summary: string;
-  defaultType: JobIntakeTypeId;
-  typeIds: JobIntakeTypeId[];
-}> = [
-  {
-    key: "sports",
-    label: "Sports",
-    summary: "Teams, leagues, media days, and athlete workflows.",
-    defaultType: "sports_picture_day",
-    typeIds: ["sports_picture_day", "sports_league", "team_photos"]
-  },
-  {
-    key: "schools",
-    label: "Schools",
-    summary: "Picture day, retakes, graduation, yearbook, and school events.",
-    defaultType: "school_picture_day",
-    typeIds: ["school_picture_day", "retake_day", "graduation", "cap_and_gown", "yearbook"]
-  },
-  {
-    key: "studio",
-    label: "In-Studio Work",
-    summary: "Specialty, event, and studio-safe work using the closest supported route.",
-    defaultType: "specialty",
-    typeIds: ["specialty", "event", "other"]
-  }
+const GLOBAL_JOB_INTAKE_TYPE_IDS: JobIntakeTypeId[] = [
+  "school_picture_day",
+  "sports_picture_day",
+  "graduation",
+  "retake_day",
+  "yearbook",
+  "cap_and_gown",
+  "specialty",
+  "event",
+  "other"
 ];
-
-function getWorkAreaForIntakeType(value: JobIntakeTypeId): IntakeWorkArea {
-  return INTAKE_WORK_AREA_OPTIONS.find((option) => option.typeIds.includes(value))?.key ?? "sports";
-}
-
-function getWorkAreaOption(value: IntakeWorkArea) {
-  return INTAKE_WORK_AREA_OPTIONS.find((option) => option.key === value) ?? INTAKE_WORK_AREA_OPTIONS[0];
-}
 
 function placeholderOrganization(id: string, label: string, departmentType: "schools" | "sports") {
   return {
@@ -216,10 +188,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
   const activeIntakeType = selectedIntakeType ?? inferJobIntakeTypeId(formState);
-  const activeWorkArea = getWorkAreaForIntakeType(activeIntakeType);
-  const workAreaOption = getWorkAreaOption(activeWorkArea);
   const visibleIntakeTypeOptions = isGlobalJobIntake
-    ? JOB_INTAKE_TYPE_OPTIONS.filter((option) => workAreaOption.typeIds.includes(option.id))
+    ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
     : JOB_INTAKE_TYPE_OPTIONS;
   const intakeManagementSummary = useMemo(() => buildJobIntakeManagementSummary(formState), [formState]);
   const calendarReadiness = useMemo(
@@ -336,10 +306,6 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     updateState((current) => applyJobIntakeType(current, value));
   }
 
-  function applyWorkArea(value: IntakeWorkArea) {
-    applyIntakeType(getWorkAreaOption(value).defaultType);
-  }
-
   async function persist(target: "draft" | "publish") {
     if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
       setError(target === "publish" ? "You do not have permission to publish this job." : "You do not have permission to edit this job.");
@@ -453,27 +419,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       slot: "identity.after" as const,
       title: isGlobalJobIntake ? "Job Basics" : "Core Identity",
       summary: isGlobalJobIntake
-        ? "Choose the job type, name, starting team, and priority."
+        ? "Choose the job type, name, owner, and priority."
         : "Shared identity fields render once here, with department-specific sections injected after them.",
       fields: ["department_type", "organization_id", "title", "event_name", "job_category", "description_internal"],
       body: (
         <div className="shared-job-form__stack">
-          {isGlobalJobIntake ? (
-            <div className="job-intake-work-area" aria-label="Work area">
-              {INTAKE_WORK_AREA_OPTIONS.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  className={`job-intake-work-area__button${activeWorkArea === option.key ? " is-selected" : ""}`}
-                  aria-pressed={activeWorkArea === option.key}
-                  onClick={() => applyWorkArea(option.key)}
-                >
-                  <strong>{option.label}</strong>
-                  <span>{option.summary}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
           <div className="field-grid shared-job-form__grid">
             {!isGlobalJobIntake ? (
               <label className="filter-field">
@@ -520,7 +470,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           </div>
           <div className="filter-field filter-field--wide">
             <SharedOrganizationPicker
-              departmentType={activeWorkArea === "schools" ? "schools" : "sports"}
+              departmentType={formState.department_type === "schools" ? "schools" : "sports"}
               searchValue={organizationSearch}
               onSearchChange={setOrganizationSearch}
               unresolvedValue=""
@@ -741,7 +691,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       title={isGlobalJobIntake ? "New Job Intake" : mode === "edit" ? adapter.editTitle : adapter.createTitle}
       summary={
         isGlobalJobIntake
-          ? "Start with the basics. Choose whether this is Sports, Schools, or In-Studio work, and Mission Control will help identify missing info and next steps."
+          ? "Start with the basics. Choose the job type, then Mission Control will help identify missing info and next steps."
           : "One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
       }
       meta={headerMeta}
