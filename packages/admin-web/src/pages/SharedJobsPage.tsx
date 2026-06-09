@@ -13,6 +13,11 @@ import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import type { SharedJobListItem } from "../jobTruthTypes";
 import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
+import {
+  buildJobMissingInfoChecklist,
+  getJobMissingInfoStatusLabel,
+  getJobMissingInfoStatusTone
+} from "../jobMissingInfoChecklist";
 import { canCreateShootRecords, canManageSchoolsHub, canManageSportsWorkspace } from "../permissions";
 import { listSharedJobs } from "../services/jobsApi";
 import type { SessionUser } from "../types";
@@ -266,16 +271,24 @@ function jobNeedsAttention(item: SharedJobListItem) {
 }
 
 function getAttentionTone(item: SharedJobListItem): "neutral" | "success" | "warning" | "danger" {
-  if (item.risk_status === "critical" || item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0) {
+  const missingInfo = buildJobMissingInfoChecklist(item);
+  if (missingInfo.blockerCount > 0 || item.risk_status === "critical" || item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0) {
     return "danger";
   }
-  if (jobNeedsAttention(item)) {
+  if (missingInfo.activeCount > 0 || jobNeedsAttention(item)) {
     return "warning";
   }
   return "success";
 }
 
 function getAttentionLabel(item: SharedJobListItem) {
+  const missingInfo = buildJobMissingInfoChecklist(item);
+  if (missingInfo.blockerCount > 0) {
+    return `${missingInfo.blockerCount} blocker${missingInfo.blockerCount === 1 ? "" : "s"}`;
+  }
+  if (missingInfo.activeCount > 0) {
+    return `${missingInfo.activeCount} missing`;
+  }
   if (item.blocker_count > 0) {
     return `${item.blocker_count} blocker${item.blocker_count === 1 ? "" : "s"}`;
   }
@@ -298,7 +311,7 @@ function getAttentionLabel(item: SharedJobListItem) {
 }
 
 function jobHasMissingInfo(item: SharedJobListItem) {
-  return !item.organization_id || !item.primary_location_id || !item.primary_contact_id || item.readiness_status === "off_track" || item.readiness_status === "at_risk";
+  return buildJobMissingInfoChecklist(item).activeCount > 0;
 }
 
 function getCalendarReadiness(item: SharedJobListItem) {
@@ -344,13 +357,14 @@ function jobRecentlyCompleted(item: SharedJobListItem) {
 }
 
 function getManagementStage(item: SharedJobListItem) {
+  const missingInfo = buildJobMissingInfoChecklist(item);
   if (item.archived_at) {
     return "Cancelled";
   }
   if (jobRecentlyCompleted(item)) {
     return "Complete";
   }
-  if (item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0) {
+  if (missingInfo.blockerCount > 0 || item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0) {
     return "Blocked";
   }
   if (item.job_status === "draft") {
@@ -381,8 +395,9 @@ function getManagementStage(item: SharedJobListItem) {
 }
 
 function getNextStep(item: SharedJobListItem) {
-  if (item.blocker_count > 0 || item.open_watch_flag_count > 0) {
-    return "Resolve the attention item";
+  const missingInfo = buildJobMissingInfoChecklist(item);
+  if (missingInfo.activeCount > 0) {
+    return missingInfo.nextAction;
   }
   if (item.production_status === "blocked") {
     return "Unblock production";
@@ -411,7 +426,9 @@ function getNextStep(item: SharedJobListItem) {
 function buildJobManagementStats(items: SharedJobListItem[]) {
   return [
     { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, detail: "Draft or pending intake packages." },
-    { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, detail: "Client, contact, location, date, or readiness gaps." },
+    { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, detail: "Roster, team, contact, date, staffing, approval, or blocker gaps." },
+    { key: "waiting-client", label: "Waiting on client", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnClientCount > 0).length, detail: "Jobs waiting on client information or approval." },
+    { key: "waiting-internal", label: "Waiting internal", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnInternalCount > 0).length, detail: "Jobs waiting on team assignment or internal cleanup." },
     { key: "ready-calendar", label: "Ready for calendar", value: items.filter(jobReadyForCalendar).length, detail: "Enough information to review for scheduling." },
     { key: "calendar-confirmed", label: "Calendar confirmed", value: items.filter((item) => getCalendarReadiness(item).status === "calendar_confirmed").length, detail: "Date, time, location, contact, and owner are in place." },
     { key: "active-week", label: "Active this week", value: items.filter(jobIsActiveThisWeek).length, detail: "Jobs with a date inside the next seven days." },
@@ -423,7 +440,9 @@ function buildJobManagementStats(items: SharedJobListItem[]) {
 function buildIntakeReviewQueue(items: SharedJobListItem[]) {
   return [
     { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, action: "Open intake", detail: "Review client, date, owner, and workflow route." },
-    { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, action: "Request missing info", detail: "Client details are not ready for launch." },
+    { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, action: "Request missing info", detail: "Show exactly what is missing, who owns it, and what happens next." },
+    { key: "waiting-client", label: "Waiting on client", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnClientCount > 0).length, action: "Follow up", detail: "Roster, contact, team list, date, or approval is outside the building." },
+    { key: "waiting-internal", label: "Waiting internal", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnInternalCount > 0).length, action: "Assign owner", detail: "Staffing, production deadline, or internal handoff needs ownership." },
     { key: "ready-launch", label: "Ready to launch", value: items.filter((item) => !jobHasMissingInfo(item) && !jobNeedsAttention(item)).length, action: "Launch workflow", detail: "Clean packages ready for department handoff." },
     { key: "recently-launched", label: "Recently launched", value: items.filter((item) => item.job_status === "confirmed" || item.job_status === "ready_to_staff").length, action: "Review route", detail: "Recently approved jobs moving into operations." }
   ];
@@ -446,6 +465,18 @@ function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[]
     { key: "calendar", label: "Calendar Readiness", render: (item) => {
       const readiness = getCalendarReadiness(item);
       return <StatusPill label={readiness.label} tone={readiness.tone} />;
+    } },
+    { key: "missing_info", label: "Missing Info", render: (item) => {
+      const checklist = buildJobMissingInfoChecklist(item);
+      const firstActive = checklist.activeItems[0];
+      return firstActive ? (
+        <div className="job-missing-info-cell">
+          <StatusPill label={`${checklist.activeCount} open`} tone={getJobMissingInfoStatusTone(firstActive)} />
+          <span>{firstActive.title}</span>
+        </div>
+      ) : (
+        <StatusPill label="Clear" tone="success" />
+      );
     } },
     { key: "department", label: "Department", render: (item) => <StatusPill label={getDepartmentLabel(item.department_type)} tone="neutral" /> },
     { key: "status", label: "Status", render: (item) => <StatusPill label={humanizeToken(item.job_status)} tone={statusTone(item.job_status)} /> },
@@ -786,6 +817,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
           >
             {(() => {
               const calendarReadiness = getCalendarReadiness(selectedItem);
+              const missingInfo = buildJobMissingInfoChecklist(selectedItem);
               return (
                 <>
             <div className="shared-job-preview__grid">
@@ -797,14 +829,27 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
               <div><span>Shoot manager</span><strong>{calendarReadiness.ownerLabel}</strong></div>
               <div><span>Stage</span><strong>{getManagementStage(selectedItem)}</strong></div>
               <div><span>Next action</span><strong>{getNextStep(selectedItem)}</strong></div>
+              <div><span>Missing info</span><strong>{missingInfo.activeCount ? `${missingInfo.activeCount} open` : "Clear"}</strong></div>
+              <div><span>Waiting on</span><strong>{missingInfo.activeItems[0] ? getJobMissingInfoStatusLabel(missingInfo.activeItems[0].status) : "No one"}</strong></div>
             </div>
             <div className="shared-job-preview__status-row">
               <RiskBadge level={selectedItem.risk_status} />
               <StatusPill label={calendarReadiness.label} tone={calendarReadiness.tone} />
+              {missingInfo.activeItems[0] ? <StatusPill label={missingInfo.activeItems[0].title} tone={getJobMissingInfoStatusTone(missingInfo.activeItems[0])} /> : <StatusPill label="Missing info clear" tone="success" />}
               <StatusPill label={humanizeToken(selectedItem.job_status)} tone={statusTone(selectedItem.job_status)} />
               <StatusPill label={humanizeToken(selectedItem.readiness_status)} tone={statusTone(selectedItem.readiness_status)} />
               <StatusPill label={humanizeToken(selectedItem.production_status)} tone={statusTone(selectedItem.production_status)} />
             </div>
+            {missingInfo.activeItems.length ? (
+              <div className="job-missing-info-preview" aria-label="Missing info checklist preview">
+                {missingInfo.activeItems.slice(0, 3).map((item) => (
+                  <div key={item.id}>
+                    <strong>{item.title}</strong>
+                    <span>{getJobMissingInfoStatusLabel(item.status)} | Owner: {item.ownerLabel} | Next: {item.nextAction}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
                 </>
               );
             })()}

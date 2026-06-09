@@ -50,6 +50,12 @@ import { listDirectoryOwnerOptions } from "../services/organizationApi";
 import { buildJobPreCallContext } from "../services/preCallContextBuilders";
 import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
 import {
+  buildJobMissingInfoChecklist,
+  getJobMissingInfoCategoryLabel,
+  getJobMissingInfoStatusLabel,
+  getJobMissingInfoStatusTone
+} from "../jobMissingInfoChecklist";
+import {
   addSharedJobDayNote,
   addSharedJobStaffAssignment,
   archiveSharedJob,
@@ -318,6 +324,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
     ...adapterTabs.map((tab) => ({ key: tab.key, label: tab.label }))
   ];
   const resolvedTab = tabs.some((tab) => tab.key === activeTab) ? activeTab : "summary";
+  const missingInfoChecklist = buildJobMissingInfoChecklist(detail);
 
   const summaryCards = [
     {
@@ -342,6 +349,28 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
           <span>Staffing: {humanizeToken(detail.status.staffing_status)}</span>
           <span>Blockers: {detail.status.blocker_count}</span>
           <span>Open watch flags: {detail.status.open_watch_flag_count}</span>
+        </div>
+      )
+    },
+    {
+      key: "missing-info",
+      title: "Missing Info Checklist",
+      body: (
+        <div className="shared-job-form__stack">
+          <div className="shared-job-preview__status-row">
+            {missingInfoChecklist.activeItems[0] ? (
+              <StatusPill label={`${missingInfoChecklist.activeCount} open`} tone={getJobMissingInfoStatusTone(missingInfoChecklist.activeItems[0])} />
+            ) : (
+              <StatusPill label="Clear" tone="success" />
+            )}
+            {missingInfoChecklist.resolvedCount ? <StatusPill label={`${missingInfoChecklist.resolvedCount} resolved`} tone="success" /> : null}
+          </div>
+          <div className="shared-job-detail__kv">
+            <span>Owner: {missingInfoChecklist.primaryOwner}</span>
+            <span>Next action: {missingInfoChecklist.nextAction}</span>
+            <span>Waiting on client: {missingInfoChecklist.waitingOnClientCount}</span>
+            <span>Waiting internal: {missingInfoChecklist.waitingOnInternalCount}</span>
+          </div>
         </div>
       )
     },
@@ -419,6 +448,46 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
             <div className="shared-job-detail__kv">{detail.watch_flags.map((flag) => <span key={flag.id}>{flag.title} | {humanizeToken(flag.severity)}</span>)}</div>
           </section>
         ) : null}
+        <section className="shared-job-detail__list-card" aria-labelledby="missing-info-checklist-title">
+          <div className="shared-job-detail__list-card-header">
+            <div>
+              <h3 id="missing-info-checklist-title">Missing Info and Blockers</h3>
+              <p className="shared-job-sidebar__muted">Track exactly what is missing, who owns it, who we are waiting on, and what must happen next.</p>
+            </div>
+            <WorkspaceActionBar align="end" compact>
+              <StatusPill label={`${missingInfoChecklist.activeCount} open`} tone={missingInfoChecklist.activeItems[0] ? getJobMissingInfoStatusTone(missingInfoChecklist.activeItems[0]) : "success"} />
+              {missingInfoChecklist.resolvedCount ? <StatusPill label={`${missingInfoChecklist.resolvedCount} resolved`} tone="success" /> : null}
+            </WorkspaceActionBar>
+          </div>
+          {missingInfoChecklist.activeItems.length ? (
+            <div className="job-missing-info-list">
+              {missingInfoChecklist.activeItems.map((item) => (
+                <article key={item.id} className="job-missing-info-item">
+                  <div>
+                    <strong>{item.title}</strong>
+                    <span>{getJobMissingInfoCategoryLabel(item.category)} | Owner: {item.ownerLabel}</span>
+                  </div>
+                  <div>
+                    <StatusPill label={getJobMissingInfoStatusLabel(item.status)} tone={getJobMissingInfoStatusTone(item)} />
+                    {item.dueDate ? <span>Due {formatDate(item.dueDate)}</span> : null}
+                  </div>
+                  <p>{item.nextAction}</p>
+                  {item.notes ? <small>{item.notes}</small> : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="shared-job-sidebar__muted">No active missing-info items are blocking this job.</p>
+          )}
+          {missingInfoChecklist.resolvedItems.length ? (
+            <div className="job-missing-info-history">
+              <strong>Resolved blocker history</strong>
+              {missingInfoChecklist.resolvedItems.slice(0, 4).map((item) => (
+                <span key={item.id}>{item.title} resolved{item.resolvedDate ? ` ${formatDate(item.resolvedDate)}` : ""}.</span>
+              ))}
+            </div>
+          ) : null}
+        </section>
         <section className="shared-job-detail__list-card">
           <h3>Evaluations and Closeout</h3>
           <p className="shared-job-sidebar__muted">

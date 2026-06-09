@@ -2254,6 +2254,32 @@ beforeEach(() => {
     const databaseJobs = Array.from({ length: 30 }, (_, index) => {
       const oneBasedIndex = index + 1;
       const isSports = index % 2 === 1;
+      const schoolProfile = {
+        ...buildJobListItem({}).school_profile,
+        roster_source: index === 0 ? null : "sis_export"
+      };
+      const sportsProfile = {
+        job_id: `job-database-${oneBasedIndex}`,
+        tenant_id: "tenant-demo",
+        sport_type: "football",
+        season: "fall",
+        league_name: index === 1 ? "Metro League" : "Metro Athletics",
+        division: "Varsity",
+        team_structure: "scheduled_slots",
+        estimated_team_count: 6,
+        proof_required: true,
+        approval_contact_id: "contact-approval",
+        approval_contact_name: "Morgan Approval",
+        billing_contact_id: "contact-billing",
+        billing_contact_name: "Taylor Billing",
+        revenue_share_enabled: true,
+        revenue_share_terms_summary: "15% after approvals",
+        banner_work_required: true,
+        specialty_products_required: true,
+        buddy_photos_required: false,
+        sponsor_graphics_required: true,
+        client_expectations_notes: "Sponsor banner proofs due first."
+      };
       return buildJobListItem({
         id: `job-database-${oneBasedIndex}`,
         job_number: `${isSports ? "SPT" : "SCH"}-2026-${String(oneBasedIndex).padStart(4, "0")}`,
@@ -2263,12 +2289,16 @@ beforeEach(() => {
         organization_name: isSports ? "Metro Athletics" : "North High",
         job_category: isSports ? "media_day" : "photo_day",
         job_status: index % 3 === 0 ? "confirmed" : "planning",
-        production_status: isSports ? "proof_build" : "queued",
-        proof_status: isSports ? "proof_build" : null,
+        production_status: index === 2 ? "awaiting_approval" : isSports ? "proof_build" : "queued",
+        proof_status: index === 2 ? "awaiting_approval" : isSports ? "proof_build" : null,
+        staffing_status: index === 1 ? "gap_flagged" : "staffed",
         risk_status: index % 5 === 0 ? "high" : "low",
-        readiness_status: index % 5 === 0 ? "at_risk" : "on_track",
+        readiness_status: index === 0 ? "off_track" : index % 5 === 0 ? "at_risk" : "on_track",
         lead_owner_user_id: isSports ? "lead-sports" : "lead-schools",
-        lead_owner_name: isSports ? "Sports Lead" : "Schools Lead"
+        lead_owner_name: isSports ? "Sports Lead" : "Schools Lead",
+        blocker_count: index === 0 || index === 1 ? 1 : 0,
+        school_profile: isSports ? null : schoolProfile,
+        sports_profile: isSports ? sportsProfile : null
       });
     });
     listSharedJobsMock.mockResolvedValueOnce({ jobs: databaseJobs });
@@ -2301,14 +2331,20 @@ beforeEach(() => {
     expect(screen.getByLabelText("Job management summary")).toBeInTheDocument();
     expect(screen.getByText("Job Management")).toBeInTheDocument();
     expect(screen.getByText("Intake Review Queue")).toBeInTheDocument();
+    expect(screen.getAllByText("Waiting on client").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Waiting internal").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Ready for calendar").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calendar confirmed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Request missing info")).toBeInTheDocument();
+    expect(screen.getByText("Follow up")).toBeInTheDocument();
+    expect(screen.getByText("Assign owner")).toBeInTheDocument();
     expect(screen.getByText("Launch workflow")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New Job Intake" })).toHaveAttribute("href", "#jobs/new");
     expect(screen.getByRole("columnheader", { name: "Job" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Organization" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Date" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Calendar Readiness" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Missing Info" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Stage" })).toBeInTheDocument();
@@ -2321,6 +2357,10 @@ beforeEach(() => {
     expect(screen.getAllByRole("row")).toHaveLength(26);
     expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open package" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Missing roster").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Client approval needed").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Missing info checklist preview")).toBeInTheDocument();
+    expect(screen.getAllByText(/Owner: Schools/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Date conflict").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Resolve readiness").length).toBeGreaterThan(0);
     expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
@@ -2547,6 +2587,113 @@ beforeEach(() => {
     getSharedJobDetailMock.mockResolvedValue(buildSportsDetail());
     render(<SharedJobDetailPage token="token-demo" currentUser={sportsFinanceViewer} departmentType="sports" routeBase="#sports/shoots" />);
     expect(await screen.findByRole("button", { name: "Financial" })).toBeInTheDocument();
+  });
+
+  it("renders the job detail missing-info checklist with waiting and resolved blocker states", async () => {
+    window.location.hash = "#sports/shoots/job-sports-1";
+    getSharedJobDetailMock.mockResolvedValue(
+      buildSportsDetail({
+        readiness_items: [
+          {
+            id: "readiness-team-list",
+            tenant_id: "tenant-demo",
+            job_id: "job-sports-1",
+            job_day_id: null,
+            section_key: "client_roster",
+            label: "Team list received",
+            description: "Team list is required before proof setup.",
+            is_required: true,
+            is_blocker: true,
+            is_complete: false,
+            completed_at: null,
+            completed_by_user_id: null,
+            completed_by_name: null,
+            due_at: "2026-08-20T18:00:00.000Z",
+            sort_order: 1,
+            source_template_key: "sports-team-list",
+            notes: "Waiting on updated team list from the league.",
+            created_at: "2026-04-01T12:00:00.000Z",
+            updated_at: "2026-04-01T12:00:00.000Z"
+          },
+          {
+            id: "readiness-resolved",
+            tenant_id: "tenant-demo",
+            job_id: "job-sports-1",
+            job_day_id: null,
+            section_key: "contacts",
+            label: "Approval owner confirmed",
+            description: "Client approver was missing during intake.",
+            is_required: true,
+            is_blocker: true,
+            is_complete: true,
+            completed_at: "2026-08-18T16:00:00.000Z",
+            completed_by_user_id: "user-sports",
+            completed_by_name: "Sports Manager",
+            due_at: "2026-08-18T18:00:00.000Z",
+            sort_order: 2,
+            source_template_key: "sports-approval-owner",
+            notes: "Morgan Approval confirmed.",
+            created_at: "2026-04-01T12:00:00.000Z",
+            updated_at: "2026-08-18T16:00:00.000Z"
+          }
+        ],
+        watch_flags: [
+          {
+            id: "flag-client-approval",
+            tenant_id: "tenant-demo",
+            job_id: "job-sports-1",
+            job_day_id: null,
+            production_item_id: null,
+            approval_request_id: null,
+            qa_review_record_id: null,
+            deliverable_item_id: null,
+            source_entity_type: null,
+            source_entity_id: null,
+            severity: "medium",
+            flag_type: "client_approval",
+            title: "Proof approval pending",
+            description: "Coach approval is still needed before production release.",
+            status: "open",
+            owner_user_id: null,
+            owner_name: "Client Success",
+            created_by_user_id: null,
+            due_at: "2026-08-23T18:00:00.000Z",
+            snooze_until: null,
+            escalated_at: null,
+            escalated_to_role: null,
+            resolved_at: null,
+            resolved_by_user_id: null,
+            resolved_by_name: null,
+            auto_key: null,
+            created_at: "2026-04-01T12:00:00.000Z",
+            updated_at: "2026-04-01T12:00:00.000Z"
+          }
+        ],
+        status: {
+          readiness_percent: 66,
+          job_status: "confirmed",
+          production_status: "awaiting_approval",
+          staffing_status: "partially_staffed",
+          readiness_status: "at_risk",
+          risk_status: "high",
+          blocker_count: 1,
+          open_watch_flag_count: 1
+        }
+      })
+    );
+
+    render(<SharedJobDetailPage token="token-demo" currentUser={sportsCoordinator} departmentType="sports" routeBase="#sports/shoots" />);
+
+    expect(await screen.findByRole("heading", { name: "Missing Info Checklist" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Missing Info and Blockers" })).toBeInTheDocument();
+    expect(screen.getAllByText("Missing team list").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Client approval needed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Waiting on client").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Waiting on internal team").length).toBeGreaterThan(0);
+    expect(screen.getByText("Resolved blocker history")).toBeInTheDocument();
+    expect(screen.getByText(/Approval owner confirmed resolved/)).toBeInTheDocument();
+    expect(screen.getByText(/Owner: Client Success/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Follow up with the client approver/).length).toBeGreaterThan(0);
   });
 
   it("renders the shared production queue for sports and routes bulk-safe actions through the shared production api", async () => {

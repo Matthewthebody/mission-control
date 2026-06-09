@@ -2920,6 +2920,68 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   font-size: 1.1rem;
 }
 
+.job-missing-info-cell {
+  display: grid;
+  gap: 5px;
+  min-width: 150px;
+}
+
+.job-missing-info-cell span,
+.job-missing-info-preview span,
+.job-missing-info-item span,
+.job-missing-info-item small,
+.job-missing-info-history span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.job-missing-info-preview,
+.job-missing-info-list,
+.job-missing-info-history {
+  display: grid;
+  gap: 8px;
+}
+
+.job-missing-info-preview {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.12);
+}
+
+.job-missing-info-preview div,
+.job-missing-info-item {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.job-missing-info-item {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 9px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.job-missing-info-item > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.job-missing-info-item p {
+  margin: 0;
+  color: var(--text);
+}
+
+.job-missing-info-history {
+  margin-top: 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding-top: 10px;
+}
+
 .job-routing-notifications__chips {
   display: flex;
   flex-wrap: wrap;
