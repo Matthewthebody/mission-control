@@ -2442,7 +2442,7 @@ beforeEach(() => {
     expect(screen.getByRole("heading", { name: "Operational Requirements" })).toBeInTheDocument();
     expect(getControlWithinLabel("Photographers estimated", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Roster or team list source", "input")).toBeInTheDocument();
-    expect(getControlWithinLabel("Teams/classes/groups", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("Teams, classes, or groups", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Expected volume", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Products and services", "select")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
