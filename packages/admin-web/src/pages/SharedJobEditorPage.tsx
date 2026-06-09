@@ -36,6 +36,7 @@ import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import type { WorkspaceHeaderMeta, WorkspaceHeaderMetaTone } from "../components/workspace/WorkspacePageHeader";
 import type { SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
+import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
 import { createSharedJobDraft, getSharedJobDetail, publishSharedJob, updateSharedJobDraft, updateSharedPublishedJob } from "../services/jobsApi";
 import { listDirectoryContacts, listDirectoryLocations, listDirectoryOwnerOptions, listOrganizations } from "../services/organizationApi";
 import type { DirectoryOwnerOption, OrganizationContact, OrganizationLocation, OrganizationSummary, SessionUser } from "../types";
@@ -176,6 +177,20 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
   const intakeManagementSummary = useMemo(() => buildJobIntakeManagementSummary(formState), [formState]);
+  const calendarReadiness = useMemo(
+    () =>
+      buildJobCalendarReadiness({
+        date: formState.scheduled_start_date,
+        startTime: formState.scheduled_start_time,
+        endTime: formState.scheduled_end_time,
+        dateOnly: !formState.scheduled_start_time,
+        locationId: formState.primary_location_id,
+        contactId: formState.primary_contact_id,
+        accountOwnerName: selectedOwnerName,
+        estimatedStaffCount: formState.estimated_staff_count
+      }),
+    [formState, selectedOwnerName]
+  );
 
   useEffect(() => {
     if (!jobId || mode !== "edit") {
@@ -486,23 +501,39 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         : "Shared summary schedule, timezone, location, and day manager entry point.",
       fields: ["scheduled_start_at", "scheduled_end_at", "timezone", "primary_location_id"],
       body: (
-        <div className="field-grid shared-job-form__grid">
-          <label className="filter-field"><span>Start date</span><input type="date" value={formState.scheduled_start_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_date: event.target.value }))} /></label>
-          <label className="filter-field"><span>Start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
-          {isGlobalJobIntake ? (
-            <>
-              <label className="filter-field"><span>Alternate date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
-              <label className="filter-field"><span>Expected end time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
-            </>
-          ) : null}
-          {!isGlobalJobIntake ? (
-            <>
-              <label className="filter-field"><span>End date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
-              <label className="filter-field"><span>End time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
-              <label className="filter-field"><span>Timezone</span><input value={formState.timezone} onChange={(event) => updateState((current) => ({ ...current, timezone: event.target.value }))} /></label>
-            </>
-          ) : null}
-          <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={locationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={(value) => updateState((current) => ({ ...current, primary_location_id: value }))} errors={fieldErrors.primary_location_id} helperText="The shared job uses one primary location while job days can still vary." />
+        <div className="shared-job-form__stack">
+          <div className="shared-job-calendar-readiness" aria-label="Calendar readiness">
+            <div>
+              <span className="eyebrow">Calendar Readiness</span>
+              <strong>{calendarReadiness.label}</strong>
+              <p>{calendarReadiness.summary}</p>
+            </div>
+            <StatusPill label={calendarReadiness.label} tone={calendarReadiness.tone} />
+            <div className="shared-job-detail__kv">
+              <span>Schedule: {calendarReadiness.scheduleLabel}</span>
+              <span>Owner: {calendarReadiness.ownerLabel}</span>
+              <span>Staffing: {calendarReadiness.staffingLabel}</span>
+              <span>Next: {calendarReadiness.nextAction}</span>
+            </div>
+          </div>
+          <div className="field-grid shared-job-form__grid">
+            <label className="filter-field"><span>Start date</span><input type="date" value={formState.scheduled_start_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_date: event.target.value }))} /></label>
+            <label className="filter-field"><span>Start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
+            {isGlobalJobIntake ? (
+              <>
+                <label className="filter-field"><span>Alternate date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
+                <label className="filter-field"><span>Expected end time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
+              </>
+            ) : null}
+            {!isGlobalJobIntake ? (
+              <>
+                <label className="filter-field"><span>End date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
+                <label className="filter-field"><span>End time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
+                <label className="filter-field"><span>Timezone</span><input value={formState.timezone} onChange={(event) => updateState((current) => ({ ...current, timezone: event.target.value }))} /></label>
+              </>
+            ) : null}
+            <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={locationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={(value) => updateState((current) => ({ ...current, primary_location_id: value }))} errors={fieldErrors.primary_location_id} helperText="The shared job uses one primary location while job days can still vary." />
+          </div>
         </div>
       )
     },

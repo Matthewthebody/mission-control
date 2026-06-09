@@ -2301,12 +2301,14 @@ beforeEach(() => {
     expect(screen.getByLabelText("Job management summary")).toBeInTheDocument();
     expect(screen.getByText("Job Management")).toBeInTheDocument();
     expect(screen.getByText("Intake Review Queue")).toBeInTheDocument();
-    expect(screen.getByText("Ready for calendar")).toBeInTheDocument();
+    expect(screen.getAllByText("Ready for calendar").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Calendar confirmed").length).toBeGreaterThan(0);
     expect(screen.getByText("Launch workflow")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New Job Intake" })).toHaveAttribute("href", "#jobs/new");
     expect(screen.getByRole("columnheader", { name: "Job" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Organization" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Date" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Calendar Readiness" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Stage" })).toBeInTheDocument();
@@ -2319,6 +2321,7 @@ beforeEach(() => {
     expect(screen.getAllByRole("row")).toHaveLength(26);
     expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open package" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Date conflict").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Resolve readiness").length).toBeGreaterThan(0);
     expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
 
@@ -2388,6 +2391,9 @@ beforeEach(() => {
     expect(screen.getByRole("option", { name: "Specialty" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Other" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Shoot Date and Location" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
+    expect(screen.getAllByText("Needs date").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Next: Set the requested shoot date\./)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Client, Contact, and Owner" })).toBeInTheDocument();
     expect(getControlWithinLabel("Starting team", "select")).toBeInTheDocument();
     expect(getControlWithinLabel("Current owner", "select")).toBeInTheDocument();
@@ -2509,6 +2515,9 @@ beforeEach(() => {
     expect(screen.getAllByText("Published").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Job published").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Job Progress" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Calendar Readiness" })).toBeInTheDocument();
+    expect(screen.getAllByText("Date conflict").length).toBeGreaterThan(0);
+    expect(screen.getByText("Next scheduling action: Resolve the schedule, readiness, or blocker signal.")).toBeInTheDocument();
     expect(screen.getByLabelText("Job progress timeline")).toBeInTheDocument();
     expect(screen.getByText("Handoff Plan")).toBeInTheDocument();
     expect(screen.getByText("Ownership")).toBeInTheDocument();

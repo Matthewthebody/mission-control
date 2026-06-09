@@ -12,6 +12,7 @@ import { DetailPreviewPanel, RiskBadge, SavedViewBar, StatusPill, formatDate, fo
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import type { SharedJobListItem } from "../jobTruthTypes";
+import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
 import { canCreateShootRecords, canManageSchoolsHub, canManageSportsWorkspace } from "../permissions";
 import { listSharedJobs } from "../services/jobsApi";
 import type { SessionUser } from "../types";
@@ -300,8 +301,31 @@ function jobHasMissingInfo(item: SharedJobListItem) {
   return !item.organization_id || !item.primary_location_id || !item.primary_contact_id || item.readiness_status === "off_track" || item.readiness_status === "at_risk";
 }
 
+function getCalendarReadiness(item: SharedJobListItem) {
+  return buildJobCalendarReadiness({
+    date: item.primary_day_date ?? item.scheduled_start_at?.slice(0, 10) ?? null,
+    startTime: item.primary_day_start_time ?? item.scheduled_start_at?.slice(11, 16) ?? null,
+    endTime: item.primary_day_end_time ?? item.scheduled_end_at?.slice(11, 16) ?? null,
+    dateOnly: !item.primary_day_start_time && !item.scheduled_start_at,
+    locationId: item.primary_location_id,
+    contactId: item.primary_contact_id,
+    primaryLocationName: item.primary_location_name,
+    primaryContactName: item.primary_contact_name,
+    staffingStatus: item.staffing_status,
+    readinessStatus: item.readiness_status,
+    riskStatus: item.risk_status,
+    jobStatus: item.job_status,
+    blockerCount: item.blocker_count,
+    openWatchFlagCount: item.open_watch_flag_count,
+    leadOwnerName: item.lead_owner_name,
+    accountOwnerName: item.account_owner_name,
+    estimatedStaffCount: item.estimated_staff_count
+  });
+}
+
 function jobReadyForCalendar(item: SharedJobListItem) {
-  return Boolean((item.primary_day_date || item.scheduled_start_at) && item.primary_location_id && item.primary_contact_id && item.staffing_status !== "gap_flagged");
+  const readiness = getCalendarReadiness(item);
+  return readiness.status === "ready_for_calendar" || readiness.status === "calendar_confirmed";
 }
 
 function jobIsActiveThisWeek(item: SharedJobListItem) {
@@ -389,6 +413,7 @@ function buildJobManagementStats(items: SharedJobListItem[]) {
     { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, detail: "Draft or pending intake packages." },
     { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, detail: "Client, contact, location, date, or readiness gaps." },
     { key: "ready-calendar", label: "Ready for calendar", value: items.filter(jobReadyForCalendar).length, detail: "Enough information to review for scheduling." },
+    { key: "calendar-confirmed", label: "Calendar confirmed", value: items.filter((item) => getCalendarReadiness(item).status === "calendar_confirmed").length, detail: "Date, time, location, contact, and owner are in place." },
     { key: "active-week", label: "Active this week", value: items.filter(jobIsActiveThisWeek).length, detail: "Jobs with a date inside the next seven days." },
     { key: "blocked", label: "Blocked", value: items.filter((item) => item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0).length, detail: "Work with blockers or open watch flags." },
     { key: "completed", label: "Recently completed", value: items.filter(jobRecentlyCompleted).length, detail: "Jobs that have reached completion or delivery." }
@@ -418,6 +443,10 @@ function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[]
     },
     { key: "organization", label: "Organization", render: (item) => item.organization_name ?? "Unassigned" },
     { key: "date", label: "Date", render: (item) => formatJobDate(item) },
+    { key: "calendar", label: "Calendar Readiness", render: (item) => {
+      const readiness = getCalendarReadiness(item);
+      return <StatusPill label={readiness.label} tone={readiness.tone} />;
+    } },
     { key: "department", label: "Department", render: (item) => <StatusPill label={getDepartmentLabel(item.department_type)} tone="neutral" /> },
     { key: "status", label: "Status", render: (item) => <StatusPill label={humanizeToken(item.job_status)} tone={statusTone(item.job_status)} /> },
     { key: "stage", label: "Stage", render: (item) => <StatusPill label={getManagementStage(item)} tone={jobNeedsAttention(item) ? "warning" : "info"} /> },
@@ -755,20 +784,30 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
               </WorkspaceActionBar>
             }
           >
+            {(() => {
+              const calendarReadiness = getCalendarReadiness(selectedItem);
+              return (
+                <>
             <div className="shared-job-preview__grid">
               <div><span>Primary date</span><strong>{selectedItem.primary_day_date ? formatDate(selectedItem.primary_day_date) : "TBD"}</strong></div>
+              <div><span>Calendar readiness</span><strong>{calendarReadiness.label}</strong></div>
               <div><span>Location</span><strong>{selectedItem.primary_location_name ?? "TBD"}</strong></div>
               <div><span>Contact</span><strong>{selectedItem.primary_contact_name ?? "TBD"}</strong></div>
               <div><span>Owner</span><strong>{selectedItem.account_owner_name ?? "Unassigned"}</strong></div>
+              <div><span>Shoot manager</span><strong>{calendarReadiness.ownerLabel}</strong></div>
               <div><span>Stage</span><strong>{getManagementStage(selectedItem)}</strong></div>
               <div><span>Next action</span><strong>{getNextStep(selectedItem)}</strong></div>
             </div>
             <div className="shared-job-preview__status-row">
               <RiskBadge level={selectedItem.risk_status} />
+              <StatusPill label={calendarReadiness.label} tone={calendarReadiness.tone} />
               <StatusPill label={humanizeToken(selectedItem.job_status)} tone={statusTone(selectedItem.job_status)} />
               <StatusPill label={humanizeToken(selectedItem.readiness_status)} tone={statusTone(selectedItem.readiness_status)} />
               <StatusPill label={humanizeToken(selectedItem.production_status)} tone={statusTone(selectedItem.production_status)} />
             </div>
+                </>
+              );
+            })()}
           </DetailPreviewPanel>
         ) : null
       }

@@ -48,6 +48,7 @@ import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingB
 import type { WorkspaceHeaderMetaTone } from "../components/workspace/WorkspacePageHeader";
 import { listDirectoryOwnerOptions } from "../services/organizationApi";
 import { buildJobPreCallContext } from "../services/preCallContextBuilders";
+import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
 import {
   addSharedJobDayNote,
   addSharedJobStaffAssignment,
@@ -95,6 +96,10 @@ function readActiveTab(params: URLSearchParams) {
 
 function mapHeaderTone(status: string | null | undefined): WorkspaceHeaderMetaTone {
   const tone = statusTone(status);
+  return tone === "danger" ? "critical" : tone;
+}
+
+function mapCalendarHeaderTone(tone: "neutral" | "info" | "success" | "warning" | "danger"): WorkspaceHeaderMetaTone {
   return tone === "danger" ? "critical" : tone;
 }
 
@@ -203,6 +208,25 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const canManageDeliverables = hasPolicy ? Boolean(actions.manage_deliverables) : canManageProduction;
   const canManageWatchFlags = hasPolicy ? Boolean(actions.manage_watch_flags) : canManageRecord;
   const selectedDay = detail?.days.find((day) => day.id === selectedDayId) ?? detail?.days[0] ?? null;
+  const calendarReadiness = detail
+    ? buildJobCalendarReadiness({
+        date: detail.summary.primary_day_date,
+        startTime: detail.summary.primary_day_start_time,
+        endTime: detail.summary.primary_day_end_time,
+        dateOnly: !detail.summary.primary_day_start_time,
+        primaryLocationName: detail.summary.primary_location_name,
+        primaryContactName: detail.summary.primary_contact_name,
+        staffingStatus: detail.status.staffing_status,
+        readinessStatus: detail.status.readiness_status,
+        riskStatus: detail.status.risk_status,
+        jobStatus: detail.status.job_status,
+        blockerCount: detail.status.blocker_count,
+        openWatchFlagCount: detail.status.open_watch_flag_count,
+        leadOwnerName: detail.summary.lead_owner_name,
+        accountOwnerName: detail.summary.account_owner_name,
+        estimatedStaffCount: detail.job.estimated_staff_count
+      })
+    : null;
   const jobChangeNotices = useMemo(
     () =>
       detail
@@ -313,12 +337,30 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       title: "Operations Snapshot",
       body: (
         <div className="shared-job-detail__kv">
+          <span>Calendar: {calendarReadiness?.label ?? "Needs date"}</span>
           <span>Readiness: {detail.status.readiness_percent}% complete</span>
           <span>Staffing: {humanizeToken(detail.status.staffing_status)}</span>
           <span>Blockers: {detail.status.blocker_count}</span>
           <span>Open watch flags: {detail.status.open_watch_flag_count}</span>
         </div>
       )
+    },
+    {
+      key: "calendar-readiness",
+      title: "Calendar Readiness",
+      body: calendarReadiness ? (
+        <div className="shared-job-form__stack">
+          <div className="shared-job-preview__status-row">
+            <StatusPill label={calendarReadiness.label} tone={calendarReadiness.tone} />
+            <StatusPill label={calendarReadiness.staffingLabel} tone={calendarReadiness.staffingLabel === "Shoot manager assigned" ? "success" : "warning"} />
+          </div>
+          <div className="shared-job-detail__kv">
+            <span>Schedule: {calendarReadiness.scheduleLabel}</span>
+            <span>Shoot manager: {calendarReadiness.ownerLabel}</span>
+            <span>Next scheduling action: {calendarReadiness.nextAction}</span>
+          </div>
+        </div>
+      ) : null
     },
     {
       key: "watch",
@@ -757,6 +799,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       summary={`${detail.summary.organization_name ?? "No organization"} | ${detail.job.title || detail.job.event_name || "Untitled job"} | ${detail.summary.primary_day_date ? formatDate(detail.summary.primary_day_date) : "Date TBD"}`}
       meta={[
         { label: humanizeToken(detail.job.job_status), tone: mapHeaderTone(detail.job.job_status) },
+        calendarReadiness ? { label: calendarReadiness.label, tone: mapCalendarHeaderTone(calendarReadiness.tone) } : { label: "Needs date", tone: "warning" },
         { label: humanizeToken(detail.job.readiness_status), tone: mapHeaderTone(detail.job.readiness_status) },
         { label: humanizeToken(detail.job.staffing_status), tone: mapHeaderTone(detail.job.staffing_status) },
         { label: humanizeToken(detail.job.production_status), tone: mapHeaderTone(detail.job.production_status) }
