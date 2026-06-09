@@ -707,6 +707,9 @@ describe("StudiosWorkspace", () => {
     expect(screen.queryByText("Work Spine")).not.toBeInTheDocument();
     expect(listSharedJobsMock).toHaveBeenCalledWith("token-demo", { day_date: today });
     expect(listSharedJobsMock).toHaveBeenCalledWith("token-demo");
+    expect(listSharedJobsMock).toHaveBeenCalledWith("token-demo", { department_type: "all" });
+    expect(screen.getByRole("heading", { level: 3, name: "Photography Job Priorities" })).toBeInTheDocument();
+    expect(screen.getByText("Shoot prep, manager assignment, call time, location, and this-week job pressure from the shared job record.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Today's Shoots" })).toBeInTheDocument();
     expect(screen.queryByText("Ready to Go")).not.toBeInTheDocument();
     expect(screen.queryByText("Recently Changed")).not.toBeInTheDocument();

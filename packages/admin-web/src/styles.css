@@ -2982,6 +2982,121 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   padding-top: 10px;
 }
 
+.department-job-spine {
+  display: grid;
+  gap: 12px;
+}
+
+.department-job-spine__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.department-job-spine__header > div {
+  min-width: 0;
+}
+
+.department-job-spine__header h3 {
+  margin: 0;
+}
+
+.department-job-spine__header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+.department-job-spine__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.department-job-spine__metric {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.12);
+}
+
+.department-job-spine__metric--danger {
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.department-job-spine__metric--warning {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.department-job-spine__metric--success {
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.department-job-spine__metric span,
+.department-job-spine__metric small,
+.department-job-spine__item span,
+.department-job-spine__item small {
+  color: var(--text-muted);
+}
+
+.department-job-spine__metric span {
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.department-job-spine__metric strong {
+  font-size: 1.15rem;
+}
+
+.department-job-spine__list {
+  display: grid;
+  gap: 8px;
+}
+
+.department-job-spine__item {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 0.8fr);
+  gap: 8px 12px;
+  align-items: start;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 9px;
+  padding: 10px;
+  color: inherit;
+  text-decoration: none;
+  background: rgba(15, 23, 42, 0.2);
+}
+
+.department-job-spine__item:hover {
+  border-color: rgba(96, 165, 250, 0.32);
+}
+
+.department-job-spine__item-main,
+.department-job-spine__item-status {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.department-job-spine__item-status {
+  justify-items: start;
+}
+
+.department-job-spine__item p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text);
+}
+
+.department-job-spine__item small {
+  grid-column: 1 / -1;
+}
+
 .job-routing-notifications__chips {
   display: flex;
   flex-wrap: wrap;
@@ -21024,6 +21139,18 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 @media (max-width: 900px) {
+  .department-job-spine__header {
+    display: grid;
+  }
+
+  .department-job-spine__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .department-job-spine__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .job-management-summary__header,
   .intake-review-queue > div:first-child,
   .job-intake-readiness__header,

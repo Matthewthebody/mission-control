@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiClientError } from "../api";
 import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
+import { DepartmentJobSpinePanel } from "../components/jobs/DepartmentJobSpinePanel";
 import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
 import { JobIntakeLauncherCard } from "../components/jobIntake/JobIntakeLauncherCard";
 import { QuickCreateJobDrawer } from "../components/jobIntake/QuickCreateJobDrawer";
@@ -686,6 +687,15 @@ export function SportsOverview({ token, currentUser }: Props) {
         attention={attentionCards}
         weekly={weeklyCards}
         queues={queueCards}
+      />
+
+      <DepartmentJobSpinePanel
+        jobs={sharedJobs}
+        title="Sports Job Priorities"
+        summary="Upcoming sports jobs, missing team lists, QR and release readiness, blockers, owners, and the next action from the shared job record."
+        departmentTypes={["sports"]}
+        routeBase="#sports/jobs"
+        emptyLabel="No sports jobs need attention from the shared job spine right now."
       />
 
       <section className="panel sports-operating-board">

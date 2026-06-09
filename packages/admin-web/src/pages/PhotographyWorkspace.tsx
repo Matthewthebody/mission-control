@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
+import { DepartmentJobSpinePanel } from "../components/jobs/DepartmentJobSpinePanel";
 import { CompactActiveWorkPanel } from "../components/workspace/CompactActiveWorkPanel";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState";
@@ -150,6 +151,16 @@ export function StudiosWorkspace({ token, currentUser, focus = "overview" }: Pro
             summary="Location, call time, staffing, and parking changes field teams should review before leaving."
             compact
             maxItems={3}
+          />
+          <DepartmentJobSpinePanel
+            token={token}
+            query={{ department_type: "all" }}
+            title="Photography Job Priorities"
+            summary="Shoot prep, manager assignment, call time, location, and this-week job pressure from the shared job record."
+            departmentTypes={["headshots", "schools", "sports", "other"]}
+            routeBase="#studios/pre-service?jobId="
+            emptyLabel="No shoot-prep work needs Photography attention right now."
+            maxItems={5}
           />
           <PhotographyTodayShootsPanel token={token} />
           <PhotographyWeeklyPreviewPanel token={token} />

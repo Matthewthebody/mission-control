@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
+import { DepartmentJobSpinePanel } from "../components/jobs/DepartmentJobSpinePanel";
 import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
 import { QuickCreateJobDrawer } from "../components/jobIntake/QuickCreateJobDrawer";
 import { ProjectTrackingDepartmentQueue } from "../components/projectTracking/ProjectTrackingDepartmentQueue";
@@ -1374,6 +1375,15 @@ export function SchoolsHub({ token, currentUser }: Props) {
         attention={attentionCards}
         weekly={weeklyCards}
         queues={queueCards}
+      />
+
+      <DepartmentJobSpinePanel
+        jobs={schoolJobs}
+        title="Schools Job Priorities"
+        summary="Current school jobs, missing rosters, client follow-up, due dates, owners, and the next action from the shared job record."
+        departmentTypes={["schools"]}
+        routeBase="#schools/jobs"
+        emptyLabel="No school jobs need attention from the shared job spine right now."
       />
 
       <section className="panel schools-dashboard-v1">

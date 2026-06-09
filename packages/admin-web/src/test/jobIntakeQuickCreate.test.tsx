@@ -15,6 +15,7 @@ import type {
 import type { SchoolsHubReferenceData, SchoolsHubWorkspaceResponse } from "../schoolsHubTypes";
 import type { SportsOverviewResponse } from "../sportsTypes";
 import type { SessionUser } from "../types";
+import type { SharedJobListItem } from "../jobTruthTypes";
 
 const listOrganizationsMock = vi.fn();
 const getOrganizationDetailMock = vi.fn();
@@ -221,6 +222,94 @@ const emptySportsOverview: SportsOverviewResponse = {
   account_health: [],
   recent_activity: []
 };
+
+function buildDepartmentJob(overrides: Partial<SharedJobListItem> = {}): SharedJobListItem {
+  return {
+    id: "job-dept-1",
+    tenant_id: "tenant-demo",
+    legacy_shoot_id: null,
+    job_number: "SCH-2026-0010",
+    department_type: "schools",
+    job_category: "photo_day",
+    organization_id: "org-school",
+    primary_location_id: "loc-school",
+    primary_contact_id: "contact-school",
+    account_owner_user_id: "owner-1",
+    title: "North High Picture Day",
+    event_name: "Picture Day",
+    description_internal: null,
+    job_status: "confirmed",
+    production_status: "queued",
+    staffing_status: "staffed",
+    readiness_status: "on_track",
+    sync_status: "clean",
+    risk_status: "low",
+    priority_level: "normal",
+    delivery_type: "mixed",
+    gallery_type: "individual",
+    scheduled_start_at: "2026-09-12T08:00:00",
+    scheduled_end_at: "2026-09-12T15:00:00",
+    timezone: "America/Chicago",
+    estimated_subject_count: 400,
+    actual_subject_count: null,
+    estimated_staff_count: 4,
+    actual_staff_count: null,
+    client_deadline_at: "2026-09-01T18:00:00.000Z",
+    production_deadline_at: null,
+    published_at: "2026-04-01T12:00:00.000Z",
+    archived_at: null,
+    cancelled_at: null,
+    cancel_reason: null,
+    production_required: true,
+    location_override_note: null,
+    contact_override_note: null,
+    created_by_user_id: "user-1",
+    updated_by_user_id: "user-1",
+    created_at: "2026-04-01T12:00:00.000Z",
+    updated_at: "2026-04-01T12:00:00.000Z",
+    organization_name: "North High",
+    primary_location_name: "Main Gym",
+    primary_location_address: "123 Main",
+    primary_contact_name: "Jamie Contact",
+    account_owner_name: "Jessica Lead",
+    lead_owner_user_id: "lead-1",
+    lead_owner_name: "Jessica Lead",
+    primary_day_date: "2026-09-12",
+    primary_day_start_time: "08:00",
+    primary_day_end_time: "15:00",
+    primary_day_label: "Day 1",
+    school_profile: {
+      job_id: "job-dept-1",
+      tenant_id: "tenant-demo",
+      district_id: "district-1",
+      district_name: "North District",
+      school_type: "high_school",
+      school_year: "2026-2027",
+      grade_scope: "9-12",
+      roster_source: "sis_export",
+      id_cards_required: true,
+      yearbook_required: true,
+      composite_required: false,
+      admin_portal_required: false,
+      submission_deadline: "2026-09-01",
+      advisor_sorting_required: false,
+      homeroom_sorting_required: true,
+      data_import_mode: "roster_csv",
+      special_instructions: null
+    },
+    sports_profile: null,
+    department_summary: {},
+    proof_status: null,
+    open_watch_flag_count: 0,
+    readiness_percent: 80,
+    blocker_count: 0,
+    day_count: 1,
+    assigned_staff_count: 2,
+    checked_in_staff_count: 0,
+    ready_present_count: 0,
+    ...overrides
+  };
+}
 
 function makeDraftResponse(department: CentralJobDepartment, overrides: Partial<CentralJobDraftResponse["job"]> = {}): CentralJobDraftResponse {
   return {
@@ -635,6 +724,78 @@ beforeEach(() => {
 });
 
 describe("central job intake quick create", () => {
+  it("surfaces school job spine priorities with missing roster next actions", async () => {
+    listSharedJobsMock.mockResolvedValueOnce({
+      jobs: [
+        buildDepartmentJob({
+          id: "job-school-roster",
+          title: "North High Roster Follow-up",
+          blocker_count: 1,
+          readiness_status: "at_risk",
+          school_profile: {
+            ...buildDepartmentJob().school_profile!,
+            roster_source: null
+          }
+        })
+      ]
+    });
+
+    renderSchoolsPage();
+
+    expect(await screen.findByRole("heading", { level: 3, name: "Schools Job Priorities" })).toBeInTheDocument();
+    const panel = within(screen.getByLabelText("Schools Job Priorities"));
+    expect(panel.getByText("North High Roster Follow-up")).toBeInTheDocument();
+    expect(panel.getByText("2 missing")).toBeInTheDocument();
+    expect(panel.getByText("Request the roster from the school.")).toBeInTheDocument();
+    expect(panel.getByRole("link", { name: /North High Roster Follow-up/i })).toHaveAttribute("href", "#schools/jobs/job-school-roster");
+  });
+
+  it("surfaces sports job spine priorities with team list next actions", async () => {
+    listSharedJobsMock.mockResolvedValueOnce({
+      jobs: [
+        buildDepartmentJob({
+          id: "job-sports-team-list",
+          job_number: "SPT-2026-0020",
+          department_type: "sports",
+          title: "Metro Athletics Team Photos",
+          organization_name: "Metro Athletics",
+          readiness_status: "at_risk",
+          school_profile: null,
+          sports_profile: {
+            job_id: "job-sports-team-list",
+            tenant_id: "tenant-demo",
+            sport_type: "basketball",
+            season: "Winter 2026",
+            league_name: null,
+            division: "Varsity",
+            team_structure: "school",
+            estimated_team_count: null,
+            proof_required: true,
+            approval_contact_id: null,
+            approval_contact_name: null,
+            billing_contact_id: null,
+            billing_contact_name: null,
+            revenue_share_enabled: false,
+            revenue_share_terms_summary: null,
+            banner_work_required: true,
+            specialty_products_required: false,
+            buddy_photos_required: false,
+            sponsor_graphics_required: false,
+            client_expectations_notes: null
+          }
+        })
+      ]
+    });
+
+    renderSportsPage();
+
+    expect(await screen.findByRole("heading", { level: 3, name: "Sports Job Priorities" })).toBeInTheDocument();
+    const panel = within(screen.getByLabelText("Sports Job Priorities"));
+    expect(panel.getByText("Metro Athletics Team Photos")).toBeInTheDocument();
+    expect(panel.getByText("Collect team list and league details.")).toBeInTheDocument();
+    expect(panel.getByRole("link", { name: /Metro Athletics Team Photos/i })).toHaveAttribute("href", "#sports/jobs/job-sports-team-list");
+  });
+
   it("saves a schools draft from the Schools entry point", async () => {
     renderSchoolsPage();
     const dialog = await openQuickCreate();
