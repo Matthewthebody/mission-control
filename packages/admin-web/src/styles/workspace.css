@@ -1155,6 +1155,8 @@
 }
 
 .shared-job-shell--clean-intake {
+  gap: 10px;
+  margin-top: -6px;
   padding-bottom: 96px;
 }
 
@@ -1165,6 +1167,7 @@
 .shared-job-shell__clean-intake-actions {
   display: flex;
   justify-content: flex-start;
+  margin-bottom: 2px;
 }
 
 .shared-job-shell__form-main,
