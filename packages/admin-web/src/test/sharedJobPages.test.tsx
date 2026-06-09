@@ -2310,7 +2310,7 @@ beforeEach(() => {
     expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Stage" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Owner" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Lead Owner" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Next Step" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Needs Attention" })).toBeInTheDocument();
     expect(screen.getByLabelText("Jobs per page")).toHaveValue("25");
@@ -2318,7 +2318,7 @@ beforeEach(() => {
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(26);
     expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open job record" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open package" }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Resolve readiness").length).toBeGreaterThan(0);
     expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
 
@@ -2402,7 +2402,7 @@ beforeEach(() => {
     expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Important notes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit for Review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Job Package" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Sports Event Structure" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Day-Level Management" })).not.toBeInTheDocument();

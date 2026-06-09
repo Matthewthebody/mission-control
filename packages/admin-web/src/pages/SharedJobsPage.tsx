@@ -381,7 +381,7 @@ function getNextStep(item: SharedJobListItem) {
   if (item.production_status === "delivered" || item.production_status === "complete") {
     return "Review completed record";
   }
-  return "Open job record";
+  return "Open package";
 }
 
 function buildJobManagementStats(items: SharedJobListItem[]) {
@@ -421,7 +421,7 @@ function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[]
     { key: "department", label: "Department", render: (item) => <StatusPill label={getDepartmentLabel(item.department_type)} tone="neutral" /> },
     { key: "status", label: "Status", render: (item) => <StatusPill label={humanizeToken(item.job_status)} tone={statusTone(item.job_status)} /> },
     { key: "stage", label: "Stage", render: (item) => <StatusPill label={getManagementStage(item)} tone={jobNeedsAttention(item) ? "warning" : "info"} /> },
-    { key: "owner", label: "Owner", render: (item) => getJobOwnerName(item) },
+    { key: "owner", label: "Lead Owner", render: (item) => getJobOwnerName(item) },
     { key: "next_step", label: "Next Step", render: (item) => <span className="shared-job-table__next-step">{getNextStep(item)}</span> },
     { key: "attention", label: "Needs Attention", render: (item) => <StatusPill label={getAttentionLabel(item)} tone={getAttentionTone(item)} /> },
     {
@@ -436,7 +436,7 @@ function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[]
             navigateToSharedJobHash(routeBase, item.id);
           }}
         >
-          Open job record
+          Open package
         </button>
       )
     }
@@ -750,7 +750,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             subtitle={`${selectedItem.organization_name ?? "No organization"} | ${selectedItem.job_number ?? "Draft"}`}
             actions={
               <WorkspaceActionBar align="end" compact>
-                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open job record</button>
+                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open package</button>
                 {canUpdateByPolicy ? <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, `${selectedItem.id}/edit`)}>Edit</button> : null}
               </WorkspaceActionBar>
             }

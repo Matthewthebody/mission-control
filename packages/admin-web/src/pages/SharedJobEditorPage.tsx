@@ -632,7 +632,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 Save Draft
               </button>
               <button type="button" onClick={() => void persist("draft")} disabled={saving || publishing}>
-                Submit for Review
+                Start Job Package
               </button>
             </>
           ) : null}
