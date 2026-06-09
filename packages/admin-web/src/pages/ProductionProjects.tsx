@@ -1246,7 +1246,7 @@ export function ProductionProjects({ token, currentUser }: Props) {
       <ProjectTrackingDepartmentQueue
         token={token}
         department="production"
-        title="Production / Graphics workflow queue"
+        title="Production and Graphics workflow queue"
         summary="Live Project Dashboard rows where the current workflow step belongs to Production. Graphics-specific assignment is still handled in the graphics board below."
       />
 

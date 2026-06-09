@@ -544,7 +544,7 @@ describe("ProjectTrackingFoundation", () => {
 
     const areaFilters = screen.getByLabelText("Job type area filters");
     expect(within(areaFilters).getByText("Job type")).toBeInTheDocument();
-    expect(within(areaFilters).getByText("Schools/Sports identify the job. Lanes show workflow stage.")).toBeInTheDocument();
+    expect(within(areaFilters).getByText("Schools and Sports identify the job. Lanes show workflow stage.")).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /All, 4 items, active area/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(areaFilters).getByRole("button", { name: /Schools, 2 items/i })).toBeInTheDocument();
     expect(within(areaFilters).getByRole("button", { name: /Sports, 1 item/i })).toBeInTheDocument();
@@ -857,12 +857,12 @@ describe("ProjectTrackingFoundation", () => {
       <ProjectTrackingDepartmentQueue
         token="token"
         department="production"
-        title="Production / Graphics Work Queue"
+        title="Production and Graphics Work Queue"
         summary="Active Project Dashboard steps currently owned by Production."
       />
     );
 
-    expect(await screen.findByRole("heading", { name: "Production / Graphics Work Queue" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Production and Graphics Work Queue" })).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();
     expect(screen.getByText("Maple Grove Senior High Retakes")).toBeInTheDocument();
     expect(screen.queryByText("White Bear Lake High School Fall Portraits")).not.toBeInTheDocument();
@@ -918,14 +918,14 @@ describe("ProjectTrackingFoundation", () => {
       <ProjectTrackingDepartmentQueue
         token="token"
         department="production"
-        title="Production / Graphics Work Queue"
+        title="Production and Graphics Work Queue"
         summary="Active Project Dashboard steps currently owned by Production."
       />
     );
 
     expect(await screen.findByText("White Bear Lake Production Assist")).toBeInTheDocument();
     expect(screen.getByText("1 in queue")).toBeInTheDocument();
-    expect(screen.getByText("Schools / Production")).toBeInTheDocument();
+    expect(screen.getByText("Schools and Production")).toBeInTheDocument();
     expect(screen.getByText("Here by Production department")).toBeInTheDocument();
     expect(screen.getByText("Production Queue")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Details" }));

@@ -198,12 +198,12 @@ const COMMAND_GROUP_ORDER: Array<{
 
 const SORT_LABELS: Record<ProjectTrackingSort, string> = {
   priority: "Priority",
-  organization: "Organization / School",
+  organization: "Organization or School",
   job: "Work",
   stage: "Next step",
   owner: "Next owner",
   deadline: "Due",
-  risk: "Blocked / due",
+  risk: "Blocked or due",
   updated: "Recently changed"
 };
 const DEPARTMENT_FILTER_LABELS: Record<ProjectTrackingDepartmentFilter, string> = {
@@ -211,7 +211,7 @@ const DEPARTMENT_FILTER_LABELS: Record<ProjectTrackingDepartmentFilter, string> 
   schools: "Schools",
   sports: "Sports",
   sessions: "Sessions",
-  production: "Production / Graphics",
+  production: "Production and Graphics",
   other: "Other"
 };
 
@@ -257,10 +257,10 @@ function phasePresentation(phase: string, health: ProjectWorkflowJobHealth) {
     return { label: "Waiting", className: "project-tracking-job-row--phase-waiting", pillClassName: "project-tracking-step-pill--waiting" };
   }
   if (phase === "intake") {
-    return { label: "Intake / Setup", className: "project-tracking-job-row--phase-intake", pillClassName: "project-tracking-step-pill--intake" };
+    return { label: "Intake Setup", className: "project-tracking-job-row--phase-intake", pillClassName: "project-tracking-step-pill--intake" };
   }
   if (phase === "production" || phase === "qa") {
-    return { label: "Production / QA", className: "project-tracking-job-row--phase-production", pillClassName: "project-tracking-step-pill--production" };
+    return { label: "Production QA", className: "project-tracking-job-row--phase-production", pillClassName: "project-tracking-step-pill--production" };
   }
   if (phase === "not_started" || health === "no_workflow" || health === "unknown") {
     return { label: "Not Started", className: "project-tracking-job-row--phase-none", pillClassName: "project-tracking-step-pill--none" };
@@ -723,7 +723,7 @@ function departmentDisplayForRow(row: ProjectWorkflowJobRow) {
 function statusPhaseLabelForRow(row: ProjectWorkflowJobRow) {
   const phase = phasePresentation(row.phase, row.health);
   const status = row.current_step ? statusLabel(row.current_step.status) : phase.label;
-  return `${status} / ${phase.label}`;
+  return `${status} - ${phase.label}`;
 }
 
 function waitingOrBlockedLabelForRow(row: ProjectWorkflowJobRow) {
@@ -1266,7 +1266,7 @@ function ProjectTrackingAreaFilterBar({
     <section className="project-tracking-area-panel" aria-label="Job type area filters">
       <div>
         <strong>Job type</strong>
-        <span>Schools/Sports identify the job. Lanes show workflow stage.</span>
+        <span>Schools and Sports identify the job. Lanes show workflow stage.</span>
       </div>
       <div className="project-tracking-area-filter-row">
         {areaCountsFor(rows).map((areaOption) => (
@@ -1480,7 +1480,7 @@ function ProjectTrackingTimelinePreview({
                         </div>
                         <div className="project-tracking-timeline-item__main">
                           <strong>{workItemName(row)}</strong>
-                          <small>{departmentDisplayForRow(row)} / {workItemAccountLabel(row)}</small>
+                          <small>{departmentDisplayForRow(row)} - {workItemAccountLabel(row)}</small>
                           <span>{currentStepLabel(row)} - {owner.primary}</span>
                           <div className="project-tracking-timeline-item__chips">
                             <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`}>{healthLabel(row.health)}</span>
@@ -1814,7 +1814,7 @@ function ProjectTrackingJobBoard({
                     <div className="project-tracking-work-card__main">
                       <div className="project-tracking-work-card__title-row">
                         <div>
-                          <span className="project-tracking-work-card__eyebrow">{departmentLabel(row.current_step?.department)} / {workItemAccountLabel(row)}</span>
+                          <span className="project-tracking-work-card__eyebrow">{departmentLabel(row.current_step?.department)} - {workItemAccountLabel(row)}</span>
                           <h3 id={titleId} title={row.job_title}>{rowName}</h3>
                         </div>
                         <span className={`project-tracking-step-pill ${phase.pillClassName}`} aria-label={`Phase: ${phase.label}`}>{phase.label}</span>

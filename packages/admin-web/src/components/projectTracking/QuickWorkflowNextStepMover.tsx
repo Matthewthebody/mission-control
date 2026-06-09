@@ -44,6 +44,10 @@ function validNextSteps(workflow: ProjectWorkflowInstance | null, currentStepId:
   return steps.slice(currentIndex + 1).filter((candidate) => !TERMINAL_STATUSES.has(candidate.status)).slice(0, 1);
 }
 
+function cleanStepName(value: string) {
+  return value.replace(/\s+\/\s+/g, " and ");
+}
+
 export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillClassName = "project-tracking-step-pill--production", onSaved }: QuickWorkflowNextStepMoverProps) {
   const [workflow, setWorkflow] = useState<ProjectWorkflowInstance | null>(null);
   const [loading, setLoading] = useState(false);
@@ -102,6 +106,8 @@ export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillCla
 
   const selectedStep = nextSteps.find((candidate) => candidate.id === selectedStepId) ?? null;
   const canMove = Boolean(selectedStep) && !TERMINAL_STATUSES.has(step.status);
+  const currentStepName = cleanStepName(step.name);
+  const selectedStepName = selectedStep ? cleanStepName(selectedStep.name) : "";
 
   const moveForward = async () => {
     if (!selectedStep) {
@@ -115,7 +121,7 @@ export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillCla
       const completedWorkflow = await transitionProjectWorkflowStep(token, step.id, {
         status: "COMPLETE",
         notes: trimmedNote || null,
-        reason: trimmedNote || `Moved current step forward to ${selectedStep.name}.`,
+        reason: trimmedNote || `Moved current step forward to ${selectedStepName}.`,
         last_seen_updated_at: step.updated_at
       });
       const refreshedNextStep = flattenWorkflowSteps(completedWorkflow).find((candidate) => candidate.id === selectedStep.id) ?? selectedStep;
@@ -124,10 +130,10 @@ export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillCla
         assigned_user_id: keepOwner ? step.assigned_user_id : null,
         assigned_queue: refreshedNextStep.assigned_queue ?? step.assigned_queue,
         notes: trimmedNote || null,
-        reason: `Moved workflow forward from ${step.name} to ${refreshedNextStep.name}.`,
+        reason: `Moved workflow forward from ${currentStepName} to ${cleanStepName(refreshedNextStep.name)}.`,
         last_seen_updated_at: refreshedNextStep.updated_at
       });
-      setNotice(`Step moved forward. Moved to next step: ${refreshedNextStep.name}`);
+      setNotice(`Step moved forward. Moved to next step: ${cleanStepName(refreshedNextStep.name)}`);
       setOpen(false);
       await onSaved?.();
     } catch (moveError) {
@@ -148,7 +154,7 @@ export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillCla
           setOpen((current) => !current);
         }}
       >
-        {step.name}
+        {currentStepName}
         <span aria-hidden="true">v</span>
       </button>
       {notice ? <small className="quick-next-step-mover__notice">{notice}</small> : null}
@@ -162,7 +168,7 @@ export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillCla
           </div>
           <label>
             <span>Current</span>
-            <input value={step.name} readOnly />
+            <input value={currentStepName} readOnly />
           </label>
           <label>
             <span>Next step</span>
@@ -170,7 +176,7 @@ export function QuickWorkflowNextStepMover({ token, workflowRunId, step, pillCla
               {nextSteps.length ? (
                 nextSteps.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
-                    {candidate.name}
+                    {cleanStepName(candidate.name)}
                   </option>
                 ))
               ) : (

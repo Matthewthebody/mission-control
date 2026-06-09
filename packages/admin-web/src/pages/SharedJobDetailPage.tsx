@@ -378,7 +378,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
           </section>
         ) : null}
         <section className="shared-job-detail__list-card">
-          <h3>Evaluations / Closeout</h3>
+          <h3>Evaluations and Closeout</h3>
           <p className="shared-job-sidebar__muted">
             Post-shoot closeout, shoot check-ins, mileage qualification, auto-flags, and future pre-shoot brief notes stay tied to this canonical job.
           </p>

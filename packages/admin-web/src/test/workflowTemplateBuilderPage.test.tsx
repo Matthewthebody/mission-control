@@ -169,7 +169,7 @@ describe("WorkflowTemplateBuilderPage", () => {
     expect(screen.queryByText("App shortcut")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Duplicate template to edit" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Full-screen editor" })).toBeInTheDocument();
-    expect(await screen.findByText("Production / Graphics")).toBeInTheDocument();
+    expect(await screen.findByText("Production and Graphics")).toBeInTheDocument();
   });
 
   it("opens an inline step editor directly after an existing step", async () => {

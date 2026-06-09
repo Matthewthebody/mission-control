@@ -28,7 +28,7 @@ import type { SessionUser } from "../types";
 const WORK_DEPARTMENT_OPTIONS = [
   { label: "Schools", value: "schools" },
   { label: "Sports", value: "sports" },
-  { label: "Production / Graphics", value: "production" },
+  { label: "Production and Graphics", value: "production" },
   { label: "Photography / Studios", value: "photography" },
   { label: "Operations", value: "operations" },
   { label: "Other", value: "other" }

@@ -328,7 +328,7 @@ function handoffActorLabel(handoff: ProjectWorkflowHandoff) {
     handoff.accepted_by_user_name ? `Accepted by ${handoff.accepted_by_user_name}` : null,
     handoff.returned_by_user_name ? `Returned by ${handoff.returned_by_user_name}` : null
   ].filter(Boolean);
-  return actors.length ? actors.join(" / ") : "No actor recorded";
+  return actors.length ? actors.join(" - ") : "No actor recorded";
 }
 
 function handoffNoteLabel(handoff: ProjectWorkflowHandoff) {
@@ -499,7 +499,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
   const canMarkMissingInfo = activeHandoffStatus === "accepted_by_production";
   const canCompleteProduction = activeHandoffStatus === "accepted_by_production" || activeHandoffStatus === "waiting_on_info";
   const canReturnToSchools = activeHandoffStatus === "production_complete";
-  const claimHandoffLabel = canClaimHandoff ? "Claim" : activeHandoffStatus !== "accepted_by_production" ? "Accept first" : "Claimed / assigned";
+  const claimHandoffLabel = canClaimHandoff ? "Claim" : activeHandoffStatus !== "accepted_by_production" ? "Accept first" : "Claimed and assigned";
   const canEditWorkflowRecipe = featureFlags.workflowTemplateBuilderV1 && canManageWorkflowTemplates(currentUser);
 
   useEffect(() => {
@@ -921,7 +921,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         </div>
         <div className="project-workflow-next-action__context">
           <div>
-            <span>Blocked / Waiting</span>
+          <span>Blocked or Waiting</span>
             <strong>{blockerWaiting}</strong>
           </div>
           <div>
@@ -967,7 +967,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
           <small>Departments route work; people can claim or be assigned.</small>
         </div>
         <div>
-          <span className="metric-label">Late / At Risk</span>
+          <span className="metric-label">Late or At Risk</span>
           <strong>{activeStep ? slaLabel(activeStep) : "Complete"}</strong>
         </div>
       </div>
@@ -991,7 +991,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
         </div>
         <div>
           <span className="metric-label">Step Counts</span>
-          <strong>{completedCount} done / {waitingCount} waiting / {blockedCount} blocked</strong>
+          <strong>{completedCount} done, {waitingCount} waiting, {blockedCount} blocked</strong>
         </div>
       </div>
 
@@ -1009,7 +1009,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
           <strong>{laneCounts.family}</strong>
         </div>
         <div>
-          <span>ID / admin steps</span>
+          <span>ID and admin steps</span>
           <strong>{laneCounts.id_admin}</strong>
         </div>
       </div>
@@ -1100,7 +1100,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
       ) : null}
 
       <div className="project-workflow-section-heading">
-        <span className="metric-label">Editor / Actions</span>
+          <span className="metric-label">Editor and Actions</span>
         <h2>Step Editor</h2>
         <p>Use the existing controls below to update ownership, status, handoffs, closeout, or clawback.</p>
       </div>
@@ -1270,7 +1270,7 @@ export function ProjectWorkflowMap({ workflow, token, currentUser, onWorkflowUpd
           ) : null}
           <div className="project-workflow-handoff-card project-workflow-handoff-card--wide">
             <div>
-              <strong>Claw back / undo last move</strong>
+              <strong>Claw back or undo last move</strong>
               <p>
                 Use only when the job moved forward too soon. This reopens the most recently completed step on this job workflow.
               </p>

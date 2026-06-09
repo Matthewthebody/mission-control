@@ -39,7 +39,7 @@ function friendlyName(value: string | null | undefined) {
 
 function currentStepLabel(row: ProjectWorkflowJobRow) {
   if (row.current_step?.name) {
-    return row.current_step.name;
+    return cleanOperationalLabel(row.current_step.name);
   }
   if (row.health === "no_workflow") {
     return "No workflow linked";
@@ -205,12 +205,16 @@ function stepTeamLabel(row: ProjectWorkflowJobRow) {
   const department = row.current_step?.department;
   const assignedQueue = row.current_step?.assigned_queue;
   if (assignedQueue && normalizeDepartment(assignedQueue) !== normalizeDepartment(department)) {
-    return `${friendlyName(department)} / ${friendlyName(assignedQueue)}`;
+    return `${friendlyName(department)} and ${friendlyName(assignedQueue)}`;
   }
   if (assignedQueue) {
     return friendlyName(assignedQueue);
   }
   return friendlyName(department);
+}
+
+function cleanOperationalLabel(value: string) {
+  return value.replace(/\s+\/\s+/g, " and ");
 }
 
 function routingReasonLabel(row: ProjectWorkflowJobRow, department: ProjectTrackingDepartment) {

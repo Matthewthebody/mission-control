@@ -155,7 +155,7 @@ const TEMPLATE_STEPS: TemplateStep[] = [
   {
     milestone_key: "intake",
     step_key: "prep_data_admin",
-    name: "Prep data / admin",
+    name: "Prep data and admin",
     description: "Confirm roster, ID/admin needs, due date, and school communication notes before picture day.",
     department: "schools",
     role_key: "CSR",
@@ -207,7 +207,7 @@ const TEMPLATE_STEPS: TemplateStep[] = [
   {
     milestone_key: "production",
     step_key: "download_verify_images",
-    name: "Download / verify images",
+    name: "Download and verify images",
     description: "Ingest cards, confirm expected counts, and catch missing files early.",
     department: "production",
     role_key: "Production Lead",
@@ -220,7 +220,7 @@ const TEMPLATE_STEPS: TemplateStep[] = [
   {
     milestone_key: "production",
     step_key: "edit_cull",
-    name: "Edit / cull",
+    name: "Edit and cull",
     description: "Prepare the image set for QA review.",
     department: "production",
     role_key: "Graphic Artist",
