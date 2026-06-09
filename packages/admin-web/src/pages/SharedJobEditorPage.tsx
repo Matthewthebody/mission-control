@@ -20,8 +20,11 @@ import {
 import { JobDayManager } from "../components/jobs/JobDayManager";
 import {
   JOB_INTAKE_TYPE_OPTIONS,
+  JobDepartmentTaskPlan,
+  JobIntakeReadinessPanel,
   JobRoutingOutcome,
   applyJobIntakeType,
+  buildJobIntakeManagementSummary,
   buildRoutingPreviewFromForm,
   inferJobIntakeTypeId,
   type JobIntakeTypeId
@@ -151,6 +154,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const [locationSearch, setLocationSearch] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [selectedIntakeType, setSelectedIntakeType] = useState<JobIntakeTypeId | null>(null);
   const ignoreDirtyRef = useRef(false);
 
   const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
@@ -168,9 +172,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     [formState.account_owner_user_id, ownerOptions]
   );
   const routingPreview = useMemo(
-    () => buildRoutingPreviewFromForm(formState, selectedOwnerName),
-    [formState, selectedOwnerName]
+    () => buildRoutingPreviewFromForm(formState, selectedOwnerName, isGlobalJobIntake ? selectedIntakeType ?? inferJobIntakeTypeId(formState) : undefined),
+    [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
+  const intakeManagementSummary = useMemo(() => buildJobIntakeManagementSummary(formState), [formState]);
 
   useEffect(() => {
     if (!jobId || mode !== "edit") {
@@ -266,6 +271,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     setFormState((current) => updater(current));
   }
 
+  function applyIntakeType(value: JobIntakeTypeId) {
+    setSelectedIntakeType(value);
+    updateState((current) => applyJobIntakeType(current, value));
+  }
+
   async function persist(target: "draft" | "publish") {
     if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
       setError(target === "publish" ? "You do not have permission to publish this job." : "You do not have permission to edit this job.");
@@ -325,9 +335,45 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     ...visibleAdapterSections.filter((section) => section.slot === "sidebar.top").map((section) => ({ key: section.key, title: section.title, body: section.body })),
     {
       key: "publish-blockers",
-      title: isGlobalJobIntake ? "Package checklist" : "Publish blockers",
-      body: validationIssues.length ? <div className="shared-job-sidebar__kv">{validationIssues.map((issue) => <span key={`${issue.field}-${issue.message}`}>{issue.message}</span>)}</div> : <div className="shared-job-sidebar__muted">No current blockers.</div>
+      title: isGlobalJobIntake ? "Missing Info" : "Publish blockers",
+      body: validationIssues.length ? <div className="shared-job-sidebar__kv">{validationIssues.map((issue) => <span key={`${issue.field}-${issue.message}`}>{issue.message}</span>)}</div> : <div className="shared-job-sidebar__muted">{isGlobalJobIntake ? "No required issue has been flagged yet." : "No current blockers."}</div>
     },
+    ...(isGlobalJobIntake
+      ? [
+          {
+            key: "review-state",
+            title: "Review State",
+            body: (
+              <div className="shared-job-sidebar__kv">
+                <span>{intakeManagementSummary.reviewState}</span>
+                <span>{intakeManagementSummary.reviewAction}</span>
+                <span>{intakeManagementSummary.launchAction}</span>
+              </div>
+            )
+          },
+          {
+            key: "assignment-rules",
+            title: "Assignment Rules",
+            body: (
+              <div className="shared-job-sidebar__kv">
+                <span>Department lead owns department-level work.</span>
+                <span>Specific people can be assigned when known.</span>
+                <span>Manual assignment stays visible when no person is selected.</span>
+              </div>
+            )
+          },
+          {
+            key: "canonical-first",
+            title: "Canonical First",
+            body: (
+              <div className="shared-job-sidebar__kv">
+                <span>Use Organization, Contact, and Location records when they exist.</span>
+                <span>Draft text is only for unresolved client details.</span>
+              </div>
+            )
+          }
+        ]
+      : []),
     {
       key: "live-summary",
       title: "Live summary",
@@ -362,13 +408,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           <label className="filter-field">
             <span>{isGlobalJobIntake ? "Job type" : "Job category"}</span>
             <select
-              value={isGlobalJobIntake ? inferJobIntakeTypeId(formState) : formState.job_category}
+              value={isGlobalJobIntake ? selectedIntakeType ?? inferJobIntakeTypeId(formState) : formState.job_category}
               onChange={(event) =>
-                updateState((current) =>
-                  isGlobalJobIntake
-                    ? applyJobIntakeType(current, event.target.value as JobIntakeTypeId)
-                    : { ...current, job_category: event.target.value as SharedJobFormState["job_category"] }
-                )
+                isGlobalJobIntake
+                  ? applyIntakeType(event.target.value as JobIntakeTypeId)
+                  : updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))
               }
             >
               {isGlobalJobIntake
@@ -416,6 +460,23 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         </div>
       )
     },
+    ...(isGlobalJobIntake
+      ? [
+          {
+            key: "intake-review",
+            slot: "identity.after" as const,
+            title: "Review Before Launch",
+            summary: "The intake creates a draft package first. Reviewers can approve intake details before workflow launch.",
+            fields: ["intake_review"],
+            body: (
+              <div className="shared-job-form__stack">
+                <JobIntakeReadinessPanel summary={intakeManagementSummary} />
+                <JobDepartmentTaskPlan preview={routingPreview} compact />
+              </div>
+            )
+          }
+        ]
+      : []),
     {
       key: "schedule-location",
       slot: "schedule.after" as const,
@@ -428,6 +489,12 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         <div className="field-grid shared-job-form__grid">
           <label className="filter-field"><span>Start date</span><input type="date" value={formState.scheduled_start_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_date: event.target.value }))} /></label>
           <label className="filter-field"><span>Start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
+          {isGlobalJobIntake ? (
+            <>
+              <label className="filter-field"><span>Alternate date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
+              <label className="filter-field"><span>Expected end time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
+            </>
+          ) : null}
           {!isGlobalJobIntake ? (
             <>
               <label className="filter-field"><span>End date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
@@ -477,6 +544,28 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         </div>
       )
     },
+    ...(isGlobalJobIntake
+      ? [
+          {
+            key: "operational-requirements",
+            slot: "production.after" as const,
+            title: "Operational Requirements",
+            summary: "Capture setup, roster/data, equipment, and approval assumptions that determine the first handoff.",
+            fields: ["estimated_staff_count", "school_profile.roster_source", "school_profile.yearbook_required", "sports_profile.estimated_team_count"],
+            body: (
+              <div className="field-grid shared-job-form__grid">
+                <label className="filter-field"><span>Photographers estimated</span><input value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} inputMode="numeric" /></label>
+                <label className="filter-field"><span>Roster or team list source</span><input value={formState.department_type === "schools" ? formState.school_profile.roster_source : formState.sports_profile.league_name} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, roster_source: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, league_name: event.target.value } })} /></label>
+                <label className="filter-field"><span>Teams/classes/groups</span><input value={formState.department_type === "sports" ? formState.sports_profile.estimated_team_count : formState.school_profile.grade_scope} onChange={(event) => updateState((current) => current.department_type === "sports" ? { ...current, sports_profile: { ...current.sports_profile, estimated_team_count: event.target.value } } : { ...current, school_profile: { ...current.school_profile, grade_scope: event.target.value } })} /></label>
+                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.school_profile.yearbook_required} onChange={(event) => updateState((current) => ({ ...current, school_profile: { ...current.school_profile, yearbook_required: event.target.checked } }))} /><span>Yearbook export needed</span></label>
+                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.school_profile.id_cards_required} onChange={(event) => updateState((current) => ({ ...current, school_profile: { ...current.school_profile, id_cards_required: event.target.checked } }))} /><span>ID cards needed</span></label>
+                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.sports_profile.proof_required} onChange={(event) => updateState((current) => ({ ...current, sports_profile: { ...current.sports_profile, proof_required: event.target.checked } }))} /><span>Proof approval needed</span></label>
+                <label className="filter-field filter-field--wide"><span>Setup and equipment notes</span><textarea rows={3} value={formState.department_type === "schools" ? formState.school_profile.special_instructions : formState.sports_profile.client_expectations_notes} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, special_instructions: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, client_expectations_notes: event.target.value } })} /></label>
+              </div>
+            )
+          }
+        ]
+      : []),
     {
       key: "shared-notes",
       slot: "notes.after" as const,
@@ -538,9 +627,14 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             Cancel
           </button>
           {!readOnly && isGlobalJobIntake ? (
-            <button type="button" onClick={() => void persist("draft")} disabled={saving || publishing}>
-              Start Job Package
-            </button>
+            <>
+              <button type="button" className="secondary-button" onClick={() => void persist("draft")} disabled={saving || publishing}>
+                Save Draft
+              </button>
+              <button type="button" onClick={() => void persist("draft")} disabled={saving || publishing}>
+                Submit for Review
+              </button>
+            </>
           ) : null}
           {!readOnly && !isGlobalJobIntake ? (
             <button type="button" className="secondary-button" onClick={() => void persist("draft")} disabled={saving || publishing}>

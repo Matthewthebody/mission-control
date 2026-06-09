@@ -6,11 +6,15 @@ import type { SharedJobFormState } from "./DepartmentJobAdapterUIRegistry";
 export type JobIntakeTypeId =
   | "school_picture_day"
   | "retake_day"
+  | "sports_picture_day"
   | "sports_league"
   | "team_photos"
   | "graduation"
+  | "cap_and_gown"
+  | "yearbook"
   | "event"
-  | "specialty";
+  | "specialty"
+  | "other";
 
 type RoutingStageKey =
   | "intake"
@@ -33,12 +37,17 @@ type OperationalPackageStatus =
   | "Due Soon"
   | "Complete";
 type OperationalNotificationTone = "info" | "warning" | "critical" | "success";
+type IntakeReadinessTone = "success" | "warning" | "critical" | "neutral";
+type IntakeReviewState = "Draft Intake" | "Intake Review" | "Missing Info" | "Ready To Launch";
+type ChangeNoticeLevel = "FYI" | "Important" | "Urgent";
 
 export type JobOperationalWorkPackage = {
   id: string;
   phase: OperationalPackagePhase;
   name: string;
+  summary: string;
   ownerDepartment: string;
+  assignmentRule: "Department Lead" | "Direct Owner" | "Manual Assignment";
   assignedPerson: string;
   dueDateLabel: string;
   status: OperationalPackageStatus;
@@ -70,6 +79,29 @@ export type JobRoutingPreview = {
   currentStage: RoutingStageKey;
   workPackages: JobOperationalWorkPackage[];
   notifications: JobOperationalNotification[];
+};
+
+export type JobIntakeReadinessItem = {
+  id: string;
+  label: string;
+  status: "Ready" | "Missing" | "Review";
+  summary: string;
+};
+
+export type JobIntakeManagementSummary = {
+  reviewState: IntakeReviewState;
+  readinessTone: IntakeReadinessTone;
+  missingInfo: JobIntakeReadinessItem[];
+  readyInfo: JobIntakeReadinessItem[];
+  reviewAction: string;
+  launchAction: string;
+};
+
+export type JobChangeNotice = {
+  id: string;
+  level: ChangeNoticeLevel;
+  title: string;
+  summary: string;
 };
 
 export const JOB_INTAKE_TYPE_OPTIONS: Array<{
@@ -108,6 +140,18 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     defaults: { production_required: true, delivery_type: "proofs_and_order", gallery_type: "individual" }
   },
   {
+    id: "sports_picture_day",
+    label: "Sports Picture Day",
+    department: "sports",
+    category: "media_day",
+    routeLabel: "Sports Picture Day route",
+    firstOwnerDepartment: "Sports",
+    nextDepartment: "Photography",
+    defaultNextAction: "Confirm team list, photo flow, QR process, and photography prep.",
+    defaults: { production_required: true, delivery_type: "mixed", gallery_type: "team_and_individual" },
+    sportsDefaults: { proof_required: true, team_structure: "scheduled_slots", specialty_products_required: true }
+  },
+  {
     id: "sports_league",
     label: "Sports League",
     department: "sports",
@@ -144,6 +188,30 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     schoolDefaults: { school_type: "graduation" }
   },
   {
+    id: "cap_and_gown",
+    label: "Cap & Gown",
+    department: "schools",
+    category: "event",
+    routeLabel: "Cap & Gown route",
+    firstOwnerDepartment: "Schools",
+    nextDepartment: "Photography",
+    defaultNextAction: "Confirm cap-and-gown schedule, portrait station, access, and delivery deadline.",
+    defaults: { production_required: true, delivery_type: "digital_gallery", gallery_type: "individual" },
+    schoolDefaults: { school_type: "graduation", special_instructions: "Cap-and-gown workflow; confirm portrait station and ceremony timing." }
+  },
+  {
+    id: "yearbook",
+    label: "Yearbook",
+    department: "schools",
+    category: "photo_day",
+    routeLabel: "Yearbook route",
+    firstOwnerDepartment: "Schools",
+    nextDepartment: "Production",
+    defaultNextAction: "Confirm yearbook export requirements, roster source, and school submission deadline.",
+    defaults: { production_required: true, delivery_type: "school_deliverables", gallery_type: "individual" },
+    schoolDefaults: { yearbook_required: true, roster_source: "school_roster" }
+  },
+  {
     id: "event",
     label: "Event",
     department: "schools",
@@ -165,6 +233,17 @@ export const JOB_INTAKE_TYPE_OPTIONS: Array<{
     defaultNextAction: "Confirm requested specialty products, due date, and approval owner.",
     defaults: { production_required: true, delivery_type: "specialty_only", gallery_type: "none" },
     sportsDefaults: { specialty_products_required: true, banner_work_required: true }
+  },
+  {
+    id: "other",
+    label: "Other",
+    department: "schools",
+    category: "event",
+    routeLabel: "Custom Event route",
+    firstOwnerDepartment: "Client Success",
+    nextDepartment: "Leadership",
+    defaultNextAction: "Confirm custom scope, owner, requested date, and which department should lead.",
+    defaults: { production_required: true, delivery_type: "digital_gallery", gallery_type: "individual" }
   }
 ];
 
@@ -194,53 +273,81 @@ const DEPARTMENT_LEADS: Record<string, string> = {
 
 const WORK_PACKAGE_TEMPLATES: Record<JobIntakeTypeId, Array<Omit<JobOperationalWorkPackage, "id" | "assignedPerson" | "dueDateLabel" | "status">>> = {
   school_picture_day: [
-    { phase: "Planning", name: "Roster Collection", ownerDepartment: "Schools" },
-    { phase: "Scheduling", name: "Photographer Assignment", ownerDepartment: "Photography" },
-    { phase: "Photography", name: "Picture Day Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Image QA", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Gallery Release", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Roster Collection", summary: "Request or verify roster, grade range, and ID-matching needs.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Photographer Assignment", summary: "Confirm date, arrival window, lead photographer, and coverage level.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Picture Day Capture", summary: "Execute picture day with setup, access, and day-of roster notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Image QA", summary: "Ingest, verify data match, crop, QA, and prepare required outputs.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Gallery Release", summary: "Release gallery, school deliverables, and client follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   retake_day: [
-    { phase: "Planning", name: "Retake List Collection", ownerDepartment: "Schools" },
-    { phase: "Scheduling", name: "Photographer Assignment", ownerDepartment: "Photography" },
-    { phase: "Photography", name: "Retake Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Retake Image QA", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Retake Gallery Release", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Retake List Collection", summary: "Confirm eligible students, missing-image list, and makeup rules.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Retake Photographer Assignment", summary: "Confirm makeup date, arrival window, and staffing needs.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Retake Capture", summary: "Capture makeup images and flag record-matching exceptions.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Retake Image QA", summary: "Match retake files, verify replacement rules, and update outputs.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Retake Gallery Release", summary: "Release retakes and notify school or families as needed.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
+  ],
+  sports_picture_day: [
+    { phase: "Planning", name: "Team List and QR Readiness", summary: "Collect team list, coach contact, QR/barcode plan, and late-arrival rules.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Sports Photo Flow", summary: "Set order of teams, individual flow, team photo flow, and staffing coverage.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
+    { phase: "Photography", name: "Sports Capture", summary: "Execute team and individual photos with coach/team exceptions captured.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Sports Sorting and QA", summary: "Sort by team, verify graphics/product needs, and QA release readiness.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Sports Gallery Release", summary: "Release proof/gallery and handle coach or league follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   sports_league: [
-    { phase: "Planning", name: "Team and Roster Collection", ownerDepartment: "Sports" },
-    { phase: "Scheduling", name: "Game and Media Day Schedule", ownerDepartment: "Sports" },
-    { phase: "Photography", name: "Media Day Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Image QA", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Sports Release", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Team and Roster Collection", summary: "Confirm league structure, teams, coaches, rosters, and proof owner.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Game and Media Day Schedule", summary: "Confirm date grid, location flow, and staffing by team block.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
+    { phase: "Photography", name: "Media Day Capture", summary: "Capture teams and individuals with late-arrival and coach exceptions.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Sports Image QA", summary: "Sort, QA, verify specialty products, and prepare release.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Sports Release", summary: "Release proofs, final galleries, and league follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   team_photos: [
-    { phase: "Planning", name: "Team List Confirmation", ownerDepartment: "Sports" },
-    { phase: "Scheduling", name: "Team Photo Schedule", ownerDepartment: "Sports" },
-    { phase: "Photography", name: "Team Photo Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Product and Proof Prep", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Team Gallery Release", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Team List Confirmation", summary: "Confirm teams, coaches, counts, and proof requirements.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Team Photo Schedule", summary: "Set team time slots, location notes, and staffing expectations.", ownerDepartment: "Sports", assignmentRule: "Department Lead" },
+    { phase: "Photography", name: "Team Photo Capture", summary: "Capture team and individual images with notes for production.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Product and Proof Prep", summary: "Prepare proofing, products, banners, or specialty outputs.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Team Gallery Release", summary: "Release gallery and client/team communication.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   graduation: [
-    { phase: "Planning", name: "Ceremony Details", ownerDepartment: "Schools" },
-    { phase: "Scheduling", name: "Photographer Assignment", ownerDepartment: "Photography" },
-    { phase: "Photography", name: "Graduation Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Gallery QA", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Family Gallery Delivery", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Ceremony Details", summary: "Confirm ceremony schedule, stage positions, access, and deliverables.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Graduation Photographer Assignment", summary: "Assign ceremony coverage, portrait station, and timing notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Graduation Capture", summary: "Capture ceremony, portraits, and key coverage notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Graduation Gallery QA", summary: "QA ceremony images and prepare family gallery delivery.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Family Gallery Delivery", summary: "Release gallery and manage family/client follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
+  ],
+  cap_and_gown: [
+    { phase: "Planning", name: "Cap & Gown Scope", summary: "Confirm portrait station, school expectations, and student flow.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Portrait Station Schedule", summary: "Confirm room, arrival, setup, and staffing coverage.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Cap & Gown Capture", summary: "Capture portraits and note exceptions or retake needs.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Portrait QA", summary: "QA portraits, crop, match records, and prepare gallery.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Cap & Gown Delivery", summary: "Release gallery and follow up with school contact.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
+  ],
+  yearbook: [
+    { phase: "Planning", name: "Yearbook Requirements", summary: "Confirm export specs, roster source, deadline, and advisor contact.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Yearbook Data Readiness", summary: "Verify required fields, ID matching, and submission timing.", ownerDepartment: "Schools", assignmentRule: "Department Lead" },
+    { phase: "Photography", name: "Reference Capture Check", summary: "Confirm any needed image replacement or reference work.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Yearbook Export", summary: "Prepare PSPA/yearbook export and validate file requirements.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Advisor Delivery", summary: "Send export and confirm advisor acceptance.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   event: [
-    { phase: "Planning", name: "Event Details", ownerDepartment: "Client Success" },
-    { phase: "Scheduling", name: "Coverage Scheduling", ownerDepartment: "Photography" },
-    { phase: "Photography", name: "Event Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Image QA", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Client Delivery", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Event Details", summary: "Confirm event owner, scope, audience, restrictions, and deliverables.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Coverage Scheduling", summary: "Assign photographer and confirm arrival, coverage, and teardown.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Photography", name: "Event Capture", summary: "Capture event with client-facing notes and coverage exceptions.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Event Image QA", summary: "Cull, QA, and prepare client-ready delivery.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Client Delivery", summary: "Deliver gallery/files and complete follow-up.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ],
   specialty: [
-    { phase: "Planning", name: "Product Scope", ownerDepartment: "Client Success" },
-    { phase: "Scheduling", name: "Due Date Scheduling", ownerDepartment: "Leadership" },
-    { phase: "Photography", name: "Reference Capture", ownerDepartment: "Photography" },
-    { phase: "Production", name: "Specialty Production", ownerDepartment: "Production" },
-    { phase: "Delivery", name: "Client Delivery", ownerDepartment: "Client Success" }
+    { phase: "Planning", name: "Product Scope", summary: "Confirm specialty product, reference files, approval owner, and due date.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Due Date Scheduling", summary: "Confirm priority, production window, and leadership approval if needed.", ownerDepartment: "Leadership", assignmentRule: "Direct Owner" },
+    { phase: "Photography", name: "Reference Capture", summary: "Capture or collect needed reference images and usage notes.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Specialty Production", summary: "Build, QA, and prepare specialty output.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Client Delivery", summary: "Deliver final product and confirm acceptance.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
+  ],
+  other: [
+    { phase: "Planning", name: "Custom Scope Review", summary: "Clarify what the client needs and which department owns the package.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" },
+    { phase: "Scheduling", name: "Calendar Readiness", summary: "Confirm date, location, access, and staffing assumptions.", ownerDepartment: "Operations", assignmentRule: "Department Lead" },
+    { phase: "Photography", name: "Coverage Plan", summary: "Confirm whether photography is needed and who should handle it.", ownerDepartment: "Photography", assignmentRule: "Manual Assignment" },
+    { phase: "Production", name: "Output Plan", summary: "Confirm production, graphics, or file delivery requirements.", ownerDepartment: "Production", assignmentRule: "Department Lead" },
+    { phase: "Delivery", name: "Client Closeout", summary: "Confirm final delivery and any follow-up owner.", ownerDepartment: "Client Success", assignmentRule: "Department Lead" }
   ]
 };
 
@@ -442,6 +549,16 @@ function withOperationalEngine(seed: JobRoutingPreviewSeed, typeId: JobIntakeTyp
 }
 
 export function inferJobIntakeTypeId(formState: SharedJobFormState): JobIntakeTypeId {
+  if (formState.department_type === "schools" && formState.school_profile.yearbook_required) {
+    return "yearbook";
+  }
+  if (
+    formState.department_type === "schools" &&
+    formState.job_category === "event" &&
+    formState.school_profile.special_instructions.toLowerCase().includes("cap-and-gown")
+  ) {
+    return "cap_and_gown";
+  }
   if (formState.department_type === "schools" && formState.job_category === "makeup_day") {
     return "retake_day";
   }
@@ -452,7 +569,10 @@ export function inferJobIntakeTypeId(formState: SharedJobFormState): JobIntakeTy
     return "specialty";
   }
   if (formState.department_type === "sports") {
-    return formState.sports_profile.team_structure === "league_schedule" ? "sports_league" : "team_photos";
+    if (formState.sports_profile.team_structure === "league_schedule") {
+      return "sports_league";
+    }
+    return formState.sports_profile.specialty_products_required ? "sports_picture_day" : "team_photos";
   }
   return "school_picture_day";
 }
@@ -473,7 +593,7 @@ export function applyJobIntakeType(formState: SharedJobFormState, id: JobIntakeT
 
 export function buildWorkflowRouteHint(typeId: JobIntakeTypeId) {
   const option = getJobIntakeTypeOption(typeId);
-  return `${option.routeLabel} starts when the package is saved. Open Project Tracking from the job record to keep it moving.`;
+  return `${option.routeLabel} starts as a draft intake. Review it, then launch the workflow when the package is ready.`;
 }
 
 function firstPresent(values: Array<string | null | undefined>, fallback: string) {
@@ -506,9 +626,10 @@ function blockerLabel(status: JobRoutingPreview["blockerStatus"]) {
 
 export function buildRoutingPreviewFromForm(
   formState: SharedJobFormState,
-  ownerName: string | null = null
+  ownerName: string | null = null,
+  intakeTypeOverride?: JobIntakeTypeId
 ): JobRoutingPreview {
-  const typeId = inferJobIntakeTypeId(formState);
+  const typeId = intakeTypeOverride ?? inferJobIntakeTypeId(formState);
   const option = getJobIntakeTypeOption(typeId);
   const missing = [
     !formState.organization_id,
@@ -538,6 +659,116 @@ export function buildRoutingPreviewFromForm(
     firstNextAction: missing > 0 ? "Fill in the missing intake fields before starting the package." : option.defaultNextAction,
     currentStage: "intake"
   }, typeId);
+}
+
+export function buildJobIntakeManagementSummary(formState: SharedJobFormState): JobIntakeManagementSummary {
+  const items: JobIntakeReadinessItem[] = [
+    {
+      id: "organization",
+      label: "Client organization",
+      status: formState.organization_id ? "Ready" : "Missing",
+      summary: formState.organization_id ? "Canonical organization selected." : "Choose an existing organization or capture draft client info."
+    },
+    {
+      id: "contact",
+      label: "Primary contact",
+      status: formState.primary_contact_id || formState.contact_override_note.trim() ? "Ready" : "Missing",
+      summary: formState.primary_contact_id ? "Canonical contact linked." : formState.contact_override_note.trim() ? "Draft contact note captured." : "Add the person who can answer job questions."
+    },
+    {
+      id: "location",
+      label: "Location",
+      status: formState.primary_location_id || formState.location_override_note.trim() ? "Ready" : "Missing",
+      summary: formState.primary_location_id ? "Canonical location linked." : formState.location_override_note.trim() ? "Draft location note captured." : "Add where the team should go."
+    },
+    {
+      id: "schedule",
+      label: "Shoot date",
+      status: formState.scheduled_start_date ? "Ready" : "Review",
+      summary: formState.scheduled_start_date ? `Requested for ${formatDate(formState.scheduled_start_date)}.` : "Requested date can be reviewed before calendar confirmation."
+    },
+    {
+      id: "owner",
+      label: "Current owner",
+      status: formState.account_owner_user_id ? "Ready" : "Review",
+      summary: formState.account_owner_user_id ? "Person owner selected." : "Department lead can assign a person during review."
+    }
+  ];
+  const missingInfo = items.filter((item) => item.status !== "Ready");
+  const readyInfo = items.filter((item) => item.status === "Ready");
+  const hasHardMissing = missingInfo.some((item) => item.status === "Missing");
+  return {
+    reviewState: hasHardMissing ? "Missing Info" : missingInfo.length ? "Intake Review" : "Ready To Launch",
+    readinessTone: hasHardMissing ? "critical" : missingInfo.length ? "warning" : "success",
+    missingInfo,
+    readyInfo,
+    reviewAction: hasHardMissing ? "Request missing info" : "Approve intake",
+    launchAction: hasHardMissing ? "Launch blocked until required info is captured" : "Launch workflow"
+  };
+}
+
+export function buildJobIntakeManagementSummaryFromDetail(detail: SharedJobDetailResponse): JobIntakeManagementSummary {
+  return buildJobIntakeManagementSummary({
+    department_type: detail.job.department_type === "schools" ? "schools" : "sports",
+    job_category: detail.job.job_category,
+    organization_id: detail.job.organization_id ?? "",
+    primary_location_id: detail.job.primary_location_id ?? "",
+    primary_contact_id: detail.job.primary_contact_id ?? "",
+    account_owner_user_id: detail.job.account_owner_user_id ?? "",
+    title: detail.job.title ?? "",
+    event_name: detail.job.event_name ?? "",
+    description_internal: detail.job.description_internal ?? "",
+    priority_level: detail.job.priority_level,
+    delivery_type: detail.job.delivery_type ?? "",
+    gallery_type: detail.job.gallery_type ?? "",
+    scheduled_start_date: detail.summary.primary_day_date ?? detail.job.scheduled_start_at?.slice(0, 10) ?? "",
+    scheduled_start_time: "",
+    scheduled_end_date: "",
+    scheduled_end_time: "",
+    timezone: detail.job.timezone,
+    estimated_subject_count: detail.job.estimated_subject_count != null ? String(detail.job.estimated_subject_count) : "",
+    estimated_staff_count: detail.job.estimated_staff_count != null ? String(detail.job.estimated_staff_count) : "",
+    client_deadline_at: detail.job.client_deadline_at?.slice(0, 10) ?? "",
+    production_deadline_at: detail.job.production_deadline_at?.slice(0, 10) ?? "",
+    production_required: detail.job.production_required,
+    location_override_note: detail.job.location_override_note ?? "",
+    contact_override_note: detail.job.contact_override_note ?? "",
+    school_profile: {
+      district_id: detail.school_profile?.district_id ?? "",
+      school_type: detail.school_profile?.school_type ?? "",
+      school_year: detail.school_profile?.school_year ?? "",
+      grade_scope: detail.school_profile?.grade_scope ?? "",
+      roster_source: detail.school_profile?.roster_source ?? "",
+      id_cards_required: detail.school_profile?.id_cards_required ?? false,
+      yearbook_required: detail.school_profile?.yearbook_required ?? false,
+      composite_required: detail.school_profile?.composite_required ?? false,
+      admin_portal_required: detail.school_profile?.admin_portal_required ?? false,
+      submission_deadline: detail.school_profile?.submission_deadline ?? "",
+      advisor_sorting_required: detail.school_profile?.advisor_sorting_required ?? false,
+      homeroom_sorting_required: detail.school_profile?.homeroom_sorting_required ?? false,
+      data_import_mode: detail.school_profile?.data_import_mode ?? "",
+      special_instructions: detail.school_profile?.special_instructions ?? ""
+    },
+    sports_profile: {
+      sport_type: detail.sports_profile?.sport_type ?? "",
+      season: detail.sports_profile?.season ?? "",
+      league_name: detail.sports_profile?.league_name ?? "",
+      division: detail.sports_profile?.division ?? "",
+      team_structure: detail.sports_profile?.team_structure ?? "",
+      estimated_team_count: detail.sports_profile?.estimated_team_count != null ? String(detail.sports_profile.estimated_team_count) : "",
+      proof_required: detail.sports_profile?.proof_required ?? false,
+      approval_contact_id: detail.sports_profile?.approval_contact_id ?? "",
+      billing_contact_id: detail.sports_profile?.billing_contact_id ?? "",
+      revenue_share_enabled: detail.sports_profile?.revenue_share_enabled ?? false,
+      revenue_share_terms_summary: detail.sports_profile?.revenue_share_terms_summary ?? "",
+      banner_work_required: detail.sports_profile?.banner_work_required ?? false,
+      specialty_products_required: detail.sports_profile?.specialty_products_required ?? false,
+      buddy_photos_required: detail.sports_profile?.buddy_photos_required ?? false,
+      sponsor_graphics_required: detail.sports_profile?.sponsor_graphics_required ?? false,
+      client_expectations_notes: detail.sports_profile?.client_expectations_notes ?? ""
+    },
+    days: []
+  });
 }
 
 function departmentFromJobType(value: string | null | undefined, fallback: string) {
@@ -628,6 +859,16 @@ function firstNextActionFromDetail(detail: SharedJobDetailResponse) {
 }
 
 function intakeTypeIdFromDetail(detail: SharedJobDetailResponse): JobIntakeTypeId {
+  if (detail.job.department_type === "schools" && detail.school_profile?.yearbook_required) {
+    return "yearbook";
+  }
+  if (
+    detail.job.department_type === "schools" &&
+    detail.job.job_category === "event" &&
+    detail.school_profile?.special_instructions?.toLowerCase().includes("cap-and-gown")
+  ) {
+    return "cap_and_gown";
+  }
   if (detail.job.department_type === "schools" && detail.job.job_category === "makeup_day") {
     return "retake_day";
   }
@@ -638,6 +879,9 @@ function intakeTypeIdFromDetail(detail: SharedJobDetailResponse): JobIntakeTypeI
     return "specialty";
   }
   if (detail.job.department_type === "sports") {
+    if (detail.sports_profile?.specialty_products_required) {
+      return "sports_picture_day";
+    }
     return detail.sports_profile?.team_structure === "league_schedule" ? "sports_league" : "team_photos";
   }
   return "school_picture_day";
@@ -696,6 +940,12 @@ function intakeTypeIdFromProjectRow(row: ProjectWorkflowJobRow): JobIntakeTypeId
   if (text.includes("retake")) {
     return "retake_day";
   }
+  if (text.includes("cap") && text.includes("gown")) {
+    return "cap_and_gown";
+  }
+  if (text.includes("yearbook")) {
+    return "yearbook";
+  }
   if (text.includes("graduation")) {
     return "graduation";
   }
@@ -705,7 +955,10 @@ function intakeTypeIdFromProjectRow(row: ProjectWorkflowJobRow): JobIntakeTypeId
   if (text.includes("league")) {
     return "sports_league";
   }
-  if (text.includes("sport") || text.includes("team") || text.includes("media day")) {
+  if (text.includes("sports picture") || text.includes("media day")) {
+    return "sports_picture_day";
+  }
+  if (text.includes("sport") || text.includes("team")) {
     return "team_photos";
   }
   if (text.includes("event")) {
@@ -769,6 +1022,148 @@ function notificationToneClass(tone: OperationalNotificationTone) {
   return `job-routing-notification--${tone}`;
 }
 
+function readinessToneClass(tone: IntakeReadinessTone) {
+  return `job-intake-readiness--${tone}`;
+}
+
+function noticeToneClass(level: ChangeNoticeLevel) {
+  return `job-change-notice--${level.toLowerCase()}`;
+}
+
+export function buildJobChangeNotices(detail: SharedJobDetailResponse): JobChangeNotice[] {
+  const notices: JobChangeNotice[] = [];
+  if (detail.status.blocker_count > 0 || detail.watch_flags.length > 0) {
+    notices.push({
+      id: "blocker-added",
+      level: "Urgent",
+      title: "Blocker needs action",
+      summary: `${detail.status.blocker_count || detail.watch_flags.length} attention item${(detail.status.blocker_count || detail.watch_flags.length) === 1 ? "" : "s"} must be cleared before the next handoff.`
+    });
+  }
+  if (detail.job.scheduled_start_at) {
+    notices.push({
+      id: "date-confirmed",
+      level: "Important",
+      title: "Shoot date recorded",
+      summary: `Calendar is tracking ${formatDate(detail.job.scheduled_start_at.slice(0, 10))}.`
+    });
+  }
+  if (detail.job.primary_location_id || detail.summary.primary_location_name) {
+    notices.push({
+      id: "location-linked",
+      level: "FYI",
+      title: "Location linked",
+      summary: detail.summary.primary_location_name ? `${detail.summary.primary_location_name} is connected to this job.` : "A canonical location is connected to this job."
+    });
+  }
+  if (detail.activity.length) {
+    const latest = detail.activity[0];
+    notices.push({
+      id: `activity-${latest.id}`,
+      level: latest.tone === "danger" ? "Urgent" : latest.tone === "warning" ? "Important" : "FYI",
+      title: latest.action_label || "Latest change",
+      summary: latest.summary
+    });
+  }
+  if (!notices.length) {
+    notices.push({
+      id: "intake-created",
+      level: "FYI",
+      title: "Intake package created",
+      summary: "No urgent changes are attached to this job yet."
+    });
+  }
+  return notices.slice(0, 4);
+}
+
+export function JobIntakeReadinessPanel({ summary }: { summary: JobIntakeManagementSummary }) {
+  const missingCount = summary.missingInfo.length;
+  return (
+    <section className={`job-intake-readiness ${readinessToneClass(summary.readinessTone)}`} aria-label="Intake readiness">
+      <div className="job-intake-readiness__header">
+        <div>
+          <strong>Intake Readiness</strong>
+          <span>Review the package before launching department work.</span>
+        </div>
+        <span>{summary.reviewState}</span>
+      </div>
+      <div className="job-intake-readiness__actions">
+        <span>{missingCount ? `${missingCount} missing or review item${missingCount === 1 ? "" : "s"}` : "Ready for workflow review"}</span>
+        <strong>{summary.reviewAction}</strong>
+      </div>
+      <div className="job-intake-readiness__list">
+        {[...summary.missingInfo, ...summary.readyInfo].slice(0, 5).map((item) => (
+          <article key={item.id}>
+            <span className={`job-intake-readiness__dot job-intake-readiness__dot--${item.status.toLowerCase()}`} />
+            <div>
+              <strong>{item.label}</strong>
+              <small>{item.summary}</small>
+            </div>
+            <em>{item.status}</em>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function JobDepartmentTaskPlan({ preview, compact = false }: { preview: JobRoutingPreview; compact?: boolean }) {
+  const packages = compact ? preview.workPackages.slice(0, 4) : preview.workPackages;
+  return (
+    <section className={`job-department-task-plan${compact ? " job-department-task-plan--compact" : ""}`} aria-label="Department task plan">
+      <div className="job-work-packages__header">
+        <div>
+          <strong>Department Task Plan</strong>
+          <span>Generated from the job type. Assignments stay calm until workflow launch.</span>
+        </div>
+        <span>{preview.workflowRouteLabel}</span>
+      </div>
+      <div className="job-department-task-plan__list">
+        {packages.map((workPackage) => (
+          <article key={`task-plan:${workPackage.id}`}>
+            <div>
+              <span>{workPackage.phase}</span>
+              <strong>{workPackage.name}</strong>
+              <small>{workPackage.summary}</small>
+            </div>
+            <div>
+              <span>{workPackage.ownerDepartment}</span>
+              <strong>{workPackage.assignedPerson}</strong>
+              <small>{workPackage.assignmentRule}</small>
+            </div>
+            <span className={`job-work-package__status job-work-package__status--${packageStatusClass(workPackage.status)}`}>{workPackage.status}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function JobChangeNoticesPanel({ notices }: { notices: JobChangeNotice[] }) {
+  return (
+    <section className="job-change-notices" aria-label="Job change notices">
+      <div className="job-work-packages__header">
+        <div>
+          <strong>Changes and Notices</strong>
+          <span>Important movement since the last handoff.</span>
+        </div>
+        <span>{notices.length} notice{notices.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="job-change-notices__list">
+        {notices.map((notice) => (
+          <article key={notice.id} className={`job-change-notice ${noticeToneClass(notice.level)}`}>
+            <span>{notice.level}</span>
+            <div>
+              <strong>{notice.title}</strong>
+              <small>{notice.summary}</small>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function JobOwnershipPanel({ preview, compact = false }: { preview: JobRoutingPreview; compact?: boolean }) {
   const items = [
     { label: "Current Department", value: preview.currentDepartment },
@@ -825,11 +1220,13 @@ export function JobWorkPackagesPanel({
             <div>
               <span>{workPackage.phase}</span>
               <strong>{workPackage.name}</strong>
+              <small>{workPackage.summary}</small>
             </div>
             <div className="job-work-package__meta">
               <span>{workPackage.ownerDepartment}</span>
               <span>{workPackage.assignedPerson}</span>
               <span>{workPackage.dueDateLabel}</span>
+              <span>{workPackage.assignmentRule}</span>
             </div>
             <span className={`job-work-package__status job-work-package__status--${packageStatusClass(workPackage.status)}`}>
               {workPackage.status}
@@ -892,6 +1289,7 @@ export function JobRoutingOutcome({ preview }: { preview: JobRoutingPreview }) {
       <JobOwnershipPanel preview={preview} />
       <JobHandoffCard preview={preview} />
       <JobWorkPackagesPanel preview={preview} compact />
+      <JobDepartmentTaskPlan preview={preview} compact />
       <JobNotificationFoundation preview={preview} />
     </section>
   );

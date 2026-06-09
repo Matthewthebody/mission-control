@@ -296,6 +296,66 @@ function getAttentionLabel(item: SharedJobListItem) {
   return "Clear";
 }
 
+function jobHasMissingInfo(item: SharedJobListItem) {
+  return !item.organization_id || !item.primary_location_id || !item.primary_contact_id || item.readiness_status === "off_track" || item.readiness_status === "at_risk";
+}
+
+function jobReadyForCalendar(item: SharedJobListItem) {
+  return Boolean((item.primary_day_date || item.scheduled_start_at) && item.primary_location_id && item.primary_contact_id && item.staffing_status !== "gap_flagged");
+}
+
+function jobIsActiveThisWeek(item: SharedJobListItem) {
+  const anchor = item.primary_day_date ?? item.scheduled_start_at?.slice(0, 10) ?? null;
+  if (!anchor) {
+    return false;
+  }
+  const target = new Date(anchor);
+  const now = new Date();
+  const diffDays = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && diffDays <= 7;
+}
+
+function jobRecentlyCompleted(item: SharedJobListItem) {
+  return item.job_status === "execution_complete" || item.production_status === "delivered" || item.production_status === "complete";
+}
+
+function getManagementStage(item: SharedJobListItem) {
+  if (item.archived_at) {
+    return "Cancelled";
+  }
+  if (jobRecentlyCompleted(item)) {
+    return "Complete";
+  }
+  if (item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0) {
+    return "Blocked";
+  }
+  if (item.job_status === "draft") {
+    return "Draft Intake";
+  }
+  if (item.job_status === "pending_confirmation") {
+    return "Intake Review";
+  }
+  if (jobHasMissingInfo(item)) {
+    return "Missing Info";
+  }
+  if (jobReadyForCalendar(item) && item.job_status === "confirmed") {
+    return "Calendar Confirmed";
+  }
+  if (jobReadyForCalendar(item)) {
+    return "Ready For Calendar";
+  }
+  if (item.job_status === "ready_to_staff" || item.job_status === "staffed") {
+    return "Shoot Scheduled";
+  }
+  if (item.job_status === "in_progress" || item.job_status === "ready_to_execute") {
+    return "Photography Prep";
+  }
+  if (item.production_required) {
+    return "Production";
+  }
+  return "Client Follow-Up";
+}
+
 function getNextStep(item: SharedJobListItem) {
   if (item.blocker_count > 0 || item.open_watch_flag_count > 0) {
     return "Resolve the attention item";
@@ -324,6 +384,26 @@ function getNextStep(item: SharedJobListItem) {
   return "Open job record";
 }
 
+function buildJobManagementStats(items: SharedJobListItem[]) {
+  return [
+    { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, detail: "Draft or pending intake packages." },
+    { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, detail: "Client, contact, location, date, or readiness gaps." },
+    { key: "ready-calendar", label: "Ready for calendar", value: items.filter(jobReadyForCalendar).length, detail: "Enough information to review for scheduling." },
+    { key: "active-week", label: "Active this week", value: items.filter(jobIsActiveThisWeek).length, detail: "Jobs with a date inside the next seven days." },
+    { key: "blocked", label: "Blocked", value: items.filter((item) => item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0).length, detail: "Work with blockers or open watch flags." },
+    { key: "completed", label: "Recently completed", value: items.filter(jobRecentlyCompleted).length, detail: "Jobs that have reached completion or delivery." }
+  ];
+}
+
+function buildIntakeReviewQueue(items: SharedJobListItem[]) {
+  return [
+    { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, action: "Open intake", detail: "Review client, date, owner, and workflow route." },
+    { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, action: "Request missing info", detail: "Client details are not ready for launch." },
+    { key: "ready-launch", label: "Ready to launch", value: items.filter((item) => !jobHasMissingInfo(item) && !jobNeedsAttention(item)).length, action: "Launch workflow", detail: "Clean packages ready for department handoff." },
+    { key: "recently-launched", label: "Recently launched", value: items.filter((item) => item.job_status === "confirmed" || item.job_status === "ready_to_staff").length, action: "Review route", detail: "Recently approved jobs moving into operations." }
+  ];
+}
+
 function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[] {
   return [
     {
@@ -340,6 +420,7 @@ function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[]
     { key: "date", label: "Date", render: (item) => formatJobDate(item) },
     { key: "department", label: "Department", render: (item) => <StatusPill label={getDepartmentLabel(item.department_type)} tone="neutral" /> },
     { key: "status", label: "Status", render: (item) => <StatusPill label={humanizeToken(item.job_status)} tone={statusTone(item.job_status)} /> },
+    { key: "stage", label: "Stage", render: (item) => <StatusPill label={getManagementStage(item)} tone={jobNeedsAttention(item) ? "warning" : "info"} /> },
     { key: "owner", label: "Owner", render: (item) => getJobOwnerName(item) },
     { key: "next_step", label: "Next Step", render: (item) => <span className="shared-job-table__next-step">{getNextStep(item)}</span> },
     { key: "attention", label: "Needs Attention", render: (item) => <StatusPill label={getAttentionLabel(item)} tone={getAttentionTone(item)} /> },
@@ -441,6 +522,8 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   const visibleStart = filteredItems.length ? pagedItems.startIndex + 1 : 0;
   const visibleEnd = pagedItems.endIndex;
   const attentionCount = filteredItems.filter((item) => item.readiness_status === "at_risk" || item.readiness_status === "off_track" || item.risk_status === "high" || item.risk_status === "critical").length;
+  const managementStats = isGlobalJobsPage ? buildJobManagementStats(filteredItems) : [];
+  const intakeReviewQueue = isGlobalJobsPage ? buildIntakeReviewQueue(filteredItems) : [];
 
   return (
     <SharedJobListShell
@@ -582,6 +665,44 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
       content={
         <div className="shared-job-list__database">
           {error ? <div className="shared-job-list__error" role="alert">{error}</div> : null}
+          {isGlobalJobsPage ? (
+            <section className="job-management-summary" aria-label="Job management summary">
+              <div className="job-management-summary__header">
+                <div>
+                  <strong>Job Management</strong>
+                  <span>Review intake state, calendar readiness, blockers, and active work without creating another board.</span>
+                </div>
+                <a className="secondary-button" href="#jobs/new">New Job Intake</a>
+              </div>
+              <div className="job-management-summary__cards">
+                {managementStats.map((stat) => (
+                  <article key={stat.key}>
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                    <small>{stat.detail}</small>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {isGlobalJobsPage ? (
+            <section className="intake-review-queue" aria-label="Intake review queue">
+              <div>
+                <strong>Intake Review Queue</strong>
+                <span>Approve intake details before launching department workflow.</span>
+              </div>
+              <div className="intake-review-queue__cards">
+                {intakeReviewQueue.map((item) => (
+                  <article key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                    <small>{item.detail}</small>
+                    <em>{item.action}</em>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <div className="shared-job-list__database-toolbar">
             <span>Showing {visibleStart}-{visibleEnd} of {filteredItems.length} jobs</span>
             <label className="filter-field filter-field--compact">
@@ -639,6 +760,8 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
               <div><span>Location</span><strong>{selectedItem.primary_location_name ?? "TBD"}</strong></div>
               <div><span>Contact</span><strong>{selectedItem.primary_contact_name ?? "TBD"}</strong></div>
               <div><span>Owner</span><strong>{selectedItem.account_owner_name ?? "Unassigned"}</strong></div>
+              <div><span>Stage</span><strong>{getManagementStage(selectedItem)}</strong></div>
+              <div><span>Next action</span><strong>{getNextStep(selectedItem)}</strong></div>
             </div>
             <div className="shared-job-preview__status-row">
               <RiskBadge level={selectedItem.risk_status} />

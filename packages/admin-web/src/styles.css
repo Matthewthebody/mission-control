@@ -2610,6 +2610,9 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 
 .job-ownership-card,
 .job-work-packages,
+.job-department-task-plan,
+.job-intake-readiness,
+.job-change-notices,
 .job-routing-notifications {
   display: grid;
   gap: 10px;
@@ -2621,6 +2624,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .job-work-packages__header,
+.job-intake-readiness__header,
 .job-routing-notifications {
   display: flex;
   align-items: flex-start;
@@ -2629,6 +2633,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .job-work-packages__header > div,
+.job-intake-readiness__header > div,
 .job-routing-notifications > div:first-child {
   display: grid;
   gap: 3px;
@@ -2636,6 +2641,7 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 }
 
 .job-work-packages__header span,
+.job-intake-readiness__header span,
 .job-routing-notifications span,
 .job-work-packages small {
   color: var(--text-muted);
@@ -2730,6 +2736,188 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   color: #cbd5e1;
   border-color: rgba(148, 163, 184, 0.2);
   background: rgba(148, 163, 184, 0.1);
+}
+
+.job-intake-readiness {
+  border-color: rgba(96, 165, 250, 0.2);
+}
+
+.job-intake-readiness--success {
+  border-color: rgba(34, 197, 94, 0.26);
+}
+
+.job-intake-readiness--warning {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.job-intake-readiness--critical {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.job-intake-readiness__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.job-intake-readiness__actions strong {
+  color: var(--text);
+}
+
+.job-intake-readiness__list,
+.job-department-task-plan__list,
+.job-change-notices__list {
+  display: grid;
+  gap: 8px;
+}
+
+.job-intake-readiness__list article,
+.job-department-task-plan__list article,
+.job-change-notices__list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(2, 6, 23, 0.14);
+}
+
+.job-department-task-plan__list article {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) auto;
+}
+
+.job-intake-readiness__list article > div,
+.job-department-task-plan__list article > div,
+.job-change-notices__list article > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.job-intake-readiness__list strong,
+.job-department-task-plan__list strong,
+.job-change-notices__list strong {
+  overflow-wrap: anywhere;
+}
+
+.job-intake-readiness__list small,
+.job-department-task-plan__list small,
+.job-change-notices__list small {
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.job-intake-readiness__list em,
+.job-change-notice > span {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.job-intake-readiness__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.55);
+}
+
+.job-intake-readiness__dot--ready {
+  background: #22c55e;
+}
+
+.job-intake-readiness__dot--missing {
+  background: #ef4444;
+}
+
+.job-intake-readiness__dot--review {
+  background: #f59e0b;
+}
+
+.job-change-notice--urgent {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+.job-change-notice--important {
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.job-change-notice--fyi {
+  border-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.job-management-summary,
+.intake-review-queue {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.2);
+}
+
+.job-management-summary__header,
+.intake-review-queue > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.job-management-summary__header > div,
+.intake-review-queue > div:first-child {
+  min-width: 0;
+}
+
+.job-management-summary__header span,
+.intake-review-queue > div:first-child span,
+.job-management-summary__cards small,
+.intake-review-queue__cards small {
+  color: var(--text-muted);
+}
+
+.job-management-summary__cards,
+.intake-review-queue__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.job-management-summary__cards article,
+.intake-review-queue__cards article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.12);
+}
+
+.job-management-summary__cards span,
+.intake-review-queue__cards span,
+.intake-review-queue__cards em {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.job-management-summary__cards strong,
+.intake-review-queue__cards strong {
+  font-size: 1.1rem;
 }
 
 .job-routing-notifications__chips {
@@ -20774,6 +20962,33 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 @media (max-width: 900px) {
+  .job-management-summary__header,
+  .intake-review-queue > div:first-child,
+  .job-intake-readiness__header,
+  .job-work-packages__header {
+    flex-direction: column;
+  }
+
+  .job-management-summary__cards,
+  .intake-review-queue__cards {
+    grid-template-columns: 1fr;
+  }
+
+  .job-department-task-plan__list article,
+  .job-work-package {
+    grid-template-columns: 1fr;
+  }
+
+  .job-intake-readiness__list article,
+  .job-change-notices__list article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .job-intake-readiness__list article em,
+  .job-change-notice > span {
+    grid-column: 2;
+  }
+
   .project-workflow-handoff-history__header,
   .production-workflow-queue__header {
     display: block;

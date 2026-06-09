@@ -9,8 +9,13 @@ import {
   JobHandoffCard,
   JobNotificationFoundation,
   JobOwnershipPanel,
+  JobChangeNoticesPanel,
+  JobDepartmentTaskPlan,
+  JobIntakeReadinessPanel,
   JobProgressTimeline,
   JobWorkPackagesPanel,
+  buildJobChangeNotices,
+  buildJobIntakeManagementSummaryFromDetail,
   buildRoutingPreviewFromDetail
 } from "../components/jobs/JobRoutingFoundation";
 import { JobOperationalCommandPanel } from "../components/jobs/JobOperationalCommandPanel";
@@ -324,16 +329,21 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
 
   if (detail) {
     const routingPreview = buildRoutingPreviewFromDetail(detail);
+    const intakeSummary = buildJobIntakeManagementSummaryFromDetail(detail);
+    const changeNotices = buildJobChangeNotices(detail);
     summaryCards.unshift({
       key: "routing-foundation",
       title: "Job Progress",
       body: (
         <div className="shared-job-form__stack">
+          <JobIntakeReadinessPanel summary={intakeSummary} />
           <JobOwnershipPanel preview={routingPreview} />
           <JobProgressTimeline preview={routingPreview} />
           <JobHandoffCard preview={routingPreview} />
           <JobWorkPackagesPanel preview={routingPreview} compact />
+          <JobDepartmentTaskPlan preview={routingPreview} compact />
           <JobNotificationFoundation preview={routingPreview} />
+          <JobChangeNoticesPanel notices={changeNotices} />
         </div>
       )
     });
