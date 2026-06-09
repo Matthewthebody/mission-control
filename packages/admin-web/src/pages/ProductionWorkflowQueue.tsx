@@ -30,30 +30,30 @@ const PRODUCTION_BOARD_LANES: Array<{ id: ProductionBoardLaneId; title: string; 
   { id: "came_in", title: "What came in", summary: "New handoffs from upstream workflow." },
   { id: "ready_to_start", title: "Ready to start", summary: "Accepted or queue-owned work missing an owner." },
   { id: "in_production", title: "In production", summary: "Active work Production can move now." },
-  { id: "blocked_waiting", title: "Blocked / waiting", summary: "Real blocker or missing-info signals only." },
-  { id: "qa_hold", title: "QA / on hold", summary: "QA, correction, or hold language from the current step." },
+  { id: "blocked_waiting", title: "Blocked", summary: "Real blocker or missing-info signals only." },
+  { id: "qa_hold", title: "QA Hold", summary: "QA, correction, or hold language from the current step." },
   { id: "ready_to_release", title: "Ready to release", summary: "Release-ready language from real workflow data." },
-  { id: "released_complete", title: "Released / complete", summary: "Production-complete handoffs ready to return." }
+  { id: "released_complete", title: "Complete", summary: "Production-complete handoffs ready to return." }
 ];
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
-    return "Not connected yet";
+    return "Not set";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "Not connected yet";
+    return "Not set";
   }
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
 }
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
-    return "Not connected yet";
+    return "Not set";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "Not connected yet";
+    return "Not set";
   }
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
 }
@@ -240,7 +240,7 @@ function claimButtonLabel(item: ProjectWorkflowProductionQueueItem) {
   if (item.status !== "accepted_by_production" && !item.assigned_user_id) {
     return "Accept first";
   }
-  return "Claimed / assigned";
+  return "Assigned";
 }
 
 export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps) {
@@ -303,14 +303,14 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
     <section className="production-workflow-queue">
       <div className="production-workflow-queue__header">
         <div>
-          <span className="eyebrow">Production Operating Board V1</span>
-          <h1>Production Operating Board</h1>
+          <span className="eyebrow">Production</span>
+          <h1>Production Queue</h1>
           <p>
-            Spencer-facing board for real Production handoffs and queue-owned workflow steps. No fake automation, no synthetic urgency.
+            Jobs, owners, status, due dates, and next actions for Production.
           </p>
         </div>
         <a className="button button-secondary" href="#project-tracking">
-          Project Dashboard
+          Project Tracking
         </a>
       </div>
 
@@ -318,7 +318,7 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
         <div className="production-workflow-queue__summary" aria-label="Production queue summary">
           <div><span>Came in</span><strong>{queue.summary.ready_for_production}</strong></div>
           <div><span>Needs owner</span><strong>{queue.summary.needs_assignment}</strong></div>
-          <div><span>Blocked / waiting</span><strong>{queue.summary.waiting_on_info}</strong></div>
+          <div><span>Blocked</span><strong>{queue.summary.waiting_on_info}</strong></div>
           <div><span>Due today</span><strong>{queue.summary.due_today}</strong></div>
           <div><span>Overdue</span><strong>{queue.summary.overdue}</strong></div>
         </div>
@@ -327,7 +327,7 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
       {notice ? <p className="production-workflow-queue__notice">{notice}</p> : null}
       {error ? <p className="production-workflow-queue__error">{error}</p> : null}
 
-      <div className="production-operating-board" aria-label="Production Operating Board lanes">
+      <div className="production-operating-board" aria-label="Production stage summary lanes">
         {lanes.map((lane) => (
           <section className={`production-operating-board__lane is-${laneTone(lane.id)}`} key={lane.id} aria-label={lane.title}>
             <div className="production-operating-board__lane-header">
@@ -360,9 +360,9 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
                       <strong>{item.next_action}</strong>
                     </div>
                     <div className="production-operating-card__links">
-                      <a href={`#project-tracking/workflows/${item.workflow_run_id}`}>Open workflow</a>
-                      <a href={jobDetailHref(item)}>Open job</a>
-                      {accountLink ? <a href={accountLink}>Open account</a> : null}
+                      <a href={`#project-tracking/workflows/${item.workflow_run_id}`}>Open Workflow</a>
+                      <a href={jobDetailHref(item)}>Open Job</a>
+                      {accountLink ? <a href={accountLink}>Open Account</a> : null}
                     </div>
                   </article>
                 );
@@ -372,15 +372,15 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
         ))}
       </div>
 
-      <div className="production-workflow-table" role="table" aria-label="Production Queue handoffs">
+      <div className="production-workflow-table" role="table" aria-label="Production jobs list">
         <div className="production-workflow-table__header" role="row">
           <span>Due</span>
-          <span>School / Job</span>
-          <span>Current step</span>
-          <span>Assigned person</span>
+          <span>Job</span>
+          <span>Step</span>
+          <span>Owner</span>
           <span>Department</span>
           <span>Status</span>
-          <span>Shared note</span>
+          <span>Note</span>
           <span>Action</span>
         </div>
         {loading ? <p className="section-subtitle">Loading Production Queue...</p> : null}
@@ -420,7 +420,7 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
             <span title={item.notes ?? undefined}>{item.notes ? item.notes : "No shared note yet"}</span>
             <span className="production-workflow-row__actions">
               <button type="button" className="button" onClick={() => setEditingStepId(editingStepId === item.step_id ? null : item.step_id)}>
-                Assign / Status
+                Assign Owner
               </button>
               <a className="button button-secondary" href={`#project-tracking/workflows/${item.workflow_run_id}`}>
                 Open Workflow
@@ -475,7 +475,7 @@ export function ProductionWorkflowQueue({ token }: ProductionWorkflowQueueProps)
                 {item.source !== "handoff" ? (
                   <div className="production-workflow-row__details-wide">
                     <span>Source</span>
-                    <strong>Current workflow step. Use Assign / Status for owner, department, and shared note changes.</strong>
+                    <strong>Use Assign Owner for owner, status, and note changes.</strong>
                   </div>
                 ) : (
                   <div className="production-workflow-row__handoff-actions production-workflow-row__details-wide">

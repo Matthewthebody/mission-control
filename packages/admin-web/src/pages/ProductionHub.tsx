@@ -65,7 +65,7 @@ export function ProductionHub({ token, currentUser }: Props) {
   const workAreas = useMemo(() => buildProductionWorkAreas(items), [items]);
   const waitingCount = countWaitingForProcessing(items);
   const editingCount = countEditing(items);
-  const readyForQaCount = qaNeeded.length || summary?.qa_pending_count || 0;
+  const readyForQaCount = qaNeeded.length;
   const blockedCount = summary?.blocked_count ?? atRisk.filter((item) => item.tone === "danger").length;
   const urgentCount = blockedCount + (summary?.overdue_count ?? 0);
   const dataUnavailable = Boolean(error && !payload);
@@ -73,26 +73,26 @@ export function ProductionHub({ token, currentUser }: Props) {
   const statusLabel = dataUnavailable ? "Demo data unavailable" : statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
   const productionViewerName = currentUser.fullName.trim().toLowerCase() === "demo admin" ? "Mission Control User" : currentUser.fullName;
   const openFirstCards: DepartmentHubCard[] = [
-    { label: "Jobs Waiting For Processing", value: waitingCount, detail: "Needs file ingest, owner assignment, or production kickoff.", href: "#production/queue", tone: waitingCount ? "warning" : "success" },
-    { label: "QA Needed", value: readyForQaCount, detail: "Color, crop, roster, upload, or release review.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
-    { label: "Rush / At Risk", value: blockedCount, detail: "Blocked, ownerless, overdue, or missing production inputs.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
-    { label: "Exports / Releases", value: summary?.awaiting_approval_count ?? 0, detail: "Uploads, approvals, or release checks that need final movement.", href: "#production/release", tone: (summary?.awaiting_approval_count ?? 0) ? "warning" : "success" }
+    { label: "Ready", value: waitingCount, detail: "Needs ingest or owner.", href: "#production-queue", tone: waitingCount ? "warning" : "success" },
+    { label: "QA", value: readyForQaCount, detail: "Review color, crop, roster, upload, or release readiness.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
+    { label: "At Risk", value: blockedCount, detail: "Blocked, ownerless, overdue, or missing production inputs.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
+    { label: "Release", value: summary?.awaiting_approval_count ?? 0, detail: "Uploads, approvals, and final delivery checks.", href: "#production/release", tone: (summary?.awaiting_approval_count ?? 0) ? "warning" : "success" }
   ];
   const attentionCards: DepartmentHubCard[] = [
-    { label: "Blocked Production", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker before delivery slips." : "No blocked production work is visible.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
-    { label: "Overdue Work", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
-    { label: "QA Pressure", value: readyForQaCount, detail: readyForQaCount ? "QA is the next action before release can move." : "QA queue is clear right now.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" }
+    { label: "Blocked", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker." : "No blocked production work is visible.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
+    { label: "Overdue", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
+    { label: "QA Hold", value: readyForQaCount, detail: readyForQaCount ? "QA is the next action before release can move." : "QA queue is clear right now.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
-    { label: "Production Due This Week", value: dueThisWeek.length, detail: "Processing, QA, upload, or release deadlines inside the next seven days.", href: "#production/release", tone: dueThisWeek.length ? "warning" : "success" },
+    { label: "Due This Week", value: dueThisWeek.length, detail: "Processing, QA, upload, or release deadlines inside the next seven days.", href: "#production/release", tone: dueThisWeek.length ? "warning" : "success" },
     { label: "In Editing", value: editingCount, detail: "Jobs actively moving through editing or production stages.", href: "#production/workload", tone: editingCount ? "info" : "success" },
-    { label: "Recently Completed", value: recentlyCompleted.length, detail: "Closed, delivered, uploaded, or released work in the recent queue.", href: "#production/release", tone: "info" }
+    { label: "Complete", value: recentlyCompleted.length, detail: "Closed, delivered, uploaded, or released work in the recent queue.", href: "#production/release", tone: "info" }
   ];
   const queueCards: DepartmentHubCard[] = [
-    { label: "Editing Queue", detail: "Open production work that needs processing.", href: "#production/queue", tone: "info" },
-    { label: "QA Queue", detail: "Review color, crop, roster, upload, and release readiness.", href: "#production/qa", tone: "warning" },
-    { label: "Exports / Releases", detail: "Final uploads, release, and delivery confirmation.", href: "#production/release", tone: "info" },
-    { label: "Rush Jobs", detail: "Blocked or at-risk work that needs escalation.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: urgentCount ? "danger" : "success" }
+    { label: "Queue", detail: "Open production jobs that need processing.", href: "#production-queue", tone: "info" },
+    { label: "QA", detail: "Review color, crop, roster, upload, and release readiness.", href: "#production/qa", tone: "warning" },
+    { label: "Release", detail: "Final uploads, release, and delivery confirmation.", href: "#production/release", tone: "info" },
+    { label: "At Risk", detail: "Blocked work that needs escalation.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: urgentCount ? "danger" : "success" }
   ];
 
   return (
@@ -101,7 +101,7 @@ export function ProductionHub({ token, currentUser }: Props) {
         <div className="production-hub__hero-copy">
           <div className="eyebrow">Department Hub</div>
           <h2>Production</h2>
-          <p>Monitor editing, QA, packaging, release preparation, and jobs at risk.</p>
+          <p>See jobs, owners, blockers, QA, and release work.</p>
           <div className="production-hub__status-row">
             <span className={`production-hub__status production-hub__status--${statusTone}`}>{statusLabel}</span>
             <span className="metric-pill">{urgentCount} urgent</span>
@@ -109,14 +109,8 @@ export function ProductionHub({ token, currentUser }: Props) {
           </div>
         </div>
         <div className="production-hub__hero-actions">
-          <a className="button" href="#production/queue">
-            Open Production Queue
-          </a>
-          <a className="secondary-button" href="#production/qa">
-            Review QA
-          </a>
-          <a className="secondary-button" href="#production/release">
-            Release Readiness
+          <a className="button" href="#production-queue">
+            Open Production Board
           </a>
         </div>
       </section>
@@ -138,25 +132,25 @@ export function ProductionHub({ token, currentUser }: Props) {
       <section className="production-hub__grid">
         <ProductionSection
           title="Due This Week"
-          summary="Work that needs to be completed, uploaded, QA'd, or released in the next seven days."
+          summary="Work that needs to be processed, uploaded, QA'd, or released in the next seven days."
           items={dueThisWeek}
           empty="No due-this-week production work is visible in the current queue."
         />
         <ProductionSection
           title="QA Needed"
-          summary="Color/density, crop, roster/data match, gallery/upload, and release verification."
+          summary="Color, crop, roster, upload, and release checks."
           items={qaNeeded}
           empty="No QA work is waiting right now."
         />
         <ProductionSection
-          title="At Risk / Blocked"
+          title="At Risk"
           summary="Anything likely to stop Production from finishing on time."
           items={atRisk}
           empty="No blocked or at-risk production work is visible right now."
         />
         <ProductionSection
-          title="Recently Completed"
-          summary="Short preview of recently processed, QA'd, uploaded, released, or closed work."
+          title="Complete"
+          summary="Recently processed, uploaded, released, or closed work."
           items={recentlyCompleted}
           empty="Completed production movement will appear here after work closes."
         />
@@ -336,7 +330,7 @@ function buildProductionWorkAreas(items: SharedProductionQueueItem[]): Productio
   const initialItems = items
     .filter(isInitialProductionItem)
     .sort(compareDueDates)
-    .map((item) => toHubItem(item, "Initial Process", `Job type: ${formatDepartment(item.department_type)}. Next: confirm files, owner, and intake readiness.`, "#production/queue", item.file_receipt_state === "missing_receipt" || !item.assigned_to_user_id ? "watch" : "info"));
+    .map((item) => toHubItem(item, "Initial Process", `Job type: ${formatDepartment(item.department_type)}. Next: confirm files, owner, and intake readiness.`, "#production-queue", item.file_receipt_state === "missing_receipt" || !item.assigned_to_user_id ? "watch" : "info"));
   const inProductionItems = items
     .filter(isInProductionItem)
     .sort(compareDueDates)
@@ -344,15 +338,15 @@ function buildProductionWorkAreas(items: SharedProductionQueueItem[]): Productio
   const dCardItems = items
     .filter(isDCardItem)
     .sort(compareDueDates)
-    .map((item) => toHubItem(item, "D-Card Process", `Job type: ${formatDepartment(item.department_type)}. Next: verify D-card or roster output before release.`, "#production/queue", "watch"));
+    .map((item) => toHubItem(item, "D-Card Process", `Job type: ${formatDepartment(item.department_type)}. Next: verify D-card or roster output before release.`, "#production-queue", "watch"));
   const galleryPortalItems = items
     .filter(isGalleryPortalItem)
     .sort(compareDueDates)
-    .map((item) => toHubItem(item, "Gallery / Portal", `Job type: ${formatDepartment(item.department_type)}. Next: confirm upload, portal, approval, or release readiness.`, "#production/release", item.approval_required && item.approval_status !== "approved" ? "watch" : "info"));
+    .map((item) => toHubItem(item, "Gallery", `Job type: ${formatDepartment(item.department_type)}. Next: confirm upload, approval, or release readiness.`, "#production/release", item.approval_required && item.approval_status !== "approved" ? "watch" : "info"));
   const reviewExceptionItems = items
     .filter(isReviewExceptionItem)
     .sort((left, right) => riskRank(right) - riskRank(left))
-    .map((item) => toHubItem(item, "Review / Exceptions", `Job type: ${formatDepartment(item.department_type)}. Next: clear QA, blocker, or exception before delivery.`, "#production/qa", item.blocker_count || item.blocking_issue_count || item.days_past_due ? "danger" : "watch"));
+    .map((item) => toHubItem(item, "Review", `Job type: ${formatDepartment(item.department_type)}. Next: clear QA, blocker, or exception before delivery.`, "#production/qa", item.blocker_count || item.blocking_issue_count || item.days_past_due ? "danger" : "watch"));
 
   return [
     {
@@ -378,14 +372,14 @@ function buildProductionWorkAreas(items: SharedProductionQueueItem[]): Productio
     },
     {
       id: "gallery_portal",
-      label: "Gallery / Portal",
+      label: "Gallery",
       summary: "Jobs preparing for gallery upload, portal review, approval, release, or delivery.",
       items: galleryPortalItems,
       empty: "No gallery, portal, or release work is visible right now."
     },
     {
       id: "review_exceptions",
-      label: "Review / Exceptions",
+      label: "Review",
       summary: "Blocked, at-risk, QA-needed, ownerless, or review-needed production work.",
       items: reviewExceptionItems,
       empty: "No review or exception work is blocking Production right now."

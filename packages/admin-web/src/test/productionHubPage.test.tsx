@@ -232,18 +232,20 @@ describe("ProductionHub", () => {
     render(<ProductionHub token="token-demo" currentUser={productionUser} />);
 
     expect(await screen.findByRole("heading", { name: "Production" })).toBeInTheDocument();
-    expect(screen.getByText("Monitor editing, QA, packaging, release preparation, and jobs at risk.")).toBeInTheDocument();
+    expect(screen.getByText("See jobs, owners, blockers, QA, and release work.")).toBeInTheDocument();
     expect(screen.getByText("Open First")).toBeInTheDocument();
     expect(screen.getByText("Attention Needed")).toBeInTheDocument();
     expect(screen.getByText("This Week's Work")).toBeInTheDocument();
     expect(screen.getByText("Work Queues")).toBeInTheDocument();
-    expect(screen.getByText("Jobs Waiting For Processing")).toBeInTheDocument();
-    expect(screen.getByText("Rush / At Risk")).toBeInTheDocument();
-    expect(screen.getAllByText("Exports / Releases").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ready").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("At Risk").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Release").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due This Week").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("QA Needed").length).toBeGreaterThan(0);
-    expect(screen.getByText("At Risk / Blocked")).toBeInTheDocument();
-    expect(screen.getAllByText("Recently Completed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("QA").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Complete").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Rush / At Risk")).not.toBeInTheDocument();
+    expect(screen.queryByText("Exports / Releases")).not.toBeInTheDocument();
+    expect(screen.queryByText("At Risk / Blocked")).not.toBeInTheDocument();
     expect(screen.getByText("Department Help Needed")).toBeInTheDocument();
     expect(screen.getByText("Viewing as Production Lead")).toBeInTheDocument();
     expect(screen.getByText("Production Work Areas")).toBeInTheDocument();
@@ -253,21 +255,19 @@ describe("ProductionHub", () => {
     expect(within(workAreaTabs).getByRole("tab", { name: /Initial Process\s*2/i })).toHaveAttribute("aria-selected", "true");
     expect(within(workAreaTabs).getByRole("tab", { name: /In Production\s*1/i })).toBeInTheDocument();
     expect(within(workAreaTabs).getByRole("tab", { name: /D-Card Process\s*0/i })).toBeInTheDocument();
-    expect(within(workAreaTabs).getByRole("tab", { name: /Gallery \/ Portal\s*4/i })).toBeInTheDocument();
-    expect(within(workAreaTabs).getByRole("tab", { name: /Review \/ Exceptions\s*3/i })).toBeInTheDocument();
+    expect(within(workAreaTabs).getByRole("tab", { name: /Gallery\s*4/i })).toBeInTheDocument();
+    expect(within(workAreaTabs).getByRole("tab", { name: /Review\s*3/i })).toBeInTheDocument();
     expect(screen.getByText("Jobs being checked in, confirmed, assigned, or prepared for production.")).toBeInTheDocument();
 
-    fireEvent.click(within(workAreaTabs).getByRole("tab", { name: /Review \/ Exceptions\s*3/i }));
-    expect(within(workAreaTabs).getByRole("tab", { name: /Review \/ Exceptions\s*3/i })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(workAreaTabs).getByRole("tab", { name: /Review\s*3/i }));
+    expect(within(workAreaTabs).getByRole("tab", { name: /Review\s*3/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Blocked, at-risk, QA-needed, ownerless, or review-needed production work.")).toBeInTheDocument();
     expect(screen.getAllByText(/Kennedy Underclass/).length).toBeGreaterThan(0);
 
-    expect(screen.getByRole("link", { name: /Open Production Queue/i })).toHaveAttribute("href", "#production/queue");
-    expect(screen.getByRole("link", { name: /Review QA/i })).toHaveAttribute("href", "#production/qa");
-    expect(
-      screen.getAllByRole("link", { name: /Release Readiness/i }).some((link) => link.getAttribute("href") === "#production/release"),
-    ).toBe(true);
-    expect(screen.getByRole("link", { name: /Jobs Waiting For Processing/i })).toHaveAttribute("href", "#production/queue");
+    expect(screen.getByRole("link", { name: /Open Production Board/i })).toHaveAttribute("href", "#production-queue");
+    expect(screen.queryByRole("link", { name: /^Review QA$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Release Readiness$/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Ready/i }).some((link) => link.getAttribute("href") === "#production-queue")).toBe(true);
     expect(screen.getByText("Blocked by missing files or partial upload handoff.")).toBeInTheDocument();
     expect(screen.getByText("Waiting on uploaded files or a complete file handoff.")).toBeInTheDocument();
     expect(screen.getAllByText(/Northview Upload/).length).toBeGreaterThan(0);

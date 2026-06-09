@@ -1508,6 +1508,7 @@ function ProjectTrackingJobBoard({
   onOpenWorkflow: (workflowRunId: string) => void;
   onWorkflowRowUpdated: () => Promise<void> | void;
 }) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const rows = buildJobBoardRows(payload);
   const commandReference = commandReferenceDate(payload?.generated_at);
   const presetRows = rows.filter((row) => matchesPreset(row, selectedPreset) && (!selectedCommandGroup || matchesCommandGroup(row, selectedCommandGroup, commandReference)));
@@ -1543,6 +1544,7 @@ function ProjectTrackingJobBoard({
   const dueMonthOptions = Array.from(new Set(rows.map((row) => dueDateParts(row)?.month).filter(Boolean) as string[])).sort((a, b) => Number(a) - Number(b));
   const dueYearOptions = Array.from(new Set(rows.map((row) => dueDateParts(row)?.year).filter(Boolean) as string[])).sort();
   const activeFilterSummaryId = "project-tracking-active-filter-summary";
+  const filterPanelId = "project-tracking-filter-panel";
   const timelineReferenceDate = commandReferenceDate(payload?.generated_at);
   const emptyStateCopy = !rows.length
     ? "No active work data is available yet. This is not a filtered result."
@@ -1567,30 +1569,6 @@ function ProjectTrackingJobBoard({
       </div>
       <div className="project-tracking-board-toolbar">
         <ProjectTrackingViewSwitcher viewMode={viewMode} onViewModeChange={onViewModeChange} />
-      </div>
-      <div className="project-tracking-preset-row" aria-label="Project Tracking preset lenses">
-        <div className="project-tracking-preset-row__label">
-          <strong>Saved views</strong>
-          <span>Filters the board now</span>
-        </div>
-        <div className="project-tracking-preset-row__buttons">
-          {presetCounts.map((presetOption) => (
-            <button
-              className={`project-tracking-preset-button ${selectedPreset === presetOption.preset ? "is-active" : ""}`}
-              type="button"
-              key={presetOption.preset}
-              aria-pressed={selectedPreset === presetOption.preset}
-              aria-label={`${presetOption.label}, ${presetOption.count} ${presetOption.count === 1 ? "item" : "items"}${selectedPreset === presetOption.preset ? ", active preset" : ""}`}
-              onClick={() => onPresetChange(presetOption.preset)}
-            >
-              <span>{presetOption.label}</span>
-              <strong>{presetOption.count}</strong>
-              {selectedPreset === presetOption.preset ? <em>Active</em> : null}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="project-tracking-controls project-tracking-controls--kanban" aria-label="Project tracking filters and search">
         <label className="project-tracking-search">
           <span>Search</span>
           <input
@@ -1600,6 +1578,42 @@ function ProjectTrackingJobBoard({
             onChange={(event) => onSearchQueryChange(event.target.value)}
           />
         </label>
+        <button
+          className="project-tracking-filter-toggle"
+          type="button"
+          aria-expanded={filtersOpen}
+          aria-controls={filterPanelId}
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          Filters
+          {hasActiveControls ? <span>Active</span> : null}
+        </button>
+      </div>
+      {filtersOpen ? (
+        <div className="project-tracking-filter-panel" id={filterPanelId}>
+          <div className="project-tracking-preset-row" aria-label="Project Tracking preset lenses">
+            <div className="project-tracking-preset-row__label">
+              <strong>Saved views</strong>
+              <span>Filters the board now</span>
+            </div>
+            <div className="project-tracking-preset-row__buttons">
+              {presetCounts.map((presetOption) => (
+                <button
+                  className={`project-tracking-preset-button ${selectedPreset === presetOption.preset ? "is-active" : ""}`}
+                  type="button"
+                  key={presetOption.preset}
+                  aria-pressed={selectedPreset === presetOption.preset}
+                  aria-label={`${presetOption.label}, ${presetOption.count} ${presetOption.count === 1 ? "item" : "items"}${selectedPreset === presetOption.preset ? ", active preset" : ""}`}
+                  onClick={() => onPresetChange(presetOption.preset)}
+                >
+                  <span>{presetOption.label}</span>
+                  <strong>{presetOption.count}</strong>
+                  {selectedPreset === presetOption.preset ? <em>Active</em> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="project-tracking-controls project-tracking-controls--kanban" aria-label="Project tracking filters and search">
         <label className="project-tracking-sort">
           <span>Department</span>
           <select
@@ -1678,22 +1692,24 @@ function ProjectTrackingJobBoard({
             ))}
           </select>
         </label>
-      </div>
-      <div className="project-tracking-filter-row" aria-label="Project tracking filters">
-        {PRIMARY_FILTERS.map((filter) => (
-          <button
-            className={`project-tracking-filter-button ${activeFilter === filter ? "is-active" : ""}`}
-            type="button"
-            key={filter}
-            aria-pressed={activeFilter === filter}
-            aria-label={`${FILTER_LABELS[filter]} filter${activeFilter === filter ? ", active" : ""}`}
-            onClick={() => onFilterChange(filter)}
-          >
-            {FILTER_LABELS[filter]}
-            {activeFilter === filter ? <span className="project-tracking-active-marker">Active</span> : null}
-          </button>
-        ))}
-      </div>
+          </div>
+          <div className="project-tracking-filter-row" aria-label="Project tracking filters">
+            {PRIMARY_FILTERS.map((filter) => (
+              <button
+                className={`project-tracking-filter-button ${activeFilter === filter ? "is-active" : ""}`}
+                type="button"
+                key={filter}
+                aria-pressed={activeFilter === filter}
+                aria-label={`${FILTER_LABELS[filter]} filter${activeFilter === filter ? ", active" : ""}`}
+                onClick={() => onFilterChange(filter)}
+              >
+                {FILTER_LABELS[filter]}
+                {activeFilter === filter ? <span className="project-tracking-active-marker">Active</span> : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="project-tracking-active-filter" id={activeFilterSummaryId} aria-live="polite">
         <span>
           Showing {filteredRows.length} of {presetRows.length} work items - Area: {areaSummary} - Preset: {presetSummary} - {departmentSummary} - Filtered by {filterSummary}

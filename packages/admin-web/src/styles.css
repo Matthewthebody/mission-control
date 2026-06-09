@@ -4171,6 +4171,52 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   background: #eaf3ff;
 }
 
+.project-tracking-board-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr) auto;
+  gap: 6px;
+  align-items: end;
+}
+
+.project-tracking-filter-toggle {
+  min-height: 34px;
+  border: 1px solid var(--pt-border);
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: #ffffff;
+  color: var(--pt-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.project-tracking-filter-toggle:hover,
+.project-tracking-filter-toggle[aria-expanded="true"] {
+  border-color: #4f83c5;
+  color: #163d68;
+  background: #eaf3ff;
+}
+
+.project-tracking-filter-toggle span {
+  margin-left: 6px;
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: #dcecff;
+  color: #174b7d;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.project-tracking-filter-panel {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  padding: 6px;
+  background: #f8fafc;
+}
+
 .project-tracking-preset-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -4343,6 +4389,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
 .project-tracking-view-switcher__buttons button:focus-visible,
 .project-tracking-preset-button:focus-visible,
 .project-tracking-filter-button:focus-visible,
+.project-tracking-filter-toggle:focus-visible,
 .project-tracking-metric-grid > button:focus-visible,
 .project-tracking-control-button:focus-visible,
 .project-tracking-active-filter button:focus-visible,
@@ -6241,6 +6288,7 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   .project-tracking-summary-strip,
   .project-tracking-area-panel,
   .project-tracking-command-view .project-tracking-panel__heading,
+  .project-tracking-board-toolbar,
   .project-tracking-view-switcher,
   .project-tracking-preset-row,
   .project-tracking-controls,
@@ -19691,6 +19739,8 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 .production-workflow-queue {
+  display: grid;
+  gap: 0.85rem;
   color: #172033;
   background: #f8fafc;
   min-height: 100%;
@@ -19698,11 +19748,11 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 .production-workflow-queue__header {
+  order: 1;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
-  margin-bottom: 0.9rem;
 }
 
 .production-workflow-queue__header h1 {
@@ -19717,10 +19767,10 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 .production-workflow-queue__summary {
+  order: 2;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.45rem;
-  margin-bottom: 0.85rem;
 }
 
 .production-workflow-queue__summary div {
@@ -19744,12 +19794,12 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 .production-operating-board {
+  order: 5;
   display: grid;
   grid-template-columns: repeat(7, minmax(220px, 1fr));
   gap: 0.65rem;
   overflow-x: auto;
   padding-bottom: 0.7rem;
-  margin-bottom: 0.85rem;
 }
 
 .production-operating-board__lane {
@@ -19839,6 +19889,7 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
   padding: 0.12rem 0.4rem;
   font-size: 0.66rem;
   font-weight: 900;
+  cursor: default;
 }
 
 .production-operating-card p {
@@ -19889,9 +19940,10 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 
 .production-workflow-queue__notice,
 .production-workflow-queue__error {
+  order: 3;
   border-radius: 12px;
   padding: 0.6rem 0.75rem;
-  margin: 0.6rem 0;
+  margin: 0;
 }
 
 .production-workflow-queue__notice {
@@ -19905,6 +19957,7 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 .production-workflow-table {
+  order: 4;
   border: 1px solid #d9e2ef;
   border-radius: 14px;
   overflow: auto;
@@ -19955,10 +20008,12 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
 }
 
 .production-workflow-status {
+  display: inline-flex;
   border-radius: 999px;
   padding: 0.18rem 0.45rem;
   background: #e2e8f0;
   color: #334155;
+  cursor: default;
   font-size: 0.72rem;
   font-weight: 800;
 }

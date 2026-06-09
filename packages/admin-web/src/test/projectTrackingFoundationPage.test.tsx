@@ -562,8 +562,8 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByRole("listitem", { name: /Delivered, 0 items/i })).toBeInTheDocument();
     expect(screen.getAllByText("Owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Priority").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Status").length).toBeGreaterThan(0);
+    expect(boardLanes.querySelector(".project-tracking-priority-chip")).not.toBeNull();
+    expect(boardLanes.querySelector(".project-tracking-status-chip")).not.toBeNull();
     expect(screen.getAllByText("Confirm Files Received").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Maple Grove Senior High").length).toBeGreaterThan(0);
     expect(screen.getAllByText("North Metro Baseball Media Day").length).toBeGreaterThan(0);
@@ -608,6 +608,11 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByText("No workflow linked")).not.toBeInTheDocument();
     expect(screen.queryByText("Job record")).not.toBeInTheDocument();
 
+    const filterToggle = screen.getByRole("button", { name: "Filters" });
+    expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Project Tracking preset lenses")).not.toBeInTheDocument();
+    fireEvent.click(filterToggle);
+    expect(filterToggle).toHaveAttribute("aria-expanded", "true");
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
     expect(within(presetLenses).getByRole("button", { name: /All Active, 4 items, active preset/i })).toHaveAttribute("aria-pressed", "true");
     expect(within(presetLenses).getByRole("button", { name: /Leadership Review, 4 items/i })).toBeInTheDocument();
@@ -678,6 +683,7 @@ describe("ProjectTrackingFoundation", () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     await screen.findByLabelText("Project Tracking board lanes");
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     const departmentSelect = screen.getByRole("combobox", { name: "Department" });
     fireEvent.change(departmentSelect, { target: { value: "schools" } });
 
@@ -788,6 +794,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByLabelText("Blocked command group, active command filter")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Active command filter: blocked work" })).toHaveAttribute("aria-pressed", "true");
 
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
     fireEvent.click(within(presetLenses).getByRole("button", { name: /Leadership Review, 4 items/i }));
     board = screen.getByLabelText("Project Tracking board lanes").closest("section");
@@ -804,6 +811,7 @@ describe("ProjectTrackingFoundation", () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     await screen.findByLabelText("Project Tracking board lanes");
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");
     fireEvent.click(within(presetLenses).getByRole("button", { name: /Schools, 1 item/i }));
 
@@ -1169,11 +1177,13 @@ describe("ProjectTrackingFoundation", () => {
 
     render(<ProductionWorkflowQueue token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Production Operating Board" })).toBeInTheDocument();
-    expect(screen.getByText("Spencer-facing board for real Production handoffs and queue-owned workflow steps. No fake automation, no synthetic urgency.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Production Queue" })).toBeInTheDocument();
+    expect(screen.getByText("Jobs, owners, status, due dates, and next actions for Production.")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Production jobs list" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Production stage summary lanes")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What came in" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ready to start" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Blocked / waiting" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Blocked" })).toBeInTheDocument();
     expect(screen.getAllByText("Lakeview Elementary").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("Riverside Elementary").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("Needs Assignment - Production").length).toBeGreaterThanOrEqual(2);
@@ -1181,14 +1191,13 @@ describe("ProjectTrackingFoundation", () => {
     fireEvent.click(detailButtons[0]);
     expect(screen.getByText("Here by Production handoff")).toBeInTheDocument();
     fireEvent.click(detailButtons[1]);
-    expect(screen.getByText("Current workflow step. Use Assign / Status for owner, department, and shared note changes.")).toBeInTheDocument();
+    expect(screen.getByText("Use Assign Owner for owner, status, and note changes.")).toBeInTheDocument();
     expect(screen.queryByText("Command Layer Job")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Assign / Status" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Assign / Status" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Assign Owner" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[0]).toHaveAttribute("href", "#project-tracking/workflows/workflow-lakeview");
     expect(screen.getAllByRole("link", { name: "Open Workflow" })[1]).toHaveAttribute("href", "#project-tracking/workflows/workflow-queue-only");
-    expect(screen.getAllByRole("link", { name: "Open account" })[0]).toHaveAttribute("href", "#client-command-center/accounts/org-lakeview");
     expect(screen.getAllByRole("link", { name: "Open Account" })[0]).toHaveAttribute("href", "#client-command-center/accounts/org-lakeview");
-    expect(screen.getAllByRole("link", { name: "Open job" })[0]).toHaveAttribute("href", "#jobs/detail?preview=job-lakeview");
     expect(screen.getAllByRole("link", { name: "Open Job" })[0]).toHaveAttribute("href", "#jobs/detail?preview=job-lakeview");
     expect(screen.queryByText("Use Assign / Status for owner, department, and note changes, or Open Workflow for deeper review and send-back.")).not.toBeInTheDocument();
     expect(window.location.hash).toBe("#project-tracking");
@@ -1375,7 +1384,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(window.location.hash).toBe("#project-tracking");
     transitionProjectWorkflowStepMock.mockClear();
     transitionProjectWorkflowStepMock.mockResolvedValue({});
-    fireEvent.click(within(riversideRow as HTMLElement).getByRole("button", { name: "Assign / Status" }));
+    fireEvent.click(within(riversideRow as HTMLElement).getByRole("button", { name: "Assign Owner" }));
     expect(await screen.findByText("Update current step")).toBeInTheDocument();
     const quickEditor = screen.getByLabelText("Assign / Status current step");
     expect(within(quickEditor).getByText("Edit proof set")).toBeInTheDocument();
