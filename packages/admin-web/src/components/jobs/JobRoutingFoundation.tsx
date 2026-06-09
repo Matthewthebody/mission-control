@@ -1182,7 +1182,7 @@ export function buildRoutingPreviewFromProjectRow(row: ProjectWorkflowJobRow): J
     dueDateLabel: row.next_deadline_at ? formatDate(row.next_deadline_at) : "Due date not set",
     blockerStatus: status,
     blockerLabel: blockerLabel(status),
-    firstNextAction: row.queue_intelligence.next_action || "Open the workflow route and choose the next action.",
+    firstNextAction: row.queue_intelligence.next_action || "Open the job and choose the next action.",
     currentStage: stage
   }, typeId);
 }
@@ -1385,12 +1385,12 @@ export function JobIntakeReadinessPanel({ summary }: { summary: JobIntakeManagem
       <div className="job-intake-readiness__header">
         <div>
           <strong>Intake Readiness</strong>
-          <span>Review the package before launching department work.</span>
+          <span>Review the job setup before preparing department work.</span>
         </div>
         <span>{summary.reviewState}</span>
       </div>
       <div className="job-intake-readiness__actions">
-        <span>{missingCount ? `${missingCount} missing or review item${missingCount === 1 ? "" : "s"}` : "Ready for workflow review"}</span>
+        <span>{missingCount ? `${missingCount} missing or review item${missingCount === 1 ? "" : "s"}` : "Ready for review"}</span>
         <strong>{summary.reviewAction}</strong>
       </div>
       <div className="job-intake-readiness__list">
@@ -1415,8 +1415,8 @@ export function JobDepartmentTaskPlan({ preview, compact = false }: { preview: J
     <section className={`job-department-task-plan${compact ? " job-department-task-plan--compact" : ""}`} aria-label="Department task plan">
       <div className="job-work-packages__header">
         <div>
-          <strong>Department Task Plan</strong>
-          <span>Generated from the job type. Assignments stay calm until workflow launch.</span>
+          <strong>Department Handoff Plan</strong>
+          <span>Prepared from the job type. Assignments stay clear until the job is launched.</span>
         </div>
         <span>{preview.workflowRouteLabel}</span>
       </div>

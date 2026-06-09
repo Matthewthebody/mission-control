@@ -2306,11 +2306,11 @@ beforeEach(() => {
     render(<SharedJobsPage token="token-demo" currentUser={sportsCoordinator} departmentType={null} routeBase="#jobs" />);
 
     expect(await screen.findByRole("heading", { name: "Jobs" })).toBeInTheDocument();
-    expect(screen.getByText("Search and review every photographed job from shoot to final delivery.")).toBeInTheDocument();
+    expect(screen.getByText("Find active jobs, review missing info, and start new job intake.")).toBeInTheDocument();
     expect(screen.queryByText("Jobs Database")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryAllByText(/^Jobs$/).length).toBeLessThanOrEqual(1);
-    expect(screen.queryByRole("button", { name: /New Job|Create New Job|Create job/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start New Job" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save current view/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pin default/i })).not.toBeInTheDocument();
@@ -2318,18 +2318,19 @@ beforeEach(() => {
     expect(screen.queryByRole("button", { name: /Delete/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/work spine|read model|command layer|database surface|job truth layer|current view/i)).not.toBeInTheDocument();
 
-    expect(screen.getByLabelText("Search Jobs")).toHaveAttribute("placeholder", "Search by school, team, organization, job name, or date...");
+    expect(screen.getByLabelText("Search Jobs")).toHaveAttribute("placeholder", "Search by job, organization, job type, owner, or stage...");
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
-    expect(screen.getByLabelText("Organization")).toBeInTheDocument();
-    expect(screen.getByLabelText("Job Type")).toBeInTheDocument();
-    expect(screen.getByLabelText("Date Range")).toBeInTheDocument();
-    expect(screen.getByLabelText("Status")).toBeInTheDocument();
-    expect(screen.getByLabelText("Owner")).toBeInTheDocument();
-    expect(screen.getByLabelText("Needs Attention")).toBeInTheDocument();
-    expect(screen.getByLabelText("Production Status")).toBeInTheDocument();
-    expect(screen.getByLabelText("Gallery and Release Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stage")).toBeInTheDocument();
+    expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
+    expect(screen.getByLabelText("Blocked / Missing info")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Organization")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Job Type")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Date Range")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Owner")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Production Status")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Gallery and Release Status")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Job management summary")).toBeInTheDocument();
-    expect(screen.getByText("Job Management")).toBeInTheDocument();
+    expect(screen.getByText("Job Snapshot")).toBeInTheDocument();
     expect(screen.getByText("Intake Review Queue")).toBeInTheDocument();
     expect(screen.getAllByText("Waiting on client").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Waiting internal").length).toBeGreaterThan(0);
@@ -2338,8 +2339,7 @@ beforeEach(() => {
     expect(screen.getByText("Request missing info")).toBeInTheDocument();
     expect(screen.getByText("Follow up")).toBeInTheDocument();
     expect(screen.getByText("Assign owner")).toBeInTheDocument();
-    expect(screen.getByText("Launch workflow")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "New Job Intake" })).toHaveAttribute("href", "#jobs/new");
+    expect(screen.getByText("Prepare handoff")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Job" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Organization" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Date" })).toBeInTheDocument();
@@ -2356,7 +2356,7 @@ beforeEach(() => {
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(26);
     expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open package" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Open job" }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Missing roster").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Client approval needed").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Missing info checklist preview")).toBeInTheDocument();
@@ -2365,11 +2365,16 @@ beforeEach(() => {
     expect(screen.getAllByText("Resolve readiness").length).toBeGreaterThan(0);
     expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Job Type"), { target: { value: "media_day" } });
+    fireEvent.change(screen.getByLabelText("Search Jobs"), { target: { value: "Metro Athletics" } });
 
     await waitFor(() => expect(screen.getByText("Showing 1-15 of 15 jobs")).toBeInTheDocument());
     expect(screen.queryByText("North High Database Job 1")).not.toBeInTheDocument();
     expect(screen.getAllByText("Metro Athletics Database Job 2").length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByLabelText("Search Jobs"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "stage:Blocked" } });
+    await waitFor(() => expect(screen.getByText(/Showing 1-/)).toBeInTheDocument());
+    expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
   });
 
   it("renders the shared editor with school adapter sections", async () => {
@@ -2400,24 +2405,23 @@ beforeEach(() => {
     render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
 
     expect(await screen.findByRole("heading", { name: "New Job Intake" })).toBeInTheDocument();
-    expect(screen.getByText("Start a clean job package, set the first owner, and show where the work goes next.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "What happens after submit" })).toBeInTheDocument();
-    expect(screen.getByText("Handoff Plan")).toBeInTheDocument();
-    expect(screen.getByText("Ownership")).toBeInTheDocument();
-    expect(screen.getAllByText("Current Department").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Department Lead").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Assigned Person").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Assignment Status").length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Work Packages")).toBeInTheDocument();
+    expect(screen.getByText("Start with the basics. Mission Control will help identify missing info and next steps.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "What happens after submit" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Handoff Plan")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ownership")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Current team").length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText("Work Packages")).not.toBeInTheDocument();
     expect(screen.getAllByText("Team List Confirmation").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Team Photo Schedule").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Product and Proof Prep").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Intake readiness")).toBeInTheDocument();
-    expect(screen.getAllByText("Review Before Launch").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Department Task Plan").length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Notification Signals")).toBeInTheDocument();
-    expect(screen.getByText("Assignment Needed")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start Job Package" })).toBeInTheDocument();
+    expect(screen.getAllByText("Review and Next Steps").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Department Handoff Plan").length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText("Notification Signals")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assignment Needed")).not.toBeInTheDocument();
+    expect(screen.getByText("What Mission Control will prepare")).toBeInTheDocument();
+    expect(screen.getByLabelText("Job setup next steps")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
     expect(screen.getByLabelText("Job type")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "School Picture Day" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Retake Day" })).toBeInTheDocument();
@@ -2430,16 +2434,16 @@ beforeEach(() => {
     expect(screen.getByRole("option", { name: "Event" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Specialty" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Other" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Shoot Date and Location" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Date and Location" })).toBeInTheDocument();
     expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
     expect(screen.getAllByText("Needs date").length).toBeGreaterThan(0);
     expect(screen.getByText(/Next: Set the requested shoot date\./)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Client, Contact, and Owner" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Organization and Contact" })).toBeInTheDocument();
     expect(getControlWithinLabel("Starting team", "select")).toBeInTheDocument();
     expect(getControlWithinLabel("Current owner", "select")).toBeInTheDocument();
     expect(getControlWithinLabel("Priority", "select")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Volume and Deliverables" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Operational Requirements" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup Details" })).toBeInTheDocument();
     expect(getControlWithinLabel("Photographers estimated", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Roster or team list source", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Teams, classes, or groups", "input")).toBeInTheDocument();
@@ -2448,22 +2452,17 @@ beforeEach(() => {
     expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Important notes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start Job Package" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Job" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Access mode")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assignment Rules")).not.toBeInTheDocument();
+    expect(screen.queryByText("Workflow Route")).not.toBeInTheDocument();
+    expect(screen.queryByText("First live summary")).not.toBeInTheDocument();
+    expect(screen.queryByText("Live summary")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Sports Event Structure" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Day-Level Management" })).not.toBeInTheDocument();
     expect(screen.queryByText("Priority/risk flag")).not.toBeInTheDocument();
     expect(screen.queryByText("Requested products/services")).not.toBeInTheDocument();
-
-    const timeline = screen.getByLabelText("Job progress timeline");
-    expect(within(timeline).getByText("Intake")).toBeInTheDocument();
-    expect(within(timeline).getByText("Planning")).toBeInTheDocument();
-    expect(within(timeline).getByText("Scheduling")).toBeInTheDocument();
-    expect(within(timeline).getByText("Shoot Ready")).toBeInTheDocument();
-    expect(within(timeline).getByText("Capture Complete")).toBeInTheDocument();
-    expect(within(timeline).getByText("Production")).toBeInTheDocument();
-    expect(within(timeline).getByText("Delivery")).toBeInTheDocument();
-    expect(within(timeline).getByText("Closed")).toBeInTheDocument();
 
     const routeExpectations = [
       { value: "school_picture_day", route: "School Picture Day route", department: "schools" },

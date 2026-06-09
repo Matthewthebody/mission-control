@@ -2818,6 +2818,41 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
   border-color: rgba(239, 68, 68, 0.28);
 }
 
+.job-intake-next-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.job-intake-next-steps > div,
+.job-intake-workflow-preview {
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.job-intake-next-steps strong,
+.job-intake-workflow-preview summary {
+  color: var(--text);
+}
+
+.job-intake-next-steps p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.job-intake-workflow-preview summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.job-intake-workflow-preview > .shared-job-form__stack {
+  margin-top: 12px;
+}
+
 .job-intake-readiness__actions {
   display: flex;
   flex-wrap: wrap;
@@ -2856,6 +2891,10 @@ html[data-theme="light"] .global-punch-control__primary-action--neutral {
 @media (max-width: 700px) {
   .shared-job-truth-snapshot__item--wide {
     grid-column: span 1;
+  }
+
+  .job-intake-next-steps {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

@@ -30,11 +30,12 @@ type Props = {
 };
 
 export function SharedJobFormShell({ eyebrow, title, summary, meta = [], actions = null, formIntro = null, sections, sidebarCards = [], footer }: Props) {
+  const hasSidebar = sidebarCards.length > 0;
   return (
     <div className="shared-job-shell shared-job-shell--form">
       <WorkspacePageHeader eyebrow={eyebrow} title={title} summary={summary} meta={meta} actions={actions} compact />
       {formIntro}
-      <div className="shared-job-shell__form-layout">
+      <div className={`shared-job-shell__form-layout${hasSidebar ? "" : " shared-job-shell__form-layout--single"}`}>
         <div className="shared-job-shell__form-main">
           {sections.map((section) => (
             <section key={section.key} className={`panel shared-job-shell__section${section.issueCount ? " shared-job-shell__section--attention" : ""}`}>
@@ -48,14 +49,14 @@ export function SharedJobFormShell({ eyebrow, title, summary, meta = [], actions
             </section>
           ))}
         </div>
-        <aside className="shared-job-shell__form-sidebar">
+        {hasSidebar ? <aside className="shared-job-shell__form-sidebar">
           {sidebarCards.map((card) => (
             <section key={card.key} className="panel shared-job-shell__sidebar-card">
               <WorkspaceSectionHeader title={card.title} compact />
               <div className="shared-job-shell__sidebar-body">{card.body}</div>
             </section>
           ))}
-        </aside>
+        </aside> : null}
       </div>
       <div className="panel shared-job-shell__sticky-footer">
         <WorkspaceActionBar align="end">{footer}</WorkspaceActionBar>

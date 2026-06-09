@@ -100,8 +100,66 @@ function matchesYesNoFilter(value: boolean, filterValue: string) {
   return filterValue === "yes" ? value : !value;
 }
 
+const CALENDAR_READINESS_FILTERS = new Set([
+  "needs_date",
+  "date_requested",
+  "date_conflict",
+  "ready_for_calendar",
+  "calendar_confirmed",
+  "staffing_needed",
+  "shoot_manager_needed",
+  "shoot_manager_assigned"
+]);
+
+function matchesSearch(item: SharedJobListItem, search: string) {
+  const query = search.trim().toLowerCase();
+  if (!query) {
+    return true;
+  }
+  const fields = [
+    getJobTitle(item),
+    item.job_number,
+    item.event_name,
+    item.organization_name,
+    getDepartmentLabel(item.department_type),
+    humanizeToken(item.job_category),
+    getJobOwnerName(item),
+    getManagementStage(item),
+    getCalendarReadiness(item).label,
+    item.primary_contact_name,
+    item.primary_location_name
+  ];
+  return fields.some((field) => field?.toLowerCase().includes(query));
+}
+
+function matchesBlockedMissingFilter(item: SharedJobListItem, filterValue: string) {
+  if (!filterValue) {
+    return true;
+  }
+  const missingInfo = buildJobMissingInfoChecklist(item);
+  if (filterValue === "blocked") {
+    return missingInfo.blockerCount > 0 || item.production_status === "blocked" || item.blocker_count > 0 || item.open_watch_flag_count > 0;
+  }
+  if (filterValue === "missing_info") {
+    return missingInfo.activeCount > 0;
+  }
+  if (filterValue === "waiting_client") {
+    return missingInfo.waitingOnClientCount > 0;
+  }
+  if (filterValue === "waiting_internal") {
+    return missingInfo.waitingOnInternalCount > 0;
+  }
+  if (filterValue === "clear") {
+    return missingInfo.activeCount === 0 && !jobNeedsAttention(item);
+  }
+  return item.risk_status === filterValue;
+}
+
 function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFilterState) {
   return items.filter((item) => {
+    if (!matchesSearch(item, filters.search)) {
+      return false;
+    }
     if (filters.archived === "active" && item.archived_at) {
       return false;
     }
@@ -129,8 +187,14 @@ function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFil
     if (filters.leadOwnerUserId && item.lead_owner_user_id !== filters.leadOwnerUserId && item.account_owner_user_id !== filters.leadOwnerUserId) {
       return false;
     }
-    if (filters.jobStatus && item.job_status !== filters.jobStatus) {
-      return false;
+    if (filters.jobStatus) {
+      if (filters.jobStatus.startsWith("stage:")) {
+        if (getManagementStage(item) !== filters.jobStatus.slice("stage:".length)) {
+          return false;
+        }
+      } else if (item.job_status !== filters.jobStatus) {
+        return false;
+      }
     }
     if (filters.productionStatus && item.production_status !== filters.productionStatus) {
       return false;
@@ -141,10 +205,16 @@ function applyLocalFilters(items: SharedJobListItem[], filters: SharedJobListFil
     if (filters.staffingStatus && item.staffing_status !== filters.staffingStatus) {
       return false;
     }
-    if (filters.readinessStatus && item.readiness_status !== filters.readinessStatus) {
-      return false;
+    if (filters.readinessStatus) {
+      if (CALENDAR_READINESS_FILTERS.has(filters.readinessStatus)) {
+        if (getCalendarReadiness(item).status !== filters.readinessStatus) {
+          return false;
+        }
+      } else if (item.readiness_status !== filters.readinessStatus) {
+        return false;
+      }
     }
-    if (filters.riskStatus && item.risk_status !== filters.riskStatus) {
+    if (!matchesBlockedMissingFilter(item, filters.riskStatus)) {
       return false;
     }
     if (!withinDateRange(item, filters.dateRange)) {
@@ -213,6 +283,7 @@ function buildDatabaseOptions(items: SharedJobListItem[]) {
       return value ? { value, label: humanizeToken(value) } : null;
     })),
     risks: uniqueOptions(items.map((item) => (item.risk_status ? { value: item.risk_status, label: humanizeToken(item.risk_status) } : null))),
+    stages: uniqueOptions(items.map((item) => ({ value: `stage:${getManagementStage(item)}`, label: getManagementStage(item) }))),
     owners: uniqueOptions(
       items.flatMap((item) => [
         item.account_owner_user_id ? { value: item.account_owner_user_id, label: item.account_owner_name ?? item.account_owner_user_id } : null,
@@ -420,12 +491,12 @@ function getNextStep(item: SharedJobListItem) {
   if (item.production_status === "delivered" || item.production_status === "complete") {
     return "Review completed record";
   }
-  return "Open package";
+  return "Open job";
 }
 
 function buildJobManagementStats(items: SharedJobListItem[]) {
   return [
-    { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, detail: "Draft or pending intake packages." },
+    { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, detail: "Draft or pending job intake." },
     { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, detail: "Roster, team, contact, date, staffing, approval, or blocker gaps." },
     { key: "waiting-client", label: "Waiting on client", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnClientCount > 0).length, detail: "Jobs waiting on client information or approval." },
     { key: "waiting-internal", label: "Waiting internal", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnInternalCount > 0).length, detail: "Jobs waiting on team assignment or internal cleanup." },
@@ -439,11 +510,11 @@ function buildJobManagementStats(items: SharedJobListItem[]) {
 
 function buildIntakeReviewQueue(items: SharedJobListItem[]) {
   return [
-    { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, action: "Open intake", detail: "Review client, date, owner, and workflow route." },
+    { key: "needs-review", label: "Needs review", value: items.filter((item) => item.job_status === "draft" || item.job_status === "pending_confirmation").length, action: "Open intake", detail: "Review client, date, owner, and first handoff." },
     { key: "missing-info", label: "Missing info", value: items.filter(jobHasMissingInfo).length, action: "Request missing info", detail: "Show exactly what is missing, who owns it, and what happens next." },
     { key: "waiting-client", label: "Waiting on client", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnClientCount > 0).length, action: "Follow up", detail: "Roster, contact, team list, date, or approval is outside the building." },
     { key: "waiting-internal", label: "Waiting internal", value: items.filter((item) => buildJobMissingInfoChecklist(item).waitingOnInternalCount > 0).length, action: "Assign owner", detail: "Staffing, production deadline, or internal handoff needs ownership." },
-    { key: "ready-launch", label: "Ready to launch", value: items.filter((item) => !jobHasMissingInfo(item) && !jobNeedsAttention(item)).length, action: "Launch workflow", detail: "Clean packages ready for department handoff." },
+    { key: "ready-launch", label: "Ready to launch", value: items.filter((item) => !jobHasMissingInfo(item) && !jobNeedsAttention(item)).length, action: "Prepare handoff", detail: "Clean jobs ready for department handoff." },
     { key: "recently-launched", label: "Recently launched", value: items.filter((item) => item.job_status === "confirmed" || item.job_status === "ready_to_staff").length, action: "Review route", detail: "Recently approved jobs moving into operations." }
   ];
 }
@@ -496,7 +567,7 @@ function getGlobalJobColumns(routeBase: string): SharedJobListColumnDefinition[]
             navigateToSharedJobHash(routeBase, item.id);
           }}
         >
-          Open package
+          Open job
         </button>
       )
     }
@@ -536,7 +607,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     let cancelled = false;
     setLoading(true);
     setError("");
-    void listSharedJobs(token, { department_type: departmentType ?? "all", search: filters.search || null }).then((response) => {
+    void listSharedJobs(token, { department_type: departmentType ?? "all", search: null }).then((response) => {
       if (!cancelled) {
         setItems(response.jobs);
         setSelectedJobId((current) => current ?? response.jobs[0]?.id ?? null);
@@ -555,7 +626,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     return () => {
       cancelled = true;
     };
-  }, [departmentType, filters.search, token]);
+  }, [departmentType, token]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -589,16 +660,16 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     <SharedJobListShell
       eyebrow={adapter?.labels.departmentBadge ?? "Database"}
       title={adapter?.listTitle ?? "Jobs"}
-      summary={adapter ? `Search, filter, and review ${adapter.labels.listScope.toLowerCase()} with department-specific columns and saved views.` : "Search and review every photographed job from shoot to final delivery."}
+      summary={adapter ? `Search, filter, and review ${adapter.labels.listScope.toLowerCase()} with department-specific columns and saved views.` : "Find active jobs, review missing info, and start new job intake."}
       meta={[
         { label: `${filteredItems.length} visible`, tone: "info" },
         { label: `${attentionCount} attention`, tone: attentionCount ? "warning" : "success" }
       ]}
       actions={
-        !isGlobalJobsPage && createAllowed ? (
+        isGlobalJobsPage || createAllowed ? (
         <WorkspaceActionBar align="end">
-          <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })} disabled={!createAllowed}>
-            {adapter?.createTitle ?? "New Job"}
+          <button type="button" onClick={() => navigateToSharedJobHash(routeBase, "new", departmentType ? {} : { department: filters.departmentType || "sports" })} disabled={!isGlobalJobsPage && !createAllowed}>
+            {isGlobalJobsPage ? "Start New Job" : adapter?.createTitle ?? "New Job"}
           </button>
         </WorkspaceActionBar>
         ) : null
@@ -619,7 +690,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
         <div className="shared-job-list__filter-grid">
           <label className="filter-field filter-field--wide">
             <span>Search Jobs</span>
-            <input value={filters.search} onChange={(event) => writeFilterState(routeBase, { ...filters, search: event.target.value }, { preview: selectedItem?.id ?? null, savedView: activeSavedViewKey || null })} placeholder="Search by school, team, organization, job name, or date..." />
+            <input value={filters.search} onChange={(event) => writeFilterState(routeBase, { ...filters, search: event.target.value }, { preview: selectedItem?.id ?? null, savedView: activeSavedViewKey || null })} placeholder="Search by job, organization, job type, owner, or stage..." />
           </label>
           {isGlobalJobsPage ? (
             <>
@@ -634,79 +705,38 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
                 </select>
               </label>
               <label className="filter-field">
-                <span>Organization</span>
-                <select value={filters.organizationId} onChange={(event) => writeFilterState(routeBase, { ...filters, organizationId: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All organizations</option>
-                  {databaseOptions.organizations.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="filter-field">
-                <span>Job Type</span>
-                <select value={filters.jobCategory} onChange={(event) => writeFilterState(routeBase, { ...filters, jobCategory: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All job types</option>
-                  {databaseOptions.categories.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="filter-field">
-                <span>Date Range</span>
-                <select value={filters.dateRange} onChange={(event) => writeFilterState(routeBase, { ...filters, dateRange: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="all">All dates</option>
-                  <option value="next-7">Next 7 days</option>
-                  <option value="next-14">Next 14 days</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </label>
-              <label className="filter-field">
-                <span>Status</span>
+                <span>Stage</span>
                 <select value={filters.jobStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, jobStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All statuses</option>
-                  {databaseOptions.statuses.map((option) => (
+                  <option value="">All stages</option>
+                  {databaseOptions.stages.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </label>
               <label className="filter-field">
-                <span>Owner</span>
-                <select value={filters.leadOwnerUserId} onChange={(event) => writeFilterState(routeBase, { ...filters, leadOwnerUserId: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All owners</option>
-                  {databaseOptions.owners.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
+                <span>Calendar readiness</span>
+                <select value={filters.readinessStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, readinessStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
+                  <option value="">All calendar states</option>
+                  <option value="needs_date">Needs date</option>
+                  <option value="date_requested">Date requested</option>
+                  <option value="date_conflict">Date conflict</option>
+                  <option value="ready_for_calendar">Ready for calendar</option>
+                  <option value="calendar_confirmed">Calendar confirmed</option>
+                  <option value="staffing_needed">Staffing needed</option>
+                  <option value="shoot_manager_needed">Shoot manager needed</option>
                 </select>
               </label>
               <label className="filter-field">
-                <span>Needs Attention</span>
+                <span>Blocked / Missing info</span>
                 <select value={filters.riskStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, riskStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All risk states</option>
-                  {databaseOptions.risks.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
+                  <option value="">All jobs</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="missing_info">Missing info</option>
+                  <option value="waiting_client">Waiting on client</option>
+                  <option value="waiting_internal">Waiting on internal team</option>
+                  <option value="clear">Clear</option>
                 </select>
               </label>
-              <label className="filter-field">
-                <span>Production Status</span>
-                <select value={filters.productionStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, productionStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                  <option value="">All production statuses</option>
-                  {databaseOptions.productionStatuses.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              {databaseOptions.releaseStatuses.length ? (
-                <label className="filter-field">
-                  <span>Gallery and Release Status</span>
-                  <select value={filters.releaseStatus} onChange={(event) => writeFilterState(routeBase, { ...filters, releaseStatus: event.target.value }, { preview: selectedItem?.id ?? null })}>
-                    <option value="">All release statuses</option>
-                    {databaseOptions.releaseStatuses.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
             </>
           ) : filterDefinitions.map((definition) => (
             <label key={definition.key} className="filter-field">
@@ -729,10 +759,9 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             <section className="job-management-summary" aria-label="Job management summary">
               <div className="job-management-summary__header">
                 <div>
-                  <strong>Job Management</strong>
-                  <span>Review intake state, calendar readiness, blockers, and active work without creating another board.</span>
+                  <strong>Job Snapshot</strong>
+                  <span>Review intake state, calendar readiness, blockers, and active work.</span>
                 </div>
-                <a className="secondary-button" href="#jobs/new">New Job Intake</a>
               </div>
               <div className="job-management-summary__cards">
                 {managementStats.map((stat) => (
@@ -749,7 +778,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             <section className="intake-review-queue" aria-label="Intake review queue">
               <div>
                 <strong>Intake Review Queue</strong>
-                <span>Approve intake details before launching department workflow.</span>
+                <span>Approve intake details before preparing the first department handoff.</span>
               </div>
               <div className="intake-review-queue__cards">
                 {intakeReviewQueue.map((item) => (
@@ -810,7 +839,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             subtitle={`${selectedItem.organization_name ?? "No organization"} | ${selectedItem.job_number ?? "Draft"}`}
             actions={
               <WorkspaceActionBar align="end" compact>
-                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open package</button>
+                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open job</button>
                 {canUpdateByPolicy ? <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, `${selectedItem.id}/edit`)}>Edit</button> : null}
               </WorkspaceActionBar>
             }

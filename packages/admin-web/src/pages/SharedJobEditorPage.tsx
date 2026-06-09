@@ -22,7 +22,6 @@ import {
   JOB_INTAKE_TYPE_OPTIONS,
   JobDepartmentTaskPlan,
   JobIntakeReadinessPanel,
-  JobRoutingOutcome,
   applyJobIntakeType,
   buildJobIntakeManagementSummary,
   buildRoutingPreviewFromForm,
@@ -337,7 +336,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
 
   const adapterSections = adapter.getSectionDefinitions({ state: formState, setState: updateState, errors: fieldErrors, currentUser, canViewFinance });
   const visibleAdapterSections = isGlobalJobIntake ? [] : adapterSections;
-  const sidebarCards = [
+  const sidebarCards = isGlobalJobIntake ? [] : [
     ...(readOnly
       ? [
           {
@@ -402,9 +401,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "core-identity",
       slot: "identity.after" as const,
-      title: isGlobalJobIntake ? "Start Job Package" : "Core Identity",
+      title: isGlobalJobIntake ? "Job Basics" : "Core Identity",
       summary: isGlobalJobIntake
-        ? "Choose the job type, client, name, owner, and priority. Mission Control will show the next handoff above."
+        ? "Choose the job type, name, starting team, and priority."
         : "Shared identity fields render once here, with department-specific sections injected after them.",
       fields: ["department_type", "organization_id", "title", "event_name", "job_category", "description_internal"],
       body: (
@@ -480,13 +479,35 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {
             key: "intake-review",
             slot: "identity.after" as const,
-            title: "Review Before Launch",
-            summary: "The intake creates a draft package first. Reviewers can approve intake details before workflow launch.",
+            title: "Review and Next Steps",
+            summary: "Review what Mission Control will prepare after the job basics are saved.",
             fields: ["intake_review"],
             body: (
               <div className="shared-job-form__stack">
-                <JobIntakeReadinessPanel summary={intakeManagementSummary} />
-                <JobDepartmentTaskPlan preview={routingPreview} compact />
+                <div className="job-intake-next-steps" aria-label="Job setup next steps">
+                  <div>
+                    <span className="eyebrow">Current team</span>
+                    <strong>{routingPreview.currentDepartment}</strong>
+                    <p>{routingPreview.firstNextAction}</p>
+                  </div>
+                  <div>
+                    <span className="eyebrow">Current owner</span>
+                    <strong>{routingPreview.currentOwner}</strong>
+                    <p>Next team: {routingPreview.nextDepartment}</p>
+                  </div>
+                  <div>
+                    <span className="eyebrow">Waiting on</span>
+                    <strong>{routingPreview.waitingOn}</strong>
+                    <p>Due: {routingPreview.dueDateLabel}</p>
+                  </div>
+                </div>
+                <details className="job-intake-workflow-preview">
+                  <summary>What Mission Control will prepare</summary>
+                  <div className="shared-job-form__stack">
+                    <JobIntakeReadinessPanel summary={intakeManagementSummary} />
+                    <JobDepartmentTaskPlan preview={routingPreview} compact />
+                  </div>
+                </details>
               </div>
             )
           }
@@ -495,7 +516,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "schedule-location",
       slot: "schedule.after" as const,
-      title: isGlobalJobIntake ? "Shoot Date and Location" : "Schedule and Location",
+      title: isGlobalJobIntake ? "Date and Location" : "Schedule and Location",
       summary: isGlobalJobIntake
         ? "Capture the first known shoot date and where the team should go. Details can be refined later."
         : "Shared summary schedule, timezone, location, and day manager entry point.",
@@ -540,9 +561,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "contacts-ownership",
       slot: "contacts.after" as const,
-      title: isGlobalJobIntake ? "Client, Contact, and Owner" : "Contacts and Ownership",
+      title: isGlobalJobIntake ? "Organization and Contact" : "Contacts and Ownership",
       summary: isGlobalJobIntake
-        ? "Connect the client, primary contact, and first owner so the package has a clear starting point."
+        ? "Connect the client, primary contact, and first owner so the job has a clear starting point."
         : "Primary contact and owner fields stay shared even when the adapter changes labels and extra context.",
       fields: ["primary_contact_id", "account_owner_user_id"],
       body: (
@@ -558,7 +579,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "shared-production",
       slot: "production.after" as const,
-      title: isGlobalJobIntake ? "Volume and Deliverables" : "Shared Delivery and Production Basics",
+      title: isGlobalJobIntake ? "Job Needs" : "Shared Delivery and Production Basics",
       summary: isGlobalJobIntake
         ? "Record the rough size of the job, what the client needs, and the dates Production or Client Success should watch."
         : "Delivery, gallery, deadlines, and downstream production remain a shared operational language across departments.",
@@ -580,8 +601,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {
             key: "operational-requirements",
             slot: "production.after" as const,
-            title: "Operational Requirements",
-            summary: "Capture setup, roster/data, equipment, and approval assumptions that determine the first handoff.",
+            title: "Setup Details",
+            summary: "Capture setup, roster, team, equipment, and approval notes that affect the first handoff.",
             fields: ["estimated_staff_count", "school_profile.roster_source", "school_profile.yearbook_required", "sports_profile.estimated_team_count"],
             body: (
               <div className="field-grid shared-job-form__grid">
@@ -637,7 +658,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       title={isGlobalJobIntake ? "New Job Intake" : mode === "edit" ? adapter.editTitle : adapter.createTitle}
       summary={
         isGlobalJobIntake
-          ? "Start a clean job package, set the first owner, and show where the work goes next."
+          ? "Start with the basics. Mission Control will help identify missing info and next steps."
           : "One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
       }
       meta={headerMeta}
@@ -649,7 +670,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           </button>
         </WorkspaceActionBar>
       }
-      formIntro={isGlobalJobIntake ? <JobRoutingOutcome preview={routingPreview} /> : null}
+      formIntro={null}
       sections={sections}
       sidebarCards={sidebarCards}
       footer={
@@ -663,7 +684,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 Save Draft
               </button>
               <button type="button" onClick={() => void persist("draft")} disabled={saving || publishing}>
-                Start Job Package
+                Start Job
               </button>
             </>
           ) : null}

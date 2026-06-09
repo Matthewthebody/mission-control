@@ -1150,6 +1150,10 @@
   align-items: start;
 }
 
+.shared-job-shell__form-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .shared-job-shell__form-main,
 .shared-job-shell__form-sidebar,
 .shared-job-detail__stack,
