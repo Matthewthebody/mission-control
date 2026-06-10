@@ -64,6 +64,18 @@ const JOB_CREATE_RESTRICTED_MESSAGE =
 
 const SCHOOL_HIERARCHY_INTAKE_TYPES: JobIntakeTypeId[] = ["school_picture_day", "retake_day", "yearbook", "cap_and_gown"];
 
+function isSchoolDistrictOrganization(organization: OrganizationSummary) {
+  return organization.account_type === "schools_underclass_portraits" || organization.account_type === "schools_events";
+}
+
+function organizationMatchesSearch(organization: OrganizationSummary, search: string) {
+  const query = search.trim().toLowerCase();
+  if (!query) {
+    return false;
+  }
+  return [organization.display_name, organization.canonical_name, ...organization.aliases].some((label) => label.trim().toLowerCase().includes(query));
+}
+
 function workflowReviewDirectorFor(typeId: JobIntakeTypeId) {
   if (["school_picture_day", "retake_day", "yearbook", "cap_and_gown", "graduation"].includes(typeId)) {
     return "Schools Director";
@@ -239,15 +251,35 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     : usesSportsAssociation
       ? "Search the shoot location or site. This is separate from the sports association."
       : "Search and select an existing location. Known locations for the selected organization appear first.";
+  const likelyDistrict = useMemo(() => {
+    if (!usesSchoolHierarchy) {
+      return null;
+    }
+    if (selectedOrganization && isSchoolDistrictOrganization(selectedOrganization)) {
+      return selectedOrganization;
+    }
+    if (organizationSearch.trim().length < 3) {
+      return null;
+    }
+    const matches = organizationResults.filter((organization) => isSchoolDistrictOrganization(organization) && organizationMatchesSearch(organization, organizationSearch));
+    return matches.length === 1 ? matches[0] : null;
+  }, [organizationResults, organizationSearch, selectedOrganization, usesSchoolHierarchy]);
+  const locationContextOrganizationId = usesSchoolHierarchy ? likelyDistrict?.id ?? "" : formState.organization_id;
+  const shouldShowLocationSection = !isGlobalJobIntake || !usesSchoolHierarchy || Boolean(likelyDistrict);
   const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
   const prioritizedLocationOptions = useMemo(
-    () =>
-      [...locationOptions].sort((left, right) => {
-        const leftMatches = left.organization_id === formState.organization_id ? 0 : 1;
-        const rightMatches = right.organization_id === formState.organization_id ? 0 : 1;
+    () => {
+      const scopedOptions =
+        usesSchoolHierarchy && locationContextOrganizationId
+          ? locationOptions.filter((location) => location.organization_id === locationContextOrganizationId)
+          : locationOptions;
+      return [...scopedOptions].sort((left, right) => {
+        const leftMatches = left.organization_id === locationContextOrganizationId ? 0 : 1;
+        const rightMatches = right.organization_id === locationContextOrganizationId ? 0 : 1;
         return leftMatches - rightMatches || left.location_name.localeCompare(right.location_name);
-      }),
-    [formState.organization_id, locationOptions]
+      });
+    },
+    [locationContextOrganizationId, locationOptions, usesSchoolHierarchy]
   );
   const visibleIntakeTypeOptions = isGlobalJobIntake
     ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
@@ -847,7 +879,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     }
   ];
 
-  const visibleSharedSections = isGlobalJobIntake ? sharedSections.filter((section) => !["contacts-ownership", "job-days"].includes(section.key)) : sharedSections;
+  const visibleSharedSections = isGlobalJobIntake
+    ? sharedSections.filter((section) => !["contacts-ownership", "job-days"].includes(section.key) && (section.key !== "location" || shouldShowLocationSection))
+    : sharedSections;
   const sections = groupSections(visibleSharedSections, visibleAdapterSections, validationIssues);
   const headerMeta: WorkspaceHeaderMeta[] = detail
     ? [
