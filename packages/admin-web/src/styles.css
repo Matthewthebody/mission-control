@@ -9326,16 +9326,27 @@ html[data-theme="light"] .leadership-shoot-workspace__slot-card {
   text-transform: uppercase;
 }
 
+.schedule-month-calendar {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 2px;
+}
+
 .schedule-month-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
+  min-width: 0;
 }
 
 .schedule-month-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
+  min-width: 0;
   color: var(--text-muted);
   font-size: 0.74rem;
   font-weight: 900;
@@ -15300,7 +15311,6 @@ html[data-theme="light"] .checkbox-field {
   .status-board-grid-tiles,
   .setup-photo-grid,
   .shoot-hot-sheet__month-grid,
-  .schedule-month-grid,
   .detail-two-column,
   .status-board-hero,
   .training-team-row,
@@ -15339,6 +15349,12 @@ html[data-theme="light"] .checkbox-field {
   .schedule-month-layout,
   .schedule-board-layout {
     grid-template-columns: 1fr;
+  }
+
+  .schedule-month-weekdays,
+  .schedule-month-grid {
+    grid-template-columns: repeat(7, minmax(96px, 1fr));
+    min-width: 720px;
   }
 
   .shoot-hot-sheet__month-day {

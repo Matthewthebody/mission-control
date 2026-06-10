@@ -1881,38 +1881,40 @@ function renderCalendarSurface(input: {
     const monthWeekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     return (
       <div className="schedule-month-layout">
-        <div className="schedule-month-weekdays" aria-label="Month weekday headers">
-          {monthWeekdayLabels.map((label) => (
-            <span key={label}>{label}</span>
-          ))}
-        </div>
-        <div className="schedule-month-grid">
-          {buildMonthGrid(input.anchorDate).map((day) => {
-            const items = input.dayGroups.find((group) => group.dateKey === day.dateKey)?.items ?? [];
-            const summary = summarizeDayItems(items);
-            const selected = input.selectedDayKey === day.dateKey;
-            return (
-              <button
-                key={day.dateKey}
-                className={`schedule-month-day${day.inCurrentMonth ? "" : " schedule-month-day--outside"}${selected ? " schedule-month-day--selected" : ""}`}
-                onClick={() => focusDay(day.dateKey, items)}
-              >
-                <span className="schedule-month-day__number">{day.dayOfMonth}</span>
-                <span className="schedule-month-day__count">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span>
-                {items.slice(0, 2).map((item) => (
-                  <span key={getItemKey(item)} className={`schedule-month-day__preview schedule-month-day__preview--${getDepartmentCategory(item.department)}`}>
-                    <strong>{getItemTitle(item)}</strong>
-                  </span>
-                ))}
-                {items.length > 2 ? <span className="schedule-month-day__more">+{items.length - 2} more</span> : null}
-                {summary.staffingWatchCount || summary.reviewCount ? (
-                  <span className="schedule-month-day__flag">
-                    {summary.staffingWatchCount ? `${summary.staffingWatchCount} watch` : `${summary.reviewCount} review`}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
+        <div className="schedule-month-calendar" aria-label="Month calendar grid">
+          <div className="schedule-month-weekdays" aria-label="Month weekday headers">
+            {monthWeekdayLabels.map((label) => (
+              <span key={label}>{label}</span>
+            ))}
+          </div>
+          <div className="schedule-month-grid">
+            {buildMonthGrid(input.anchorDate).map((day) => {
+              const items = input.dayGroups.find((group) => group.dateKey === day.dateKey)?.items ?? [];
+              const summary = summarizeDayItems(items);
+              const selected = input.selectedDayKey === day.dateKey;
+              return (
+                <button
+                  key={day.dateKey}
+                  className={`schedule-month-day${day.inCurrentMonth ? "" : " schedule-month-day--outside"}${selected ? " schedule-month-day--selected" : ""}`}
+                  onClick={() => focusDay(day.dateKey, items)}
+                >
+                  <span className="schedule-month-day__number">{day.dayOfMonth}</span>
+                  <span className="schedule-month-day__count">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span>
+                  {items.slice(0, 2).map((item) => (
+                    <span key={getItemKey(item)} className={`schedule-month-day__preview schedule-month-day__preview--${getDepartmentCategory(item.department)}`}>
+                      <strong>{getItemTitle(item)}</strong>
+                    </span>
+                  ))}
+                  {items.length > 2 ? <span className="schedule-month-day__more">+{items.length - 2} more</span> : null}
+                  {summary.staffingWatchCount || summary.reviewCount ? (
+                    <span className="schedule-month-day__flag">
+                      {summary.staffingWatchCount ? `${summary.staffingWatchCount} watch` : `${summary.reviewCount} review`}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <ScheduleDayBriefing
           canManage={input.canManage}

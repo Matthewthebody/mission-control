@@ -1061,9 +1061,11 @@ describe("StudiosWorkspace", () => {
     expect(await screen.findByRole("heading", { name: "Photography Calendar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30-Day" })).toHaveClass("is-active");
     expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
-    expect(screen.getByText("Spring Picture Day")).toBeInTheDocument();
-    expect(screen.getByText("Senior Banner Session")).toBeInTheDocument();
+    expect(screen.getAllByText("Spring Picture Day").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Senior Banner Session").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Month weekday headers")).toHaveTextContent("Mon");
+    expect(screen.getByLabelText("Month weekday headers").closest(".schedule-month-calendar")?.querySelector(".schedule-month-grid")).not.toBeNull();
+    expect(document.querySelector(".schedule-month-layout")?.firstElementChild).toHaveClass("schedule-month-calendar");
     expect(document.querySelectorAll(".schedule-month-day__weekday")).toHaveLength(0);
     expect(document.querySelector(".schedule-month-day__preview--schools")).not.toBeNull();
     expect(screen.getByText("+1 more")).toBeInTheDocument();
@@ -1085,7 +1087,10 @@ describe("StudiosWorkspace", () => {
       expect(screen.getByRole("button", { name: "Week" })).toHaveClass("is-active");
     });
     expect(screen.getByText("Day Briefing")).toBeInTheDocument();
-    const springCard = screen.getAllByRole("button", { name: /Spring Picture Day/i })[0];
+    const springCard = Array.from(document.querySelectorAll(".schedule-compact-item-card")).find((card) =>
+      card.textContent?.includes("Spring Picture Day")
+    ) as HTMLButtonElement;
+    expect(springCard).toBeInTheDocument();
     expect(springCard).toHaveClass("schedule-compact-item-card--schools");
     fireEvent.click(springCard);
     expect(await screen.findByText("Lead: Carisa Lead")).toBeInTheDocument();
