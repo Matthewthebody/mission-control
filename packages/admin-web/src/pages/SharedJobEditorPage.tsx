@@ -22,6 +22,7 @@ import {
   JOB_INTAKE_TYPE_OPTIONS,
   applyJobIntakeType,
   buildRoutingPreviewFromForm,
+  getJobIntakeTypeOption,
   inferJobIntakeTypeId,
   type JobIntakeTypeId
 } from "../components/jobs/JobRoutingFoundation";
@@ -33,6 +34,7 @@ import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingB
 import type { WorkspaceHeaderMeta, WorkspaceHeaderMetaTone } from "../components/workspace/WorkspacePageHeader";
 import type { SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
 import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
+import { canManageSharedJobsShell } from "../permissions";
 import { createSharedJobDraft, getSharedJobDetail, publishSharedJob, updateSharedJobDraft, updateSharedPublishedJob } from "../services/jobsApi";
 import { listDirectoryContacts, listDirectoryLocations, listDirectoryOwnerOptions, listOrganizations } from "../services/organizationApi";
 import type { DirectoryOwnerOption, OrganizationContact, OrganizationLocation, OrganizationSummary, SessionUser } from "../types";
@@ -56,6 +58,35 @@ const GLOBAL_JOB_INTAKE_TYPE_IDS: JobIntakeTypeId[] = [
   "event",
   "other"
 ];
+
+const JOB_CREATE_RESTRICTED_MESSAGE =
+  "You do not have permission to create new jobs. Ask a department director or Mission Control admin to start a job package.";
+
+function workflowReviewDirectorFor(typeId: JobIntakeTypeId) {
+  if (["school_picture_day", "retake_day", "yearbook", "cap_and_gown", "graduation"].includes(typeId)) {
+    return "Schools Director";
+  }
+  if (["sports_picture_day", "sports_league", "team_photos"].includes(typeId)) {
+    return "Sports Director";
+  }
+  const ownerDepartment = getJobIntakeTypeOption(typeId).firstOwnerDepartment;
+  if (ownerDepartment === "Client Success") {
+    return "Client Success Lead";
+  }
+  if (ownerDepartment === "Leadership") {
+    return "Leadership";
+  }
+  return `${ownerDepartment} Director`;
+}
+
+function buildWorkflowReviewQuery(typeId: JobIntakeTypeId, workflowName: string) {
+  return {
+    notice: "workflow_review",
+    workflowName,
+    jobType: getJobIntakeTypeOption(typeId).label,
+    director: workflowReviewDirectorFor(typeId)
+  };
+}
 
 function placeholderOrganization(id: string, label: string, departmentType: "schools" | "sports") {
   return {
@@ -171,11 +202,12 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const permissionContext = { departmentType: formState.department_type };
   const scopedPermissionContext = isGlobalJobIntake ? undefined : permissionContext;
   const canCreateJob = usePermission(currentUser, "job.create", scopedPermissionContext);
+  const canCreateGlobalJob = isGlobalJobIntake ? canCreateJob || canManageSharedJobsShell(currentUser) : canCreateJob;
   const canUpdateJob = usePermission(currentUser, "job.update", scopedPermissionContext);
   const canPublishJob = usePermission(currentUser, "job.publish", scopedPermissionContext);
   const hasFinancePermission = usePermission(currentUser, "finance.view_summary", permissionContext);
   const canViewFinance = formState.department_type === "sports" && hasFinancePermission;
-  const readOnly = mode === "create" ? !canCreateJob : !canUpdateJob;
+  const readOnly = mode === "create" ? !canCreateGlobalJob : !canUpdateJob;
   const fieldErrors: SharedJobFieldErrors = useMemo(() => buildFieldErrorMap(validationIssues), [validationIssues]);
   const selectedOwnerName = useMemo(
     () => ownerOptions.find((owner) => owner.user_id === formState.account_owner_user_id)?.full_name ?? null,
@@ -344,7 +376,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
 
   async function persist(target: "draft" | "publish") {
     if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
-      setError(target === "publish" ? "You do not have permission to publish this job." : "You do not have permission to edit this job.");
+      setError(target === "publish" ? "You do not have permission to publish this job." : isGlobalJobIntake ? JOB_CREATE_RESTRICTED_MESSAGE : "You do not have permission to edit this job.");
       return;
     }
     const issues = target === "publish" ? adapter.validatePublish(formState) : adapter.validateDraft(formState);
@@ -361,7 +393,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         const response = mode === "edit" && jobId ? detail?.job.published_at ? await updateSharedPublishedJob(token, jobId, payload) : await updateSharedJobDraft(token, jobId, payload) : await createSharedJobDraft(token, payload);
         ignoreDirtyRef.current = true;
         setDirty(false);
-        navigateToSharedJobHash(routeBase, response.job.id);
+        navigateToSharedJobHash(routeBase, response.job.id, isGlobalJobIntake && mode === "create" ? buildWorkflowReviewQuery(activeIntakeType, routingPreview.workflowRouteLabel) : {});
       } else {
         setPublishing(true);
         const response = mode === "edit" && jobId ? (detail?.job.published_at ? await updateSharedPublishedJob(token, jobId, payload) : await updateSharedJobDraft(token, jobId, payload)) : await createSharedJobDraft(token, payload);
@@ -384,6 +416,27 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
 
   if (loading) {
     return <WorkspaceLoadingBlock title="Loading job editor" summary="Opening the shared job editor and department adapter fields." />;
+  }
+
+  if (isGlobalJobIntake && !canCreateGlobalJob) {
+    return (
+      <div className="shared-job-shell shared-job-shell--form shared-job-shell--clean-intake">
+        <div className="shared-job-shell__form-layout shared-job-shell__form-layout--single">
+          <div className="shared-job-shell__form-main">
+            <section className="panel shared-job-shell__section">
+              <div className="shared-job-shell__section-body">
+                <section className="feedback-strip feedback-strip--warning" role="alert">
+                  <div className="feedback-strip__content">
+                    <strong>Restricted Access</strong>
+                    <span>{JOB_CREATE_RESTRICTED_MESSAGE}</span>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const adapterSections = adapter.getSectionDefinitions({ state: formState, setState: updateState, errors: fieldErrors, currentUser, canViewFinance });
@@ -544,6 +597,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 <label className="filter-field"><span>Setup time</span><input type="time" value={formState.setup_time} onChange={(event) => updateState((current) => ({ ...current, setup_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>Photography start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>Expected end time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
+                <label className="filter-field"><span>Photographers</span><input type="number" min="0" step="1" value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} inputMode="numeric" /></label>
+                <label className="filter-field"><span>Assistants</span><input type="number" min="0" step="1" value={formState.assistant_staff_count} onChange={(event) => updateState((current) => ({ ...current, assistant_staff_count: event.target.value }))} inputMode="numeric" /></label>
               </>
             ) : null}
             {!isGlobalJobIntake ? (
@@ -611,13 +666,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {
             key: "operational-requirements",
             slot: "production.after" as const,
-            title: "Staffing & Prep",
-            summary: "Capture the people and prep notes needed before the job moves into planning.",
-            fields: ["estimated_staff_count", "assistant_staff_count", "school_profile.roster_source", "sports_profile.estimated_team_count"],
+            title: "Prep Details",
+            summary: "Capture roster, team, setup, and sports-specific notes before the job moves into planning.",
+            fields: ["school_profile.roster_source", "sports_profile.estimated_team_count"],
             body: (
               <div className="field-grid shared-job-form__grid">
-                <label className="filter-field"><span>Photographers needed</span><input value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} inputMode="numeric" /></label>
-                <label className="filter-field"><span>Assistants needed</span><input value={formState.assistant_staff_count} onChange={(event) => updateState((current) => ({ ...current, assistant_staff_count: event.target.value }))} inputMode="numeric" /></label>
                 <label className="filter-field"><span>Roster or team list source</span><input value={formState.department_type === "schools" ? formState.school_profile.roster_source : formState.sports_profile.league_name} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, roster_source: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, league_name: event.target.value } })} /></label>
                 <label className="filter-field"><span>Teams, classes, or groups</span><input value={formState.department_type === "sports" ? formState.sports_profile.estimated_team_count : formState.school_profile.grade_scope} onChange={(event) => updateState((current) => current.department_type === "sports" ? { ...current, sports_profile: { ...current.sports_profile, estimated_team_count: event.target.value } } : { ...current, school_profile: { ...current.school_profile, grade_scope: event.target.value } })} /></label>
                 {activeIntakeType === "sports_picture_day" ? (

@@ -184,6 +184,20 @@ function buildJobNotes(detail: SharedJobDetailResponse, selectedDay: SharedJobDe
   ];
 }
 
+function buildWorkflowReviewNotice(params: URLSearchParams, jobTitle: string, routingPreview: JobRoutingPreview) {
+  if (params.get("notice") !== "workflow_review") {
+    return null;
+  }
+  const workflowName = params.get("workflowName") ?? routingPreview.workflowRouteLabel;
+  const jobType = params.get("jobType") ?? routingPreview.jobTypeLabel;
+  const director = params.get("director") ?? `${routingPreview.nextDepartment} Director`;
+  return {
+    title: `Review workflow selection for ${jobTitle || "this job"}`,
+    body: `Mission Control selected ${workflowName} based on ${jobType}. Please confirm the workflow and update it if needed.`,
+    director
+  };
+}
+
 export function SharedJobDetailPage({ token, currentUser, departmentType, routeBase }: Props) {
   const { path, params } = useHashRouteSnapshot();
   const jobId = parseSharedJobIdFromPath(path);
@@ -394,6 +408,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const jobTruthSnapshot = buildJobTruthSnapshot(detail, calendarReadiness, missingInfoChecklist, routingPreview);
   const jobNotes = buildJobNotes(detail, selectedDay);
   const priorIntelligence = buildJobPriorIntelligence(detail);
+  const workflowReviewNotice = buildWorkflowReviewNotice(params, detail.job.title || detail.job.event_name || detail.job.job_number || "this job", routingPreview);
 
   const summaryCards = [
     {
@@ -964,6 +979,21 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
         compact={resolvedTab !== "summary"}
       />
     ) : null;
+  const detailIntro =
+    workflowReviewNotice || workflowIntro ? (
+      <div className="shared-job-form__stack">
+        {workflowReviewNotice ? (
+          <section className="feedback-strip feedback-strip--info" role="status" aria-label="Workflow review notice">
+            <div className="feedback-strip__content">
+              <strong>{workflowReviewNotice.title}</strong>
+              <span>{workflowReviewNotice.body}</span>
+              <span>For: {workflowReviewNotice.director}</span>
+            </div>
+          </section>
+        ) : null}
+        {workflowIntro}
+      </div>
+    ) : null;
 
   return (
     <SharedJobDetailShell
@@ -997,7 +1027,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       activeTab={resolvedTab}
       onSelectTab={(key) => navigateToSharedJobHash(routeBase, detail.job.id, { tab: key === "summary" ? null : key })}
       summaryCards={summaryCards}
-      bodyIntro={workflowIntro}
+      bodyIntro={detailIntro}
       body={body}
     />
   );
