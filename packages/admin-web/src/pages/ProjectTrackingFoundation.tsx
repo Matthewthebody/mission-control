@@ -10,6 +10,7 @@ import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingB
 import { featureFlags } from "../featureFlags";
 import { canManageWorkflowTemplates } from "../permissions";
 import { isProjectTrackingWorkflowHash, resolveWorkSpineActionHref } from "../workSpineRouting";
+import { buildDetailsConfirmationFromProjectWork, detailsConfirmationChipLabel, type DetailsConfirmationCue } from "../jobDetailsConfirmation";
 import {
   getProjectWorkflowCommandCenter,
   getProjectWorkflowInstance
@@ -973,6 +974,28 @@ function statusChipClassForRow(row: ProjectWorkflowJobRow) {
   return "project-tracking-status-chip--in-progress";
 }
 
+function detailsConfirmationForProjectRow(row: ProjectWorkflowJobRow) {
+  return buildDetailsConfirmationFromProjectWork({
+    shootDate: row.job_date,
+    organizationName: row.organization_name ?? row.account_name,
+    ownerName: row.owner_display,
+    departmentType: departmentFilterForJob(row),
+    jobCategory: row.workflow_template_name ?? row.phase,
+    missingFields: [...row.missing_info_flags, ...row.health_reasons],
+    readinessStatus: row.health,
+    jobStatus: row.phase,
+    riskStatus: row.health,
+    updatedAt: row.updated_at
+  });
+}
+
+function detailsConfirmationChipClassForProject(cue: DetailsConfirmationCue) {
+  if (cue.state === "confirmed") return "project-tracking-status-chip--complete";
+  if (cue.state === "confirmation_due") return "project-tracking-status-chip--in-review";
+  if (cue.state === "needs_details" || cue.state === "reconfirm") return "project-tracking-status-chip--at-risk";
+  return "project-tracking-status-chip--todo";
+}
+
 function priorityChipClassForRow(row: ProjectWorkflowJobRow) {
   return `project-tracking-priority-chip--${priorityFilterForRow(row)}`;
 }
@@ -1491,6 +1514,7 @@ function ProjectTrackingBoardView({
                     const secondaryDepartment = secondaryDepartmentBadgeForRow(row);
                     const cardTone = healthToneForJob(row);
                     const routingPreview = buildRoutingPreviewFromProjectRow(row);
+                    const detailsConfirmation = detailsConfirmationForProjectRow(row);
                     return (
                       <article className={`project-tracking-board-card project-tracking-board-card--area-${area} project-tracking-board-card--tone-${cardTone} ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
                         <div className={`project-tracking-board-card__accent project-tracking-board-card__accent--${cardTone}`} aria-hidden="true" />
@@ -1504,6 +1528,7 @@ function ProjectTrackingBoardView({
                         <div className="project-tracking-board-card__chips">
                           <span className={`project-tracking-area-chip project-tracking-area-chip--${area}`}>{AREA_FILTER_LABELS[area]}</span>
                           {secondaryDepartment ? <span className="project-tracking-secondary-chip">{secondaryDepartment}</span> : null}
+                          <span className={`project-tracking-status-chip ${detailsConfirmationChipClassForProject(detailsConfirmation)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
                           <span className={`project-tracking-priority-chip ${priorityChipClassForRow(row)}`} aria-label={`Priority: ${priorityLabelForRow(row)}`}>{priorityLabelForRow(row)}</span>
                           {waiting ? <span className="project-tracking-attention-chip">{waiting}</span> : null}
                         </div>
@@ -1559,6 +1584,7 @@ function ProjectTrackingTableView({
               <th scope="col">Work</th>
               <th scope="col">Department</th>
               <th scope="col">Account</th>
+              <th scope="col">Details</th>
               <th scope="col">Owner and Queue</th>
               <th scope="col">Status and Phase</th>
               <th scope="col">Current Step</th>
@@ -1572,6 +1598,7 @@ function ProjectTrackingTableView({
             {rows.map((row) => {
               const owner = ownerPresentation(row);
               const waiting = waitingOrBlockedLabelForRow(row) ?? "Clear";
+              const detailsConfirmation = detailsConfirmationForProjectRow(row);
               return (
                 <tr key={row.job_id}>
                   <td>
@@ -1580,6 +1607,9 @@ function ProjectTrackingTableView({
                   </td>
                   <td>{departmentDisplayForRow(row)}</td>
                   <td>{workItemAccountLabel(row)}</td>
+                  <td>
+                    <span className={`project-tracking-status-chip ${detailsConfirmationChipClassForProject(detailsConfirmation)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
+                  </td>
                   <td>{owner.primary}</td>
                   <td>{statusPhaseLabelForRow(row)}</td>
                   <td>{currentStepLabel(row)}</td>

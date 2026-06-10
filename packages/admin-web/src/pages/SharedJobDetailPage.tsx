@@ -52,6 +52,12 @@ import { listDirectoryOwnerOptions } from "../services/organizationApi";
 import { buildJobPreCallContext } from "../services/preCallContextBuilders";
 import { buildJobCalendarReadiness } from "../jobCalendarReadiness";
 import {
+  buildDetailsConfirmationFromJobDetail,
+  detailsConfirmationChipLabel,
+  type DetailsConfirmationCue,
+  type DetailsConfirmationRecord
+} from "../jobDetailsConfirmation";
+import {
   buildJobMissingInfoChecklist,
   getJobMissingInfoCategoryLabel,
   getJobMissingInfoStatusLabel,
@@ -140,7 +146,8 @@ function buildJobTruthSnapshot(
   detail: SharedJobDetailResponse,
   calendarReadiness: ReturnType<typeof buildJobCalendarReadiness> | null,
   missingInfoChecklist: ReturnType<typeof buildJobMissingInfoChecklist>,
-  routingPreview: JobRoutingPreview
+  routingPreview: JobRoutingPreview,
+  detailsConfirmation: DetailsConfirmationCue
 ): JobTruthSnapshotItem[] {
   const shootDate = detail.summary.primary_day_date ?? detail.job.scheduled_start_at?.slice(0, 10) ?? null;
   return [
@@ -149,6 +156,7 @@ function buildJobTruthSnapshot(
     { label: "Job type", value: humanizeToken(detail.job.job_category) },
     { label: "Shoot date", value: shootDate ? formatDate(shootDate) : "Date TBD" },
     { label: "Calendar readiness", value: calendarReadiness?.label ?? "Needs date", tone: calendarReadiness?.tone ?? "warning" },
+    { label: "Details confirmation", value: detailsConfirmationChipLabel(detailsConfirmation), tone: detailsConfirmation.tone },
     { label: "Staffing readiness", value: humanizeToken(detail.job.staffing_status), tone: statusTone(detail.job.staffing_status) },
     { label: "Current stage", value: humanizeToken(routingPreview.currentStage) },
     { label: "Current owner", value: routingPreview.currentOwner },
@@ -198,6 +206,10 @@ function buildWorkflowReviewNotice(params: URLSearchParams, jobTitle: string, ro
   };
 }
 
+function getDetailsConfirmationStorageKey(jobId: string) {
+  return `mission-control:details-confirmation:${jobId}`;
+}
+
 export function SharedJobDetailPage({ token, currentUser, departmentType, routeBase }: Props) {
   const { path, params } = useHashRouteSnapshot();
   const jobId = parseSharedJobIdFromPath(path);
@@ -207,6 +219,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const [workflowError, setWorkflowError] = useState<SharedWorkflowTransitionValidation | null>(null);
   const [staffOptions, setStaffOptions] = useState<DirectoryOwnerOption[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [detailsConfirmationRecord, setDetailsConfirmationRecord] = useState<DetailsConfirmationRecord | null>(null);
   const activeTab = readActiveTab(params);
 
   useEffect(() => {
@@ -268,6 +281,24 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       setSelectedDayId(detail.days[0].id);
     }
   }, [detail?.days, selectedDayId]);
+
+  useEffect(() => {
+    if (!detail?.job.id || typeof window === "undefined") {
+      setDetailsConfirmationRecord(null);
+      return;
+    }
+    const raw = window.localStorage.getItem(getDetailsConfirmationStorageKey(detail.job.id));
+    if (!raw) {
+      setDetailsConfirmationRecord(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as DetailsConfirmationRecord;
+      setDetailsConfirmationRecord(parsed?.confirmedAt ? parsed : null);
+    } catch {
+      setDetailsConfirmationRecord(null);
+    }
+  }, [detail?.job.id]);
 
   const activeDepartment = (detail?.job.department_type ?? departmentType ?? "sports") as "schools" | "sports";
   const adapter = useMemo(() => getDepartmentJobAdapterUI(activeDepartment), [activeDepartment]);
@@ -379,6 +410,20 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
     }
   }
 
+  function confirmDetails() {
+    if (!detail?.job.id) {
+      return;
+    }
+    const nextRecord: DetailsConfirmationRecord = {
+      confirmedAt: new Date().toISOString(),
+      confirmedByName: currentUser.fullName || currentUser.email || "Mission Control"
+    };
+    setDetailsConfirmationRecord(nextRecord);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(getDetailsConfirmationStorageKey(detail.job.id), JSON.stringify(nextRecord));
+    }
+  }
+
   if (loading) {
     return <WorkspaceLoadingBlock title="Loading job detail" summary="Opening the shared job detail shell with department-specific tabs." />;
   }
@@ -405,7 +450,8 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const routingPreview = buildRoutingPreviewFromDetail(detail);
   const intakeSummary = buildJobIntakeManagementSummaryFromDetail(detail);
   const routingChangeNotices = buildJobChangeNotices(detail);
-  const jobTruthSnapshot = buildJobTruthSnapshot(detail, calendarReadiness, missingInfoChecklist, routingPreview);
+  const detailsConfirmation = buildDetailsConfirmationFromJobDetail(detail, detailsConfirmationRecord);
+  const jobTruthSnapshot = buildJobTruthSnapshot(detail, calendarReadiness, missingInfoChecklist, routingPreview, detailsConfirmation);
   const jobNotes = buildJobNotes(detail, selectedDay);
   const priorIntelligence = buildJobPriorIntelligence(detail);
   const workflowReviewNotice = buildWorkflowReviewNotice(params, detail.job.title || detail.job.event_name || detail.job.job_number || "this job", routingPreview);
@@ -488,6 +534,33 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
           </div>
         </div>
       ) : null
+    },
+    {
+      key: "details-confirmation",
+      title: "Details Confirmation",
+      body: (
+        <div className="shared-job-form__stack">
+          <div className="shared-job-preview__status-row">
+            <StatusPill label={detailsConfirmationChipLabel(detailsConfirmation)} tone={detailsConfirmation.tone} />
+            {detailsConfirmation.missingCount ? <StatusPill label={`${detailsConfirmation.missingCount} detail${detailsConfirmation.missingCount === 1 ? "" : "s"} to verify`} tone="warning" /> : null}
+          </div>
+          <p className="shared-job-sidebar__muted">{detailsConfirmation.summary}</p>
+          <div className="shared-job-detail__kv">
+            <span>Owner: {detailsConfirmation.ownerLabel}</span>
+            <span>Next action: {detailsConfirmation.nextAction}</span>
+            {detailsConfirmation.confirmationDueDate ? <span>Major confirmation: {formatDate(detailsConfirmation.confirmationDueDate)}</span> : null}
+            {detailsConfirmation.finalDueDate ? <span>Final check: {formatDate(detailsConfirmation.finalDueDate)}</span> : null}
+            {detailsConfirmation.confirmedAt ? <span>Confirmed: {formatDateTime(detailsConfirmation.confirmedAt)}</span> : null}
+          </div>
+          {detailsConfirmation.state === "confirmed" && detailsConfirmation.confirmedAt ? null : (
+            <WorkspaceActionBar compact>
+              <button type="button" className="secondary-button" onClick={confirmDetails}>
+                Confirm details
+              </button>
+            </WorkspaceActionBar>
+          )}
+        </div>
+      )
     },
     {
       key: "watch",

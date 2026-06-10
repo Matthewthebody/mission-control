@@ -2365,6 +2365,7 @@ beforeEach(() => {
     expect(screen.getAllByText("Waiting internal").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Ready for calendar").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Calendar confirmed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Confirm details").length).toBeGreaterThan(0);
     expect(screen.getByText("Request missing info")).toBeInTheDocument();
     expect(screen.getByText("Follow up")).toBeInTheDocument();
     expect(screen.getByText("Assign owner")).toBeInTheDocument();
@@ -2373,6 +2374,7 @@ beforeEach(() => {
     expect(screen.getByRole("columnheader", { name: "Organization" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Date" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Calendar Readiness" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Details Confirmation" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Missing Info" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
@@ -2391,6 +2393,7 @@ beforeEach(() => {
     expect(screen.getByLabelText("Missing info checklist preview")).toBeInTheDocument();
     expect(screen.getAllByText(/Owner: Schools/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Date conflict").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Needs details|Partial|Confirm|Confirmed|Reconfirm/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Resolve readiness").length).toBeGreaterThan(0);
     expect(screen.queryByText("Metro Athletics Database Job 30")).not.toBeInTheDocument();
 
@@ -2771,6 +2774,7 @@ beforeEach(() => {
     expect(truthSnapshot.getByText("Job type")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Shoot date")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Calendar readiness")).toBeInTheDocument();
+    expect(truthSnapshot.getByText("Details confirmation")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Staffing readiness")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Current stage")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Current owner")).toBeInTheDocument();
@@ -2780,6 +2784,11 @@ beforeEach(() => {
     expect(truthSnapshot.getByText("Priority")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Progress" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Calendar Readiness" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Details Confirmation" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm details" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm details" }));
+    expect(screen.getAllByText("Confirmed").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Confirm details" })).not.toBeInTheDocument();
     expect(screen.getAllByText("Date conflict").length).toBeGreaterThan(0);
     expect(screen.getByText("Next scheduling action: Resolve the schedule, readiness, or blocker signal.")).toBeInTheDocument();
     expect(screen.getByLabelText("Job progress timeline")).toBeInTheDocument();

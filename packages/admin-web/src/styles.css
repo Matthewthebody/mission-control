@@ -9430,6 +9430,15 @@ html[data-theme="light"] .leadership-shoot-workspace__slot-card {
   white-space: nowrap;
 }
 
+.schedule-month-day__preview small {
+  overflow: hidden;
+  color: var(--text-subtle);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .schedule-month-day__more {
   color: var(--text-subtle);
   font-size: 0.76rem;

@@ -4,6 +4,7 @@ import { ShootBriefingBody } from "./ShootBriefing";
 import { ShootHotSheetCard } from "./ShootHotSheetCard";
 import { buildMonthGrid, buildShootBriefing } from "../services/shootHotSheet";
 import { getPrimaryBusinessRole, shouldLimitToEmployeeWorksurface } from "../permissions";
+import { buildDetailsConfirmationFromScheduleShoot, detailsConfirmationChipLabel } from "../jobDetailsConfirmation";
 import type {
   ShiftRecord,
   ScheduleRecordIntegrationState,
@@ -65,6 +66,14 @@ const emptyBulkEdit: BulkEditState = {
   targetDate: "",
   templateId: ""
 };
+
+function getDetailsConfirmationScheduleTone(item: UnifiedScheduleShootItem) {
+  const cue = buildDetailsConfirmationFromScheduleShoot(item);
+  if (cue.state === "needs_details" || cue.state === "reconfirm") return "watch";
+  if (cue.state === "confirmation_due") return "normal";
+  if (cue.state === "partial") return "watch";
+  return "normal";
+}
 
 export function UnifiedScheduleSurface({
   workspaceMode = "scheduling",
@@ -1675,8 +1684,9 @@ function ScheduleDayBriefing({
         <section className="shoot-briefing__section">
           <div className="section-title">Scheduled That Day</div>
           <div className="schedule-day-queue">
-            {selectedDayItems.map((item) =>
-              isShootItem(item) ? (
+            {selectedDayItems.map((item) => {
+              const detailsConfirmation = isShootItem(item) ? buildDetailsConfirmationFromScheduleShoot(item) : null;
+              return isShootItem(item) ? (
                 <button
                   key={item.id}
                   type="button"
@@ -1695,6 +1705,9 @@ function ScheduleDayBriefing({
                   </div>
                   <div className="schedule-day-queue__meta">
                     <span className="meta-pill">{item.shoot_code}</span>
+                    {detailsConfirmation ? (
+                      <span className={`risk-pill risk-pill--${getDetailsConfirmationScheduleTone(item)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
+                    ) : null}
                     {showStaffingDetails ? (
                       <span className={`risk-pill risk-pill--${item.under_staffed || item.missing_lead ? "critical" : "normal"}`}>
                         {(item.assigned_staff_count ?? 0)}/{item.planned_staff_count ?? item.assigned_staff_count ?? 0} staffed
@@ -1766,8 +1779,8 @@ function ScheduleDayBriefing({
                     {item.lead_coverage_break_count > 0 ? <span className="meta-pill">Lead coverage risk</span> : null}
                   </div>
                 </button>
-              )
-            )}
+              );
+            })}
           </div>
         </section>
       ) : (
@@ -1900,11 +1913,15 @@ function renderCalendarSurface(input: {
                 >
                   <span className="schedule-month-day__number">{day.dayOfMonth}</span>
                   <span className="schedule-month-day__count">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span>
-                  {items.slice(0, 2).map((item) => (
-                    <span key={getItemKey(item)} className={`schedule-month-day__preview schedule-month-day__preview--${getDepartmentCategory(item.department)}`}>
-                      <strong>{getItemTitle(item)}</strong>
-                    </span>
-                  ))}
+                  {items.slice(0, 2).map((item) => {
+                    const detailsConfirmation = isShootItem(item) ? buildDetailsConfirmationFromScheduleShoot(item) : null;
+                    return (
+                      <span key={getItemKey(item)} className={`schedule-month-day__preview schedule-month-day__preview--${getDepartmentCategory(item.department)}`}>
+                        <strong>{getItemTitle(item)}</strong>
+                        {detailsConfirmation ? <small>{detailsConfirmationChipLabel(detailsConfirmation)}</small> : null}
+                      </span>
+                    );
+                  })}
                   {items.length > 2 ? <span className="schedule-month-day__more">+{items.length - 2} more</span> : null}
                   {summary.staffingWatchCount || summary.reviewCount ? (
                     <span className="schedule-month-day__flag">
@@ -2152,6 +2169,7 @@ function CompactScheduleItemCard({
   const issueCount = (item.open_alert_count ?? 0) + (item.open_attendance_exception_count ?? 0);
   const showRisk = issueCount > 0 || item.missing_lead || item.staffing_health_state === "coverage_gap";
   const category = getDepartmentCategory(item.shoot_category ?? item.department);
+  const detailsConfirmation = buildDetailsConfirmationFromScheduleShoot(item);
 
   return (
     <button
@@ -2166,6 +2184,7 @@ function CompactScheduleItemCard({
       <strong>{item.title}</strong>
       <div className="schedule-compact-item-card__meta">
         <span className={`shoot-type-chip shoot-type-chip--${category}`}>{humanizeLabel(item.shoot_category ?? item.department)}</span>
+        <span className={`risk-pill risk-pill--${getDetailsConfirmationScheduleTone(item)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
         {item.location_name || item.location_address ? <span>{item.location_name || item.location_address}</span> : null}
       </div>
       {selected ? (
@@ -2262,6 +2281,7 @@ function renderAgendaSurface(input: {
                 <div className="schedule-agenda-section__label">Shoots</div>
                 {shoots.map((shoot) => {
                   const issueCount = (shoot.open_alert_count ?? 0) + (shoot.open_attendance_exception_count ?? 0);
+                  const detailsConfirmation = buildDetailsConfirmationFromScheduleShoot(shoot);
                   return (
                     <button key={shoot.id} type="button" className="schedule-agenda-card" onClick={() => input.onOpenShoot(shoot.id)}>
                       <div className="schedule-agenda-card__header">
@@ -2276,6 +2296,7 @@ function renderAgendaSurface(input: {
                       <div className="muted">{shoot.location_name || shoot.location_address || "Location pending"}</div>
                       <div className="schedule-agenda-card__meta">
                         {input.scheduleWorkspace ? null : <span className="meta-pill">{formatScheduleLeadName(shoot.lead_name, "Lead pending")}</span>}
+                        <span className={`risk-pill risk-pill--${getDetailsConfirmationScheduleTone(shoot)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
                         {input.scheduleWorkspace ? (
                           <span className="meta-pill">{humanizeLabel(shoot.status)}</span>
                         ) : (
