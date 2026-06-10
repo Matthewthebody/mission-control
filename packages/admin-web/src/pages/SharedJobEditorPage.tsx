@@ -239,7 +239,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       ? "Search for the sports association, club, or organization already saved in Directory."
       : "Choose an existing organization for this job.";
   const locationHelperText = usesSchoolHierarchy
-    ? "Search schools or sites under the selected district first. Unmatched school names are marked for Directory review."
+    ? "Choose a saved school for the selected district, or use district-level job if no single school applies."
     : usesSportsAssociation
       ? "Search the shoot location or site. This is separate from the sports association."
       : "Search and select an existing location. Known locations for the selected organization appear first.";
@@ -263,7 +263,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   );
   const schoolLocationHelperText =
     selectedSavedDistrict && prioritizedLocationOptions.length === 0
-      ? "No saved schools found for this district. Choose district-level job or flag this for Directory review."
+      ? "No saved schools found for this district. Choose district-level job or add the school to Directory first."
       : locationHelperText;
   const visibleIntakeTypeOptions = isGlobalJobIntake
     ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
@@ -432,13 +432,17 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       return {
         ...current,
         primary_location_id: "",
-        location_override_note: value.trim()
+        location_override_note: usesSchoolHierarchy ? "" : value.trim()
       };
     });
   }
 
   function selectLocation(value: string) {
-    const location = locationOptions.find((option) => option.id === value) ?? null;
+    const locationPool = usesSchoolHierarchy ? prioritizedLocationOptions : locationOptions;
+    const location = locationPool.find((option) => option.id === value) ?? null;
+    if (usesSchoolHierarchy && !location) {
+      return;
+    }
     if (location) {
       setLocationSearch(location.location_name);
     }
@@ -648,10 +652,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 onSelectLocation={selectLocation}
                 errors={fieldErrors.primary_location_id}
                 helperText={schoolLocationHelperText}
-                noMatchText="This school is not in Directory yet. Mission Control can flag it for Directory review."
+                noMatchText="Choose a saved school, choose district-level job, or add the school to Directory first."
                 showUnresolvedField={false}
-                unresolvedLabel="School needs Directory review"
-                unresolvedPlaceholder="School/site name to review later"
+                emptyOptionsText="No saved schools found for this district. Choose district-level job or add the school to Directory first."
+                idleHelperText="Search saved schools for the selected district."
+                requireSavedOption
                 noSingleLocationLabel="District-level job / no single school"
                 onNoSingleLocation={markDistrictLevelJob}
               />

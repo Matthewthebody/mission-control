@@ -2529,7 +2529,7 @@ beforeEach(() => {
     expect(screen.queryByRole("heading", { name: "Location & Shoot Details" })).not.toBeInTheDocument();
     const schoolInput = screen.getByPlaceholderText("Search schools or sites");
     fireEvent.change(schoolInput, { target: { value: "Metro" } });
-    expect(await screen.findByText("This school is not in Directory yet. Mission Control can flag it for Directory review.")).toBeInTheDocument();
+    expect(await screen.findByText("Choose a saved school, choose district-level job, or add the school to Directory first.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Metro Field House/i })).not.toBeInTheDocument();
     fireEvent.change(schoolInput, { target: { value: "Gym" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
@@ -2666,7 +2666,7 @@ beforeEach(() => {
     expect(query.get("director")).toBe("Schools Director");
   });
 
-  it("marks unmatched school or location text for Directory review without creating a verified record", async () => {
+  it("requires a saved school selection for school intake without creating a verified record", async () => {
     window.location.hash = "#jobs/new";
     render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
 
@@ -2677,14 +2677,14 @@ beforeEach(() => {
     fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
     fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "North Annex" } });
 
-    expect(await screen.findByText("This school is not in Directory yet. Mission Control can flag it for Directory review.")).toBeInTheDocument();
+    expect(await screen.findByText("Choose a saved school, choose district-level job, or add the school to Directory first.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
 
     await waitFor(() => expect(createSharedJobDraftMock).toHaveBeenCalled());
     const payload = createSharedJobDraftMock.mock.calls[0][1];
     expect(payload.organization_id).toBe("org-school");
     expect(payload.primary_location_id).toBeNull();
-    expect(payload.location_override_note).toBe("North Annex");
+    expect(payload.location_override_note).toBeNull();
   });
 
   it("routes sports intake packages with a Sports Director workflow confirmation notice", async () => {

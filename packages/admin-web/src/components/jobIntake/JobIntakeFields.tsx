@@ -80,6 +80,9 @@ type LocationLookupFieldProps = SharedLookupProps & {
   showUnresolvedField?: boolean;
   noSingleLocationLabel?: string;
   onNoSingleLocation?: () => void;
+  emptyOptionsText?: string;
+  idleHelperText?: string;
+  requireSavedOption?: boolean;
   options: OrganizationLocation[];
   selectedLocationId: string;
   onSelectLocation: (value: string) => void;
@@ -441,6 +444,9 @@ export function LocationLookupField({
   showUnresolvedField = true,
   noSingleLocationLabel,
   onNoSingleLocation,
+  emptyOptionsText,
+  idleHelperText,
+  requireSavedOption = false,
   searchValue,
   onSearchChange,
   unresolvedValue,
@@ -463,6 +469,8 @@ export function LocationLookupField({
   const selectedQueryMatches = selectedLocation ? selectedLocation.location_name.trim().toLowerCase() === query : false;
   const shouldShowOptions = filteredOptions.length > 0 && !selectedQueryMatches;
   const shouldShowNoMatch = query.length > 0 && !selectedLocation && filteredOptions.length === 0;
+  const shouldShowEmptyOptions = options.length === 0 && query.length === 0 && !selectedLocation;
+  const defaultIdleHelperText = requireSavedOption ? "Choose a saved location." : "Select an organization to load locations, or keep a draft placeholder.";
 
   return (
     <div className="job-intake__lookup">
@@ -506,8 +514,10 @@ export function LocationLookupField({
         </div>
       ) : selectedQueryMatches ? null : shouldShowNoMatch ? (
         <div className="job-intake__helper">{noMatchText ?? "This does not match a saved record yet. Mission Control can still save the job, but Directory review may be needed."}</div>
+      ) : shouldShowEmptyOptions && emptyOptionsText ? (
+        <div className="job-intake__helper">{emptyOptionsText}</div>
       ) : (
-        <div className="job-intake__helper">Select an organization to load locations, or keep a draft placeholder.</div>
+        <div className="job-intake__helper">{idleHelperText ?? defaultIdleHelperText}</div>
       )}
       {showUnresolvedField ? (
         <label className="filter-field filter-field--wide">

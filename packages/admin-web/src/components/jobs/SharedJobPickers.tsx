@@ -35,6 +35,9 @@ type LocationPickerProps = SharedPickerProps & {
   showUnresolvedField?: boolean;
   noSingleLocationLabel?: string;
   onNoSingleLocation?: () => void;
+  emptyOptionsText?: string;
+  idleHelperText?: string;
+  requireSavedOption?: boolean;
   searchValue: string;
   onSearchChange: (value: string) => void;
   unresolvedValue: string;
@@ -100,6 +103,9 @@ export function SharedLocationPicker(props: LocationPickerProps) {
       showUnresolvedField={props.showUnresolvedField}
       noSingleLocationLabel={props.noSingleLocationLabel}
       onNoSingleLocation={props.onNoSingleLocation}
+      emptyOptionsText={props.emptyOptionsText}
+      idleHelperText={props.idleHelperText}
+      requireSavedOption={props.requireSavedOption}
       searchValue={props.searchValue}
       onSearchChange={props.onSearchChange}
       unresolvedValue={props.unresolvedValue}
