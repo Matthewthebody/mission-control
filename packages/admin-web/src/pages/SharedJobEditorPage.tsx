@@ -245,7 +245,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       : "Search and select an existing location. Known locations for the selected organization appear first.";
   const selectedSavedDistrict = usesSchoolHierarchy && selectedOrganization && isSchoolDistrictOrganization(selectedOrganization) ? selectedOrganization : null;
   const locationContextOrganizationId = usesSchoolHierarchy ? selectedSavedDistrict?.id ?? "" : formState.organization_id;
-  const shouldShowLocationSection = !isGlobalJobIntake || !usesSchoolHierarchy || Boolean(selectedSavedDistrict);
+  const shouldShowLocationSection = !isGlobalJobIntake || !usesSchoolHierarchy;
   const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
   const prioritizedLocationOptions = useMemo(
     () => {
@@ -261,6 +261,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     },
     [locationContextOrganizationId, locationOptions, usesSchoolHierarchy]
   );
+  const schoolLocationHelperText =
+    selectedSavedDistrict && prioritizedLocationOptions.length === 0
+      ? "No saved schools found for this district. Choose district-level job or flag this for Directory review."
+      : locationHelperText;
   const visibleIntakeTypeOptions = isGlobalJobIntake
     ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
     : JOB_INTAKE_TYPE_OPTIONS;
@@ -631,6 +635,27 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               />
               {usesSchoolHierarchy && !selectedSavedDistrict ? <div className="job-intake__helper">Select a saved district to see its schools.</div> : null}
             </div>
+            {usesSchoolHierarchy && selectedSavedDistrict ? (
+              <SharedLocationPicker
+                label="School"
+                placeholder="Search schools or sites"
+                searchValue={locationSearch}
+                onSearchChange={updateLocationSearch}
+                unresolvedValue={formState.location_override_note}
+                onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))}
+                options={prioritizedLocationOptions}
+                selectedLocationId={formState.primary_location_id}
+                onSelectLocation={selectLocation}
+                errors={fieldErrors.primary_location_id}
+                helperText={schoolLocationHelperText}
+                noMatchText="This school is not in Directory yet. Mission Control can flag it for Directory review."
+                showUnresolvedField={false}
+                unresolvedLabel="School needs Directory review"
+                unresolvedPlaceholder="School/site name to review later"
+                noSingleLocationLabel="District-level job / no single school"
+                onNoSingleLocation={markDistrictLevelJob}
+              />
+            ) : null}
             <label className="filter-field filter-field--wide">
               <span>{isGlobalJobIntake ? "Job Name" : adapter.labels.titleLabel}</span>
               <input
@@ -821,7 +846,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             body: (
               <div className="shared-job-form__stack">
                 <div className="job-intake-workflow-preview">
-                  <strong>{routingPreview.workflowRouteLabel}</strong>
+                  <strong>Workflow: {getJobIntakeTypeOption(activeIntakeType).label}</strong>
+                  <p>Selected automatically from Job Type.</p>
                   <p>{routingPreview.workflowRouteHint}</p>
                   <div className="shared-job-detail__kv">
                     <span>Calendar readiness: {calendarReadiness.label}</span>
