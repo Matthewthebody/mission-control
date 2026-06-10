@@ -2456,7 +2456,7 @@ beforeEach(() => {
     expect(screen.queryByText("Department Handoff Plan")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Notification Signals")).not.toBeInTheDocument();
     expect(screen.queryByText("Assignment Needed")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Mission Control Will Prepare" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mission Control will prepare" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Work area")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Job type")).toBeInTheDocument();
     const jobTypeSelect = getControlWithinLabel("Job type", "select");
@@ -2481,7 +2481,7 @@ beforeEach(() => {
     expect(screen.getByLabelText("Setup time")).toBeInTheDocument();
     expect(screen.getByLabelText("Photography start time")).toBeInTheDocument();
     expect(screen.getByLabelText("Expected end time")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Location" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Location & Shoot Details" })).toBeInTheDocument();
     expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
     expect(screen.getAllByText("Needs date").length).toBeGreaterThan(0);
     expect(screen.getByText(/Next: Set the requested shoot date\./)).toBeInTheDocument();
@@ -2507,7 +2507,7 @@ beforeEach(() => {
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
     expect(screen.getByPlaceholderText("Search organization locations")).toHaveValue("North High Main Gym");
     expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Staffing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staffing & Prep" })).toBeInTheDocument();
     expect(getControlWithinLabel("Photographers needed", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Assistants needed", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Roster or team list source", "input")).toBeInTheDocument();
@@ -2519,8 +2519,13 @@ beforeEach(() => {
     expect(getControlWithinLabel("Products and services", "select")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Important notes" })).toBeInTheDocument();
+    expect(screen.getByText("Calendar readiness: Needs date")).toBeInTheDocument();
+    expect(screen.getByText("Photography checklist")).toBeInTheDocument();
+    expect(screen.getByText("Production tasks")).toBeInTheDocument();
+    expect(screen.getByText("Client follow-up tasks")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start Job" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Job Package" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Job" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
     expect(screen.queryByText("Access mode")).not.toBeInTheDocument();
     expect(screen.queryByText("Assignment Rules")).not.toBeInTheDocument();

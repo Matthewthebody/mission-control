@@ -187,6 +187,15 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   );
   const activeIntakeType = selectedIntakeType ?? inferJobIntakeTypeId(formState);
   const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
+  const prioritizedLocationOptions = useMemo(
+    () =>
+      [...locationOptions].sort((left, right) => {
+        const leftMatches = left.organization_id === formState.organization_id ? 0 : 1;
+        const rightMatches = right.organization_id === formState.organization_id ? 0 : 1;
+        return leftMatches - rightMatches || left.location_name.localeCompare(right.location_name);
+      }),
+    [formState.organization_id, locationOptions]
+  );
   const visibleIntakeTypeOptions = isGlobalJobIntake
     ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
     : JOB_INTAKE_TYPE_OPTIONS;
@@ -552,11 +561,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     {
       key: "location",
       slot: "schedule.after" as const,
-      title: "Location",
-      summary: "Choose the place the team should go. Use existing locations when they are already in the directory.",
+      title: "Location & Shoot Details",
+      summary: "Choose where the team should go, then add shoot details that affect setup.",
       fields: ["primary_location_id"],
       body: (
-        <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={locationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={selectLocation} errors={fieldErrors.primary_location_id} helperText="Search and select an existing location, or leave a placeholder if the location is not resolved yet." />
+        <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={prioritizedLocationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={selectLocation} errors={fieldErrors.primary_location_id} helperText="Search and select an existing location. Known locations for the selected organization appear first." />
       )
     },
     {
@@ -602,8 +611,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {
             key: "operational-requirements",
             slot: "production.after" as const,
-            title: "Staffing",
-            summary: "Capture the people needed for the shoot before the job moves into planning.",
+            title: "Staffing & Prep",
+            summary: "Capture the people and prep notes needed before the job moves into planning.",
             fields: ["estimated_staff_count", "assistant_staff_count", "school_profile.roster_source", "sports_profile.estimated_team_count"],
             body: (
               <div className="field-grid shared-job-form__grid">
@@ -630,8 +639,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {
             key: "workflow-preparation",
             slot: "production.after" as const,
-            title: "Mission Control Will Prepare",
-            summary: "A simple preview of the work package Mission Control will set up after intake.",
+            title: "Mission Control will prepare",
+            summary: "Mission Control automatically selects the workflow from the job type.",
             fields: ["workflow_preparation"],
             body: (
               <div className="shared-job-form__stack">
@@ -639,9 +648,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                   <strong>{routingPreview.workflowRouteLabel}</strong>
                   <p>{routingPreview.workflowRouteHint}</p>
                   <div className="shared-job-detail__kv">
-                    {routingPreview.workPackages.slice(0, 4).map((workPackage) => (
-                      <span key={workPackage.id}>{workPackage.name}</span>
-                    ))}
+                    <span>Calendar readiness: {calendarReadiness.label}</span>
+                    <span>Photography checklist</span>
+                    <span>Production tasks</span>
+                    <span>Client follow-up tasks</span>
                   </div>
                 </div>
               </div>
@@ -714,7 +724,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 Save Draft
               </button>
               <button type="button" onClick={() => void persist("draft")} disabled={saving || publishing}>
-                Start Job
+                Create Job Package
               </button>
             </>
           ) : null}
