@@ -959,6 +959,8 @@ export function buildJobIntakeManagementSummaryFromDetail(detail: SharedJobDetai
       sponsor_graphics_required: detail.sports_profile?.sponsor_graphics_required ?? false,
       client_expectations_notes: detail.sports_profile?.client_expectations_notes ?? ""
     },
+    organization_assistance_provided: false,
+    organization_assistance_details: "",
     sports_setup: {
       indoor_outdoor: "",
       tethering: "",

@@ -49,6 +49,8 @@ export type SharedJobFormState = {
   estimated_subject_count: string;
   estimated_staff_count: string;
   assistant_staff_count: string;
+  organization_assistance_provided: boolean;
+  organization_assistance_details: string;
   client_deadline_at: string;
   production_deadline_at: string;
   production_required: boolean;
@@ -407,6 +409,8 @@ export function createBlankSharedJobFormState(departmentType: Extract<JobDepartm
     estimated_subject_count: "",
     estimated_staff_count: "",
     assistant_staff_count: "",
+    organization_assistance_provided: false,
+    organization_assistance_details: "",
     client_deadline_at: "",
     production_deadline_at: "",
     production_required: true,
@@ -595,6 +599,8 @@ function mapApiToSharedForm(apiRecord: SharedJobDetailResponse): SharedJobFormSt
     estimated_subject_count: apiRecord.job.estimated_subject_count != null ? String(apiRecord.job.estimated_subject_count) : "",
     estimated_staff_count: apiRecord.job.estimated_staff_count != null ? String(apiRecord.job.estimated_staff_count) : "",
     assistant_staff_count: "",
+    organization_assistance_provided: false,
+    organization_assistance_details: "",
     client_deadline_at: apiRecord.job.client_deadline_at ? apiRecord.job.client_deadline_at.slice(0, 10) : "",
     production_deadline_at: apiRecord.job.production_deadline_at ? apiRecord.job.production_deadline_at.slice(0, 10) : "",
     production_required: apiRecord.job.production_required,

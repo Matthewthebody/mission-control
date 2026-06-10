@@ -62,6 +62,8 @@ const GLOBAL_JOB_INTAKE_TYPE_IDS: JobIntakeTypeId[] = [
 const JOB_CREATE_RESTRICTED_MESSAGE =
   "You do not have permission to create new jobs. Ask a department director or Mission Control admin to start a job package.";
 
+const SCHOOL_HIERARCHY_INTAKE_TYPES: JobIntakeTypeId[] = ["school_picture_day", "retake_day", "yearbook", "cap_and_gown"];
+
 function workflowReviewDirectorFor(typeId: JobIntakeTypeId) {
   if (["school_picture_day", "retake_day", "yearbook", "cap_and_gown", "graduation"].includes(typeId)) {
     return "Schools Director";
@@ -177,8 +179,13 @@ function groupSections(
 export function SharedJobEditorPage({ token, currentUser, departmentType, routeBase, mode }: Props) {
   const { path, params } = useHashRouteSnapshot();
   const jobId = mode === "edit" ? parseSharedJobIdFromPath(path) : null;
-  const initialDepartment = departmentType ?? (params.get("department") === "schools" ? "schools" : "sports");
-  const [formState, setFormState] = useState<SharedJobFormState>(() => ({ ...createBlankSharedJobFormState(initialDepartment), ...getDepartmentJobAdapterUI(initialDepartment).getDefaultValues() }));
+  const initialGlobalIntakeType: JobIntakeTypeId | null =
+    departmentType == null && mode === "create" ? (params.get("department") === "sports" ? "sports_picture_day" : "school_picture_day") : null;
+  const initialDepartment = departmentType ?? (initialGlobalIntakeType === "sports_picture_day" ? "sports" : "schools");
+  const [formState, setFormState] = useState<SharedJobFormState>(() => {
+    const initialForm = { ...createBlankSharedJobFormState(initialDepartment), ...getDepartmentJobAdapterUI(initialDepartment).getDefaultValues() };
+    return initialGlobalIntakeType ? applyJobIntakeType(initialForm, initialGlobalIntakeType) : initialForm;
+  });
   const [detail, setDetail] = useState<SharedJobDetailResponse | null>(null);
   const [loading, setLoading] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
@@ -194,7 +201,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const [locationSearch, setLocationSearch] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [selectedIntakeType, setSelectedIntakeType] = useState<JobIntakeTypeId | null>(null);
+  const [selectedIntakeType, setSelectedIntakeType] = useState<JobIntakeTypeId | null>(initialGlobalIntakeType);
   const ignoreDirtyRef = useRef(false);
 
   const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
@@ -218,6 +225,20 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
   const activeIntakeType = selectedIntakeType ?? inferJobIntakeTypeId(formState);
+  const usesSchoolHierarchy = isGlobalJobIntake && SCHOOL_HIERARCHY_INTAKE_TYPES.includes(activeIntakeType);
+  const usesSportsAssociation = isGlobalJobIntake && activeIntakeType === "sports_picture_day";
+  const organizationFieldLabel = usesSchoolHierarchy ? "District" : usesSportsAssociation ? "Association / Organization" : "Organization";
+  const locationFieldLabel = usesSchoolHierarchy ? "School" : "Location";
+  const organizationHelperText = usesSchoolHierarchy
+    ? "Search for the district account. If the job is district-level, choose the district and use the no-single-school option below."
+    : usesSportsAssociation
+      ? "Search for the sports association, club, or organization already saved in Directory."
+      : "Choose an existing organization for this job.";
+  const locationHelperText = usesSchoolHierarchy
+    ? "Search schools or sites under the selected district first. Unmatched school names are marked for Directory review."
+    : usesSportsAssociation
+      ? "Search the shoot location or site. This is separate from the sports association."
+      : "Search and select an existing location. Known locations for the selected organization appear first.";
   const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
   const prioritizedLocationOptions = useMemo(
     () =>
@@ -342,7 +363,23 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
 
   function applyIntakeType(value: JobIntakeTypeId) {
     setSelectedIntakeType(value);
-    updateState((current) => applyJobIntakeType(current, value));
+    updateState((current) => {
+      const next = applyJobIntakeType(current, value);
+      if (next.department_type !== current.department_type) {
+        setSelectedOrganization(null);
+        setOrganizationSearch("");
+        setLocationSearch("");
+        return {
+          ...next,
+          organization_id: "",
+          primary_location_id: "",
+          location_override_note: "",
+          primary_contact_id: "",
+          contact_override_note: ""
+        };
+      }
+      return next;
+    });
   }
 
   function updateOrganizationSearch(value: string) {
@@ -357,9 +394,31 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       setSelectedOrganization(null);
       updateState((current) => ({
         ...current,
-        organization_id: ""
+        organization_id: "",
+        primary_location_id: "",
+        location_override_note: "",
+        primary_contact_id: "",
+        contact_override_note: ""
       }));
+      setLocationSearch("");
+      setContactSearch("");
     }
+  }
+
+  function updateLocationSearch(value: string) {
+    setLocationSearch(value);
+    const selectedLocation = locationOptions.find((option) => option.id === formState.primary_location_id) ?? null;
+    const selectedName = selectedLocation?.location_name.trim().toLowerCase();
+    updateState((current) => {
+      if (selectedName && selectedName === value.trim().toLowerCase()) {
+        return current;
+      }
+      return {
+        ...current,
+        primary_location_id: "",
+        location_override_note: value.trim()
+      };
+    });
   }
 
   function selectLocation(value: string) {
@@ -371,6 +430,15 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       ...current,
       primary_location_id: value,
       location_override_note: location ? "" : current.location_override_note
+    }));
+  }
+
+  function markDistrictLevelJob() {
+    setLocationSearch("District-level job / no single school");
+    updateState((current) => ({
+      ...current,
+      primary_location_id: "",
+      location_override_note: "District-level job / no single school"
     }));
   }
 
@@ -509,6 +577,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             <div className="filter-field filter-field--wide">
               <SharedOrganizationPicker
                 departmentType={formState.department_type === "schools" ? "schools" : "sports"}
+                label={isGlobalJobIntake ? organizationFieldLabel : "Organization"}
+                placeholder={isGlobalJobIntake ? (usesSchoolHierarchy ? "Search districts" : usesSportsAssociation ? "Search associations or clubs" : "Search organizations") : undefined}
                 searchValue={organizationSearch}
                 onSearchChange={isGlobalJobIntake ? updateOrganizationSearch : setOrganizationSearch}
                 unresolvedValue=""
@@ -519,14 +589,30 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 onSelectOrganization={(organization) => {
                   setSelectedOrganization(organization);
                   setOrganizationSearch(organization.display_name);
+                  setLocationSearch("");
+                  setContactSearch("");
                   updateState((current) => ({
                     ...current,
-                    organization_id: organization.id
+                    organization_id: organization.id,
+                    primary_location_id: "",
+                    location_override_note: "",
+                    primary_contact_id: "",
+                    contact_override_note: "",
+                    school_profile: usesSchoolHierarchy ? { ...current.school_profile, district_id: organization.id } : current.school_profile
                   }));
                 }}
                 required
                 errors={fieldErrors.organization_id}
-                helperText={isGlobalJobIntake ? "Choose an existing organization for this job." : "Schools and Sports both resolve through the same shared organization record."}
+                helperText={isGlobalJobIntake ? organizationHelperText : "Schools and Sports both resolve through the same shared organization record."}
+                noMatchText={
+                  isGlobalJobIntake
+                    ? usesSchoolHierarchy
+                      ? "No matching district found. Choose a saved district, or ask a director/admin to add this to Directory."
+                      : usesSportsAssociation
+                        ? "No matching association found. Choose a saved organization, or ask a director/admin to add this to Directory."
+                        : "No matching organization found. Choose a saved record, or ask a director/admin to add this to Directory."
+                    : undefined
+                }
                 collapseResults={isGlobalJobIntake}
                 showUnresolvedField={!isGlobalJobIntake}
                 typeaheadOnly={isGlobalJobIntake}
@@ -598,7 +684,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 <label className="filter-field"><span>Photography start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>Expected end time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>Photographers</span><input type="number" min="0" step="1" value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} inputMode="numeric" /></label>
-                <label className="filter-field"><span>Assistants</span><input type="number" min="0" step="1" value={formState.assistant_staff_count} onChange={(event) => updateState((current) => ({ ...current, assistant_staff_count: event.target.value }))} inputMode="numeric" /></label>
+                <label className="filter-field"><span>Photo assistants</span><input type="number" min="0" step="1" value={formState.assistant_staff_count} onChange={(event) => updateState((current) => ({ ...current, assistant_staff_count: event.target.value }))} inputMode="numeric" /></label>
+                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.organization_assistance_provided} onChange={(event) => updateState((current) => ({ ...current, organization_assistance_provided: event.target.checked, organization_assistance_details: event.target.checked ? current.organization_assistance_details : "" }))} /><span>Organization-provided assistance?</span></label>
+                {formState.organization_assistance_provided ? <label className="filter-field filter-field--wide"><span>What help will the organization provide?</span><textarea rows={2} value={formState.organization_assistance_details} onChange={(event) => updateState((current) => ({ ...current, organization_assistance_details: event.target.value }))} placeholder="Office staff, coaches, volunteers, line management, student runners, check-in table..." /></label> : null}
               </>
             ) : null}
             {!isGlobalJobIntake ? (
@@ -620,7 +708,29 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       summary: "Choose where the team should go, then add shoot details that affect setup.",
       fields: ["primary_location_id"],
       body: (
-        <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={prioritizedLocationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={selectLocation} errors={fieldErrors.primary_location_id} helperText="Search and select an existing location. Known locations for the selected organization appear first." />
+        <SharedLocationPicker
+          label={isGlobalJobIntake ? locationFieldLabel : "Primary location"}
+          placeholder={isGlobalJobIntake ? (usesSchoolHierarchy ? "Search schools or sites" : "Search locations or sites") : undefined}
+          searchValue={locationSearch}
+          onSearchChange={isGlobalJobIntake ? updateLocationSearch : setLocationSearch}
+          unresolvedValue={formState.location_override_note}
+          onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))}
+          options={prioritizedLocationOptions}
+          selectedLocationId={formState.primary_location_id}
+          onSelectLocation={selectLocation}
+          errors={fieldErrors.primary_location_id}
+          helperText={isGlobalJobIntake ? locationHelperText : "Search and select an existing location. Known locations for the selected organization appear first."}
+          noMatchText={
+            usesSchoolHierarchy
+              ? "This school or site does not match a saved record yet. Mission Control can still save the job, but Directory review may be needed."
+              : "This location does not match a saved record yet. Mission Control can still save the job, but Directory review may be needed."
+          }
+          showUnresolvedField={!isGlobalJobIntake}
+          unresolvedLabel={isGlobalJobIntake ? (usesSchoolHierarchy ? "School needs Directory review" : "Location needs Directory review") : undefined}
+          unresolvedPlaceholder={isGlobalJobIntake ? (usesSchoolHierarchy ? "School/site name to review later" : "Location or site name to review later") : undefined}
+          noSingleLocationLabel={usesSchoolHierarchy ? "District-level job / no single school" : undefined}
+          onNoSingleLocation={usesSchoolHierarchy ? markDistrictLevelJob : undefined}
+        />
       )
     },
     {

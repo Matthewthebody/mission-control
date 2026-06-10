@@ -2243,6 +2243,10 @@ describe("organizations workflow surface", () => {
     expect(screen.getByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
     expect(screen.getByLabelText("Directory view")).toBeInTheDocument();
+    expect(screen.getByLabelText("Category")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "School District / School" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sports Association" })).toBeInTheDocument();
+    expect(screen.getAllByText("School District / School").length).toBeGreaterThan(0);
     expect(await screen.findByLabelText("Directory record summary")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open full details" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByLabelText("Organization portal")).not.toBeInTheDocument();

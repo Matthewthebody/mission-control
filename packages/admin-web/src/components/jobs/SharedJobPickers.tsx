@@ -10,6 +10,9 @@ type SharedPickerProps = {
 
 type OrganizationPickerProps = SharedPickerProps & {
   departmentType: "schools" | "sports";
+  label?: string;
+  placeholder?: string;
+  noMatchText?: string;
   searchValue: string;
   onSearchChange: (value: string) => void;
   unresolvedValue: string;
@@ -25,6 +28,13 @@ type OrganizationPickerProps = SharedPickerProps & {
 
 type LocationPickerProps = SharedPickerProps & {
   label: string;
+  placeholder?: string;
+  noMatchText?: string;
+  unresolvedLabel?: string;
+  unresolvedPlaceholder?: string;
+  showUnresolvedField?: boolean;
+  noSingleLocationLabel?: string;
+  onNoSingleLocation?: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   unresolvedValue: string;
@@ -57,7 +67,9 @@ export function SharedOrganizationPicker(props: OrganizationPickerProps) {
   return (
     <OrganizationLookupField
       department={props.departmentType}
-      label="Organization"
+      label={props.label ?? "Organization"}
+      placeholder={props.placeholder}
+      noMatchText={props.noMatchText}
       searchValue={props.searchValue}
       onSearchChange={props.onSearchChange}
       unresolvedValue={props.unresolvedValue}
@@ -81,6 +93,13 @@ export function SharedLocationPicker(props: LocationPickerProps) {
   return (
     <LocationLookupField
       label={props.label}
+      placeholder={props.placeholder}
+      noMatchText={props.noMatchText}
+      unresolvedLabel={props.unresolvedLabel}
+      unresolvedPlaceholder={props.unresolvedPlaceholder}
+      showUnresolvedField={props.showUnresolvedField}
+      noSingleLocationLabel={props.noSingleLocationLabel}
+      onNoSingleLocation={props.onNoSingleLocation}
       searchValue={props.searchValue}
       onSearchChange={props.onSearchChange}
       unresolvedValue={props.unresolvedValue}

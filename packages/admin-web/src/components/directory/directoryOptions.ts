@@ -31,15 +31,15 @@ export type DirectoryView = "organizations" | "contacts" | "locations";
 export type DirectoryWorkspaceTab = "profile" | "relationships" | "operations" | "touchpoints" | "linked_shoots" | "duplicates";
 
 export const ACCOUNT_TYPE_OPTIONS: Array<{ value: OrganizationAccountType | "all"; label: string }> = [
-  { value: "all", label: "All types" },
-  { value: "schools_underclass_portraits", label: "Schools - Underclass Portraits" },
-  { value: "schools_events", label: "Schools - Events" },
-  { value: "sports", label: "Sports" },
-  { value: "events", label: "Events" },
+  { value: "all", label: "All categories" },
+  { value: "schools_underclass_portraits", label: "School District / School" },
+  { value: "schools_events", label: "School Event Organization" },
+  { value: "sports", label: "Sports Association" },
+  { value: "events", label: "Event Organization" },
   { value: "studio", label: "Studio" },
-  { value: "headshots", label: "Headshots" },
+  { value: "headshots", label: "Specialty / In-Studio" },
   { value: "commercial", label: "Commercial" },
-  { value: "internal", label: "Internal" }
+  { value: "internal", label: "Company Team" }
 ];
 
 export const ACTIVE_STATUS_OPTIONS: Array<{ value: DirectoryActiveStatus | "all"; label: string }> = [

@@ -61,6 +61,8 @@ type JobRoutingSectionProps = {
 
 type OrganizationLookupFieldProps = SharedLookupProps & {
   department: CentralJobDepartment;
+  placeholder?: string;
+  noMatchText?: string;
   loading: boolean;
   results: OrganizationSummary[];
   selectedOrganization: OrganizationSummary | null;
@@ -71,6 +73,13 @@ type OrganizationLookupFieldProps = SharedLookupProps & {
 };
 
 type LocationLookupFieldProps = SharedLookupProps & {
+  placeholder?: string;
+  noMatchText?: string;
+  unresolvedLabel?: string;
+  unresolvedPlaceholder?: string;
+  showUnresolvedField?: boolean;
+  noSingleLocationLabel?: string;
+  onNoSingleLocation?: () => void;
   options: OrganizationLocation[];
   selectedLocationId: string;
   onSelectLocation: (value: string) => void;
@@ -288,6 +297,8 @@ function renderFieldErrorList(fieldErrors: FieldErrors, key: string) {
 export function OrganizationLookupField({
   department,
   label,
+  placeholder,
+  noMatchText,
   searchValue,
   onSearchChange,
   unresolvedValue,
@@ -341,7 +352,7 @@ export function OrganizationLookupField({
         <input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search canonical organizations"
+          placeholder={placeholder ?? "Search canonical organizations"}
           disabled={disabled}
         />
       </label>
@@ -374,7 +385,7 @@ export function OrganizationLookupField({
           ))}
         </div>
       ) : null}
-      {shouldShowNoMatch ? <div className="job-intake__helper">No matching organization found. Choose an existing organization for now.</div> : null}
+      {shouldShowNoMatch ? <div className="job-intake__helper">{noMatchText ?? "No matching organization found. Choose an existing organization for now."}</div> : null}
       {!typeaheadOnly && !loading && filteredResults.length && collapseResults ? (
         <details className="job-intake__lookup-results-disclosure">
           <summary>{filteredResults.length} matching organization{filteredResults.length === 1 ? "" : "s"}</summary>
@@ -423,6 +434,13 @@ export function OrganizationLookupField({
 
 export function LocationLookupField({
   label,
+  placeholder,
+  noMatchText,
+  unresolvedLabel = "Unresolved location placeholder",
+  unresolvedPlaceholder = "Gym, stadium, TBD venue, or on-site placeholder",
+  showUnresolvedField = true,
+  noSingleLocationLabel,
+  onNoSingleLocation,
   searchValue,
   onSearchChange,
   unresolvedValue,
@@ -444,6 +462,7 @@ export function LocationLookupField({
   const selectedLocation = options.find((location) => location.id === selectedLocationId) ?? null;
   const selectedQueryMatches = selectedLocation ? selectedLocation.location_name.trim().toLowerCase() === query : false;
   const shouldShowOptions = filteredOptions.length > 0 && !selectedQueryMatches;
+  const shouldShowNoMatch = query.length > 0 && !selectedLocation && filteredOptions.length === 0;
 
   return (
     <div className="job-intake__lookup">
@@ -455,7 +474,7 @@ export function LocationLookupField({
         <input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search organization locations"
+          placeholder={placeholder ?? "Search organization locations"}
           disabled={disabled}
         />
       </label>
@@ -466,6 +485,11 @@ export function LocationLookupField({
             <div key={message}>{message}</div>
           ))}
         </div>
+      ) : null}
+      {noSingleLocationLabel && onNoSingleLocation ? (
+        <button type="button" className="secondary-button job-intake__lookup-inline-action" onClick={onNoSingleLocation} disabled={disabled}>
+          {noSingleLocationLabel}
+        </button>
       ) : null}
       {shouldShowOptions ? (
         <div className="job-intake__lookup-results" role="list">
@@ -480,18 +504,22 @@ export function LocationLookupField({
             />
           ))}
         </div>
-      ) : selectedQueryMatches ? null : (
+      ) : selectedQueryMatches ? null : shouldShowNoMatch ? (
+        <div className="job-intake__helper">{noMatchText ?? "This does not match a saved record yet. Mission Control can still save the job, but Directory review may be needed."}</div>
+      ) : (
         <div className="job-intake__helper">Select an organization to load locations, or keep a draft placeholder.</div>
       )}
-      <label className="filter-field filter-field--wide">
-        <span>Unresolved location placeholder</span>
-        <input
-          value={unresolvedValue}
-          onChange={(event) => onUnresolvedChange(event.target.value)}
-          placeholder="Gym, stadium, TBD venue, or on-site placeholder"
-          disabled={disabled}
-        />
-      </label>
+      {showUnresolvedField ? (
+        <label className="filter-field filter-field--wide">
+          <span>{unresolvedLabel}</span>
+          <input
+            value={unresolvedValue}
+            onChange={(event) => onUnresolvedChange(event.target.value)}
+            placeholder={unresolvedPlaceholder}
+            disabled={disabled}
+          />
+        </label>
+      ) : null}
     </div>
   );
 }

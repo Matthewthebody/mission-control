@@ -2482,11 +2482,14 @@ beforeEach(() => {
     expect(screen.getByLabelText("Photography start time")).toBeInTheDocument();
     expect(screen.getByLabelText("Expected end time")).toBeInTheDocument();
     expect(getControlWithinLabel("Photographers", "input")).toBeInTheDocument();
-    expect(getControlWithinLabel("Assistants", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("Photo assistants", "input")).toBeInTheDocument();
+    expect(screen.getByLabelText("Organization-provided assistance?")).toBeInTheDocument();
     fireEvent.change(getControlWithinLabel("Photographers", "input"), { target: { value: "3" } });
-    fireEvent.change(getControlWithinLabel("Assistants", "input"), { target: { value: "1" } });
+    fireEvent.change(getControlWithinLabel("Photo assistants", "input"), { target: { value: "1" } });
     expect(getControlWithinLabel("Photographers", "input")).toHaveValue(3);
-    expect(getControlWithinLabel("Assistants", "input")).toHaveValue(1);
+    expect(getControlWithinLabel("Photo assistants", "input")).toHaveValue(1);
+    fireEvent.click(screen.getByLabelText("Organization-provided assistance?"));
+    expect(screen.getByLabelText("What help will the organization provide?")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Location & Shoot Details" })).toBeInTheDocument();
     expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
     expect(screen.getAllByText("Needs date").length).toBeGreaterThan(0);
@@ -2498,20 +2501,24 @@ beforeEach(() => {
     expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /North High/i })).not.toBeInTheDocument();
     fireEvent.change(jobTypeSelect, { target: { value: "school_picture_day" } });
-    const organizationInput = screen.getByPlaceholderText("Search canonical organizations");
+    expect(getControlWithinLabel("District", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("School", "input")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Association / Organization")).not.toBeInTheDocument();
+    const organizationInput = screen.getByPlaceholderText("Search districts");
     fireEvent.change(organizationInput, { target: { value: "zzzz" } });
-    expect(await screen.findByText("No matching organization found. Choose an existing organization for now.")).toBeInTheDocument();
+    expect(await screen.findByText("No matching district found. Choose a saved district, or ask a director/admin to add this to Directory.")).toBeInTheDocument();
     expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
     fireEvent.change(organizationInput, { target: { value: "North" } });
     expect(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i })).toBeInTheDocument();
-    expect(screen.queryByText("No matching organization found. Choose an existing organization for now.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No matching district found. Choose a saved district, or ask a director/admin to add this to Directory.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
     expect(organizationInput).toHaveValue("North High");
     expect(screen.queryByRole("button", { name: /North High.*3 contacts.*2 locations/i })).not.toBeInTheDocument();
     expect(screen.queryByText("schools underclass portraits")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText("Search organization locations"), { target: { value: "Gym" } });
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
-    expect(screen.getByPlaceholderText("Search organization locations")).toHaveValue("North High Main Gym");
+    expect(screen.getByPlaceholderText("Search schools or sites")).toHaveValue("North High Main Gym");
+    expect(screen.getByRole("button", { name: "District-level job / no single school" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Prep Details" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Staffing & Prep" })).not.toBeInTheDocument();
@@ -2566,6 +2573,9 @@ beforeEach(() => {
     fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "North High Picture Day" } });
     expect(screen.getByLabelText("Job Name")).toHaveValue("North High Picture Day");
     fireEvent.change(jobTypeSelect, { target: { value: "sports_picture_day" } });
+    expect(getControlWithinLabel("Association / Organization", "input")).toBeInTheDocument();
+    expect(screen.queryByLabelText("District")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("School")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "Metro Football Photo Day" } });
     expect(screen.getByLabelText("Job Name")).toHaveValue("Metro Football Photo Day");
     expect(screen.getByLabelText("Indoor / Outdoor")).toBeInTheDocument();
@@ -2595,13 +2605,14 @@ beforeEach(() => {
     expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
     expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
 
+    fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: "sports_picture_day" } });
     fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "Metro Athletics Intake" } });
     fireEvent.change(getControlWithinLabel("Photographers", "input"), { target: { value: "3" } });
-    fireEvent.change(getControlWithinLabel("Assistants", "input"), { target: { value: "2" } });
-    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "Athletics" } });
+    fireEvent.change(getControlWithinLabel("Photo assistants", "input"), { target: { value: "2" } });
+    fireEvent.change(screen.getByPlaceholderText("Search associations or clubs"), { target: { value: "Athletics" } });
     fireEvent.click(await screen.findByRole("button", { name: /Metro Football Club/i }));
 
-    expect(screen.getByPlaceholderText("Search canonical organizations")).toHaveValue("Metro Football Club");
+    expect(screen.getByPlaceholderText("Search associations or clubs")).toHaveValue("Metro Football Club");
     expect(screen.queryByRole("button", { name: /Metro Football Club/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
 
@@ -2618,17 +2629,44 @@ beforeEach(() => {
     expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
     fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: "school_picture_day" } });
     fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "North High Picture Day" } });
-    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "North" } });
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
     fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
 
     await waitFor(() => expect(createSharedJobDraftMock).toHaveBeenCalled());
+    const payload = createSharedJobDraftMock.mock.calls[0][1];
+    expect(payload.organization_id).toBe("org-school");
+    expect(payload.primary_location_id).toBe("loc-school");
+    expect(payload.school_profile.district_id).toBe("org-school");
     const query = new URLSearchParams(window.location.hash.split("?")[1]);
     expect(window.location.hash).toContain("#jobs/job-created-1?");
     expect(query.get("notice")).toBe("workflow_review");
     expect(query.get("workflowName")).toBe("School Picture Day route");
     expect(query.get("jobType")).toBe("School Picture Day");
     expect(query.get("director")).toBe("Schools Director");
+  });
+
+  it("marks unmatched school or location text for Directory review without creating a verified record", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: "school_picture_day" } });
+    fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "Districtwide Senior Day" } });
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "North Annex" } });
+
+    expect(await screen.findByText("This school or site does not match a saved record yet. Mission Control can still save the job, but Directory review may be needed.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
+
+    await waitFor(() => expect(createSharedJobDraftMock).toHaveBeenCalled());
+    const payload = createSharedJobDraftMock.mock.calls[0][1];
+    expect(payload.organization_id).toBe("org-school");
+    expect(payload.primary_location_id).toBeNull();
+    expect(payload.location_override_note).toBe("North Annex");
   });
 
   it("routes sports intake packages with a Sports Director workflow confirmation notice", async () => {
@@ -2638,7 +2676,7 @@ beforeEach(() => {
     expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
     fireEvent.change(getControlWithinLabel("Job type", "select"), { target: { value: "sports_picture_day" } });
     fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "Metro Football Photo Day" } });
-    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "Athletics" } });
+    fireEvent.change(screen.getByPlaceholderText("Search associations or clubs"), { target: { value: "Athletics" } });
     fireEvent.click(await screen.findByRole("button", { name: /Metro Football Club/i }));
     fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
 

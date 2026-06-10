@@ -242,7 +242,7 @@ export function DirectoryRail({
           </select>
         </label>
         <label className="directory-field">
-          <span>Account type</span>
+          <span>Category</span>
           <select value={accountType} onChange={(event) => onAccountTypeChange(event.target.value as OrganizationAccountType | "all")}>
             {ACCOUNT_TYPE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
