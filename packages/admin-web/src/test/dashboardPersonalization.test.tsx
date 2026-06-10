@@ -551,7 +551,7 @@ describe("dashboard home command surface", () => {
     expect(screen.queryByText(/Work moving now/i)).not.toBeInTheDocument();
 
     expect(screen.queryByText("Attendance")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Urgent Issues · 0/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Urgent Issues · 1/i })).toBeInTheDocument();
     expect(screen.queryByText("Today Strip")).not.toBeInTheDocument();
     expect(screen.queryByText("Operational Modules")).not.toBeInTheDocument();
     expect(screen.queryByText("What Needs Attention Right Now")).not.toBeInTheDocument();

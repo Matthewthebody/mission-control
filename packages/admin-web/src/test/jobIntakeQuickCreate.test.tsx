@@ -801,7 +801,7 @@ describe("central job intake quick create", () => {
     const dialog = await openQuickCreate();
     const scope = within(dialog);
 
-    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Unresolved organization placeholder", "input"), { target: { value: "North High" } });
+    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Organization not selected yet", "input"), { target: { value: "North High" } });
     fireEvent.change(getLabeledControl<HTMLSelectElement>(dialog, "School Job Type", "select"), { target: { value: "fall_portraits" } });
     fireEvent.change(getLabeledControl<HTMLTextAreaElement>(dialog, "Internal Notes", "textarea"), { target: { value: "Need admin packet." } });
     fireEvent.click(scope.getByRole("button", { name: "Save Draft" }));
@@ -825,7 +825,7 @@ describe("central job intake quick create", () => {
     renderSportsPage();
     const dialog = await openQuickCreate("Quick Create");
 
-    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Unresolved organization placeholder", "input"), { target: { value: "Metro Athletics" } });
+    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Organization not selected yet", "input"), { target: { value: "Metro Athletics" } });
     fireEvent.change(getLabeledControl<HTMLSelectElement>(dialog, "Sports Job Type", "select"), { target: { value: "media_day" } });
     fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Sport Name", "input"), { target: { value: "Hockey" } });
     fireEvent.change(getLabeledControl<HTMLTextAreaElement>(dialog, "Internal Notes", "textarea"), { target: { value: "Coach request pending." } });
@@ -893,7 +893,7 @@ describe("central job intake quick create", () => {
     const dialog = screen.getByRole("dialog");
     const scope = within(dialog);
 
-    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Unresolved organization placeholder", "input"), {
+    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Organization not selected yet", "input"), {
       target: { value: "North High" }
     });
     fireEvent.change(getLabeledControl<HTMLSelectElement>(dialog, "School Job Type", "select"), {
@@ -994,7 +994,7 @@ describe("central job intake quick create", () => {
     const dialog = screen.getByRole("dialog");
     const scope = within(dialog);
 
-    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Unresolved organization placeholder", "input"), { target: { value: "North High" } });
+    fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Organization not selected yet", "input"), { target: { value: "North High" } });
     fireEvent.change(getLabeledControl<HTMLSelectElement>(dialog, "School Job Type", "select"), { target: { value: "fall_portraits" } });
     fireEvent.change(getLabeledControl<HTMLTextAreaElement>(dialog, "Internal Notes", "textarea"), { target: { value: "Need school confirmation." } });
     fireEvent.click(scope.getByRole("button", { name: "Save Draft" }));
