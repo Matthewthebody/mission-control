@@ -1200,10 +1200,10 @@ function getDirectoryLookupIntro(view: DirectoryView, companyDirectoryCount: num
   if (view === "contacts") {
     return {
       eyebrow: "Directory",
-      title: "Directory",
+      title: "Contacts",
       body: companyDirectoryCount
-        ? "Search for a school, sports organization, contact, or location. Find the person first, then open the connected organization when account context matters."
-        : "Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail."
+        ? "Find school, district, association, vendor, and company contacts. Search by person first, then open the connected organization when account context matters."
+        : "Find school, district, association, and vendor contacts. Search by person first, then open the connected organization when account context matters."
     };
   }
   if (view === "locations") {

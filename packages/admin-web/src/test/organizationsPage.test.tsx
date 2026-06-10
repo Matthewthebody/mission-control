@@ -26,6 +26,12 @@ import type {
 } from "../types";
 
 const apiFetchMock = vi.fn();
+const DIRECTORY_ORGANIZATIONS_INTRO =
+  "Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.";
+const DIRECTORY_CONTACTS_INTRO =
+  "Find school, district, association, and vendor contacts. Search by person first, then open the connected organization when account context matters.";
+const DIRECTORY_ORGANIZATIONS_PLACEHOLDER = "Search for a school, sports organization, client, or account...";
+const DIRECTORY_CONTACTS_PLACEHOLDER = "Search contacts by name, role, organization, email, or phone";
 
 vi.mock("../api", async () => {
   const actual = await vi.importActual<typeof import("../api")>("../api");
@@ -2161,7 +2167,8 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Contacts" }).length).toBeGreaterThan(0);
     await waitFor(() => {
       expect(
         apiFetchMock.mock.calls.some(
@@ -2175,7 +2182,14 @@ describe("organizations workflow surface", () => {
     expect(
       apiFetchMock.mock.calls.some(([path]) => typeof path === "string" && path.startsWith("/api/organizations/locations?"))
     ).toBe(false);
-    expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(DIRECTORY_CONTACTS_PLACEHOLDER)).toBeInTheDocument();
+    expect(screen.getByLabelText("Search contacts")).toBeInTheDocument();
+    expect(screen.getByText("School/site: South Gym")).toBeInTheDocument();
+    expect(screen.getByText("jamie.carlson@example.com")).toBeInTheDocument();
+    expect(screen.getByText("555-0188")).toBeInTheDocument();
+    expect(screen.getAllByText("School Administration").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Photo Day Contact").length).toBeGreaterThan(0);
+    expect(screen.getByText("Notes: Primary planning contact.")).toBeInTheDocument();
     expect(await screen.findByText("Operational Role")).toBeInTheDocument();
 
     expect(screen.getByLabelText("Directory view")).toBeInTheDocument();
@@ -2220,7 +2234,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_ORGANIZATIONS_INTRO)).toBeInTheDocument();
     await waitFor(() => {
       expect(
         apiFetchMock.mock.calls.some(([path]) => typeof path === "string" && path.startsWith("/api/organizations?"))
@@ -2240,8 +2254,8 @@ describe("organizations workflow surface", () => {
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("heading", { name: "Directory" })).toBeInTheDocument();
-    expect(screen.getByText("Search for a school, sports organization, contact, or location. Find the school, sports organization, client, or location first, then open the record for details.")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByText(DIRECTORY_ORGANIZATIONS_INTRO)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(DIRECTORY_ORGANIZATIONS_PLACEHOLDER)).toBeInTheDocument();
     expect(screen.getByLabelText("Directory view")).toBeInTheDocument();
     expect(screen.getByLabelText("Category")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "School District / School" })).toBeInTheDocument();
@@ -2336,7 +2350,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2363,7 +2377,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2380,7 +2394,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Import Contacts" })[0]);
 
@@ -2418,7 +2432,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
     expect(await screen.findByText("Relationship History")).toBeInTheDocument();
     expect(screen.getByText("Current Organizations")).toBeInTheDocument();
     expect(screen.getByText("Previous Organizations")).toBeInTheDocument();
@@ -2451,7 +2465,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
     await waitFor(() => {
       expect(harness.getContactDetailRequests()).toContain("contact-1");
     });
@@ -2486,7 +2500,7 @@ describe("organizations workflow surface", () => {
 
     render(<Organizations token="token" currentUser={leadershipUser} entryView="contacts" />);
 
-    expect(await screen.findByText("Search for a school, sports organization, contact, or location. Find the contact first, then open the full record when you need more detail.")).toBeInTheDocument();
+    expect(await screen.findByText(DIRECTORY_CONTACTS_INTRO)).toBeInTheDocument();
     expect(screen.queryByLabelText("Primary owner")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /show advanced filters/i }));

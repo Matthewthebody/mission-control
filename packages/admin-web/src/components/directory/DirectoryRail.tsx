@@ -27,7 +27,9 @@ import {
   labelForActiveStatus,
   labelForContactStatus,
   labelForOperationalImportance,
-  labelForRelationshipRole
+  labelForRelationshipRole,
+  labelForRoleCategory,
+  labelForSchoolContactCategory
 } from "./directoryOptions";
 import { DirectoryAvatar } from "./DirectoryAvatar";
 
@@ -223,9 +225,9 @@ export function DirectoryRail({
 
       <div className="directory-rail__filters directory-rail__filters--primary">
         <label className="directory-field directory-field--wide">
-          <span>Search for a school, sports organization, contact, or location</span>
+          <span>{searchLabelForView(view)}</span>
           <input
-            aria-label="Search directory"
+            aria-label={searchAriaLabelForView(view)}
             placeholder={searchPlaceholderForView(view)}
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
@@ -452,13 +454,22 @@ export function DirectoryRail({
                       <div className="muted">
                         {contact.title || "No title"} - {contact.organization_display_name}
                       </div>
-                      <div className="muted directory-rail__submeta">
-                        {contact.email || contact.phone || "No direct contact method on file"}
+                      {contact.primary_location_name ? (
+                        <div className="muted directory-rail__submeta">School/site: {contact.primary_location_name}</div>
+                      ) : null}
+                      <div className="muted directory-rail__contact-methods">
+                        <span>{contact.email || "No email on file"}</span>
+                        <span>{contact.phone || "No phone on file"}</span>
                       </div>
+                      {contact.notes ? <div className="muted directory-rail__submeta">Notes: {contact.notes}</div> : null}
                     </div>
                   </div>
                   <div className="directory-rail__meta">
                     <span>{labelForRelationshipRole(contact.relationship_role)}</span>
+                    <span>{labelForRoleCategory(contact.role_category)}</span>
+                    {(contact.school_contact_categories ?? []).slice(0, 2).map((category) => (
+                      <span key={category}>{labelForSchoolContactCategory(category)}</span>
+                    ))}
                     <span>{labelForContactStatus(contact.contact_status ?? "active")}</span>
                     <span>{labelForOperationalImportance(contact.operational_importance ?? "normal")}</span>
                     {contact.organization_account_type === "internal" ? <span>Coworker</span> : null}
@@ -516,7 +527,7 @@ function headingForView(view: DirectoryView) {
 function descriptionForView(view: DirectoryView) {
   switch (view) {
     case "contacts":
-      return "Find a person, see who they belong to, and open the full record only when you need detail.";
+      return "Find school, district, association, and vendor contacts.";
     case "locations":
       return "Find a place, confirm the related organization, and open the record when location detail matters.";
     default:
@@ -524,6 +535,35 @@ function descriptionForView(view: DirectoryView) {
   }
 }
 
+function searchLabelForView(view: DirectoryView) {
+  switch (view) {
+    case "contacts":
+      return "Search contacts";
+    case "locations":
+      return "Search locations";
+    default:
+      return "Search organizations";
+  }
+}
+
+function searchAriaLabelForView(view: DirectoryView) {
+  switch (view) {
+    case "contacts":
+      return "Search contacts";
+    case "locations":
+      return "Search locations";
+    default:
+      return "Search organizations";
+  }
+}
+
 function searchPlaceholderForView(view: DirectoryView) {
-  return "Search for a school, sports organization, contact, or location...";
+  switch (view) {
+    case "contacts":
+      return "Search contacts by name, role, organization, email, or phone";
+    case "locations":
+      return "Search locations by place, organization, address, or notes";
+    default:
+      return "Search for a school, sports organization, client, or account...";
+  }
 }

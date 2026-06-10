@@ -763,7 +763,7 @@ describe("app auth bootstrap", () => {
 
     expect(await screen.findByText("Search for a school, sports organization, contact, or location. Use Locations when the place matters first, then open the connected organization for the full record.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Locations" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search for a school, sports organization, contact, or location...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search locations by place, organization, address, or notes")).toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Shortcuts" })).not.toBeInTheDocument();
     expect(screen.queryByText("In Directory")).not.toBeInTheDocument();

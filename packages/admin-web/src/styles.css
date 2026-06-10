@@ -16395,6 +16395,13 @@ html[data-theme="light"] .sales-resurface-strip {
   font-size: 0.82rem;
 }
 
+.directory-rail__contact-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 0.82rem;
+}
+
 .directory-avatar {
   flex: 0 0 auto;
   display: grid;
