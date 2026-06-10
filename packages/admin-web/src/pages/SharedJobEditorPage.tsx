@@ -68,14 +68,6 @@ function isSchoolDistrictOrganization(organization: OrganizationSummary) {
   return organization.account_type === "schools_underclass_portraits" || organization.account_type === "schools_events";
 }
 
-function organizationMatchesSearch(organization: OrganizationSummary, search: string) {
-  const query = search.trim().toLowerCase();
-  if (!query) {
-    return false;
-  }
-  return [organization.display_name, organization.canonical_name, ...organization.aliases].some((label) => label.trim().toLowerCase().includes(query));
-}
-
 function workflowReviewDirectorFor(typeId: JobIntakeTypeId) {
   if (["school_picture_day", "retake_day", "yearbook", "cap_and_gown", "graduation"].includes(typeId)) {
     return "Schools Director";
@@ -251,21 +243,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     : usesSportsAssociation
       ? "Search the shoot location or site. This is separate from the sports association."
       : "Search and select an existing location. Known locations for the selected organization appear first.";
-  const likelyDistrict = useMemo(() => {
-    if (!usesSchoolHierarchy) {
-      return null;
-    }
-    if (selectedOrganization && isSchoolDistrictOrganization(selectedOrganization)) {
-      return selectedOrganization;
-    }
-    if (organizationSearch.trim().length < 3) {
-      return null;
-    }
-    const matches = organizationResults.filter((organization) => isSchoolDistrictOrganization(organization) && organizationMatchesSearch(organization, organizationSearch));
-    return matches.length === 1 ? matches[0] : null;
-  }, [organizationResults, organizationSearch, selectedOrganization, usesSchoolHierarchy]);
-  const locationContextOrganizationId = usesSchoolHierarchy ? likelyDistrict?.id ?? "" : formState.organization_id;
-  const shouldShowLocationSection = !isGlobalJobIntake || !usesSchoolHierarchy || Boolean(likelyDistrict);
+  const selectedSavedDistrict = usesSchoolHierarchy && selectedOrganization && isSchoolDistrictOrganization(selectedOrganization) ? selectedOrganization : null;
+  const locationContextOrganizationId = usesSchoolHierarchy ? selectedSavedDistrict?.id ?? "" : formState.organization_id;
+  const shouldShowLocationSection = !isGlobalJobIntake || !usesSchoolHierarchy || Boolean(selectedSavedDistrict);
   const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
   const prioritizedLocationOptions = useMemo(
     () => {
@@ -649,6 +629,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 showUnresolvedField={!isGlobalJobIntake}
                 typeaheadOnly={isGlobalJobIntake}
               />
+              {usesSchoolHierarchy && !selectedSavedDistrict ? <div className="job-intake__helper">Select a saved district to see its schools.</div> : null}
             </div>
             <label className="filter-field filter-field--wide">
               <span>{isGlobalJobIntake ? "Job Name" : adapter.labels.titleLabel}</span>
