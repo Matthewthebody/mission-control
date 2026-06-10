@@ -20,10 +20,7 @@ import {
 import { JobDayManager } from "../components/jobs/JobDayManager";
 import {
   JOB_INTAKE_TYPE_OPTIONS,
-  JobDepartmentTaskPlan,
-  JobIntakeReadinessPanel,
   applyJobIntakeType,
-  buildJobIntakeManagementSummary,
   buildRoutingPreviewFromForm,
   inferJobIntakeTypeId,
   type JobIntakeTypeId
@@ -172,9 +169,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
   const isGlobalJobIntake = departmentType == null && mode === "create";
   const permissionContext = { departmentType: formState.department_type };
-  const canCreateJob = usePermission(currentUser, "job.create", permissionContext);
-  const canUpdateJob = usePermission(currentUser, "job.update", permissionContext);
-  const canPublishJob = usePermission(currentUser, "job.publish", permissionContext);
+  const scopedPermissionContext = isGlobalJobIntake ? undefined : permissionContext;
+  const canCreateJob = usePermission(currentUser, "job.create", scopedPermissionContext);
+  const canUpdateJob = usePermission(currentUser, "job.update", scopedPermissionContext);
+  const canPublishJob = usePermission(currentUser, "job.publish", scopedPermissionContext);
   const hasFinancePermission = usePermission(currentUser, "finance.view_summary", permissionContext);
   const canViewFinance = formState.department_type === "sports" && hasFinancePermission;
   const readOnly = mode === "create" ? !canCreateJob : !canUpdateJob;
@@ -188,10 +186,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
   const activeIntakeType = selectedIntakeType ?? inferJobIntakeTypeId(formState);
+  const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
   const visibleIntakeTypeOptions = isGlobalJobIntake
     ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
     : JOB_INTAKE_TYPE_OPTIONS;
-  const intakeManagementSummary = useMemo(() => buildJobIntakeManagementSummary(formState), [formState]);
   const calendarReadiness = useMemo(
     () =>
       buildJobCalendarReadiness({
@@ -323,6 +321,18 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     }
   }
 
+  function selectLocation(value: string) {
+    const location = locationOptions.find((option) => option.id === value) ?? null;
+    if (location) {
+      setLocationSearch(location.location_name);
+    }
+    updateState((current) => ({
+      ...current,
+      primary_location_id: value,
+      location_override_note: location ? "" : current.location_override_note
+    }));
+  }
+
   async function persist(target: "draft" | "publish") {
     if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
       setError(target === "publish" ? "You do not have permission to publish this job." : "You do not have permission to edit this job.");
@@ -385,42 +395,6 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       title: isGlobalJobIntake ? "Missing Info" : "Publish blockers",
       body: validationIssues.length ? <div className="shared-job-sidebar__kv">{validationIssues.map((issue) => <span key={`${issue.field}-${issue.message}`}>{issue.message}</span>)}</div> : <div className="shared-job-sidebar__muted">{isGlobalJobIntake ? "No required issue has been flagged yet." : "No current blockers."}</div>
     },
-    ...(isGlobalJobIntake
-      ? [
-          {
-            key: "review-state",
-            title: "Review State",
-            body: (
-              <div className="shared-job-sidebar__kv">
-                <span>{intakeManagementSummary.reviewState}</span>
-                <span>{intakeManagementSummary.reviewAction}</span>
-                <span>{intakeManagementSummary.launchAction}</span>
-              </div>
-            )
-          },
-          {
-            key: "assignment-rules",
-            title: "Assignment Rules",
-            body: (
-              <div className="shared-job-sidebar__kv">
-                <span>Department lead owns department-level work.</span>
-                <span>Specific people can be assigned when known.</span>
-                <span>Manual assignment stays visible when no person is selected.</span>
-              </div>
-            )
-          },
-          {
-            key: "canonical-first",
-            title: "Canonical First",
-            body: (
-              <div className="shared-job-sidebar__kv">
-                <span>Use Organization, Contact, and Location records when they exist.</span>
-                <span>Draft text is only for unresolved client details.</span>
-              </div>
-            )
-          }
-        ]
-      : []),
     {
       key: "live-summary",
       title: "Live summary",
@@ -470,6 +444,32 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                   : getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
+            <div className="filter-field filter-field--wide">
+              <SharedOrganizationPicker
+                departmentType={formState.department_type === "schools" ? "schools" : "sports"}
+                searchValue={organizationSearch}
+                onSearchChange={isGlobalJobIntake ? updateOrganizationSearch : setOrganizationSearch}
+                unresolvedValue=""
+                onUnresolvedChange={() => {}}
+                loading={false}
+                results={organizationResults}
+                selectedOrganization={selectedOrganization}
+                onSelectOrganization={(organization) => {
+                  setSelectedOrganization(organization);
+                  setOrganizationSearch(organization.display_name);
+                  updateState((current) => ({
+                    ...current,
+                    organization_id: organization.id
+                  }));
+                }}
+                required
+                errors={fieldErrors.organization_id}
+                helperText={isGlobalJobIntake ? "Choose an existing organization for this job." : "Schools and Sports both resolve through the same shared organization record."}
+                collapseResults={isGlobalJobIntake}
+                showUnresolvedField={!isGlobalJobIntake}
+                typeaheadOnly={isGlobalJobIntake}
+              />
+            </div>
             <label className="filter-field filter-field--wide">
               <span>{isGlobalJobIntake ? "Job Name" : adapter.labels.titleLabel}</span>
               <input
@@ -484,32 +484,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               />
               {fieldErrors.title ? <div className="shared-job-form__field-errors" role="alert">{fieldErrors.title.map((message) => <div key={message}>{message}</div>)}</div> : null}
             </label>
-          </div>
-          <div className="filter-field filter-field--wide">
-            <SharedOrganizationPicker
-              departmentType={formState.department_type === "schools" ? "schools" : "sports"}
-              searchValue={organizationSearch}
-              onSearchChange={isGlobalJobIntake ? updateOrganizationSearch : setOrganizationSearch}
-              unresolvedValue=""
-              onUnresolvedChange={() => {}}
-              loading={false}
-              results={organizationResults}
-              selectedOrganization={selectedOrganization}
-              onSelectOrganization={(organization) => {
-                setSelectedOrganization(organization);
-                setOrganizationSearch(organization.display_name);
-                updateState((current) => ({
-                  ...current,
-                  organization_id: organization.id
-                }));
-              }}
-              required
-              errors={fieldErrors.organization_id}
-              helperText={isGlobalJobIntake ? "Pick the client or organization this job belongs to." : "Schools and Sports both resolve through the same shared organization record."}
-              collapseResults={isGlobalJobIntake}
-              showUnresolvedField={!isGlobalJobIntake}
-              typeaheadOnly={isGlobalJobIntake}
-            />
+            {isGlobalJobIntake ? (
+              <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={visibleContactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={(value) => updateState((current) => ({ ...current, primary_contact_id: value }))} errors={fieldErrors.primary_contact_id} helperText="Choose the main contact if they are already in the directory." />
+            ) : null}
           </div>
           {!isGlobalJobIntake ? (
             <label className="filter-field filter-field--wide">
@@ -526,53 +503,14 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         </div>
       )
     },
-    ...(isGlobalJobIntake
-      ? [
-          {
-            key: "intake-review",
-            slot: "identity.after" as const,
-            title: "Review and Next Steps",
-            summary: "Review what Mission Control will prepare after the job basics are saved.",
-            fields: ["intake_review"],
-            body: (
-              <div className="shared-job-form__stack">
-                <div className="job-intake-next-steps" aria-label="Job setup next steps">
-                  <div>
-                    <span className="eyebrow">Current team</span>
-                    <strong>{routingPreview.currentDepartment}</strong>
-                    <p>{routingPreview.firstNextAction}</p>
-                  </div>
-                  <div>
-                    <span className="eyebrow">Current owner</span>
-                    <strong>{routingPreview.currentOwner}</strong>
-                    <p>Next team: {routingPreview.nextDepartment}</p>
-                  </div>
-                  <div>
-                    <span className="eyebrow">Waiting on</span>
-                    <strong>{routingPreview.waitingOn}</strong>
-                    <p>Due: {routingPreview.dueDateLabel}</p>
-                  </div>
-                </div>
-                <details className="job-intake-workflow-preview">
-                  <summary>What Mission Control will prepare</summary>
-                  <div className="shared-job-form__stack">
-                    <JobIntakeReadinessPanel summary={intakeManagementSummary} />
-                    <JobDepartmentTaskPlan preview={routingPreview} compact />
-                  </div>
-                </details>
-              </div>
-            )
-          }
-        ]
-      : []),
     {
       key: "schedule-location",
       slot: "schedule.after" as const,
-      title: isGlobalJobIntake ? "Date and Location" : "Schedule and Location",
+      title: isGlobalJobIntake ? "Schedule" : "Schedule and Location",
       summary: isGlobalJobIntake
-        ? "Capture the first known shoot date and where the team should go. Details can be refined later."
+        ? "Capture the date and time details the team needs before planning the job."
         : "Shared summary schedule, timezone, location, and day manager entry point.",
-      fields: ["scheduled_start_at", "scheduled_end_at", "timezone", "primary_location_id"],
+      fields: ["scheduled_start_at", "scheduled_end_at", "timezone"],
       body: (
         <div className="shared-job-form__stack">
           <div className="shared-job-calendar-readiness" aria-label="Calendar readiness">
@@ -590,24 +528,35 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             </div>
           </div>
           <div className="field-grid shared-job-form__grid">
-            <label className="filter-field"><span>Start date</span><input type="date" value={formState.scheduled_start_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_date: event.target.value }))} /></label>
-            <label className="filter-field"><span>Start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
+            <label className="filter-field"><span>{isGlobalJobIntake ? "Date" : "Start date"}</span><input type="date" value={formState.scheduled_start_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_date: event.target.value }))} /></label>
             {isGlobalJobIntake ? (
               <>
                 <label className="filter-field"><span>Alternate date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
+                <label className="filter-field"><span>Setup time</span><input type="time" value={formState.setup_time} onChange={(event) => updateState((current) => ({ ...current, setup_time: event.target.value }))} /></label>
+                <label className="filter-field"><span>Photography start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>Expected end time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
               </>
             ) : null}
             {!isGlobalJobIntake ? (
               <>
+                <label className="filter-field"><span>Start time</span><input type="time" value={formState.scheduled_start_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_start_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>End date</span><input type="date" value={formState.scheduled_end_date} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_date: event.target.value }))} /></label>
                 <label className="filter-field"><span>End time</span><input type="time" value={formState.scheduled_end_time} onChange={(event) => updateState((current) => ({ ...current, scheduled_end_time: event.target.value }))} /></label>
                 <label className="filter-field"><span>Timezone</span><input value={formState.timezone} onChange={(event) => updateState((current) => ({ ...current, timezone: event.target.value }))} /></label>
               </>
             ) : null}
-            <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={locationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={(value) => updateState((current) => ({ ...current, primary_location_id: value }))} errors={fieldErrors.primary_location_id} helperText="The shared job uses one primary location while job days can still vary." />
           </div>
         </div>
+      )
+    },
+    {
+      key: "location",
+      slot: "schedule.after" as const,
+      title: "Location",
+      summary: "Choose the place the team should go. Use existing locations when they are already in the directory.",
+      fields: ["primary_location_id"],
+      body: (
+        <SharedLocationPicker label="Primary location" searchValue={locationSearch} onSearchChange={setLocationSearch} unresolvedValue={formState.location_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, location_override_note: value }))} options={locationOptions} selectedLocationId={formState.primary_location_id} onSelectLocation={selectLocation} errors={fieldErrors.primary_location_id} helperText="Search and select an existing location, or leave a placeholder if the location is not resolved yet." />
       )
     },
     {
@@ -653,18 +602,48 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           {
             key: "operational-requirements",
             slot: "production.after" as const,
-            title: "Setup Details",
-            summary: "Capture setup, roster, team, equipment, and approval notes that affect the first handoff.",
-            fields: ["estimated_staff_count", "school_profile.roster_source", "school_profile.yearbook_required", "sports_profile.estimated_team_count"],
+            title: "Staffing",
+            summary: "Capture the people needed for the shoot before the job moves into planning.",
+            fields: ["estimated_staff_count", "assistant_staff_count", "school_profile.roster_source", "sports_profile.estimated_team_count"],
             body: (
               <div className="field-grid shared-job-form__grid">
-                <label className="filter-field"><span>Photographers estimated</span><input value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} inputMode="numeric" /></label>
+                <label className="filter-field"><span>Photographers needed</span><input value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} inputMode="numeric" /></label>
+                <label className="filter-field"><span>Assistants needed</span><input value={formState.assistant_staff_count} onChange={(event) => updateState((current) => ({ ...current, assistant_staff_count: event.target.value }))} inputMode="numeric" /></label>
                 <label className="filter-field"><span>Roster or team list source</span><input value={formState.department_type === "schools" ? formState.school_profile.roster_source : formState.sports_profile.league_name} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, roster_source: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, league_name: event.target.value } })} /></label>
                 <label className="filter-field"><span>Teams, classes, or groups</span><input value={formState.department_type === "sports" ? formState.sports_profile.estimated_team_count : formState.school_profile.grade_scope} onChange={(event) => updateState((current) => current.department_type === "sports" ? { ...current, sports_profile: { ...current.sports_profile, estimated_team_count: event.target.value } } : { ...current, school_profile: { ...current.school_profile, grade_scope: event.target.value } })} /></label>
-                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.school_profile.yearbook_required} onChange={(event) => updateState((current) => ({ ...current, school_profile: { ...current.school_profile, yearbook_required: event.target.checked } }))} /><span>Yearbook export needed</span></label>
-                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.school_profile.id_cards_required} onChange={(event) => updateState((current) => ({ ...current, school_profile: { ...current.school_profile, id_cards_required: event.target.checked } }))} /><span>ID cards needed</span></label>
-                <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.sports_profile.proof_required} onChange={(event) => updateState((current) => ({ ...current, sports_profile: { ...current.sports_profile, proof_required: event.target.checked } }))} /><span>Proof approval needed</span></label>
+                {activeIntakeType === "sports_picture_day" ? (
+                  <>
+                    <label className="filter-field"><span>Indoor / Outdoor</span><select value={formState.sports_setup.indoor_outdoor} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, indoor_outdoor: event.target.value } }))}><option value="">Choose setting</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="mixed">Mixed</option></select></label>
+                    <label className="filter-field"><span>Tethered / Untethered</span><select value={formState.sports_setup.tethering} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, tethering: event.target.value } }))}><option value="">Choose capture setup</option><option value="tethered">Tethered</option><option value="untethered">Untethered</option><option value="mixed">Mixed</option></select></label>
+                    <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.sports_setup.rain_location_required} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, rain_location_required: event.target.checked } }))} /><span>Rain location?</span></label>
+                    {formState.sports_setup.rain_location_required ? <label className="filter-field filter-field--wide"><span>Rain location details</span><input value={formState.sports_setup.rain_location_details} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, rain_location_details: event.target.value } }))} /></label> : null}
+                  </>
+                ) : null}
                 <label className="filter-field filter-field--wide"><span>Setup and equipment notes</span><textarea rows={3} value={formState.department_type === "schools" ? formState.school_profile.special_instructions : formState.sports_profile.client_expectations_notes} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, special_instructions: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, client_expectations_notes: event.target.value } })} /></label>
+              </div>
+            )
+          }
+        ]
+      : []),
+    ...(isGlobalJobIntake
+      ? [
+          {
+            key: "workflow-preparation",
+            slot: "production.after" as const,
+            title: "Mission Control Will Prepare",
+            summary: "A simple preview of the work package Mission Control will set up after intake.",
+            fields: ["workflow_preparation"],
+            body: (
+              <div className="shared-job-form__stack">
+                <div className="job-intake-workflow-preview">
+                  <strong>{routingPreview.workflowRouteLabel}</strong>
+                  <p>{routingPreview.workflowRouteHint}</p>
+                  <div className="shared-job-detail__kv">
+                    {routingPreview.workPackages.slice(0, 4).map((workPackage) => (
+                      <span key={workPackage.id}>{workPackage.name}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
             )
           }
@@ -695,7 +674,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     }
   ];
 
-  const visibleSharedSections = isGlobalJobIntake ? sharedSections.filter((section) => section.key !== "job-days") : sharedSections;
+  const visibleSharedSections = isGlobalJobIntake ? sharedSections.filter((section) => !["contacts-ownership", "job-days"].includes(section.key)) : sharedSections;
   const sections = groupSections(visibleSharedSections, visibleAdapterSections, validationIssues);
   const headerMeta: WorkspaceHeaderMeta[] = detail
     ? [

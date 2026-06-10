@@ -41,12 +41,14 @@ export type SharedJobFormState = {
   delivery_type: string;
   gallery_type: string;
   scheduled_start_date: string;
+  setup_time: string;
   scheduled_start_time: string;
   scheduled_end_date: string;
   scheduled_end_time: string;
   timezone: string;
   estimated_subject_count: string;
   estimated_staff_count: string;
+  assistant_staff_count: string;
   client_deadline_at: string;
   production_deadline_at: string;
   production_required: boolean;
@@ -85,6 +87,12 @@ export type SharedJobFormState = {
     buddy_photos_required: boolean;
     sponsor_graphics_required: boolean;
     client_expectations_notes: string;
+  };
+  sports_setup: {
+    indoor_outdoor: string;
+    tethering: string;
+    rain_location_required: boolean;
+    rain_location_details: string;
   };
   days: SharedJobFormDayState[];
 };
@@ -391,12 +399,14 @@ export function createBlankSharedJobFormState(departmentType: Extract<JobDepartm
     delivery_type: "",
     gallery_type: "",
     scheduled_start_date: "",
+    setup_time: "",
     scheduled_start_time: "",
     scheduled_end_date: "",
     scheduled_end_time: "",
     timezone: "America/Chicago",
     estimated_subject_count: "",
     estimated_staff_count: "",
+    assistant_staff_count: "",
     client_deadline_at: "",
     production_deadline_at: "",
     production_required: true,
@@ -435,6 +445,12 @@ export function createBlankSharedJobFormState(departmentType: Extract<JobDepartm
       buddy_photos_required: false,
       sponsor_graphics_required: false,
       client_expectations_notes: ""
+    },
+    sports_setup: {
+      indoor_outdoor: "",
+      tethering: "",
+      rain_location_required: false,
+      rain_location_details: ""
     },
     days: [blankFormDay()]
   };
@@ -571,12 +587,14 @@ function mapApiToSharedForm(apiRecord: SharedJobDetailResponse): SharedJobFormSt
     delivery_type: apiRecord.job.delivery_type ?? "",
     gallery_type: apiRecord.job.gallery_type ?? "",
     scheduled_start_date: start.date,
+    setup_time: "",
     scheduled_start_time: start.time,
     scheduled_end_date: end.date,
     scheduled_end_time: end.time,
     timezone: apiRecord.job.timezone,
     estimated_subject_count: apiRecord.job.estimated_subject_count != null ? String(apiRecord.job.estimated_subject_count) : "",
     estimated_staff_count: apiRecord.job.estimated_staff_count != null ? String(apiRecord.job.estimated_staff_count) : "",
+    assistant_staff_count: "",
     client_deadline_at: apiRecord.job.client_deadline_at ? apiRecord.job.client_deadline_at.slice(0, 10) : "",
     production_deadline_at: apiRecord.job.production_deadline_at ? apiRecord.job.production_deadline_at.slice(0, 10) : "",
     production_required: apiRecord.job.production_required,

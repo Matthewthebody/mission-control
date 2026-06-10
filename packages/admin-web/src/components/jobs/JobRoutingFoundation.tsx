@@ -912,12 +912,14 @@ export function buildJobIntakeManagementSummaryFromDetail(detail: SharedJobDetai
     delivery_type: detail.job.delivery_type ?? "",
     gallery_type: detail.job.gallery_type ?? "",
     scheduled_start_date: detail.summary.primary_day_date ?? detail.job.scheduled_start_at?.slice(0, 10) ?? "",
+    setup_time: "",
     scheduled_start_time: "",
     scheduled_end_date: "",
     scheduled_end_time: "",
     timezone: detail.job.timezone,
     estimated_subject_count: detail.job.estimated_subject_count != null ? String(detail.job.estimated_subject_count) : "",
     estimated_staff_count: detail.job.estimated_staff_count != null ? String(detail.job.estimated_staff_count) : "",
+    assistant_staff_count: "",
     client_deadline_at: detail.job.client_deadline_at?.slice(0, 10) ?? "",
     production_deadline_at: detail.job.production_deadline_at?.slice(0, 10) ?? "",
     production_required: detail.job.production_required,
@@ -956,6 +958,12 @@ export function buildJobIntakeManagementSummaryFromDetail(detail: SharedJobDetai
       buddy_photos_required: detail.sports_profile?.buddy_photos_required ?? false,
       sponsor_graphics_required: detail.sports_profile?.sponsor_graphics_required ?? false,
       client_expectations_notes: detail.sports_profile?.client_expectations_notes ?? ""
+    },
+    sports_setup: {
+      indoor_outdoor: "",
+      tethering: "",
+      rain_location_required: false,
+      rain_location_details: ""
     },
     days: []
   });

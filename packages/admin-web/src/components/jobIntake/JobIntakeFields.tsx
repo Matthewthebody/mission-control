@@ -322,7 +322,13 @@ export function OrganizationLookupField({
       : typeaheadOnly
         ? []
         : departmentResults;
-  const shouldShowTypeaheadResults = typeaheadOnly && query.length > 0 && filteredResults.length > 0;
+  const selectedQueryMatches =
+    selectedOrganization &&
+    [selectedOrganization.display_name, selectedOrganization.canonical_name, ...selectedOrganization.aliases]
+      .filter(Boolean)
+      .map((label) => label.trim().toLowerCase())
+      .includes(query);
+  const shouldShowTypeaheadResults = typeaheadOnly && query.length > 0 && filteredResults.length > 0 && !selectedQueryMatches;
   const shouldShowNoMatch = typeaheadOnly && query.length > 0 && !loading && filteredResults.length === 0 && !selectedOrganization;
 
   return (
@@ -347,7 +353,7 @@ export function OrganizationLookupField({
           ))}
         </div>
       ) : null}
-      {selectedOrganization ? (
+      {selectedOrganization && !typeaheadOnly ? (
         <div className="job-intake__selected-record">
           <strong>{selectedOrganization.display_name}</strong>
           <span>{selectedOrganization.account_type.replace(/_/g, " ")}</span>
@@ -434,7 +440,10 @@ export function LocationLookupField({
     ? options.filter((location) =>
         [location.location_name, location.address_display, location.notes].filter(Boolean).join(" ").toLowerCase().includes(query)
       )
-    : options;
+    : [];
+  const selectedLocation = options.find((location) => location.id === selectedLocationId) ?? null;
+  const selectedQueryMatches = selectedLocation ? selectedLocation.location_name.trim().toLowerCase() === query : false;
+  const shouldShowOptions = filteredOptions.length > 0 && !selectedQueryMatches;
 
   return (
     <div className="job-intake__lookup">
@@ -458,7 +467,7 @@ export function LocationLookupField({
           ))}
         </div>
       ) : null}
-      {filteredOptions.length ? (
+      {shouldShowOptions ? (
         <div className="job-intake__lookup-results" role="list">
           {filteredOptions.slice(0, 6).map((location) => (
             <LookupOptionButton
@@ -471,7 +480,7 @@ export function LocationLookupField({
             />
           ))}
         </div>
-      ) : (
+      ) : selectedQueryMatches ? null : (
         <div className="job-intake__helper">Select an organization to load locations, or keep a draft placeholder.</div>
       )}
       <label className="filter-field filter-field--wide">

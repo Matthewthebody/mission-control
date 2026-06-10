@@ -241,6 +241,34 @@ const sportsOrganization = {
   aliases: ["Metro Athletics"]
 };
 
+const schoolLocation = {
+  id: "loc-school",
+  organization_id: "org-school",
+  location_name: "North High Main Gym",
+  address_line_1: "100 North High Rd",
+  address_line_2: null,
+  city: "Milwaukee",
+  state: "WI",
+  zip: "53202",
+  address_display: "100 North High Rd, Milwaukee, WI 53202",
+  maps_label: null,
+  maps_url: null,
+  active_status: "active",
+  contact_links: [],
+  notes: "Use activities entrance.",
+  created_at: "2026-04-01T12:00:00.000Z",
+  updated_at: "2026-04-01T12:00:00.000Z"
+};
+
+const sportsLocation = {
+  ...schoolLocation,
+  id: "loc-sports",
+  organization_id: "org-sports",
+  location_name: "Metro Field House",
+  address_display: "200 Stadium Way, Milwaukee, WI 53202",
+  notes: "Load in at south doors."
+};
+
 function buildJobListItem(overrides: Record<string, unknown>) {
   return {
     id: "job-1",
@@ -2018,7 +2046,7 @@ beforeEach(() => {
 
     listDirectoryOwnerOptionsMock.mockResolvedValue(ownerOptions);
     listOrganizationsMock.mockResolvedValue({ organizations: [schoolOrganization, sportsOrganization] });
-    listDirectoryLocationsMock.mockResolvedValue({ locations: [] });
+    listDirectoryLocationsMock.mockResolvedValue({ locations: [schoolLocation, sportsLocation] });
     listDirectoryContactsMock.mockResolvedValue({ contacts: [] });
     listRecordResourcesMock.mockResolvedValue({
       object: { object_type: "job", object_id: "job-1", label: "Job" },
@@ -2401,7 +2429,7 @@ beforeEach(() => {
     expect(screen.getAllByText("Proof-required sports jobs need an approval owner.").length).toBeGreaterThan(0);
   });
 
-  it("renders the global New Job Intake route with routing foundation fields", async () => {
+  it("renders the global New Job Intake route with clean V2 intake fields", async () => {
     window.location.hash = "#jobs/new";
     const { container } = render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
 
@@ -2418,18 +2446,17 @@ beforeEach(() => {
     expect(screen.queryByRole("heading", { name: "What happens after submit" })).not.toBeInTheDocument();
     expect(screen.queryByText("Handoff Plan")).not.toBeInTheDocument();
     expect(screen.queryByText("Ownership")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Current team").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Current team")).not.toBeInTheDocument();
+    expect(screen.queryByText("Current intake")).not.toBeInTheDocument();
+    expect(screen.queryByText("Current owner")).not.toBeInTheDocument();
+    expect(screen.queryByText("Waiting on")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Work Packages")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Team List Confirmation").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Team Photo Schedule").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Product and Proof Prep").length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Intake readiness")).toBeInTheDocument();
-    expect(screen.getAllByText("Review and Next Steps").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Department Handoff Plan").length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText("Intake readiness")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review and Next Steps")).not.toBeInTheDocument();
+    expect(screen.queryByText("Department Handoff Plan")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Notification Signals")).not.toBeInTheDocument();
     expect(screen.queryByText("Assignment Needed")).not.toBeInTheDocument();
-    expect(screen.getByText("What Mission Control will prepare")).toBeInTheDocument();
-    expect(screen.getByLabelText("Job setup next steps")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mission Control Will Prepare" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Work area")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Job type")).toBeInTheDocument();
     const jobTypeSelect = getControlWithinLabel("Job type", "select");
@@ -2448,11 +2475,17 @@ beforeEach(() => {
 
     expect(screen.getByLabelText("Job Name")).toBeInTheDocument();
     expect(screen.queryByLabelText("Event Name")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Date and Location" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Schedule" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toBeInTheDocument();
+    expect(screen.getByLabelText("Alternate date")).toBeInTheDocument();
+    expect(screen.getByLabelText("Setup time")).toBeInTheDocument();
+    expect(screen.getByLabelText("Photography start time")).toBeInTheDocument();
+    expect(screen.getByLabelText("Expected end time")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Location" })).toBeInTheDocument();
     expect(screen.getByLabelText("Calendar readiness")).toBeInTheDocument();
     expect(screen.getAllByText("Needs date").length).toBeGreaterThan(0);
     expect(screen.getByText(/Next: Set the requested shoot date\./)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Organization and Contact" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Organization and Contact" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Starting team")).not.toBeInTheDocument();
     expect(screen.queryByText("Unresolved organization placeholder")).not.toBeInTheDocument();
     expect(screen.queryByText("Organization not selected yet")).not.toBeInTheDocument();
@@ -2464,15 +2497,24 @@ beforeEach(() => {
     expect(await screen.findByText("No matching organization found. Choose an existing organization for now.")).toBeInTheDocument();
     expect(screen.queryByText(/^\d+ matching organization/)).not.toBeInTheDocument();
     fireEvent.change(organizationInput, { target: { value: "North" } });
-    expect(await screen.findByRole("button", { name: /North High/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i })).toBeInTheDocument();
     expect(screen.queryByText("No matching organization found. Choose an existing organization for now.")).not.toBeInTheDocument();
-    expect(getControlWithinLabel("Current owner", "select")).toBeInTheDocument();
-    expect(getControlWithinLabel("Priority", "select")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    expect(organizationInput).toHaveValue("North High");
+    expect(screen.queryByRole("button", { name: /North High.*3 contacts.*2 locations/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("schools underclass portraits")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Search organization locations"), { target: { value: "Gym" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
+    expect(screen.getByPlaceholderText("Search organization locations")).toHaveValue("North High Main Gym");
     expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Setup Details" })).toBeInTheDocument();
-    expect(getControlWithinLabel("Photographers estimated", "input")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staffing" })).toBeInTheDocument();
+    expect(getControlWithinLabel("Photographers needed", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("Assistants needed", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Roster or team list source", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Teams, classes, or groups", "input")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Indoor / Outdoor")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Tethered / Untethered")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Rain location?")).not.toBeInTheDocument();
     expect(getControlWithinLabel("Expected volume", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Products and services", "select")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
@@ -2491,25 +2533,34 @@ beforeEach(() => {
     expect(screen.queryByText("Requested products/services")).not.toBeInTheDocument();
 
     const routeExpectations = [
-      { value: "school_picture_day", route: "School Picture Day route", department: "Schools" },
-      { value: "retake_day", route: "Retake Day route", department: "Schools" },
-      { value: "sports_picture_day", route: "Sports Picture Day route", department: "Sports" },
-      { value: "graduation", route: "Graduation route", department: "Schools" },
-      { value: "cap_and_gown", route: "Cap & Gown route", department: "Schools" },
-      { value: "yearbook", route: "Yearbook route", department: "Schools" },
-      { value: "event", route: "Event route", department: "Client Success" },
-      { value: "specialty", route: "In-Studio Work route", department: "Client Success" },
-      { value: "other", route: "Custom Event route", department: "Client Success" }
+      { value: "school_picture_day", route: "School Picture Day route" },
+      { value: "retake_day", route: "Retake Day route" },
+      { value: "sports_picture_day", route: "Sports Picture Day route" },
+      { value: "graduation", route: "Graduation route" },
+      { value: "cap_and_gown", route: "Cap & Gown route" },
+      { value: "yearbook", route: "Yearbook route" },
+      { value: "event", route: "Event route" },
+      { value: "specialty", route: "In-Studio Work route" },
+      { value: "other", route: "Custom Event route" }
     ];
 
     for (const expectation of routeExpectations) {
       fireEvent.change(jobTypeSelect, { target: { value: expectation.value } });
       expect(jobTypeSelect).toHaveValue(expectation.value);
       await waitFor(() => expect(screen.getAllByText(expectation.route).length).toBeGreaterThan(0));
-      await waitFor(() => expect(screen.getAllByText(expectation.department).length).toBeGreaterThan(0));
     }
 
+    fireEvent.change(jobTypeSelect, { target: { value: "school_picture_day" } });
+    fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "North High Picture Day" } });
+    expect(screen.getByLabelText("Job Name")).toHaveValue("North High Picture Day");
     fireEvent.change(jobTypeSelect, { target: { value: "sports_picture_day" } });
+    fireEvent.change(screen.getByLabelText("Job Name"), { target: { value: "Metro Football Photo Day" } });
+    expect(screen.getByLabelText("Job Name")).toHaveValue("Metro Football Photo Day");
+    expect(screen.getByLabelText("Indoor / Outdoor")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tethered / Untethered")).toBeInTheDocument();
+    expect(screen.getByLabelText("Rain location?")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Rain location?"));
+    expect(screen.getByLabelText("Rain location details")).toBeInTheDocument();
     await waitFor(() => expect(getControlWithinLabel("Products and services", "select")).toHaveValue("mixed"));
   });
 
@@ -2524,7 +2575,8 @@ beforeEach(() => {
     fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "Athletics" } });
     fireEvent.click(await screen.findByRole("button", { name: /Metro Football Club/i }));
 
-    expect(screen.getByText("sports")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search canonical organizations")).toHaveValue("Metro Football Club");
+    expect(screen.queryByRole("button", { name: /Metro Football Club/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
 
     await waitFor(() => expect(createSharedJobDraftMock).toHaveBeenCalled());
@@ -2537,7 +2589,7 @@ beforeEach(() => {
     render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType="schools" routeBase="#schools/jobs" mode="create" />);
 
     fireEvent.change(await screen.findByPlaceholderText("Search canonical organizations"), { target: { value: "North" } });
-    fireEvent.click(await screen.findByRole("button", { name: /North High/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
     fireEvent.change(screen.getByLabelText("Job title"), { target: { value: "North High Fall Picture Day" } });
     fireEvent.change(screen.getByLabelText("School type"), { target: { value: "high_school" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
