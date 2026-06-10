@@ -3,10 +3,6 @@ import { ApiClientError } from "../api";
 import { DepartmentHubPattern, type DepartmentHubCard } from "../components/department/DepartmentHubPattern";
 import { DepartmentJobSpinePanel } from "../components/jobs/DepartmentJobSpinePanel";
 import { buildSharedJobHash } from "../components/jobs/sharedJobRouting";
-import { JobIntakeLauncherCard } from "../components/jobIntake/JobIntakeLauncherCard";
-import { QuickCreateJobDrawer } from "../components/jobIntake/QuickCreateJobDrawer";
-import { ResumeDraftsDrawer } from "../components/jobIntake/ResumeDraftsDrawer";
-import { SmartPasteJobDrawer } from "../components/jobIntake/SmartPasteJobDrawer";
 import { DepartmentDashboardPanel } from "../components/jobs/SharedJobCommandCenter";
 import { TodayOperationsBoard } from "../components/jobs/SharedJobOperations";
 import { DepartmentProductionOverviewPanel } from "../components/jobs/SharedJobProduction";
@@ -21,13 +17,11 @@ import {
   useHashRouteSnapshot
 } from "../components/sports/SportsPrimitives";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
-import { CreateWorkLauncherPanel } from "../components/workspace/CreateWorkLauncherPanel";
 import { CompactActiveWorkPanel } from "../components/workspace/CompactActiveWorkPanel";
 import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { WorkspacePageHeader } from "../components/workspace/WorkspacePageHeader";
 import { WorkspaceSectionHeader } from "../components/workspace/WorkspaceSectionHeader";
-import { featureFlags } from "../featureFlags";
 import type {
   SharedDashboardResponse,
   SharedExceptionListItem,
@@ -435,10 +429,6 @@ export function SportsOverview({ token, currentUser }: Props) {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<SourceErrors>(EMPTY_ERRORS);
   const [search, setSearch] = useState("");
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
-  const [smartPasteOpen, setSmartPasteOpen] = useState(false);
-  const [resumeDraftsOpen, setResumeDraftsOpen] = useState(false);
-  const [resumeDraftId, setResumeDraftId] = useState<string | null>(null);
 
   const savedView = params.get("saved_view");
   const canCreate = canCreateShootRecords(currentUser);
@@ -655,31 +645,21 @@ export function SportsOverview({ token, currentUser }: Props) {
 
   return (
     <section className="sports-workspace">
-      <WorkspacePageHeader
-        eyebrow="Sports"
-        title="Sports"
-        summary="Track sports jobs, team and individual photo coverage, staffing needs, and gallery releases."
-        meta={[
-          { label: overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Sports board", tone: "info" },
-          { label: accessScope === "own" ? "Own-scope view" : "Department view", tone: accessScope === "own" ? "warning" : "success" }
-        ]}
-        actions={
-          <WorkspaceActionBar align="end">
-            <button type="button" onClick={() => (window.location.hash = "#sports/jobs/new")} disabled={!canCreate}>
-              New Sports Job
-            </button>
-            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/jobs/import")} disabled={!canCreate}>
-              Import Sports Jobs
-            </button>
-            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/exceptions")}>
-              Review blockers
-            </button>
-            <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#project-tracking")}>
-              Open Project Tracking
-            </button>
-          </WorkspaceActionBar>
-        }
-      />
+      <section className="panel">
+        <WorkspaceSectionHeader
+          title="Department Brief"
+          summary="Sports jobs, team and league readiness, event-day coverage, proof work, and client follow-up that need Josh's team to move work forward."
+          badge={
+            <span className="workspace-page-header__meta">
+              <span className="workspace-page-header__meta-pill workspace-page-header__meta-pill--info">{overview ? `${overview.anchor_start} to ${overview.anchor_end}` : "Sports window"}</span>
+              <span className={`workspace-page-header__meta-pill workspace-page-header__meta-pill--${accessScope === "own" ? "warning" : "success"}`}>
+                {accessScope === "own" ? "My sports work" : "Department view"}
+              </span>
+            </span>
+          }
+          compact
+        />
+      </section>
 
       <DepartmentHubPattern
         department="Sports"
@@ -809,11 +789,11 @@ export function SportsOverview({ token, currentUser }: Props) {
                     Open work
                   </button>
                   <button type="button" onClick={() => (window.location.hash = "#project-tracking")}>
-                    Open Project Tracking
+                    Project status
                   </button>
                   {(row.riskTone === "danger" || row.riskTone === "warning" || row.exceptionCount > 0) ? (
                     <button type="button" onClick={() => (window.location.hash = row.exceptionsHash ?? "#sports/exceptions")}>
-                      Open Exceptions
+                      Missing info
                     </button>
                   ) : null}
                   {row.accountHash ? (
@@ -824,11 +804,6 @@ export function SportsOverview({ token, currentUser }: Props) {
                   {row.productionHash ? (
                     <button type="button" onClick={() => (window.location.hash = row.productionHash ?? "#sports/graphics")}>
                       Production
-                    </button>
-                  ) : null}
-                  {row.exceptionsHash ? (
-                    <button type="button" onClick={() => (window.location.hash = row.exceptionsHash ?? "#sports/exceptions")}>
-                      Exceptions
                     </button>
                   ) : null}
                 </div>
@@ -898,93 +873,21 @@ export function SportsOverview({ token, currentUser }: Props) {
         emptyStateLabel="No active Sports workflow steps"
       />
 
-      {featureFlags.centralJobIntakeV1 ? (
-        <>
-          <CreateWorkLauncherPanel
-            className="sports-workspace__create-panel"
-            eyebrow="Sports Create"
-            title="Start sports work"
-            summary="Sports jobs and events create the real workload. Sports tasks and graphics work stay attached to the same sports record."
-            jobAction={{
-              label: "New Sports Job / Event",
-              summary: "Create the sports job that should flow into scheduling, staffing, proofs, specialty products, and shared graphics workflow.",
-              hash: "#sports/jobs/new"
-            }}
-            taskAction={{
-              label: "New Sports Task",
-              summary: "Create a sports-owned internal execution item for follow-through, proofs, specialty product steps, or client action items.",
-              hash: "#tasks/new?department=sports"
-            }}
-          />
-          <JobIntakeLauncherCard
-            department="sports"
-            contextLabel="Sports"
-            canCreate={canCreate}
-            onQuickCreate={() => setQuickCreateOpen(true)}
-            onSmartPaste={() => setSmartPasteOpen(true)}
-            onImportFile={() => {
-              window.location.hash = "#sports/jobs/import";
-            }}
-            onResumeDrafts={() => setResumeDraftsOpen(true)}
-          />
-          <ResumeDraftsDrawer
-            open={resumeDraftsOpen}
-            token={token}
-            department="sports"
-            launchLabel="Sports mission control"
-            onClose={() => setResumeDraftsOpen(false)}
-            onResumeDraft={(draftId) => {
-              setResumeDraftsOpen(false);
-              setResumeDraftId(draftId);
-              setQuickCreateOpen(true);
-            }}
-          />
-          <QuickCreateJobDrawer
-            open={quickCreateOpen}
-            token={token}
-            currentUser={currentUser}
-            defaultDepartment="sports"
-            launchLabel="Sports mission control"
-            resumeDraftId={resumeDraftId}
-            onClose={() => {
-              setQuickCreateOpen(false);
-              setResumeDraftId(null);
-            }}
-            onPublished={(jobId) => {
-              setQuickCreateOpen(false);
-              setResumeDraftId(null);
-              window.location.hash = `#sports/jobs/${jobId}`;
-            }}
-          />
-          <SmartPasteJobDrawer
-            open={smartPasteOpen}
-            token={token}
-            currentUser={currentUser}
-            defaultDepartment="sports"
-            launchLabel="Sports mission control"
-            onClose={() => setSmartPasteOpen(false)}
-            onPublished={(jobId) => {
-              setSmartPasteOpen(false);
-              window.location.hash = `#sports/jobs/${jobId}`;
-            }}
-          />
-          <TodayOperationsBoard
-            token={token}
-            currentUser={currentUser}
-            departmentType="sports"
-            routeBase="#sports/jobs"
-            title="Today Sports Operations"
-            summary="Live sports execution board for readiness drift, staffing volatility, lead-ready confirmations, and active day-of exceptions."
-          />
-          <DepartmentProductionOverviewPanel
-            token={token}
-            departmentType="sports"
-            title="Sports Graphics Workflow"
-            summary="Live graphics and downstream workflow pressure across proofs, approvals, QA, specialty products, blocked work, and delivery."
-            routeHash="#sports/graphics"
-          />
-        </>
-      ) : null}
+      <TodayOperationsBoard
+        token={token}
+        currentUser={currentUser}
+        departmentType="sports"
+        routeBase="#sports/jobs"
+        title="Today Sports Operations"
+        summary="Live sports execution board for readiness drift, staffing volatility, lead-ready confirmations, and active day-of exceptions."
+      />
+      <DepartmentProductionOverviewPanel
+        token={token}
+        departmentType="sports"
+        title="Sports Graphics Workflow"
+        summary="Live graphics and downstream workflow pressure across proofs, approvals, QA, specialty products, blocked work, and delivery."
+        routeHash="#sports/graphics"
+      />
 
       {allErrors.length ? <div className="error-banner">{allErrors.join(" ")}</div> : null}
 

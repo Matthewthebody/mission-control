@@ -13,7 +13,7 @@ import { WorkspacePageHeader } from "../components/workspace/WorkspacePageHeader
 import { WorkspaceSectionHeader } from "../components/workspace/WorkspaceSectionHeader";
 import { featureFlags } from "../featureFlags";
 import type { SharedDashboardResponse, SharedExceptionListItem, SharedJobListItem } from "../jobTruthTypes";
-import { canCreateShootRecords, canReadNotifications, getSchoolsHubAccessScope } from "../permissions";
+import { canCreateShootRecords, getSchoolsHubAccessScope } from "../permissions";
 import type { SchoolWorkItemRecord, SchoolsHubWorkspaceResponse } from "../schoolsHubTypes";
 import { getSharedDashboard, listSharedExceptions, listSharedJobs } from "../services/jobsApi";
 import { getProjectWorkflowCommandCenter } from "../services/projectTracking";
@@ -1345,29 +1345,17 @@ export function SchoolsHub({ token, currentUser }: Props) {
 
   return (
     <section className="schools-department">
-      <WorkspacePageHeader
-        title="Schools"
-        summary={
-          accessScope === "own"
-            ? "Your assigned school picture days, gallery releases, retakes, missing data, and client follow-up."
-            : "Manage school picture days, gallery releases, retakes, missing data, and client follow-up."
-        }
-        actions={
-          <WorkspaceActionBar align="end" compact>
-            <button type="button" className="secondary-button" onClick={() => navigateToUtility("#my-schedule")}>
-              My Schedule
-            </button>
-            <button type="button" className="secondary-button" onClick={() => navigateToUtility("#search")}>
-              Search
-            </button>
-            {canReadNotifications(currentUser) ? (
-              <button type="button" className="secondary-button" onClick={() => navigateToUtility("#notifications")}>
-                Notifications
-              </button>
-            ) : null}
-          </WorkspaceActionBar>
-        }
-      />
+      <section className="panel">
+        <WorkspaceSectionHeader
+          title="Department Brief"
+          summary={
+            accessScope === "own"
+              ? "Your assigned school picture days, gallery releases, retakes, missing data, and client follow-up."
+              : "School picture days, gallery releases, retakes, missing data, and client follow-up that need Jessica's team to move work forward."
+          }
+          compact
+        />
+      </section>
 
       <DepartmentHubPattern
         department="Schools"
@@ -1588,9 +1576,6 @@ export function SchoolsHub({ token, currentUser }: Props) {
                     </button>
                     <button type="button" className="secondary-button" onClick={() => setResumeDraftsOpen(true)}>
                       Resume Drafts
-                    </button>
-                    <button type="button" className="secondary-button" onClick={() => navigateToUtility("#schools/import")}>
-                      Import Jobs
                     </button>
                   </WorkspaceActionBar>
                 ) : null

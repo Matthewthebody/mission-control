@@ -10902,6 +10902,18 @@ html[data-theme="light"] .communications-launcher__panel {
   gap: 16px;
 }
 
+.schools-department,
+.sports-workspace,
+.schools-department > *,
+.sports-workspace > *,
+.schools-department .department-hub-pattern,
+.sports-workspace .department-hub-pattern,
+.schools-department .department-hub-pattern > *,
+.sports-workspace .department-hub-pattern > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .schools-department__scope-note {
   margin: 0;
 }
@@ -11494,6 +11506,14 @@ html[data-theme="light"] .communications-launcher__panel {
 .schools-department__work-panel {
   display: grid;
   gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.schools-department__work-panel > *,
+.schools-department__filter-grid,
+.schools-department .dashboard-stack {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .schools-department__filter-grid {
@@ -11562,7 +11582,10 @@ html[data-theme="light"] .communications-launcher__panel {
 
   .schools-dashboard-v1__kpis,
   .schools-dashboard-v1__issue-strip,
-  .schools-dashboard-v1__id-list--inline {
+  .schools-dashboard-v1__id-list--inline,
+  .schools-department__filter-grid,
+  .sports-operating-board__kpis,
+  .sports-operating-board__signals {
     grid-template-columns: 1fr;
   }
 

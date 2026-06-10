@@ -50,6 +50,14 @@ vi.mock("../components/jobs/SharedJobCommandCenter", () => ({
   DepartmentDashboardPanel: () => <div>Mock Sports Command Layer</div>
 }));
 
+vi.mock("../components/jobs/SharedJobOperations", () => ({
+  TodayOperationsBoard: ({ title }: { title: string }) => <div>{title}</div>
+}));
+
+vi.mock("../components/jobs/SharedJobProduction", () => ({
+  DepartmentProductionOverviewPanel: ({ title }: { title: string }) => <div>{title}</div>
+}));
+
 vi.mock("../components/workspace/CompactActiveWorkPanel", () => ({
   CompactActiveWorkPanel: () => <div>Mock Sports Active Work</div>
 }));
@@ -380,8 +388,14 @@ describe("SportsOverview", () => {
   it("renders Sports as a department workspace with project and blocker links", async () => {
     render(<SportsOverview token="token" currentUser={baseUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Sports" })).toBeInTheDocument();
-    expect(screen.getByText("Track sports jobs, team and individual photo coverage, staffing needs, and gallery releases.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Department Brief" })).toBeInTheDocument();
+    expect(screen.getByText("Sports jobs, team and league readiness, event-day coverage, proof work, and client follow-up that need Josh's team to move work forward.")).toBeInTheDocument();
+    expect(screen.queryAllByRole("heading", { name: "Sports" })).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "New Sports Job" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import Sports Jobs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review blockers" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Sports Create")).not.toBeInTheDocument();
+    expect(screen.queryByText("New Job Intake")).not.toBeInTheDocument();
     expect(screen.getByText("Open First")).toBeInTheDocument();
     expect(screen.getByText("Attention Needed")).toBeInTheDocument();
     expect(screen.getByText("This Week's Work")).toBeInTheDocument();
@@ -414,8 +428,8 @@ describe("SportsOverview", () => {
     expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Client/info").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open work" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open Project Tracking" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open Exceptions" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Project status" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Missing info" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Account" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Production" }).length).toBeGreaterThan(0);
@@ -435,11 +449,11 @@ describe("SportsOverview", () => {
     expect(screen.queryByText(/operating contract/i)).not.toBeInTheDocument();
   });
 
-  it("routes the main Sports create and account actions to existing safe pages", async () => {
+  it("routes the main Sports work actions to existing safe pages", async () => {
     render(<SportsOverview token="token" currentUser={baseUser} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "New Sports Job" }));
-    expect(window.location.hash).toBe("#sports/jobs/new");
+    fireEvent.click((await screen.findAllByRole("button", { name: "Project status" }))[0]);
+    expect(window.location.hash).toBe("#project-tracking");
 
     fireEvent.click(screen.getAllByRole("button", { name: "Account" })[0]);
     expect(window.location.hash).toBe("#sports/accounts?organization=org-1");

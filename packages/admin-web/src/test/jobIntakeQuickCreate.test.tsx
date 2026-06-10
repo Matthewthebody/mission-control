@@ -821,9 +821,18 @@ describe("central job intake quick create", () => {
     expect(await scope.findByText(/saved as a draft/i)).toBeInTheDocument();
   });
 
-  it("saves a sports draft from the sports-facing entry point", async () => {
-    renderSportsPage();
-    const dialog = await openQuickCreate("Quick Create");
+  it("saves a sports draft from the shared intake drawer", async () => {
+    render(
+      <QuickCreateJobDrawer
+        open
+        token="token-demo"
+        currentUser={{ ...baseUser, department: "sports" }}
+        defaultDepartment="sports"
+        launchLabel="Sports intake"
+        onClose={vi.fn()}
+      />
+    );
+    const dialog = screen.getByRole("dialog");
 
     fireEvent.change(getLabeledControl<HTMLInputElement>(dialog, "Organization not selected yet", "input"), { target: { value: "Metro Athletics" } });
     fireEvent.change(getLabeledControl<HTMLSelectElement>(dialog, "Sports Job Type", "select"), { target: { value: "media_day" } });
@@ -1040,19 +1049,20 @@ describe("central job intake quick create", () => {
     expect(await scope.findByText("Organization defaults loaded for Metro Athletics.")).toBeInTheDocument();
   });
 
-  it("routes the Schools intake card into the bulk import workspace", async () => {
+  it("does not expose bulk import shortcuts from the Schools hub", async () => {
     renderSchoolsPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Import Jobs" }));
+    await screen.findByRole("heading", { name: "Department Brief" });
 
-    expect(window.location.hash).toBe("#schools/import");
+    expect(screen.queryByRole("button", { name: "Import Jobs" })).not.toBeInTheDocument();
   });
 
-  it("routes the sports intake card into the bulk import workspace", async () => {
+  it("does not expose bulk import shortcuts from the Sports hub", async () => {
     renderSportsPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Import Sports Jobs" }));
+    await screen.findByRole("heading", { name: "Department Brief" });
 
-    expect(window.location.hash).toBe("#sports/jobs/import");
+    expect(screen.queryByRole("button", { name: "Import Sports Jobs" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Import File")).not.toBeInTheDocument();
   });
 });

@@ -500,8 +500,13 @@ describe("SchoolsHub", () => {
   it("renders Schools as a department workspace with project and blocker links", async () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Schools" })).toBeInTheDocument();
-    expect(screen.getByText("Manage school picture days, gallery releases, retakes, missing data, and client follow-up.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Department Brief" })).toBeInTheDocument();
+    expect(screen.getByText("School picture days, gallery releases, retakes, missing data, and client follow-up that need Jessica's team to move work forward.")).toBeInTheDocument();
+    expect(screen.queryAllByRole("heading", { name: "Schools" })).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Notifications" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import Jobs" })).not.toBeInTheDocument();
     expect(screen.getByText("Open First")).toBeInTheDocument();
     expect(screen.getByText("Attention Needed")).toBeInTheDocument();
     expect(screen.getByText("This Week's Work")).toBeInTheDocument();
@@ -580,7 +585,7 @@ describe("SchoolsHub", () => {
     expect(window.location.hash).toBe("#project-tracking/workflows/workflow-school-1");
   });
 
-  it("shows the direct dashboard language and quick access a schools user needs", async () => {
+  it("shows direct dashboard language without old quick access clutter", async () => {
     render(<SchoolsHub token="token" currentUser={baseUser} />);
 
     expect(await screen.findByText("Next action")).toBeInTheDocument();
@@ -588,9 +593,9 @@ describe("SchoolsHub", () => {
     expect(screen.getByText("Blocker / review")).toBeInTheDocument();
     expect(screen.getByText("Open next")).toBeInTheDocument();
     expect(screen.queryByText("Queue")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Schedule" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Notifications" })).not.toBeInTheDocument();
   });
 
   it("opens directly into the exceptions view when routed there", async () => {
