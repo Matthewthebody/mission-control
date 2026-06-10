@@ -554,6 +554,8 @@ export function ContactLookupField({
         [contact.full_name, contact.title, contact.phone, contact.email].filter(Boolean).join(" ").toLowerCase().includes(query)
       )
     : options;
+  const selectedContact = options.find((contact) => contact.id === selectedContactId) ?? null;
+  const selectedQueryMatches = selectedContact ? selectedContact.full_name.trim().toLowerCase() === query : false;
 
   return (
     <div className="job-intake__lookup">
@@ -572,7 +574,7 @@ export function ContactLookupField({
           ))}
         </div>
       ) : null}
-      {filteredOptions.length ? (
+      {filteredOptions.length && !selectedQueryMatches ? (
         <div className="job-intake__lookup-results" role="list">
           {filteredOptions.slice(0, 6).map((contact) => (
             <LookupOptionButton
@@ -585,6 +587,8 @@ export function ContactLookupField({
             />
           ))}
         </div>
+      ) : selectedQueryMatches ? null : query ? (
+        <div className="job-intake__helper">This does not match a saved contact yet. Add a placeholder only until Directory is updated.</div>
       ) : (
         <div className="job-intake__helper">Select an organization to load contacts, or keep a draft placeholder.</div>
       )}

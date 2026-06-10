@@ -19,7 +19,6 @@ import {
 } from "../components/jobs/DepartmentJobAdapterUIRegistry";
 import { JobDayManager } from "../components/jobs/JobDayManager";
 import {
-  JOB_INTAKE_TYPE_OPTIONS,
   applyJobIntakeType,
   buildRoutingPreviewFromForm,
   getJobIntakeTypeOption,
@@ -47,22 +46,123 @@ type Props = {
   mode: "create" | "edit";
 };
 
-const GLOBAL_JOB_INTAKE_TYPE_IDS: JobIntakeTypeId[] = [
-  "school_picture_day",
-  "sports_picture_day",
-  "graduation",
-  "retake_day",
-  "yearbook",
-  "cap_and_gown",
-  "specialty",
-  "event",
-  "other"
-];
-
 const JOB_CREATE_RESTRICTED_MESSAGE =
   "You do not have permission to create new jobs. Ask a department director or Mission Control admin to start a job package.";
 
 const SCHOOL_HIERARCHY_INTAKE_TYPES: JobIntakeTypeId[] = ["school_picture_day", "retake_day", "yearbook", "cap_and_gown"];
+type IntakeWorkAreaId = "school_pictures" | "sports_pictures" | "event_pictures" | "studio_work" | "other";
+type IntakeShootTypeId =
+  | "open_house_day"
+  | "picture_day"
+  | "retake_day"
+  | "yearbook"
+  | "cap_and_gown"
+  | "sports_picture_day"
+  | "media_day"
+  | "team_individual"
+  | "tournament_event"
+  | "other_sports"
+  | "graduation"
+  | "commencement"
+  | "ceremony"
+  | "school_event"
+  | "other_event"
+  | "studio_portraits"
+  | "staff_headshots"
+  | "product_specialty"
+  | "other_studio"
+  | "other";
+
+type IntakeShootTypeOption = {
+  id: IntakeShootTypeId;
+  label: string;
+  internalType: JobIntakeTypeId;
+  workflowLabel?: string;
+};
+
+const INTAKE_WORK_AREA_OPTIONS: Array<{ id: IntakeWorkAreaId; label: string }> = [
+  { id: "school_pictures", label: "School Pictures" },
+  { id: "sports_pictures", label: "Sports Pictures" },
+  { id: "event_pictures", label: "Event Pictures" },
+  { id: "studio_work", label: "In-Studio Work" },
+  { id: "other", label: "Other" }
+];
+
+const INTAKE_SHOOT_TYPE_OPTIONS: Record<IntakeWorkAreaId, IntakeShootTypeOption[]> = {
+  school_pictures: [
+    { id: "open_house_day", label: "Open House Day", internalType: "school_picture_day", workflowLabel: "Open House Day" },
+    { id: "picture_day", label: "Picture Day", internalType: "school_picture_day", workflowLabel: "School Picture Day" },
+    { id: "retake_day", label: "Retake Day", internalType: "retake_day" },
+    { id: "yearbook", label: "Yearbook", internalType: "yearbook" },
+    { id: "cap_and_gown", label: "Cap & Gown", internalType: "cap_and_gown" }
+  ],
+  sports_pictures: [
+    { id: "sports_picture_day", label: "Sports Picture Day", internalType: "sports_picture_day" },
+    { id: "media_day", label: "Media Day", internalType: "sports_picture_day", workflowLabel: "Sports Picture Day" },
+    { id: "team_individual", label: "Team & Individual Photos", internalType: "team_photos", workflowLabel: "Team Photos" },
+    { id: "tournament_event", label: "Tournament / Event Coverage", internalType: "sports_league", workflowLabel: "Sports League" },
+    { id: "other_sports", label: "Other Sports Work", internalType: "sports_picture_day", workflowLabel: "Sports Picture Day" }
+  ],
+  event_pictures: [
+    { id: "graduation", label: "Graduation", internalType: "graduation" },
+    { id: "commencement", label: "Commencement", internalType: "graduation", workflowLabel: "Graduation" },
+    { id: "ceremony", label: "Ceremony", internalType: "event", workflowLabel: "Event" },
+    { id: "school_event", label: "School Event", internalType: "event", workflowLabel: "Event" },
+    { id: "other_event", label: "Other Event", internalType: "event", workflowLabel: "Event" }
+  ],
+  studio_work: [
+    { id: "studio_portraits", label: "Studio Portraits", internalType: "specialty", workflowLabel: "In-Studio Work" },
+    { id: "staff_headshots", label: "Staff / Headshots", internalType: "specialty", workflowLabel: "In-Studio Work" },
+    { id: "product_specialty", label: "Product / Specialty", internalType: "specialty", workflowLabel: "In-Studio Work" },
+    { id: "other_studio", label: "Other In-Studio Work", internalType: "specialty", workflowLabel: "In-Studio Work" }
+  ],
+  other: [{ id: "other", label: "Other", internalType: "other" }]
+};
+
+function defaultShootTypeForWorkArea(workArea: IntakeWorkAreaId) {
+  return INTAKE_SHOOT_TYPE_OPTIONS[workArea][0];
+}
+
+function getShootTypeOption(workArea: IntakeWorkAreaId, shootTypeId: IntakeShootTypeId) {
+  return INTAKE_SHOOT_TYPE_OPTIONS[workArea].find((option) => option.id === shootTypeId) ?? defaultShootTypeForWorkArea(workArea);
+}
+
+function workAreaForIntakeType(typeId: JobIntakeTypeId): IntakeWorkAreaId {
+  if (["sports_picture_day", "sports_league", "team_photos"].includes(typeId)) {
+    return "sports_pictures";
+  }
+  if (["graduation", "event"].includes(typeId)) {
+    return "event_pictures";
+  }
+  if (typeId === "specialty") {
+    return "studio_work";
+  }
+  if (typeId === "other") {
+    return "other";
+  }
+  return "school_pictures";
+}
+
+function shootTypeForIntakeType(typeId: JobIntakeTypeId): IntakeShootTypeId {
+  if (typeId === "school_picture_day") return "picture_day";
+  if (typeId === "retake_day") return "retake_day";
+  if (typeId === "yearbook") return "yearbook";
+  if (typeId === "cap_and_gown") return "cap_and_gown";
+  if (typeId === "sports_picture_day") return "sports_picture_day";
+  if (typeId === "sports_league") return "tournament_event";
+  if (typeId === "team_photos") return "team_individual";
+  if (typeId === "graduation") return "graduation";
+  if (typeId === "event") return "school_event";
+  if (typeId === "specialty") return "studio_portraits";
+  return "other";
+}
+
+function formatSuggestedDate(value: string) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return "";
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function isSchoolDistrictOrganization(organization: OrganizationSummary) {
   return organization.account_type === "schools_underclass_portraits" || organization.account_type === "schools_events";
@@ -206,7 +306,12 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const [contactSearch, setContactSearch] = useState("");
   const [dirty, setDirty] = useState(false);
   const [selectedIntakeType, setSelectedIntakeType] = useState<JobIntakeTypeId | null>(initialGlobalIntakeType);
+  const [selectedWorkArea, setSelectedWorkArea] = useState<IntakeWorkAreaId>(() => workAreaForIntakeType(initialGlobalIntakeType ?? "school_picture_day"));
+  const [selectedShootType, setSelectedShootType] = useState<IntakeShootTypeId>(() => shootTypeForIntakeType(initialGlobalIntakeType ?? "school_picture_day"));
+  const [jobNameManuallyEdited, setJobNameManuallyEdited] = useState(false);
+  const [prepFiles, setPrepFiles] = useState<Record<"schedule" | "qr" | "reference", string[]>>({ schedule: [], qr: [], reference: [] });
   const ignoreDirtyRef = useRef(false);
+  const lastSuggestedJobNameRef = useRef("");
 
   const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
   const isGlobalJobIntake = departmentType == null && mode === "create";
@@ -229,18 +334,20 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     [formState, isGlobalJobIntake, selectedIntakeType, selectedOwnerName]
   );
   const activeIntakeType = selectedIntakeType ?? inferJobIntakeTypeId(formState);
+  const activeShootTypeOption = getShootTypeOption(selectedWorkArea, selectedShootType);
+  const workflowPreviewLabel = activeShootTypeOption.workflowLabel ?? getJobIntakeTypeOption(activeIntakeType).label;
   const usesSchoolHierarchy = isGlobalJobIntake && SCHOOL_HIERARCHY_INTAKE_TYPES.includes(activeIntakeType);
-  const usesSportsAssociation = isGlobalJobIntake && activeIntakeType === "sports_picture_day";
-  const organizationFieldLabel = usesSchoolHierarchy ? "District" : usesSportsAssociation ? "Association / Organization" : "Organization";
+  const usesSportsWorkArea = isGlobalJobIntake && selectedWorkArea === "sports_pictures";
+  const organizationFieldLabel = usesSchoolHierarchy ? "District" : usesSportsWorkArea ? "Association / Organization" : "Organization";
   const locationFieldLabel = usesSchoolHierarchy ? "School" : "Location";
   const organizationHelperText = usesSchoolHierarchy
     ? "Search for the district account. If the job is district-level, choose the district and use the no-single-school option below."
-    : usesSportsAssociation
+    : usesSportsWorkArea
       ? "Search for the sports association, club, or organization already saved in Directory."
       : "Choose an existing organization for this job.";
   const locationHelperText = usesSchoolHierarchy
     ? "Choose a saved school for the selected district, or use district-level job if no single school applies."
-    : usesSportsAssociation
+    : usesSportsWorkArea
       ? "Search the shoot location or site. This is separate from the sports association."
       : "Search and select an existing location. Known locations for the selected organization appear first.";
   const selectedSavedDistrict = usesSchoolHierarchy && selectedOrganization && isSchoolDistrictOrganization(selectedOrganization) ? selectedOrganization : null;
@@ -265,9 +372,18 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     selectedSavedDistrict && prioritizedLocationOptions.length === 0
       ? "No saved schools found for this district. Choose district-level job or add the school to Directory first."
       : locationHelperText;
-  const visibleIntakeTypeOptions = isGlobalJobIntake
-    ? GLOBAL_JOB_INTAKE_TYPE_IDS.map((id) => JOB_INTAKE_TYPE_OPTIONS.find((option) => option.id === id)).filter((option): option is (typeof JOB_INTAKE_TYPE_OPTIONS)[number] => Boolean(option))
-    : JOB_INTAKE_TYPE_OPTIONS;
+  const selectedLocation = prioritizedLocationOptions.find((location) => location.id === formState.primary_location_id) ?? null;
+  const suggestedJobName = useMemo(() => {
+    if (!isGlobalJobIntake) return "";
+    const dateLabel = formatSuggestedDate(formState.scheduled_start_date);
+    const districtLevel = usesSchoolHierarchy && formState.location_override_note === "District-level job / no single school";
+    const subject = usesSchoolHierarchy
+      ? selectedLocation?.location_name ?? selectedOrganization?.display_name
+      : selectedOrganization?.display_name;
+    if (!subject) return "";
+    const shootLabel = districtLevel ? `District-level ${activeShootTypeOption.label}` : activeShootTypeOption.label;
+    return [subject, shootLabel, dateLabel].filter(Boolean).join(" - ");
+  }, [activeShootTypeOption.label, formState.location_override_note, formState.scheduled_start_date, isGlobalJobIntake, selectedLocation?.location_name, selectedOrganization?.display_name, usesSchoolHierarchy]);
   const calendarReadiness = useMemo(
     () =>
       buildJobCalendarReadiness({
@@ -341,6 +457,23 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   }, [contactSearch, formState.organization_id, token]);
 
   useEffect(() => {
+    if (!isGlobalJobIntake || jobNameManuallyEdited || !suggestedJobName || suggestedJobName === lastSuggestedJobNameRef.current) {
+      return;
+    }
+    lastSuggestedJobNameRef.current = suggestedJobName;
+    updateState((current) => {
+      if (current.title && current.title !== lastSuggestedJobNameRef.current && current.title !== current.event_name) {
+        return current;
+      }
+      return {
+        ...current,
+        title: suggestedJobName,
+        event_name: suggestedJobName
+      };
+    });
+  }, [isGlobalJobIntake, jobNameManuallyEdited, suggestedJobName]);
+
+  useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirty || ignoreDirtyRef.current) {
         return;
@@ -377,7 +510,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     setFormState((current) => updater(current));
   }
 
-  function applyIntakeType(value: JobIntakeTypeId) {
+  function applyIntakeType(value: JobIntakeTypeId, options: { clearLocation?: boolean } = {}) {
     setSelectedIntakeType(value);
     updateState((current) => {
       const next = applyJobIntakeType(current, value);
@@ -394,8 +527,33 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           contact_override_note: ""
         };
       }
+      if (options.clearLocation) {
+        setLocationSearch("");
+        return {
+          ...next,
+          primary_location_id: "",
+          location_override_note: ""
+        };
+      }
       return next;
     });
+  }
+
+  function applyWorkArea(value: IntakeWorkAreaId) {
+    const nextShootType = defaultShootTypeForWorkArea(value);
+    const wasSchoolHierarchy = usesSchoolHierarchy;
+    const willUseSchoolHierarchy = SCHOOL_HIERARCHY_INTAKE_TYPES.includes(nextShootType.internalType);
+    setSelectedWorkArea(value);
+    setSelectedShootType(nextShootType.id);
+    applyIntakeType(nextShootType.internalType, { clearLocation: wasSchoolHierarchy !== willUseSchoolHierarchy });
+  }
+
+  function applyShootType(value: IntakeShootTypeId) {
+    const option = getShootTypeOption(selectedWorkArea, value);
+    const wasSchoolHierarchy = usesSchoolHierarchy;
+    const willUseSchoolHierarchy = SCHOOL_HIERARCHY_INTAKE_TYPES.includes(option.internalType);
+    setSelectedShootType(option.id);
+    applyIntakeType(option.internalType, { clearLocation: wasSchoolHierarchy !== willUseSchoolHierarchy });
   }
 
   function updateOrganizationSearch(value: string) {
@@ -437,6 +595,18 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     });
   }
 
+  function selectContact(value: string) {
+    const contact = contactOptions.find((option) => option.id === value) ?? null;
+    if (contact) {
+      setContactSearch(contact.full_name);
+    }
+    updateState((current) => ({
+      ...current,
+      primary_contact_id: value,
+      contact_override_note: contact ? "" : current.contact_override_note
+    }));
+  }
+
   function selectLocation(value: string) {
     const locationPool = usesSchoolHierarchy ? prioritizedLocationOptions : locationOptions;
     const location = locationPool.find((option) => option.id === value) ?? null;
@@ -460,6 +630,15 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       primary_location_id: "",
       location_override_note: "District-level job / no single school"
     }));
+  }
+
+  function updatePrepFiles(key: "schedule" | "qr" | "reference", files: FileList | null) {
+    const names = files ? Array.from(files).map((file) => file.name) : [];
+    setPrepFiles((current) => ({ ...current, [key]: names }));
+  }
+
+  function clearPrepFiles(key: "schedule" | "qr" | "reference") {
+    setPrepFiles((current) => ({ ...current, [key]: [] }));
   }
 
   async function persist(target: "draft" | "publish") {
@@ -554,13 +733,35 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     ...visibleAdapterSections.filter((section) => section.slot === "sidebar.bottom").map((section) => ({ key: section.key, title: section.title, body: section.body }))
   ];
 
+  const renderPrepFileField = (
+    key: "schedule" | "qr" | "reference",
+    label: string,
+    accept: string,
+    multiple = false
+  ) => (
+    <div className="filter-field filter-field--wide">
+      <span>{label}</span>
+      <input aria-label={label} type="file" accept={accept} multiple={multiple} onChange={(event) => updatePrepFiles(key, event.target.files)} />
+      {prepFiles[key].length ? (
+        <div className="job-intake__helper">
+          Selected: {prepFiles[key].join(", ")}
+          <button type="button" className="secondary-button job-intake__lookup-inline-action" onClick={() => clearPrepFiles(key)}>
+            Remove
+          </button>
+        </div>
+      ) : (
+        <div className="job-intake__helper">No file selected yet.</div>
+      )}
+    </div>
+  );
+
   const sharedSections = [
     {
       key: "core-identity",
       slot: "identity.after" as const,
       title: isGlobalJobIntake ? "Job Basics" : "Core Identity",
       summary: isGlobalJobIntake
-        ? "Choose the job type, name, owner, and priority."
+        ? "Choose the work area, shoot type, account, school or location, and job name."
         : "Shared identity fields render once here, with department-specific sections injected after them.",
       fields: ["department_type", "organization_id", "title", "event_name", "job_category", "description_internal"],
       body: (
@@ -579,26 +780,34 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 )}
               </label>
             ) : null}
-            <label className="filter-field">
-              <span>{isGlobalJobIntake ? "Job type" : "Job category"}</span>
-              <select
-                value={isGlobalJobIntake ? activeIntakeType : formState.job_category}
-                onChange={(event) =>
-                  isGlobalJobIntake
-                    ? applyIntakeType(event.target.value as JobIntakeTypeId)
-                    : updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))
-                }
-              >
-                {isGlobalJobIntake
-                  ? visibleIntakeTypeOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)
-                  : getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
+            {isGlobalJobIntake ? (
+              <>
+                <label className="filter-field">
+                  <span>Work Area</span>
+                  <select value={selectedWorkArea} onChange={(event) => applyWorkArea(event.target.value as IntakeWorkAreaId)}>
+                    {INTAKE_WORK_AREA_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="filter-field">
+                  <span>Shoot Type</span>
+                  <select value={selectedShootType} onChange={(event) => applyShootType(event.target.value as IntakeShootTypeId)}>
+                    {INTAKE_SHOOT_TYPE_OPTIONS[selectedWorkArea].map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                  </select>
+                </label>
+              </>
+            ) : (
+              <label className="filter-field">
+                <span>Job category</span>
+                <select value={formState.job_category} onChange={(event) => updateState((current) => ({ ...current, job_category: event.target.value as SharedJobFormState["job_category"] }))}>
+                  {getSharedJobCategoryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+            )}
             <div className="filter-field filter-field--wide">
               <SharedOrganizationPicker
                 departmentType={formState.department_type === "schools" ? "schools" : "sports"}
                 label={isGlobalJobIntake ? organizationFieldLabel : "Organization"}
-                placeholder={isGlobalJobIntake ? (usesSchoolHierarchy ? "Search districts" : usesSportsAssociation ? "Search associations or clubs" : "Search organizations") : undefined}
+                placeholder={isGlobalJobIntake ? (usesSchoolHierarchy ? "Search districts" : usesSportsWorkArea ? "Search associations or clubs" : "Search organizations") : undefined}
                 searchValue={organizationSearch}
                 onSearchChange={isGlobalJobIntake ? updateOrganizationSearch : setOrganizationSearch}
                 unresolvedValue=""
@@ -628,7 +837,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                   isGlobalJobIntake
                     ? usesSchoolHierarchy
                       ? "No matching district found. Choose a saved district, or ask a director/admin to add this to Directory."
-                      : usesSportsAssociation
+                      : usesSportsWorkArea
                         ? "No matching association found. Choose a saved organization, or ask a director/admin to add this to Directory."
                         : "No matching organization found. Choose a saved record, or ask a director/admin to add this to Directory."
                     : undefined
@@ -665,18 +874,39 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               <span>{isGlobalJobIntake ? "Job Name" : adapter.labels.titleLabel}</span>
               <input
                 value={formState.title}
-                onChange={(event) =>
+                onChange={(event) => {
+                  if (isGlobalJobIntake) {
+                    setJobNameManuallyEdited(true);
+                  }
                   updateState((current) => ({
                     ...current,
                     title: event.target.value,
                     event_name: isGlobalJobIntake ? event.target.value : current.event_name
-                  }))
-                }
+                  }));
+                }}
               />
+              {isGlobalJobIntake && suggestedJobName ? (
+                <div className="job-intake__helper">
+                  Suggested name: {suggestedJobName}
+                  {formState.title !== suggestedJobName ? (
+                    <button
+                      type="button"
+                      className="secondary-button job-intake__lookup-inline-action"
+                      onClick={() => {
+                        setJobNameManuallyEdited(false);
+                        lastSuggestedJobNameRef.current = suggestedJobName;
+                        updateState((current) => ({ ...current, title: suggestedJobName, event_name: suggestedJobName }));
+                      }}
+                    >
+                      Use suggested name
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
               {fieldErrors.title ? <div className="shared-job-form__field-errors" role="alert">{fieldErrors.title.map((message) => <div key={message}>{message}</div>)}</div> : null}
             </label>
             {isGlobalJobIntake ? (
-              <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={visibleContactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={(value) => updateState((current) => ({ ...current, primary_contact_id: value }))} errors={fieldErrors.primary_contact_id} helperText="Choose the main contact if they are already in the directory." />
+              <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={visibleContactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={selectContact} errors={fieldErrors.primary_contact_id} helperText="Choose the main contact if they are already in the directory." />
             ) : null}
           </div>
           {!isGlobalJobIntake ? (
@@ -694,6 +924,33 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
         </div>
       )
     },
+    ...(isGlobalJobIntake
+      ? [
+          {
+            key: "workflow-preparation",
+            slot: "identity.after" as const,
+            title: "Workflow",
+            summary: "Mission Control automatically selects the workflow from Work Area and Shoot Type.",
+            fields: ["workflow_preparation"],
+            body: (
+              <div className="shared-job-form__stack">
+                <div className="job-intake-workflow-preview">
+                  <strong>Workflow: {workflowPreviewLabel}</strong>
+                  <p>Selected automatically from Work Area and Shoot Type.</p>
+                  <p>A workflow review notice will be sent to the department director after the job package is created.</p>
+                  <p>{routingPreview.workflowRouteHint}</p>
+                  <div className="shared-job-detail__kv">
+                    <span>Calendar readiness: {calendarReadiness.label}</span>
+                    <span>Photography checklist</span>
+                    <span>Production tasks</span>
+                    <span>Client follow-up tasks</span>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+        ]
+      : []),
     {
       key: "schedule-location",
       slot: "schedule.after" as const,
@@ -786,7 +1043,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       fields: ["primary_contact_id", "account_owner_user_id"],
       body: (
         <div className="shared-job-form__stack">
-          <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={contactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={(value) => updateState((current) => ({ ...current, primary_contact_id: value }))} errors={fieldErrors.primary_contact_id} />
+          <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={contactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={selectContact} errors={fieldErrors.primary_contact_id} />
           <div className="field-grid shared-job-form__grid">
             <SharedStaffPicker label={isGlobalJobIntake ? "Current owner" : "Account owner"} value={formState.account_owner_user_id} onChange={(value) => updateState((current) => ({ ...current, account_owner_user_id: value }))} options={ownerOptions} required errors={fieldErrors.account_owner_user_id} />
             <label className="filter-field"><span>Priority</span><select value={formState.priority_level} onChange={(event) => updateState((current) => ({ ...current, priority_level: event.target.value as SharedJobFormState["priority_level"] }))}>{getSharedJobPriorityOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
@@ -826,7 +1083,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               <div className="field-grid shared-job-form__grid">
                 <label className="filter-field"><span>Roster or team list source</span><input value={formState.department_type === "schools" ? formState.school_profile.roster_source : formState.sports_profile.league_name} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, roster_source: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, league_name: event.target.value } })} /></label>
                 <label className="filter-field"><span>Teams, classes, or groups</span><input value={formState.department_type === "sports" ? formState.sports_profile.estimated_team_count : formState.school_profile.grade_scope} onChange={(event) => updateState((current) => current.department_type === "sports" ? { ...current, sports_profile: { ...current.sports_profile, estimated_team_count: event.target.value } } : { ...current, school_profile: { ...current.school_profile, grade_scope: event.target.value } })} /></label>
-                {activeIntakeType === "sports_picture_day" ? (
+                {usesSportsWorkArea ? (
                   <>
                     <label className="filter-field"><span>Indoor / Outdoor</span><select value={formState.sports_setup.indoor_outdoor} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, indoor_outdoor: event.target.value } }))}><option value="">Choose setting</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="mixed">Mixed</option></select></label>
                     <label className="filter-field"><span>Tethered / Untethered</span><select value={formState.sports_setup.tethering} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, tethering: event.target.value } }))}><option value="">Choose capture setup</option><option value="tethered">Tethered</option><option value="untethered">Untethered</option><option value="mixed">Mixed</option></select></label>
@@ -835,32 +1092,13 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                   </>
                 ) : null}
                 <label className="filter-field filter-field--wide"><span>Setup and equipment notes</span><textarea rows={3} value={formState.department_type === "schools" ? formState.school_profile.special_instructions : formState.sports_profile.client_expectations_notes} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, special_instructions: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, client_expectations_notes: event.target.value } })} /></label>
-              </div>
-            )
-          }
-        ]
-      : []),
-    ...(isGlobalJobIntake
-      ? [
-          {
-            key: "workflow-preparation",
-            slot: "production.after" as const,
-            title: "Mission Control will prepare",
-            summary: "Mission Control automatically selects the workflow from the job type.",
-            fields: ["workflow_preparation"],
-            body: (
-              <div className="shared-job-form__stack">
-                <div className="job-intake-workflow-preview">
-                  <strong>Workflow: {getJobIntakeTypeOption(activeIntakeType).label}</strong>
-                  <p>Selected automatically from Job Type.</p>
-                  <p>{routingPreview.workflowRouteHint}</p>
-                  <div className="shared-job-detail__kv">
-                    <span>Calendar readiness: {calendarReadiness.label}</span>
-                    <span>Photography checklist</span>
-                    <span>Production tasks</span>
-                    <span>Client follow-up tasks</span>
-                  </div>
+                <div className="filter-field filter-field--wide">
+                  <span>Prep files</span>
+                  <div className="job-intake__helper">Upload schedule, QR codes, or reference images so Photography and Production can prepare from the same source materials.</div>
                 </div>
+                {renderPrepFileField("schedule", "Schedule file", ".pdf,.csv,.xls,.xlsx,.doc,.docx,image/*")}
+                {renderPrepFileField("qr", "QR code file", ".pdf,.png,.jpg,.jpeg,image/png,image/jpeg")}
+                {renderPrepFileField("reference", "Reference images", ".png,.jpg,.jpeg,.heic,image/*", true)}
               </div>
             )
           }
@@ -908,7 +1146,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       title={isGlobalJobIntake ? "New Job Intake" : mode === "edit" ? adapter.editTitle : adapter.createTitle}
       summary={
         isGlobalJobIntake
-          ? "Start with the basics. Choose the job type, then Mission Control will help identify missing info and next steps."
+          ? "Start with the basics. Choose the work area and shoot type, then Mission Control will help identify missing info and next steps."
           : "One shared create and edit shell, with department sections injected through the adapter registry instead of forked pages."
       }
       meta={headerMeta}
