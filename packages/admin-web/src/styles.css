@@ -21749,3 +21749,81 @@ html[data-theme="light"] .home-operational__dueweek-badge--info {
   color: var(--text-muted);
   font-size: 0.82rem;
 }
+
+.home-operational__assistant {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+}
+
+.home-operational__assistant-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-operational__assistant-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.home-operational__assistant-status--preview {
+  color: var(--text-muted);
+  border-color: rgba(116, 132, 160, 0.34);
+}
+
+.home-operational__assistant-status--live {
+  color: #8fcfa9;
+  border-color: rgba(74, 168, 114, 0.42);
+}
+
+.home-operational__assistant-form {
+  display: flex;
+  gap: 8px;
+}
+
+.home-operational__assistant-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-operational__assistant-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-operational__assistant-chip {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 121, 148, 0.3);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.home-operational__assistant-chip:hover {
+  color: var(--text);
+  border-color: rgba(174, 143, 85, 0.5);
+}
+
+.home-operational__assistant-answer {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  background: rgba(103, 121, 148, 0.1);
+  border: 1px solid rgba(103, 121, 148, 0.24);
+}
+
+.home-operational__assistant-answer--answered {
+  color: var(--text);
+}

@@ -434,12 +434,10 @@ describe("dashboard home command surface", () => {
 
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Today's Shoots/i })).toBeInTheDocument();
-    expect(screen.getByText(/scheduled item.*still need readiness follow-through/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Staffing Gaps/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Urgent Issues · 1/i })).toBeInTheDocument();
-    expect(screen.getByText("Staffing needs attention")).toBeInTheDocument();
     expect(screen.getByText("This Week's Operational Priorities")).toBeInTheDocument();
     expect(screen.queryByText("Work That Needs To Be Processed This Week")).not.toBeInTheDocument();
     expect(screen.queryByText("Jobs That Need To Go Out This Week")).not.toBeInTheDocument();

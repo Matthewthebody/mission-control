@@ -5,6 +5,7 @@ import { canAccessRoute } from "../../permissions";
 import { getHomeDashboard } from "../../services/homeDashboard";
 import { listSharedProductionQueue } from "../../services/jobsApi";
 import type { JobDepartmentType, SharedProductionQueueItem } from "../../jobTruthTypes";
+import { MissionControlAssistant } from "./MissionControlAssistant";
 import type {
   HomeDepartmentTaskCounts,
   HomeDashboardResponse,
@@ -986,34 +987,33 @@ export function HomeCommandSurface({
 
       {briefingLines.length ? (
         <section className="panel home-operational__briefing-panel">
-          <WorkspaceSectionHeader
-            title="Today's Briefing"
-            summary="The daily command center starts with what matters, why it matters, and where to act next."
-            compact
-          />
-          <div className="home-operational__briefing-list">
-            {briefingLines.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
+          <WorkspaceSectionHeader title="Today's Briefing" compact />
+          {briefingLines.length ? (
+            <div className="home-operational__briefing-list">
+              {briefingLines.slice(0, 2).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          ) : null}
           <div className="home-operational__briefing-grid" aria-label="Today's briefing actions">
             {briefingCards.map((card) => (
               <button
                 key={card.key}
                 type="button"
-                className={`home-operational__summary-card home-operational__summary-card--briefing home-operational__summary-card--${card.key === "urgent_issues" ? "urgent-briefing " : ""}home-operational__summary-card--${card.tone}`}
+                className={`home-operational__summary-card home-operational__summary-card--briefing home-operational__summary-card--metric home-operational__summary-card--${card.key === "urgent_issues" ? "urgent-briefing " : ""}home-operational__summary-card--${card.tone}`}
                 onClick={() => navigateToHash(card.hash)}
+                title={card.explanation}
               >
                 <span>{getBriefingCardLabel(card)}</span>
                 {card.key === "urgent_issues" ? null : <strong>{card.count}</strong>}
-                <p>{card.summary}</p>
-                {card.key === "urgent_issues" ? null : <small>{card.explanation}</small>}
                 <em>{card.actionLabel}</em>
               </button>
             ))}
           </div>
         </section>
       ) : null}
+
+      <MissionControlAssistant token={token} />
 
       {myDayItems.length ? (
         <section className="panel home-operational__myday-panel">
