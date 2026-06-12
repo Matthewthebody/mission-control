@@ -429,7 +429,7 @@ describe("app auth bootstrap", () => {
     expect(screen.queryByRole("button", { name: "Needs Attention" })).not.toBeInTheDocument();
     expect(screen.queryByText("System")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Operations" })).not.toBeInTheDocument();
-    const homeButton = screen.getByRole("button", { name: "Home" });
+    const homeButton = screen.getByRole("button", { name: "My Dashboard" });
     homeButton.focus();
     expect(homeButton).toHaveFocus();
   });
@@ -1323,7 +1323,7 @@ describe("app auth bootstrap", () => {
     expect(tabs).not.toContain("organizations");
     expect(tabs).not.toContain("projects");
     expect(sectionKeys).toContain("home");
-    expect(sectionKeys).toContain("my-work");
+    expect(sectionKeys).not.toContain("my-work");
     expect(sectionKeys).not.toContain("needs-attention");
     expect(sectionKeys).toContain("schools");
     expect(sectionKeys).toContain("photography");
@@ -1547,7 +1547,6 @@ describe("app auth bootstrap", () => {
     expect(tabs).toContain("profitability");
     expect(sectionKeys).toEqual([
       "home",
-      "my-work",
       "schools",
       "sports",
       "photography",
@@ -1596,7 +1595,6 @@ describe("app auth bootstrap", () => {
 
     expect(sections).toEqual([
       "home",
-      "my-work",
       "schools",
       "sports",
       "photography",
@@ -1690,7 +1688,7 @@ describe("app auth bootstrap", () => {
     render(<App />);
 
     expect(await screen.findByRole("navigation", { name: "Mobile navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "My Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Schedule" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Requests" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "More" }));

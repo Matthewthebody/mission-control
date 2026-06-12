@@ -1801,7 +1801,7 @@ function buildDesktopNavGroups(sections: ShellSection[]) {
     {
       id: "start",
       label: "Start Here",
-      keys: ["home", "my-work"] as const
+      keys: ["home"] as const
     },
     {
       id: "spine",
@@ -2005,7 +2005,7 @@ function shouldUseMobileBottomNav(user: SessionUser, mobileShell: boolean) {
 
 function buildMobileBottomNavItems(user: SessionUser): MobileBottomNavItem[] {
   return [
-    { id: "mobile-home", label: "Home", kind: "route", routeId: "dashboard" },
+    { id: "mobile-home", label: "My Dashboard", kind: "route", routeId: "dashboard" },
     {
       id: "mobile-schedule",
       label: "Schedule",

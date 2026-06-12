@@ -3,6 +3,8 @@ import type { Socket } from "socket.io-client";
 import { buildShellRouteHash } from "../../navigation";
 import { canAccessRoute } from "../../permissions";
 import { getHomeDashboard } from "../../services/homeDashboard";
+import { listSharedProductionQueue } from "../../services/jobsApi";
+import type { JobDepartmentType, SharedProductionQueueItem } from "../../jobTruthTypes";
 import type {
   HomeDepartmentTaskCounts,
   HomeDashboardResponse,
@@ -569,6 +571,177 @@ function buildDailyBriefing(input: {
   return lines.slice(0, 4);
 }
 
+const DUE_THIS_WEEK_DEPARTMENT_LABELS: Record<JobDepartmentType, string> = {
+  schools: "Schools",
+  sports: "Sports",
+  corporate: "Corporate",
+  headshots: "Headshots",
+  other: "Other"
+};
+
+const DUE_THIS_WEEK_COMPLETED_STATUSES = new Set<string>(["complete", "delivered", "cancelled"]);
+const DUE_THIS_WEEK_RISK_SCORE: Record<string, number> = { critical: 40, high: 30, medium: 18, low: 8, none: 0 };
+const DUE_THIS_WEEK_ROW_LIMIT = 12;
+
+type DueThisWeekBadge = { label: string; tone: "neutral" | "info" | "warning" | "danger" };
+
+type DueThisWeekRow = {
+  id: string;
+  title: string;
+  departmentLabel: string;
+  dueLabel: string;
+  owner: string;
+  stageLabel: string;
+  tone: "neutral" | "warning" | "danger";
+  badges: DueThisWeekBadge[];
+  actionHash: string;
+};
+
+type DueThisWeekView = {
+  rows: DueThisWeekRow[];
+  total: number;
+  departmentCounts: Array<{ key: string; label: string; count: number }>;
+};
+
+function endOfCurrentWeek(): number {
+  const now = new Date();
+  const day = now.getDay();
+  const daysUntilSunday = day === 0 ? 0 : 7 - day;
+  const end = new Date(now);
+  end.setDate(now.getDate() + daysUntilSunday);
+  end.setHours(23, 59, 59, 999);
+  return end.getTime();
+}
+
+function humanizeProductionLabel(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function dueThisWeekHasOwner(item: SharedProductionQueueItem) {
+  return Boolean(item.assigned_to_user_id || item.account_owner_user_id || item.department_owner_user_id);
+}
+
+function dueThisWeekRiskScore(item: SharedProductionQueueItem) {
+  let score = 0;
+  if (item.overdue_flag) {
+    score += 100;
+  }
+  score += DUE_THIS_WEEK_RISK_SCORE[item.job_risk_status] ?? 0;
+  if (item.job_readiness_status === "off_track") {
+    score += 16;
+  } else if (item.job_readiness_status === "at_risk") {
+    score += 8;
+  }
+  if (item.blocker_count > 0 || item.status === "blocked" || item.health_state === "BLOCKED") {
+    score += 24;
+  }
+  if (!dueThisWeekHasOwner(item)) {
+    score += 18;
+  }
+  return score;
+}
+
+function dueThisWeekBadges(item: SharedProductionQueueItem): DueThisWeekBadge[] {
+  const badges: DueThisWeekBadge[] = [];
+  if (!dueThisWeekHasOwner(item)) {
+    badges.push({ label: "No owner", tone: "danger" });
+  }
+  if (item.overdue_flag) {
+    badges.push({ label: "Late", tone: "danger" });
+  }
+  const blocked = item.blocker_count > 0 || item.status === "blocked" || item.health_state === "BLOCKED";
+  if (blocked) {
+    badges.push({ label: "Blocked", tone: "danger" });
+  } else if (
+    item.job_risk_status === "high" ||
+    item.job_risk_status === "critical" ||
+    item.health_state === "AT_RISK" ||
+    item.job_readiness_status === "off_track" ||
+    item.job_readiness_status === "at_risk"
+  ) {
+    badges.push({ label: "At risk", tone: "warning" });
+  }
+  if (item.approval_status === "requested" || item.approval_status === "viewed" || item.approval_status === "overdue") {
+    badges.push({ label: "Waiting on approval", tone: "warning" });
+  }
+  return badges.slice(0, 3);
+}
+
+function dueThisWeekRowTone(item: SharedProductionQueueItem): "neutral" | "warning" | "danger" {
+  if (item.overdue_flag || item.blocker_count > 0 || item.status === "blocked" || item.health_state === "BLOCKED" || !dueThisWeekHasOwner(item)) {
+    return "danger";
+  }
+  if (
+    item.job_risk_status === "high" ||
+    item.job_risk_status === "critical" ||
+    item.health_state === "AT_RISK" ||
+    item.job_readiness_status === "off_track" ||
+    item.job_readiness_status === "at_risk"
+  ) {
+    return "warning";
+  }
+  return "neutral";
+}
+
+function dueThisWeekDueLabel(item: SharedProductionQueueItem) {
+  if (!item.due_at) {
+    return "No due date";
+  }
+  const due = new Date(item.due_at);
+  if (Number.isNaN(due.getTime())) {
+    return "No due date";
+  }
+  const label = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return item.overdue_flag ? `Late · ${label}` : `Due ${label}`;
+}
+
+function buildDueThisWeekView(items: SharedProductionQueueItem[]): DueThisWeekView {
+  const cutoff = endOfCurrentWeek();
+  const eligible = items.filter((item) => {
+    if (item.completed_at || DUE_THIS_WEEK_COMPLETED_STATUSES.has(item.status)) {
+      return false;
+    }
+    if (!item.due_at) {
+      return false;
+    }
+    const due = new Date(item.due_at).getTime();
+    return !Number.isNaN(due) && due <= cutoff;
+  });
+
+  const departmentMap = new Map<JobDepartmentType, number>();
+  for (const item of eligible) {
+    departmentMap.set(item.department_type, (departmentMap.get(item.department_type) ?? 0) + 1);
+  }
+  const departmentCounts = [...departmentMap.entries()]
+    .map(([key, count]) => ({ key, label: DUE_THIS_WEEK_DEPARTMENT_LABELS[key] ?? humanizeProductionLabel(key), count }))
+    .sort((left, right) => right.count - left.count);
+
+  const rows = [...eligible]
+    .sort((left, right) => {
+      const score = dueThisWeekRiskScore(right) - dueThisWeekRiskScore(left);
+      if (score !== 0) {
+        return score;
+      }
+      const leftDue = left.due_at ? new Date(left.due_at).getTime() : Number.MAX_SAFE_INTEGER;
+      const rightDue = right.due_at ? new Date(right.due_at).getTime() : Number.MAX_SAFE_INTEGER;
+      return leftDue - rightDue;
+    })
+    .slice(0, DUE_THIS_WEEK_ROW_LIMIT)
+    .map((item) => ({
+      id: item.id,
+      title: item.job_title || item.title,
+      departmentLabel: DUE_THIS_WEEK_DEPARTMENT_LABELS[item.department_type] ?? humanizeProductionLabel(item.department_type),
+      dueLabel: dueThisWeekDueLabel(item),
+      owner: item.assigned_to_name || item.account_owner_name || "Needs owner",
+      stageLabel: humanizeProductionLabel(item.workflow_status || item.status),
+      tone: dueThisWeekRowTone(item),
+      badges: dueThisWeekBadges(item),
+      actionHash: item.job_id ? `#jobs/detail?preview=${item.job_id}` : "#production-queue"
+    }));
+
+  return { rows, total: eligible.length, departmentCounts };
+}
+
 export function HomeCommandSurface({
   token,
   currentUser,
@@ -580,6 +753,7 @@ export function HomeCommandSurface({
   const [dashboard, setDashboard] = useState<HomeDashboardResponse | null>(cachedDashboard?.payload ?? null);
   const [loading, setLoading] = useState(cachedDashboard == null);
   const [error, setError] = useState("");
+  const [dueThisWeekItems, setDueThisWeekItems] = useState<SharedProductionQueueItem[]>([]);
 
   const canOpenSchedule = canAccessRoute(currentUser, "dashboard-my-schedule");
   const canOpenAlerts = canAccessRoute(currentUser, "dashboard-alerts");
@@ -663,12 +837,38 @@ export function HomeCommandSurface({
     };
   }, [cacheKey, socket, token]);
 
+  // Due This Week / Not Done reads the existing production queue. It is resilient by
+  // design: any failure (permissions, empty data) simply hides the widget so the
+  // dashboard never destabilizes.
+  useEffect(() => {
+    if (!canOpenProjectTracking && !canOpenProductionQueue) {
+      setDueThisWeekItems([]);
+      return;
+    }
+    let cancelled = false;
+    void listSharedProductionQueue(token, {})
+      .then((response) => {
+        if (!cancelled) {
+          setDueThisWeekItems(response.items ?? []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDueThisWeekItems([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canOpenProjectTracking, canOpenProductionQueue]);
+
   const timeBand = dashboard?.home_surface?.time_band ?? null;
   const attendanceMetrics = useMemo(() => getAttendanceMetrics(dashboard?.home_surface?.staffing_band ?? null), [dashboard]);
   const attendanceAttentionMetric = attendanceMetrics.find((metric) => metric.id === "assigned_but_missing" && metric.count > 0) ?? null;
   const myDay = dashboard?.home_surface?.my_day ?? null;
   const myDayItems = myDay?.visible ? myDay.items : [];
   const businessPulseTiles = dashboard?.widgets.business_pulse.tiles ?? [];
+  const dueThisWeek = useMemo(() => buildDueThisWeekView(dueThisWeekItems), [dueThisWeekItems]);
   const summaryCards = useMemo(
     () =>
       buildSummaryCards({
@@ -739,7 +939,7 @@ export function HomeCommandSurface({
   if (loading && dashboard == null) {
     return (
       <WorkspaceLoadingBlock
-        title="Loading Home"
+        title="Loading My Dashboard"
         summary="Pulling today's work, alerts, schedule, time clock status, and staffing visibility into one operational surface."
       />
     );
@@ -748,7 +948,7 @@ export function HomeCommandSurface({
   return (
     <section className="home-operational">
       <WorkspacePageHeader
-        title="Home"
+        title="My Dashboard"
         summary="Daily operating view for today's schedule, staffing gaps, urgent issues, and department task counts."
         compact
         className="home-operational__header"
@@ -822,7 +1022,12 @@ export function HomeCommandSurface({
             summary={myDay?.summary_line || "Your assignments for today, with where to go and what to do next."}
             compact
             actions={
-              myDay?.next_shift_label ? <span className="home-operational__myday-next">{myDay.next_shift_label}</span> : null
+              <div className="home-operational__myday-actions">
+                {myDay?.next_shift_label ? <span className="home-operational__myday-next">{myDay.next_shift_label}</span> : null}
+                <button type="button" className="secondary-button" onClick={() => navigateToHash("#my-work")}>
+                  Open full My Work
+                </button>
+              </div>
             }
           />
           <div className="home-operational__myday-list">
@@ -952,6 +1157,60 @@ export function HomeCommandSurface({
               </button>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {dueThisWeek.rows.length ? (
+        <section className="panel home-operational__dueweek-panel">
+          <WorkspaceSectionHeader
+            title="Due This Week / Not Done"
+            summary="Work due this week that isn't finished yet — grouped by department, most at-risk first."
+            compact
+            actions={
+              canOpenProductionQueue ? (
+                <button type="button" className="secondary-button" onClick={() => navigateToHash("#production-queue")}>
+                  View all
+                </button>
+              ) : null
+            }
+          />
+          <div className="home-operational__dueweek-chips" aria-label="Due this week by department">
+            {dueThisWeek.departmentCounts.map((department) => (
+              <span key={department.key} className="home-operational__dueweek-chip">
+                {department.label} · {department.count}
+              </span>
+            ))}
+          </div>
+          <div className="home-operational__dueweek-list">
+            {dueThisWeek.rows.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                className={`home-operational__dueweek-row home-operational__dueweek-row--${row.tone}`}
+                onClick={() => navigateToHash(row.actionHash)}
+              >
+                <span className="home-operational__dueweek-row__main">
+                  <strong>{row.title}</strong>
+                  <small>{row.departmentLabel} · {row.dueLabel} · {row.owner}</small>
+                  <small className="home-operational__dueweek-row__stage">Stage: {row.stageLabel}</small>
+                </span>
+                {row.badges.length ? (
+                  <span className="home-operational__dueweek-row__badges">
+                    {row.badges.map((badge) => (
+                      <span key={badge.label} className={`home-operational__dueweek-badge home-operational__dueweek-badge--${badge.tone}`}>
+                        {badge.label}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          {dueThisWeek.total > dueThisWeek.rows.length ? (
+            <div className="home-operational__dueweek-more">
+              {dueThisWeek.total - dueThisWeek.rows.length} more due this week — open Production Queue for the full list.
+            </div>
+          ) : null}
         </section>
       ) : null}
 

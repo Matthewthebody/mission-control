@@ -319,9 +319,62 @@ describe("dashboard home command surface", () => {
       ]
     });
 
+    const managerProductionResponse = {
+      summary: { total_count: 2, blocked_count: 1, overdue_count: 1, awaiting_approval_count: 1, qa_pending_count: 0, due_today_count: 0 },
+      items: [
+        {
+          id: "pi-school",
+          job_id: "job-school",
+          title: "Wayzata Picture Day",
+          job_title: "Wayzata Picture Day",
+          department_type: "schools",
+          status: "editing",
+          workflow_status: "IN_PRODUCTION",
+          health_state: "BLOCKED",
+          completed_at: null,
+          due_at: "2020-01-01T00:00:00.000Z",
+          overdue_flag: true,
+          blocker_count: 2,
+          job_risk_status: "high",
+          job_readiness_status: "off_track",
+          approval_status: "not_required",
+          assigned_to_user_id: null,
+          assigned_to_name: null,
+          account_owner_user_id: null,
+          account_owner_name: null,
+          department_owner_user_id: null
+        },
+        {
+          id: "pi-sport",
+          job_id: "job-sport",
+          title: "Lakeville Sports Day",
+          job_title: "Lakeville Sports Day",
+          department_type: "sports",
+          status: "proof_build",
+          workflow_status: "READY_FOR_QA",
+          health_state: "AT_RISK",
+          completed_at: null,
+          due_at: "2020-01-02T00:00:00.000Z",
+          overdue_flag: false,
+          blocker_count: 0,
+          job_risk_status: "medium",
+          job_readiness_status: "at_risk",
+          approval_status: "requested",
+          assigned_to_user_id: "user-spencer",
+          assigned_to_name: "Spencer Lee",
+          account_owner_user_id: null,
+          account_owner_name: null,
+          department_owner_user_id: null
+        }
+      ]
+    };
+
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path === "/api/dashboard/home?mode=app") {
         return managerResponse;
+      }
+      if (typeof path === "string" && path.startsWith("/api/jobs/production-items")) {
+        return managerProductionResponse;
       }
       throw new Error(`Unexpected dashboard test call: ${path}`);
     });
@@ -355,7 +408,7 @@ describe("dashboard home command surface", () => {
       />
     );
 
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
     const conciergeInput = screen.getByRole("searchbox", { name: /Ask Concierge Anything/i });
     expect(conciergeInput).toHaveAttribute("placeholder", "Ask Concierge Anything...");
@@ -396,6 +449,12 @@ describe("dashboard home command surface", () => {
     expect(screen.getByRole("button", { name: /Work ready to release/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Projects blocked or at risk/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Client follow-ups/i })).toBeInTheDocument();
+
+    expect(await screen.findByText("Due This Week / Not Done")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Wayzata Picture Day/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Lakeville Sports Day/i })).toBeInTheDocument();
+    expect(screen.getByText("No owner")).toBeInTheDocument();
+    expect(screen.getByText("Waiting on approval")).toBeInTheDocument();
 
     expect(screen.queryByRole("button", { name: "Open Needs Attention" })).not.toBeInTheDocument();
     expect(screen.queryByText("Lead still missing")).not.toBeInTheDocument();
@@ -558,7 +617,7 @@ describe("dashboard home command surface", () => {
       />
     );
 
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i })).toHaveAttribute("placeholder", "Ask Concierge Anything...");
     expect(screen.getByText("Today's Briefing")).toBeInTheDocument();

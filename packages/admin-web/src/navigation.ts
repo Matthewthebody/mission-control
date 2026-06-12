@@ -139,15 +139,9 @@ type RouteDefinition = {
 const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; description: string; routeId: ShellRouteId }> = [
   {
     key: "home",
-    label: "Home",
-    description: "Daily command center for today's work, risk, search, and the clearest next action.",
+    label: "My Dashboard",
+    description: "Your single landing: today's work, your week, studio pulse, risk, and the clearest next action.",
     routeId: "dashboard"
-  },
-  {
-    key: "my-work",
-    label: "My Work",
-    description: "Your day and assigned work, including schedule context, time clock, approvals, and follow-through.",
-    routeId: "dashboard-my-day"
   },
   {
     key: "schools",
@@ -220,7 +214,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
 const ROUTES: RouteDefinition[] = [
   {
     id: "dashboard",
-    label: "Home",
+    label: "My Dashboard",
     sectionKey: "home",
     description: "Role-aware launchpad for personalized work, schedule access, alerts, and quick operational links.",
     canonicalHash: "#home",

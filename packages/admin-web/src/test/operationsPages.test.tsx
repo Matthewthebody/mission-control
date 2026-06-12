@@ -5081,8 +5081,8 @@ describe("admin operations regressions", () => {
 
     render(<Dashboard token="token" currentUser={leadershipUser} socket={null} />);
 
-    expect(screen.getByText("Loading Home")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByText("Loading My Dashboard")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
@@ -5132,7 +5132,7 @@ describe("admin operations regressions", () => {
 
     render(<Dashboard token="token" currentUser={leadershipUser} socket={null} />);
 
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
       expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.queryByText("Dashboard unavailable")).not.toBeInTheDocument();
