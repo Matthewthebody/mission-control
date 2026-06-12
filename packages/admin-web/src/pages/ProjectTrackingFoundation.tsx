@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { ProjectWorkflowMap } from "../components/projectTracking/ProjectWorkflowMap";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
-import {
-  JobHandoffCard,
-  JobWorkPackageSummary,
-  buildRoutingPreviewFromProjectRow
-} from "../components/jobs/JobRoutingFoundation";
 import { WorkspaceLoadingBlock } from "../components/workspace/WorkspaceLoadingBlock";
 import { featureFlags } from "../featureFlags";
 import { canManageWorkflowTemplates } from "../permissions";
@@ -1515,7 +1510,6 @@ function ProjectTrackingBoardView({
                     const area = projectAreaForJob(row);
                     const secondaryDepartment = secondaryDepartmentBadgeForRow(row);
                     const cardTone = healthToneForJob(row);
-                    const routingPreview = buildRoutingPreviewFromProjectRow(row);
                     const detailsConfirmation = detailsConfirmationForProjectRow(row);
                     return (
                       <article className={`project-tracking-board-card project-tracking-board-card--area-${area} project-tracking-board-card--tone-${cardTone} ${phase.className}`} key={`${lane.id}:${row.job_id}`} role="listitem">
@@ -1523,7 +1517,15 @@ function ProjectTrackingBoardView({
                         <div className="project-tracking-board-card__top">
                           <div>
                             <span>{workItemAccountLabel(row)}</span>
-                            <h4 title={row.job_title}>{workItemName(row)}</h4>
+                            <h4 className="project-tracking-board-card__title">
+                              <a
+                                href={`#jobs/${encodeURIComponent(row.job_id)}`}
+                                title={row.job_title}
+                                aria-label={`Open job detail for ${workItemName(row)}`}
+                              >
+                                {workItemName(row)}
+                              </a>
+                            </h4>
                           </div>
                           <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`} aria-label={`Status: ${healthLabel(row.health)}`}>{healthLabel(row.health)}</span>
                         </div>
@@ -1548,8 +1550,6 @@ function ProjectTrackingBoardView({
                           <span>{currentStepLabel(row)}</span>
                           {row.queue_intelligence.next_action}
                         </p>
-                        <JobHandoffCard preview={routingPreview} compact />
-                        <JobWorkPackageSummary preview={routingPreview} />
                         <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
                       </article>
                     );

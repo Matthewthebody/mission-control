@@ -5643,6 +5643,34 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   -webkit-line-clamp: 2;
 }
 
+.project-tracking-board-card__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.project-tracking-board-card__title a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--project-row-accent, currentColor);
+}
+
+.project-tracking-board-card__title a:focus-visible {
+  outline: 2px solid rgba(174, 143, 85, 0.65);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Dense board: keep status badges small so many cards stay scannable at peak volume.
+   Two-class selectors so these win over the base chip rules later in the file. */
+.project-tracking-board-card .project-tracking-board-card__chips > * {
+  font-size: 0.58rem;
+  padding: 1px 6px;
+  line-height: 1.25;
+}
+
+.project-tracking-board-card .project-tracking-board-card__meta-line > span {
+  padding: 3px 6px;
+}
+
 .project-tracking-board-card__chips,
 .project-tracking-timeline-item__chips {
   display: flex;

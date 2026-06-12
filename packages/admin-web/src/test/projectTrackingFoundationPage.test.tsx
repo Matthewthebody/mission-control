@@ -586,15 +586,15 @@ describe("ProjectTrackingFoundation", () => {
     expect(boardLanes.querySelector(".project-tracking-board-card__accent")).not.toBeNull();
     expect(boardLanes.querySelector(".project-tracking-board-card__meta-line")).not.toBeNull();
     expect(boardLanes.querySelector(".project-tracking-board-card__next")).not.toBeNull();
-    expect(boardLanes.querySelector(".job-routing-card--compact")).not.toBeNull();
-    expect(boardLanes.querySelector(".job-work-package-summary")).not.toBeNull();
-    expect(within(boardLanes).getAllByText("Work Package").length).toBeGreaterThan(0);
-    expect(within(boardLanes).getAllByText(/Image QA|Product and Proof Prep|Gallery QA/).length).toBeGreaterThan(0);
-    expect(within(boardLanes).getAllByText("Handoff").length).toBeGreaterThan(0);
+    // Dense cards: heavy handoff / work-package subcomponents are no longer rendered inside board cards.
+    expect(boardLanes.querySelector(".job-routing-card--compact")).toBeNull();
+    expect(boardLanes.querySelector(".job-work-package-summary")).toBeNull();
+    expect(within(boardLanes).queryByText("Work Package")).not.toBeInTheDocument();
+    expect(within(boardLanes).queryByText("Handoff")).not.toBeInTheDocument();
     expect(within(boardLanes).getAllByText("Owner").length).toBeGreaterThan(0);
-    expect(within(boardLanes).getAllByText("Waiting on").length).toBeGreaterThan(0);
-    expect(within(boardLanes).getAllByText("Next").length).toBeGreaterThan(0);
     expect(within(boardLanes).getAllByText("Due").length).toBeGreaterThan(0);
+    // The card title links into the full Job Detail truth surface.
+    expect(within(boardLanes).getByRole("link", { name: /Open job detail for Maple Grove Senior High Retakes/i })).toHaveAttribute("href", "#jobs/job-late");
     expect(within(boardLanes).queryByText("Current department")).not.toBeInTheDocument();
     expect(boardLanes.querySelector(".project-tracking-step-pill")).toBeNull();
     expect(boardLanes.querySelector("dl")).toBeNull();
