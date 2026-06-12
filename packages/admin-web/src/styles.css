@@ -22319,20 +22319,11 @@ html[data-theme="light"] .shared-job-detail__done-stage--passed {
   background: var(--surface-raised, #0d1522);
   border: 1px solid rgba(116, 132, 160, 0.3);
   box-shadow: 0 12px 30px rgba(2, 10, 18, 0.35);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
   transition: opacity 0.12s ease;
 }
 
 html[data-theme="light"] .help-tooltip__bubble {
   background: #ffffff;
-}
-
-.help-tooltip__bubble--open {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
 }
 
 .workspace-page-header__title-row {

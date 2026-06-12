@@ -58,7 +58,12 @@ export function HelpTooltip({ text, label = "More information", className = "" }
       >
         <span aria-hidden="true">?</span>
       </button>
-      <span role="tooltip" id={tooltipId} className={`help-tooltip__bubble${open ? " help-tooltip__bubble--open" : ""}`}>
+      <span
+        role="tooltip"
+        id={tooltipId}
+        className="help-tooltip__bubble"
+        style={{ visibility: open ? "visible" : "hidden", opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none" }}
+      >
         {text}
       </span>
     </span>

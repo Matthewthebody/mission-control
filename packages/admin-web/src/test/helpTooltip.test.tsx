@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe("HelpTooltip", () => {
-  it("renders a quiet help trigger and keeps the description accessible, revealed on interaction", () => {
+  it("keeps the description accessible but visually hidden by default, revealed only on interaction", () => {
     render(<HelpTooltip text="A readable team calendar for shifts, events, and shoots." />);
 
     const trigger = screen.getByRole("button", { name: "More information" });
@@ -18,17 +18,32 @@ describe("HelpTooltip", () => {
     // Description stays in the DOM for screen readers and is linked via aria-describedby.
     const describedBy = trigger.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
-    expect(screen.getByText(/A readable team calendar/i)).toBeInTheDocument();
+    const bubble = screen.getByText(/A readable team calendar/i);
+    expect(bubble).toBeInTheDocument();
+    expect(bubble).toHaveAttribute("id", describedBy);
 
-    // Closed by default; clicking (tap) opens it; Escape closes it.
+    // It is NOT visibly rendered by default — this is what makes the page cleaner.
+    expect(bubble).not.toBeVisible();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    // Tap/click reveals it; Escape hides it again.
     fireEvent.click(trigger);
+    expect(bubble).toBeVisible();
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(bubble).not.toBeVisible();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-    // Focus reveals it for keyboard users.
+    // Hover reveals it.
+    fireEvent.mouseEnter(trigger);
+    expect(bubble).toBeVisible();
+    fireEvent.mouseLeave(trigger);
+    expect(bubble).not.toBeVisible();
+
+    // Keyboard focus reveals it.
     fireEvent.focus(trigger);
-    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(bubble).toBeVisible();
+    fireEvent.blur(trigger);
+    expect(bubble).not.toBeVisible();
   });
 });
