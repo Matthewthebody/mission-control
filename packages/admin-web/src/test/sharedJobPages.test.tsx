@@ -2388,6 +2388,11 @@ beforeEach(() => {
     expect(screen.getAllByRole("row")).toHaveLength(26);
     expect(screen.getAllByText("North High Database Job 1").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Open job" }).length).toBeGreaterThan(0);
+    // Compact Job Truth preview: staffing + blocker parity, a clear full-detail bridge, and a passive Done note.
+    expect(screen.getByRole("button", { name: "Open Full Job Detail" })).toBeInTheDocument();
+    expect(screen.getAllByText("Staffing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Blockers").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Done = pushed to sale \+ admin\/client\/association needs complete/i)).toBeInTheDocument();
     expect(screen.getAllByText("Missing roster").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Client approval needed").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Missing info checklist preview")).toBeInTheDocument();

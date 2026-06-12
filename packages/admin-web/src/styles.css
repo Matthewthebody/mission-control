@@ -22331,3 +22331,13 @@ html[data-theme="light"] .help-tooltip__bubble {
   align-items: center;
   gap: 8px;
 }
+
+.shared-job-preview__done-note {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { HelpTooltip } from "../components/HelpTooltip";
 import { usePermission } from "../components/PermissionGate";
 import { SharedJobListShell } from "../components/jobs/SharedJobListShell";
 import {
@@ -848,7 +849,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
             subtitle={`${selectedItem.organization_name ?? "No organization"} | ${selectedItem.job_number ?? "Draft"}`}
             actions={
               <WorkspaceActionBar align="end" compact>
-                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open job</button>
+                <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, selectedItem.id)}>Open Full Job Detail</button>
                 {canUpdateByPolicy ? <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase, `${selectedItem.id}/edit`)}>Edit</button> : null}
               </WorkspaceActionBar>
             }
@@ -869,14 +870,18 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
               <div><span>Shoot manager</span><strong>{calendarReadiness.ownerLabel}</strong></div>
               <div><span>Stage</span><strong>{getManagementStage(selectedItem)}</strong></div>
               <div><span>Next action</span><strong>{getNextStep(selectedItem)}</strong></div>
+              <div><span>Staffing</span><strong>{humanizeToken(selectedItem.staffing_status)}</strong></div>
               <div><span>Missing info</span><strong>{missingInfo.activeCount ? `${missingInfo.activeCount} open` : "Clear"}</strong></div>
+              <div><span>Blockers</span><strong>{selectedItem.blocker_count ? `${selectedItem.blocker_count} open` : "Clear"}</strong></div>
               <div><span>Waiting on</span><strong>{missingInfo.activeItems[0] ? getJobMissingInfoStatusLabel(missingInfo.activeItems[0].status) : "No one"}</strong></div>
             </div>
             <div className="shared-job-preview__status-row">
               <RiskBadge level={selectedItem.risk_status} />
               <StatusPill label={calendarReadiness.label} tone={calendarReadiness.tone} />
               <StatusPill label={detailsConfirmationChipLabel(detailsConfirmation)} tone={detailsConfirmation.tone} />
+              <StatusPill label={`Staffing: ${humanizeToken(selectedItem.staffing_status)}`} tone={statusTone(selectedItem.staffing_status)} />
               {missingInfo.activeItems[0] ? <StatusPill label={missingInfo.activeItems[0].title} tone={getJobMissingInfoStatusTone(missingInfo.activeItems[0])} /> : <StatusPill label="Missing info clear" tone="success" />}
+              {selectedItem.blocker_count ? <StatusPill label={`${selectedItem.blocker_count} blocker${selectedItem.blocker_count === 1 ? "" : "s"}`} tone="danger" /> : null}
               <StatusPill label={humanizeToken(selectedItem.job_status)} tone={statusTone(selectedItem.job_status)} />
               <StatusPill label={humanizeToken(selectedItem.readiness_status)} tone={statusTone(selectedItem.readiness_status)} />
               <StatusPill label={humanizeToken(selectedItem.production_status)} tone={statusTone(selectedItem.production_status)} />
@@ -891,6 +896,13 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
                 ))}
               </div>
             ) : null}
+            <p className="shared-job-preview__done-note">
+              Done = pushed to sale + admin/client/association needs complete.{" "}
+              <HelpTooltip
+                text="Done means the job is pushed to sale and all administrative, client, and association needs are met. Open the full job detail for the live completion stage."
+                label="About done"
+              />
+            </p>
                 </>
               );
             })()}
