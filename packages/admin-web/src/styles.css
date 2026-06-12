@@ -22186,3 +22186,80 @@ html[data-theme="light"] .staff-board__drawer {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Job Detail: interactive truth-snapshot chips, done ladder, anchor flash */
+.shared-job-truth-snapshot__item--jump {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.shared-job-truth-snapshot__item--jump:hover {
+  border-color: rgba(174, 143, 85, 0.55);
+  transform: translateY(-1px);
+}
+
+.shared-job-truth-snapshot__item--jump:focus-visible {
+  outline: 2px solid rgba(174, 143, 85, 0.6);
+  outline-offset: 2px;
+}
+
+.shared-job-detail__anchor--flash {
+  animation: shared-job-anchor-flash 1.4s ease;
+}
+
+@keyframes shared-job-anchor-flash {
+  0% {
+    box-shadow: 0 0 0 2px rgba(174, 143, 85, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(174, 143, 85, 0);
+  }
+}
+
+.shared-job-detail__done-definition {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.shared-job-detail__done-ladder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shared-job-detail__done-stage {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border: 1px solid rgba(116, 132, 160, 0.28);
+  color: var(--text-muted);
+}
+
+.shared-job-detail__done-stage--passed {
+  border-color: rgba(74, 168, 114, 0.4);
+  color: #8fcfa9;
+}
+
+.shared-job-detail__done-stage--current {
+  border-color: rgba(174, 143, 85, 0.65);
+  background: rgba(174, 143, 85, 0.16);
+  color: var(--text);
+}
+
+.shared-job-detail__done-stage--future {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+html[data-theme="light"] .shared-job-detail__done-stage--passed {
+  color: #2f7d54;
+}

@@ -2847,6 +2847,13 @@ beforeEach(() => {
     expect(truthSnapshot.getByText("Blocked status")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Missing info")).toBeInTheDocument();
     expect(truthSnapshot.getByText("Priority")).toBeInTheDocument();
+    // Truth-snapshot chips that have detail are real interactive buttons, not dead chips.
+    expect(truthSnapshot.getByRole("button", { name: /Calendar readiness:.*Jump to details/i })).toBeInTheDocument();
+    expect(truthSnapshot.getByRole("button", { name: /Missing info:.*Jump to details/i })).toBeInTheDocument();
+    expect(truthSnapshot.getByRole("button", { name: /Staffing readiness:.*Open Staff Assignment Board/i })).toBeInTheDocument();
+    // Definition of done block is present and explains completion.
+    expect(screen.getByRole("heading", { name: "Definition of done" })).toBeInTheDocument();
+    expect(screen.getByText(/Done means the job is pushed to sale/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Progress" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Calendar Readiness" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Details Confirmation" })).toBeInTheDocument();

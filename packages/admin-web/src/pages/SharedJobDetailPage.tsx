@@ -140,6 +140,8 @@ type JobTruthSnapshotItem = {
   value: string;
   tone?: JobTruthSnapshotTone;
   wide?: boolean;
+  anchor?: string;
+  navHash?: string;
 };
 
 function buildJobTruthSnapshot(
@@ -155,16 +157,67 @@ function buildJobTruthSnapshot(
     { label: "Organization", value: detail.summary.organization_name ?? "Organization not set" },
     { label: "Job type", value: humanizeToken(detail.job.job_category) },
     { label: "Shoot date", value: shootDate ? formatDate(shootDate) : "Date TBD" },
-    { label: "Calendar readiness", value: calendarReadiness?.label ?? "Needs date", tone: calendarReadiness?.tone ?? "warning" },
-    { label: "Details confirmation", value: detailsConfirmationChipLabel(detailsConfirmation), tone: detailsConfirmation.tone },
-    { label: "Staffing readiness", value: humanizeToken(detail.job.staffing_status), tone: statusTone(detail.job.staffing_status) },
+    { label: "Calendar readiness", value: calendarReadiness?.label ?? "Needs date", tone: calendarReadiness?.tone ?? "warning", anchor: "jobdetail-calendar-readiness" },
+    { label: "Details confirmation", value: detailsConfirmationChipLabel(detailsConfirmation), tone: detailsConfirmation.tone, anchor: "jobdetail-details-confirmation" },
+    { label: "Staffing readiness", value: humanizeToken(detail.job.staffing_status), tone: statusTone(detail.job.staffing_status), navHash: `#operations/staffing?area=staffing${shootDate ? `&date=${shootDate}` : ""}` },
     { label: "Current stage", value: humanizeToken(routingPreview.currentStage) },
     { label: "Current owner", value: routingPreview.currentOwner },
     { label: "Next action", value: missingInfoChecklist.activeCount ? missingInfoChecklist.nextAction : routingPreview.firstNextAction, wide: true },
-    { label: "Blocked status", value: routingPreview.blockerLabel, tone: routingPreview.blockerStatus === "blocked" ? "danger" : routingPreview.blockerStatus === "watch" ? "warning" : "success" },
-    { label: "Missing info", value: `${missingInfoChecklist.activeCount} open`, tone: missingInfoChecklist.activeCount ? "warning" : "success" },
+    { label: "Blocked status", value: routingPreview.blockerLabel, tone: routingPreview.blockerStatus === "blocked" ? "danger" : routingPreview.blockerStatus === "watch" ? "warning" : "success", anchor: "jobdetail-blockers" },
+    { label: "Missing info", value: `${missingInfoChecklist.activeCount} open`, tone: missingInfoChecklist.activeCount ? "warning" : "success", anchor: "jobdetail-missing-info" },
     { label: "Priority", value: humanizeToken(detail.job.priority_level), tone: detail.job.priority_level === "urgent" || detail.job.priority_level === "high" ? "danger" : detail.job.priority_level === "normal" ? "neutral" : "info" }
   ];
+}
+
+const COMPLETION_STAGES = [
+  "Not ready",
+  "Ready for calendar",
+  "Ready for shoot",
+  "In production",
+  "Pushed to sale",
+  "Admin complete",
+  "Done"
+] as const;
+
+// Stages 0-3 are derived from real operational data. "Pushed to sale" and the
+// admin/association completion stages live in Captura/admin today, so they are
+// shown as explanatory targets rather than tracked Mission Control state.
+const COMPLETION_TRACKED_MAX_INDEX = 3;
+
+const COMPLETION_PRODUCTION_ACTIVE = new Set<string>([
+  "awaiting_ingest",
+  "ingest_complete",
+  "editing",
+  "awaiting_internal_review",
+  "proof_build",
+  "proof_sent",
+  "awaiting_approval",
+  "revisions_requested",
+  "approved_for_production",
+  "approved_for_final",
+  "in_final_production",
+  "ordered_or_printed",
+  "ordered_or_sent",
+  "packaged"
+]);
+
+function deriveCompletionStageIndex(
+  detail: SharedJobDetailResponse,
+  calendarReadiness: ReturnType<typeof buildJobCalendarReadiness> | null
+): number {
+  if (["complete", "delivered", "closed"].includes(detail.job.job_status)) {
+    return 6;
+  }
+  if (detail.job.production_status && COMPLETION_PRODUCTION_ACTIVE.has(detail.job.production_status)) {
+    return 3;
+  }
+  if (["ready", "on_track"].includes(detail.job.readiness_status)) {
+    return 2;
+  }
+  if (calendarReadiness && calendarReadiness.tone === "success") {
+    return 1;
+  }
+  return 0;
 }
 
 function buildJobNotes(detail: SharedJobDetailResponse, selectedDay: SharedJobDetailResponse["days"][number] | null) {
@@ -208,6 +261,23 @@ function buildWorkflowReviewNotice(params: URLSearchParams, jobTitle: string, ro
 
 function getDetailsConfirmationStorageKey(jobId: string) {
   return `mission-control:details-confirmation:${jobId}`;
+}
+
+function navigateToHash(hash: string) {
+  window.location.hash = hash;
+}
+
+function scrollToJobDetailAnchor(anchorId: string) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const target = document.getElementById(anchorId);
+  if (!target) {
+    return;
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  target.classList.add("shared-job-detail__anchor--flash");
+  window.setTimeout(() => target.classList.remove("shared-job-detail__anchor--flash"), 1400);
 }
 
 export function SharedJobDetailPage({ token, currentUser, departmentType, routeBase }: Props) {
@@ -455,6 +525,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
   const jobNotes = buildJobNotes(detail, selectedDay);
   const priorIntelligence = buildJobPriorIntelligence(detail);
   const workflowReviewNotice = buildWorkflowReviewNotice(params, detail.job.title || detail.job.event_name || detail.job.job_number || "this job", routingPreview);
+  const completionStageIndex = deriveCompletionStageIndex(detail, calendarReadiness);
 
   const summaryCards = [
     {
@@ -462,12 +533,48 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       title: "Job Truth Snapshot",
       body: (
         <div className="shared-job-truth-snapshot" aria-label="Job truth snapshot">
-          {jobTruthSnapshot.map((item) => (
-            <div key={item.label} className={item.wide ? "shared-job-truth-snapshot__item shared-job-truth-snapshot__item--wide" : "shared-job-truth-snapshot__item"}>
-              <span>{item.label}</span>
-              {item.tone ? <StatusPill label={item.value} tone={item.tone} /> : <strong>{item.value}</strong>}
-            </div>
-          ))}
+          {jobTruthSnapshot.map((item) => {
+            const baseClass = item.wide
+              ? "shared-job-truth-snapshot__item shared-job-truth-snapshot__item--wide"
+              : "shared-job-truth-snapshot__item";
+            const content = (
+              <>
+                <span>{item.label}</span>
+                {item.tone ? <StatusPill label={item.value} tone={item.tone} /> : <strong>{item.value}</strong>}
+              </>
+            );
+            if (item.anchor) {
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={`${baseClass} shared-job-truth-snapshot__item--jump`}
+                  onClick={() => scrollToJobDetailAnchor(item.anchor!)}
+                  aria-label={`${item.label}: ${item.value}. Jump to details`}
+                >
+                  {content}
+                </button>
+              );
+            }
+            if (item.navHash) {
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={`${baseClass} shared-job-truth-snapshot__item--jump`}
+                  onClick={() => navigateToHash(item.navHash!)}
+                  aria-label={`${item.label}: ${item.value}. Open Staff Assignment Board`}
+                >
+                  {content}
+                </button>
+              );
+            }
+            return (
+              <div key={item.label} className={baseClass}>
+                {content}
+              </div>
+            );
+          })}
         </div>
       )
     },
@@ -500,7 +607,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       key: "missing-info",
       title: "Missing Info Checklist",
       body: (
-        <div className="shared-job-form__stack">
+        <div className="shared-job-form__stack" id="jobdetail-missing-info">
           <div className="shared-job-preview__status-row">
             {missingInfoChecklist.activeItems[0] ? (
               <StatusPill label={`${missingInfoChecklist.activeCount} open`} tone={getJobMissingInfoStatusTone(missingInfoChecklist.activeItems[0])} />
@@ -522,7 +629,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       key: "calendar-readiness",
       title: "Calendar Readiness",
       body: calendarReadiness ? (
-        <div className="shared-job-form__stack">
+        <div className="shared-job-form__stack" id="jobdetail-calendar-readiness">
           <div className="shared-job-preview__status-row">
             <StatusPill label={calendarReadiness.label} tone={calendarReadiness.tone} />
             <StatusPill label={calendarReadiness.staffingLabel} tone={calendarReadiness.staffingLabel === "Shoot manager assigned" ? "success" : "warning"} />
@@ -539,7 +646,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       key: "details-confirmation",
       title: "Details Confirmation",
       body: (
-        <div className="shared-job-form__stack">
+        <div className="shared-job-form__stack" id="jobdetail-details-confirmation">
           <div className="shared-job-preview__status-row">
             <StatusPill label={detailsConfirmationChipLabel(detailsConfirmation)} tone={detailsConfirmation.tone} />
             {detailsConfirmation.missingCount ? <StatusPill label={`${detailsConfirmation.missingCount} detail${detailsConfirmation.missingCount === 1 ? "" : "s"} to verify`} tone="warning" /> : null}
@@ -559,6 +666,37 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
               </button>
             </WorkspaceActionBar>
           )}
+        </div>
+      )
+    },
+    {
+      key: "definition-of-done",
+      title: "Definition of done",
+      body: (
+        <div className="shared-job-form__stack">
+          <p className="shared-job-detail__done-definition">
+            Done means the job is pushed to sale and all administrative, client, and association needs are met.
+          </p>
+          <ol className="shared-job-detail__done-ladder" aria-label="Completion stages">
+            {COMPLETION_STAGES.map((stage, index) => {
+              const state =
+                index === completionStageIndex
+                  ? "current"
+                  : index < completionStageIndex
+                    ? "passed"
+                    : index > COMPLETION_TRACKED_MAX_INDEX
+                      ? "future"
+                      : "upcoming";
+              return (
+                <li key={stage} className={`shared-job-detail__done-stage shared-job-detail__done-stage--${state}`}>
+                  {stage}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="shared-job-sidebar__muted">
+            Pushed-to-sale and admin/association completion are tracked in Captura/admin today; Mission Control shows the current operational stage.
+          </p>
         </div>
       )
     },
@@ -612,7 +750,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
             <div className="shared-job-detail__kv">{detail.watch_flags.map((flag) => <span key={flag.id}>{flag.title} | {humanizeToken(flag.severity)}</span>)}</div>
           </section>
         ) : null}
-        <section className="shared-job-detail__list-card" aria-labelledby="missing-info-checklist-title">
+        <section className="shared-job-detail__list-card" id="jobdetail-blockers" aria-labelledby="missing-info-checklist-title">
           <div className="shared-job-detail__list-card-header">
             <div>
               <h3 id="missing-info-checklist-title">Missing Info and Blockers</h3>

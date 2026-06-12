@@ -23,6 +23,19 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function readInitialDateFromHash(): string {
+  if (typeof window === "undefined") {
+    return getLocalDateString();
+  }
+  const hash = window.location.hash;
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex === -1) {
+    return getLocalDateString();
+  }
+  const date = new URLSearchParams(hash.slice(queryIndex + 1)).get("date");
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : getLocalDateString();
+}
+
 function shiftDate(dateString: string, deltaDays: number) {
   const base = new Date(`${dateString}T12:00:00`);
   if (Number.isNaN(base.getTime())) {
@@ -75,7 +88,7 @@ function buildCoverageCards(payload: StaffingDashboardResponse | null): Coverage
 }
 
 export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
-  const [anchorDate, setAnchorDate] = useState(getLocalDateString());
+  const [anchorDate, setAnchorDate] = useState(readInitialDateFromHash);
   const [payload, setPayload] = useState<StaffingDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
