@@ -951,6 +951,7 @@ export function HomeCommandSurface({
       <WorkspacePageHeader
         title="My Dashboard"
         summary="Daily operating view for today's schedule, staffing gaps, urgent issues, and department task counts."
+        summaryAsHelp
         compact
         className="home-operational__header"
         actions={
@@ -1120,6 +1121,7 @@ export function HomeCommandSurface({
           <WorkspaceSectionHeader
             title="Studio Pulse"
             summary="How busy the studio is this week — shooting, processing, and what is piling up."
+            summaryAsHelp
             compact
           />
           <div className="home-operational__pulse-grid">
@@ -1140,6 +1142,7 @@ export function HomeCommandSurface({
           <WorkspaceSectionHeader
             title="This Week's Operational Priorities"
             summary="What is due this week and still needs to get done, ordered by risk."
+            summaryAsHelp
             compact
           />
           <div className="home-operational__weekly-list home-operational__weekly-list--priorities">
@@ -1165,6 +1168,7 @@ export function HomeCommandSurface({
           <WorkspaceSectionHeader
             title="Due This Week / Not Done"
             summary="Work due this week that isn't finished yet — grouped by department, most at-risk first."
+            summaryAsHelp
             compact
             actions={
               canOpenProductionQueue ? (
