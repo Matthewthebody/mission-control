@@ -39,9 +39,27 @@ export function LeadershipOperatingReport({ token }: Props) {
     };
   }, [token]);
 
-  // Resilient: stay quiet until real data is available; never show a fake/empty report shell.
-  if (failed || !rows) {
-    return null;
+  // Resilient: a calm loading line and an honest error line — never fake fallback metrics.
+  if (failed) {
+    return (
+      <section className="project-tracking-leadership-strip" aria-label="Leadership operating report">
+        <div className="project-tracking-leadership-strip__label">
+          <strong>Operating Report</strong>
+          <span>The operating report is unavailable right now. Refresh to try again.</span>
+        </div>
+      </section>
+    );
+  }
+
+  if (!rows) {
+    return (
+      <section className="project-tracking-leadership-strip" aria-label="Leadership operating report">
+        <div className="project-tracking-leadership-strip__label">
+          <strong>Operating Report</strong>
+          <span>Loading operating report…</span>
+        </div>
+      </section>
+    );
   }
 
   return <ProjectTrackingLeadershipVisibility rows={rows} generatedAt={generatedAt} />;

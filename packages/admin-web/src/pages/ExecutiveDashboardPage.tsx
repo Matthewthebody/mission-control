@@ -9,16 +9,14 @@ type Props = {
 
 export function ExecutiveDashboardPage({ token, currentUser }: Props) {
   return (
-    <>
-      <ExecutiveDashboardShell
-        token={token}
-        currentUser={currentUser}
-        scope="executive"
-        title="Executive Dashboard"
-        summary="Cross-department operational health, urgent risk, blocked work, and workload pressure in one leadership command surface."
-      />
-      <LeadershipOperatingReport token={token} />
-    </>
+    <ExecutiveDashboardShell
+      token={token}
+      currentUser={currentUser}
+      scope="executive"
+      title="Executive Dashboard"
+      summary="Cross-department operational health, urgent risk, blocked work, and workload pressure in one leadership command surface."
+      operatingReportSlot={<LeadershipOperatingReport token={token} />}
+    />
   );
 }
 

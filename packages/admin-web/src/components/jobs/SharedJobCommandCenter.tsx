@@ -52,6 +52,8 @@ type SharedDashboardSurfaceProps = {
   departmentType?: CommandDepartment;
   title: string;
   summary: string;
+  /** Optional leadership-only content rendered after execution pressure, before deeper workload. */
+  operatingReportSlot?: React.ReactNode;
 };
 
 type SharedWatchlistPageProps = {
@@ -974,7 +976,8 @@ export function RoleAwareHomeDashboard({
   scope,
   departmentType,
   title,
-  summary
+  summary,
+  operatingReportSlot
 }: SharedDashboardSurfaceProps) {
   const [dashboard, setDashboard] = useState<SharedDashboardResponse | null>(null);
   const [alerts, setAlerts] = useState<SharedAlertCenterResponse | null>(null);
@@ -1279,6 +1282,7 @@ export function RoleAwareHomeDashboard({
           <EscalationSummaryCard items={dashboard.urgent_watch} />
         </div>
       </DashboardSection>
+      {operatingReportSlot}
       <DashboardSection title="Movement and Load">
         <div className="shared-command__widget-grid">
           <RecentMovementFeed items={dashboard.recent_movement} />
