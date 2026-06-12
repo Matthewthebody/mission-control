@@ -5793,6 +5793,42 @@ html[data-theme="light"] .department-hub-pattern__card--danger {
   font-weight: 800;
 }
 
+/* Tracker: grouped dense production table */
+.project-tracking-tracker-group__header th {
+  position: static;
+  background: #eef3fb;
+  color: var(--pt-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(201, 211, 224, 0.9);
+}
+
+.project-tracking-tracker-group__count {
+  margin-left: 8px;
+  color: var(--pt-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.project-tracking-tracker-title {
+  color: var(--pt-text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.project-tracking-tracker-title:hover {
+  text-decoration: underline;
+}
+
+.project-tracking-tracker-title:focus-visible {
+  outline: 2px solid rgba(174, 143, 85, 0.65);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .project-tracking-timeline-groups {
   display: grid;
   gap: 8px;

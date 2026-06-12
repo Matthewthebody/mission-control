@@ -554,12 +554,22 @@ describe("ProjectTrackingFoundation", () => {
     expect(within(areaFilters).getByRole("button", { name: /Other, 1 item/i })).toBeInTheDocument();
 
     expect(screen.getByText("Job Progress Board")).toBeInTheDocument();
-    expect(screen.getByText("Board lanes show workflow stage; area chips show job type.")).toBeInTheDocument();
     const viewModes = screen.getByLabelText("Project Tracking view modes");
-    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
+    // Tracker (dense grouped table) is the default view.
+    expect(within(viewModes).getByRole("button", { name: /Tracker/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /List/i })).toHaveAttribute("aria-pressed", "false");
-    expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "false");
     expect(within(viewModes).getByRole("button", { name: /Timeline/i })).toHaveAttribute("aria-pressed", "false");
+    const trackerTable = screen.getByRole("table", { name: "Project Tracking table view" });
+    expect(trackerTable.querySelectorAll("tbody.project-tracking-tracker-group").length).toBe(3);
+    expect(within(trackerTable).getByText("2 jobs")).toBeInTheDocument();
+    expect(within(trackerTable).getAllByText("1 job").length).toBe(2);
+    expect(within(trackerTable).getByRole("link", { name: /Open job detail for Maple Grove Senior High Retakes/i })).toHaveAttribute("href", "#jobs/job-late");
+
+    // Board remains a real secondary view.
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Board/i }));
+    expect(within(viewModes).getByRole("button", { name: /Board/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Board lanes show workflow stage; area chips show job type.")).toBeInTheDocument();
     expect(screen.getByText("Scan owners, due dates, blockers, and next actions by stage.")).toBeInTheDocument();
     const boardLanes = screen.getByLabelText("Project Tracking board lanes");
     expect(boardLanes).toBeInTheDocument();
@@ -650,9 +660,9 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getByRole("button", { name: "Mine filter" })).toBeInTheDocument();
     expect(screen.getByText("Showing 4 of 4 work items - Area: All - Preset: All Active - all departments - Filtered by all work")).toBeInTheDocument();
 
-    fireEvent.click(within(viewModes).getByRole("button", { name: /Table/i }));
-    expect(within(viewModes).getByRole("button", { name: /Table/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Precision review for owner, status, due date, health, and action.")).toBeInTheDocument();
+    fireEvent.click(within(viewModes).getByRole("button", { name: /Tracker/i }));
+    expect(within(viewModes).getByRole("button", { name: /Tracker/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Dense production tracker grouped by work area. Open a job to see its full detail.")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Project Tracking table view" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Department" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Owner and Queue" })).toBeInTheDocument();
@@ -700,6 +710,7 @@ describe("ProjectTrackingFoundation", () => {
   it("filters, searches, and clears the jobs board from compact controls", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: /Board/i }));
     await screen.findByLabelText("Project Tracking board lanes");
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     const departmentSelect = screen.getByRole("combobox", { name: "Department" });
@@ -742,6 +753,7 @@ describe("ProjectTrackingFoundation", () => {
   it("filters Project Tracking by all, schools, sports, and other work areas", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: /Board/i }));
     await screen.findByLabelText("Project Tracking board lanes");
     const areaFilters = screen.getByLabelText("Job type area filters");
 
@@ -798,6 +810,7 @@ describe("ProjectTrackingFoundation", () => {
   it("uses Needs Attention Review actions as temporary filters without breaking preset lenses", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: /Board/i }));
     await screen.findByLabelText("Project Tracking board lanes");
     const blockedCommandGroup = screen.getByLabelText("Blocked command group");
     const blockedCommandButton = within(blockedCommandGroup).getByRole("button", { name: "Review blocked work" });
@@ -828,6 +841,7 @@ describe("ProjectTrackingFoundation", () => {
   it("applies no-persistence preset lenses with honest counts and calm empty states", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
+    fireEvent.click(await screen.findByRole("button", { name: /Board/i }));
     await screen.findByLabelText("Project Tracking board lanes");
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     const presetLenses = screen.getByLabelText("Project Tracking preset lenses");

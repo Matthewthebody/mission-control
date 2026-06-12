@@ -137,9 +137,9 @@ const PRESET_EMPTY_STATES: Record<ProjectTrackingPreset, string> = {
 const PROJECT_TRACKING_PRESETS: ProjectTrackingPreset[] = ["all_active", "leadership_review", "schools", "sports", "photography", "blocked", "due_soon", "at_risk", "completed_this_month"];
 
 const PROJECT_TRACKING_VIEW_MODES: Array<{ id: ProjectTrackingViewMode; label: string; summary: string }> = [
-  { id: "command", label: "List", summary: "Review compact row details from the same filtered work." },
+  { id: "table", label: "Tracker", summary: "Dense production tracker grouped by work area." },
   { id: "board", label: "Board", summary: "Group the same work by current operating lane." },
-  { id: "table", label: "Table", summary: "Review dense work details without extra card chrome." },
+  { id: "command", label: "List", summary: "Review compact row details from the same filtered work." },
   { id: "timeline", label: "Timeline", summary: "Preview date pressure from the same filtered work." }
 ];
 
@@ -1573,14 +1573,18 @@ function ProjectTrackingTableView({
   rows: ProjectWorkflowJobRow[];
   onOpenWorkflow: (workflowRunId: string) => void;
 }) {
+  const groups = (["schools", "sports", "other"] as ProjectTrackingAreaFilter[])
+    .map((area) => ({ area, groupRows: rows.filter((row) => projectAreaForJob(row) === area) }))
+    .filter((group) => group.groupRows.length > 0);
+
   return (
-    <section className="project-tracking-view-shell" aria-label="Table View">
+    <section className="project-tracking-view-shell" aria-label="Tracker View">
       <div className="project-tracking-view-intro">
-        <strong>Table</strong>
-        <span>Precision review for owner, status, due date, health, and action.</span>
+        <strong>Tracker</strong>
+        <span>Dense production tracker grouped by work area. Open a job to see its full detail.</span>
       </div>
       <div className="project-tracking-table-wrap">
-        <table className="project-tracking-table" aria-label="Project Tracking table view">
+        <table className="project-tracking-table project-tracking-tracker-table" aria-label="Project Tracking table view">
           <thead>
             <tr>
               <th scope="col">Work</th>
@@ -1596,39 +1600,49 @@ function ProjectTrackingTableView({
               <th scope="col">Action</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((row) => {
-              const owner = ownerPresentation(row);
-              const waiting = waitingOrBlockedLabelForRow(row) ?? "Clear";
-              const detailsConfirmation = detailsConfirmationForProjectRow(row);
-              return (
-                <tr key={row.job_id}>
-                  <td>
-                    <strong>{workItemName(row)}</strong>
-                    <span>{row.job_number ?? row.job_code ?? row.job_id}</span>
-                  </td>
-                  <td>{departmentDisplayForRow(row)}</td>
-                  <td>{workItemAccountLabel(row)}</td>
-                  <td>
-                    <span className={`project-tracking-status-chip ${detailsConfirmationChipClassForProject(detailsConfirmation)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
-                  </td>
-                  <td>{owner.primary}</td>
-                  <td>{statusPhaseLabelForRow(row)}</td>
-                  <td>{currentStepLabel(row)}</td>
-                  <td>{deadlineLabel(row)}</td>
-                  <td>
-                    <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`}>{healthLabel(row.health)}</span>
-                  </td>
-                  <td>
-                    <span className={waiting === "Clear" ? "project-tracking-table-muted" : "project-tracking-attention-chip"}>{waiting}</span>
-                  </td>
-                  <td>
-                    <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+          {groups.map((group) => (
+            <tbody key={group.area} className="project-tracking-tracker-group" aria-label={`${AREA_FILTER_LABELS[group.area]} work area, ${group.groupRows.length} ${group.groupRows.length === 1 ? "job" : "jobs"}`}>
+              <tr className="project-tracking-tracker-group__header">
+                <th scope="colgroup" colSpan={11}>
+                  <span className={`project-tracking-area-chip project-tracking-area-chip--${group.area}`}>{AREA_FILTER_LABELS[group.area]}</span>
+                  <span className="project-tracking-tracker-group__count">{group.groupRows.length} {group.groupRows.length === 1 ? "job" : "jobs"}</span>
+                </th>
+              </tr>
+              {group.groupRows.map((row) => {
+                const owner = ownerPresentation(row);
+                const waiting = waitingOrBlockedLabelForRow(row) ?? "Clear";
+                const detailsConfirmation = detailsConfirmationForProjectRow(row);
+                return (
+                  <tr key={row.job_id}>
+                    <td>
+                      <a className="project-tracking-tracker-title" href={`#jobs/${encodeURIComponent(row.job_id)}`} aria-label={`Open job detail for ${workItemName(row)}`}>
+                        {workItemName(row)}
+                      </a>
+                      <span>{row.job_number ?? row.job_code ?? row.job_id}</span>
+                    </td>
+                    <td>{departmentDisplayForRow(row)}</td>
+                    <td>{workItemAccountLabel(row)}</td>
+                    <td>
+                      <span className={`project-tracking-status-chip ${detailsConfirmationChipClassForProject(detailsConfirmation)}`}>{detailsConfirmationChipLabel(detailsConfirmation)}</span>
+                    </td>
+                    <td>{owner.primary}</td>
+                    <td>{statusPhaseLabelForRow(row)}</td>
+                    <td>{currentStepLabel(row)}</td>
+                    <td>{deadlineLabel(row)}</td>
+                    <td>
+                      <span className={`project-tracking-status-chip ${statusChipClassForRow(row)}`}>{healthLabel(row.health)}</span>
+                    </td>
+                    <td>
+                      <span className={waiting === "Clear" ? "project-tracking-table-muted" : "project-tracking-attention-chip"}>{waiting}</span>
+                    </td>
+                    <td>
+                      <ProjectTrackingWorkAction row={row} onOpenWorkflow={onOpenWorkflow} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          ))}
         </table>
       </div>
     </section>
@@ -2207,7 +2221,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   const [statusFilter, setStatusFilter] = useState<ProjectTrackingStatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ProjectTrackingSort>("priority");
-  const [viewMode, setViewMode] = useState<ProjectTrackingViewMode>("board");
+  const [viewMode, setViewMode] = useState<ProjectTrackingViewMode>("table");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
