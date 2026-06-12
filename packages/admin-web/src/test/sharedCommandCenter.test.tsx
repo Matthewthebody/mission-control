@@ -41,6 +41,16 @@ vi.mock("../services/organizationApi", () => ({
   listDirectoryOwnerOptions: (...args: unknown[]) => listDirectoryOwnerOptionsMock(...args)
 }));
 
+const getProjectWorkflowCommandCenterMock = vi.fn();
+
+vi.mock("../services/projectTracking", async () => {
+  const actual = await vi.importActual<typeof import("../services/projectTracking")>("../services/projectTracking");
+  return {
+    ...actual,
+    getProjectWorkflowCommandCenter: (...args: unknown[]) => getProjectWorkflowCommandCenterMock(...args)
+  };
+});
+
 const sessionTrust = {
   identityProvider: "local_password" as const,
   sessionAssurance: "standard" as const,
@@ -454,8 +464,10 @@ beforeEach(() => {
   markSharedAlertReadMock.mockReset();
   markSharedAlertActedMock.mockReset();
   listDirectoryOwnerOptionsMock.mockReset();
+  getProjectWorkflowCommandCenterMock.mockReset();
   window.location.hash = "#dashboard";
 
+  getProjectWorkflowCommandCenterMock.mockResolvedValue({ generated_at: "2026-05-01T12:00:00.000Z", view: "global", job_rows: [] });
   getSharedDashboardMock.mockResolvedValue(buildDashboardResponse());
   listSharedAlertsMock.mockResolvedValue(buildAlertPayload());
   listSharedDashboardWidgetPreferencesMock.mockResolvedValue({ preferences: [] });
@@ -569,6 +581,13 @@ describe("shared command center", () => {
       expect(getSharedDashboardMock).toHaveBeenCalledWith("token-demo", "executive", undefined);
     });
     expect(screen.getByText("Urgent Next 24 Hours")).toBeInTheDocument();
+
+    // The Operating Report now lives in Leadership (relocated out of Project Tracking).
+    expect(await screen.findByText("Leadership Operating Report")).toBeInTheDocument();
+    expect(screen.getByText("Active Jobs by Stage")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getProjectWorkflowCommandCenterMock).toHaveBeenCalledWith("token-demo", { view: "global", limit: 100 });
+    });
   });
 
   it("supports drag reordering inside the homepage widget layout editor", async () => {

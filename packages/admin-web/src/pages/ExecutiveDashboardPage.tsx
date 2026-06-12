@@ -1,4 +1,5 @@
 import { ExecutiveDashboardShell } from "../components/jobs/SharedJobCommandCenter";
+import { LeadershipOperatingReport } from "../components/leadership/LeadershipOperatingReport";
 import type { SessionUser } from "../types";
 
 type Props = {
@@ -8,13 +9,16 @@ type Props = {
 
 export function ExecutiveDashboardPage({ token, currentUser }: Props) {
   return (
-    <ExecutiveDashboardShell
-      token={token}
-      currentUser={currentUser}
-      scope="executive"
-      title="Executive Dashboard"
-      summary="Cross-department operational health, urgent risk, blocked work, and workload pressure in one leadership command surface."
-    />
+    <>
+      <ExecutiveDashboardShell
+        token={token}
+        currentUser={currentUser}
+        scope="executive"
+        title="Executive Dashboard"
+        summary="Cross-department operational health, urgent risk, blocked work, and workload pressure in one leadership command surface."
+      />
+      <LeadershipOperatingReport token={token} />
+    </>
   );
 }
 
