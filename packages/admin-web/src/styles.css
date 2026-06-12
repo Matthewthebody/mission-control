@@ -19619,7 +19619,9 @@ html[data-theme="light"] .reports-history-focus {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  min-height: calc(100vh - 24px);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 18px 14px 14px;
   border-radius: 24px;
   background: var(--sidebar-bg);
