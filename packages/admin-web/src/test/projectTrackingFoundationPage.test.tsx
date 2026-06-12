@@ -533,24 +533,14 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByRole("button", { name: /Needs Review/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Done Recently/i }).length).toBeGreaterThan(0);
-    expect(screen.getByText("Leadership Operating Report")).toBeInTheDocument();
-    expect(screen.getByText("Stuck work, upcoming load, assignments, waiting split, and readiness from the same tracked jobs.")).toBeInTheDocument();
-    expect(screen.getByText("Active Jobs by Stage")).toBeInTheDocument();
-    expect(screen.getByText("Upcoming Work")).toBeInTheDocument();
-    expect(screen.getByText("Overdue Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Unassigned Work")).toBeInTheDocument();
-    expect(screen.getByText("Waiting Split")).toBeInTheDocument();
-    expect(screen.getByText("Production Bottlenecks")).toBeInTheDocument();
-    expect(screen.getByText("Calendar Readiness")).toBeInTheDocument();
-    expect(screen.getByText("Client-Risk Jobs")).toBeInTheDocument();
-    expect(screen.getByText("Urgent Changes")).toBeInTheDocument();
-    expect(screen.getByText("Prior-Risk Intelligence")).toBeInTheDocument();
-    expect(screen.getByText("What Is Stuck")).toBeInTheDocument();
-    expect(screen.getByText("What Is Coming Up")).toBeInTheDocument();
-    expect(screen.getByText("Leadership Attention")).toBeInTheDocument();
-    expect(screen.getByText("Blocked Jobs")).toBeInTheDocument();
-    expect(screen.getByText("Jobs Missing Info")).toBeInTheDocument();
-    expect(screen.getByText("Department Workload")).toBeInTheDocument();
+    // Leadership Operating Report is no longer rendered inside Project Tracking
+    // (board-first; the report relocates to the Leadership Operating Center next).
+    expect(screen.queryByText("Leadership Operating Report")).not.toBeInTheDocument();
+    expect(screen.queryByText("Stuck work, upcoming load, assignments, waiting split, and readiness from the same tracked jobs.")).not.toBeInTheDocument();
+    expect(screen.queryByText("What Is Stuck")).not.toBeInTheDocument();
+    expect(screen.queryByText("What Is Coming Up")).not.toBeInTheDocument();
+    expect(screen.queryByText("Leadership Attention")).not.toBeInTheDocument();
+    expect(screen.queryByText("Prior-Risk Intelligence")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Blocked and At Risk" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review Blocked and At Risk" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prep Readiness" })).not.toBeInTheDocument();

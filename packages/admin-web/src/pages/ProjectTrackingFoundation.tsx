@@ -1272,7 +1272,9 @@ function leadershipWorkItemSummary(row: ProjectWorkflowJobRow) {
   return `${workItemAccountLabel(row)} - ${owner.primary} - ${deadlineLabel(row)}`;
 }
 
-function ProjectTrackingLeadershipVisibility({
+// Retained for relocation to the Leadership Operating Center (next slice).
+// No longer rendered inside Project Tracking, which is now board-first.
+export function ProjectTrackingLeadershipVisibility({
   rows,
   generatedAt
 }: {
@@ -2418,8 +2420,6 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
               ))}
             </div>
           </section>
-
-          <ProjectTrackingLeadershipVisibility rows={areaScopedRows} generatedAt={globalCommandCenter?.generated_at} />
 
           <ProjectTrackingJobBoard
             token={token}
