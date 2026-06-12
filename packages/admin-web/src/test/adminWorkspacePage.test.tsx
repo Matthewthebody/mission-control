@@ -222,12 +222,12 @@ describe("Admin workspace", () => {
     cleanup();
   });
 
-  it("renders the control-room summary and routes into owning admin surfaces", async () => {
+  it("renders the admin workspace summary and routes into owning admin surfaces", async () => {
     getAdminWorkspaceMock.mockResolvedValue(payload);
 
     render(<AdminWorkspace token="token" currentUser={leadershipUser} routeId="admin" />);
 
-    expect(await screen.findByText("Run the system control room")).toBeInTheDocument();
+    expect(await screen.findByText("Admin workspace")).toBeInTheDocument();
     expect(await screen.findByText("Roles and Access")).toBeInTheDocument();
     expect(screen.getAllByText("Integrations").length).toBeGreaterThan(0);
     expect(screen.getByText("Admin Review Tools")).toBeInTheDocument();
@@ -247,7 +247,7 @@ describe("Admin workspace", () => {
     render(<AdminWorkspace token="token" currentUser={fieldUser} routeId="admin" />);
 
     expect(await screen.findByText("Admin Workspace")).toBeInTheDocument();
-    expect(screen.getByText(/control plane for roles, integrations, settings, audit posture, and admin-only review work/i)).toBeInTheDocument();
+    expect(screen.getByText(/Admin holds roles, integrations, settings, audit posture, and admin-only review work/i)).toBeInTheDocument();
     expect(getAdminWorkspaceMock).not.toHaveBeenCalled();
   });
 });

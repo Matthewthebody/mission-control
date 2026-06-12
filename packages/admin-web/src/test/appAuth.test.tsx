@@ -1265,7 +1265,7 @@ describe("app auth bootstrap", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Run the system control room")).toBeInTheDocument();
+    expect(await screen.findByText("Admin workspace")).toBeInTheDocument();
     expect(await screen.findByText("Roles and Access")).toBeInTheDocument();
     expect(screen.queryByText("This route is defined in the shell, but it does not have an owner page wired up yet.")).not.toBeInTheDocument();
   });

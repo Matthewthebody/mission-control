@@ -89,7 +89,7 @@ export function AdminWorkspace({ token, currentUser, routeId = "admin" }: Props)
       <section className="panel admin-workspace admin-workspace--limited">
         <WorkspaceEmptyState
           title="Admin Workspace"
-          summary="Admin is the control plane for roles, integrations, settings, audit posture, and admin-only review work. It should stay out of everyday operational pages."
+          summary="Admin holds roles, integrations, settings, audit posture, and admin-only review work. It stays out of everyday operational pages and your personal settings."
           actions={
             <>
               {canOpenHome ? (
@@ -122,8 +122,8 @@ export function AdminWorkspace({ token, currentUser, routeId = "admin" }: Props)
     <div className="admin-workspace">
       <WorkspacePageHeader
         eyebrow="Admin"
-        title="Run the system control room"
-        summary="Keep roles, integrations, settings, audit posture, and admin-only review work in one calm control plane instead of leaking dangerous tooling into daily business pages."
+        title="Admin workspace"
+        summary="Roles, integrations, settings, audit posture, and admin-only review work live here, kept out of everyday business pages and personal settings."
         meta={
           workspace
             ? [

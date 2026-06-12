@@ -207,8 +207,8 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   {
     key: "settings",
     label: "Settings",
-    description: "System settings, workflow templates, integrations, roles, permissions, diagnostics, and configuration.",
-    routeId: "admin"
+    description: "Your account, sign-in, preferences, and access.",
+    routeId: "account"
   }
 ];
 
@@ -1534,7 +1534,7 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "admin",
-    label: "Settings",
+    label: "Admin",
     sectionKey: "settings",
     description: "System controls, integrations, audit posture, reference data, and admin-only review work.",
     canonicalHash: "#admin",

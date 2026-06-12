@@ -735,7 +735,9 @@ export default function App() {
     sectionLandingCards,
     onOpenConcierge: openConcierge,
     onSessionUpdated: setCurrentUser,
-    onLoggedOut: handleLoggedOut
+    onLoggedOut: handleLoggedOut,
+    theme,
+    onThemeChange: setTheme
   });
   const suppressDirtyBannerForInternalDemo =
     guardedRouteId === "project-tracking" || guardedRouteId === "operations-schools" || guardedRouteId.startsWith("schools-");
@@ -1199,6 +1201,8 @@ type RenderRouteContentArgs = {
   onOpenConcierge: (initialQuery?: string) => void;
   onSessionUpdated: (user: SessionUser) => void;
   onLoggedOut: (notice?: string) => void;
+  theme: ThemeMode;
+  onThemeChange: (mode: ThemeMode) => void;
 };
 
 function renderRouteContent({
@@ -1211,7 +1215,9 @@ function renderRouteContent({
   sectionLandingCards,
   onOpenConcierge,
   onSessionUpdated,
-  onLoggedOut
+  onLoggedOut,
+  theme,
+  onThemeChange
 }: RenderRouteContentArgs) {
   if (route.render.kind === "dashboard-root") {
     return <Dashboard token={token} currentUser={currentUser} socket={socket} onOpenConcierge={onOpenConcierge} />;
@@ -1792,7 +1798,16 @@ function renderRouteContent({
           "Opening the security workspace."
         );
       case "account":
-        return <MyAccount token={token} user={currentUser} onSessionUpdated={onSessionUpdated} onLoggedOut={onLoggedOut} />;
+        return (
+          <MyAccount
+            token={token}
+            user={currentUser}
+            theme={theme}
+            onThemeChange={onThemeChange}
+            onSessionUpdated={onSessionUpdated}
+            onLoggedOut={onLoggedOut}
+          />
+        );
       default:
         break;
     }

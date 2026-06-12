@@ -1,17 +1,22 @@
 import { useState, type FormEvent } from "react";
 import { ApiClientError, apiFetch } from "../api";
-import { canAccessSecurityCenter } from "../permissions";
+import { canAccessSecurityCenter, canAccessSection } from "../permissions";
 import { elevateSession, endSessionElevation, startBreakGlass, endBreakGlass } from "../services/securityApi";
+import { ThemeToggle, type ThemeMode } from "../components/ThemeToggle";
 import type { SessionUser } from "../types";
 
 type Props = {
   token: string;
   user: SessionUser;
+  theme?: ThemeMode;
+  onThemeChange?: (mode: ThemeMode) => void;
   onSessionUpdated?: (user: SessionUser) => void;
   onLoggedOut: (notice?: string) => void;
 };
 
-export function MyAccount({ token, user, onSessionUpdated, onLoggedOut }: Props) {
+export function MyAccount({ token, user, theme, onThemeChange, onSessionUpdated, onLoggedOut }: Props) {
+  const microsoftConnected = user.sessionTrust.identityProvider === "microsoft_entra";
+  const canOpenAdminWorkspace = canAccessSection(user, "admin");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [elevationPassword, setElevationPassword] = useState("");
@@ -198,6 +203,19 @@ export function MyAccount({ token, user, onSessionUpdated, onLoggedOut }: Props)
           </div>
         </article>
 
+        {onThemeChange && theme ? (
+          <article className="panel access-panel">
+            <div className="section-title">Preferences</div>
+            <p className="section-subtitle">Appearance applies to this browser and is saved automatically.</p>
+            <div className="account-card">
+              <div className="account-card__row">
+                <span className="muted">Appearance</span>
+                <ThemeToggle theme={theme} onChange={onThemeChange} />
+              </div>
+            </div>
+          </article>
+        ) : null}
+
         <article className="panel access-panel">
           <div className="section-title">Privileged Session Controls</div>
           <p className="section-subtitle">Privileged and dangerous actions require a short-lived elevated session. Break-glass is reserved for emergency override workflows.</p>
@@ -280,6 +298,33 @@ export function MyAccount({ token, user, onSessionUpdated, onLoggedOut }: Props)
           </form>
           {error ? <div className="error-banner">{error}</div> : null}
         </article>
+
+        <article className="panel access-panel">
+          <div className="section-title">Integrations</div>
+          <p className="section-subtitle">Connections are managed by your studio administrator. This view is read-only.</p>
+          <div className="account-card">
+            <div className="account-card__row">
+              <span className="muted">Microsoft 365 sign-in</span>
+              <div className={`badge-pill member-status member-status--${microsoftConnected ? "active" : "inactive"}`}>
+                {microsoftConnected ? "Connected" : "Not connected"}
+              </div>
+            </div>
+          </div>
+        </article>
+
+        {canOpenAdminWorkspace ? (
+          <article className="panel access-panel">
+            <div className="section-title">System &amp; Admin</div>
+            <p className="section-subtitle">
+              You have administrator access. System controls live in the Admin workspace, separate from your personal settings.
+            </p>
+            <div className="access-actions">
+              <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#admin")}>
+                Open Admin Workspace
+              </button>
+            </div>
+          </article>
+        ) : null}
       </section>
     </>
   );
