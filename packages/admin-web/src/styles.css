@@ -21449,3 +21449,163 @@ html[data-theme="light"] .home-task-hub__repeat-chip {
     grid-template-columns: 1fr;
   }
 }
+
+/* My Dashboard: My Work Today + Studio Pulse (composed onto the Home command surface) */
+.home-operational__myday-panel,
+.home-operational__pulse-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.home-operational__myday-next {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.home-operational__myday-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+}
+
+.home-operational__myday-card {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 121, 148, 0.26);
+  border-left-width: 3px;
+  background: rgba(13, 21, 34, 0.74);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.home-operational__myday-card:hover {
+  transform: translateY(-1px);
+}
+
+html[data-theme="light"] .home-operational__myday-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(116, 132, 160, 0.24);
+}
+
+.home-operational__myday-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-operational__myday-card__top strong {
+  font-size: 1rem;
+  line-height: 1.28;
+}
+
+.home-operational__myday-card__top span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.home-operational__myday-card__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.home-operational__myday-card p {
+  margin: 0;
+}
+
+.home-operational__myday-card em {
+  color: var(--text);
+  font-style: normal;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.home-operational__myday-card--danger {
+  border-left-color: rgba(224, 84, 84, 0.72);
+}
+
+.home-operational__myday-card--warning {
+  border-left-color: rgba(224, 165, 70, 0.72);
+}
+
+.home-operational__myday-card--success {
+  border-left-color: rgba(74, 168, 114, 0.66);
+}
+
+.home-operational__myday-card--info {
+  border-left-color: rgba(92, 162, 229, 0.62);
+}
+
+.home-operational__myday-card--neutral {
+  border-left-color: rgba(116, 132, 160, 0.5);
+}
+
+.home-operational__pulse-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+}
+
+.home-operational__pulse-tile {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 121, 148, 0.26);
+  background: rgba(13, 21, 34, 0.74);
+}
+
+html[data-theme="light"] .home-operational__pulse-tile {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(116, 132, 160, 0.24);
+}
+
+.home-operational__pulse-tile span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.home-operational__pulse-tile strong {
+  font-size: 1.75rem;
+  font-family: "Barlow Semi Condensed", sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.home-operational__pulse-tile p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.home-operational__pulse-tile small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.home-operational__pulse-tile--danger {
+  border-color: rgba(224, 84, 84, 0.4);
+}
+
+.home-operational__pulse-tile--warning {
+  border-color: rgba(224, 165, 70, 0.38);
+}
+
+.home-operational__pulse-tile--success {
+  border-color: rgba(74, 168, 114, 0.34);
+}
+
+.home-operational__pulse-tile--info {
+  border-color: rgba(92, 162, 229, 0.32);
+}

@@ -666,6 +666,9 @@ export function HomeCommandSurface({
   const timeBand = dashboard?.home_surface?.time_band ?? null;
   const attendanceMetrics = useMemo(() => getAttendanceMetrics(dashboard?.home_surface?.staffing_band ?? null), [dashboard]);
   const attendanceAttentionMetric = attendanceMetrics.find((metric) => metric.id === "assigned_but_missing" && metric.count > 0) ?? null;
+  const myDay = dashboard?.home_surface?.my_day ?? null;
+  const myDayItems = myDay?.visible ? myDay.items : [];
+  const businessPulseTiles = dashboard?.widgets.business_pulse.tiles ?? [];
   const summaryCards = useMemo(
     () =>
       buildSummaryCards({
@@ -812,6 +815,41 @@ export function HomeCommandSurface({
         </section>
       ) : null}
 
+      {myDayItems.length ? (
+        <section className="panel home-operational__myday-panel">
+          <WorkspaceSectionHeader
+            title="My Work Today"
+            summary={myDay?.summary_line || "Your assignments for today, with where to go and what to do next."}
+            compact
+            actions={
+              myDay?.next_shift_label ? <span className="home-operational__myday-next">{myDay.next_shift_label}</span> : null
+            }
+          />
+          <div className="home-operational__myday-list">
+            {myDayItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`home-operational__myday-card home-operational__myday-card--${mapTone(item.tone)}`}
+                onClick={() => navigateToHash(item.action_hash)}
+              >
+                <div className="home-operational__myday-card__top">
+                  <strong>{item.title}</strong>
+                  {item.status_label ? <span>{item.status_label}</span> : null}
+                </div>
+                {[item.time_label, item.location_label, item.role_label].filter(Boolean).length ? (
+                  <p className="home-operational__myday-card__meta">
+                    {[item.time_label, item.location_label, item.role_label].filter(Boolean).join(" · ")}
+                  </p>
+                ) : null}
+                {item.summary ? <p>{item.summary}</p> : null}
+                {item.next_action ? <em>{item.next_action}</em> : null}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="home-operational__top-grid">
         {timeBand?.visible ? (
           <section className={`panel home-operational__clock-panel home-operational__clock-panel--${getTimeClockTone(timeBand)}`}>
@@ -872,11 +910,31 @@ export function HomeCommandSurface({
         ) : null}
       </div>
 
+      {businessPulseTiles.length ? (
+        <section className="panel home-operational__pulse-panel">
+          <WorkspaceSectionHeader
+            title="Studio Pulse"
+            summary="How busy the studio is this week — shooting, processing, and what is piling up."
+            compact
+          />
+          <div className="home-operational__pulse-grid">
+            {businessPulseTiles.map((tile) => (
+              <article key={tile.id} className={`home-operational__pulse-tile home-operational__pulse-tile--${mapTone(tile.tone)}`}>
+                <span>{tile.label}</span>
+                <strong>{tile.value}</strong>
+                {tile.context_label ? <p>{tile.context_label}</p> : null}
+                {tile.trend_label ? <small>{tile.trend_label}</small> : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {weeklyOperationalPriorityItems.length ? (
         <section className="panel home-operational__weekly-panel home-operational__weekly-panel--priorities">
           <WorkspaceSectionHeader
             title="This Week's Operational Priorities"
-            summary="A 10,000-foot view of what the company needs to care about this week."
+            summary="What is due this week and still needs to get done, ordered by risk."
             compact
           />
           <div className="home-operational__weekly-list home-operational__weekly-list--priorities">

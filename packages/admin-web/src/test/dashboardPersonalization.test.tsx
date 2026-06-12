@@ -516,6 +516,27 @@ describe("dashboard home command surface", () => {
       compact_widgets: []
     });
 
+    employeeResponse.widgets.business_pulse.tiles = [
+      {
+        id: "shoots_this_week",
+        label: "Shoots This Week",
+        value: 18,
+        context_label: "Across schools and sports",
+        tone: "info",
+        trend_label: "+3 vs last week",
+        source_mode: "live"
+      },
+      {
+        id: "id_cards_to_print",
+        label: "ID Cards To Print",
+        value: 240,
+        context_label: "Queued for the print lab",
+        tone: "heads_up",
+        trend_label: null,
+        source_mode: "derived_adapter"
+      }
+    ];
+
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path === "/api/dashboard/home?mode=app") {
         return employeeResponse;
@@ -541,6 +562,11 @@ describe("dashboard home command surface", () => {
     expect(screen.getByText(/Daily operating view for today's schedule/i)).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i })).toHaveAttribute("placeholder", "Ask Concierge Anything...");
     expect(screen.getByText("Today's Briefing")).toBeInTheDocument();
+    expect(screen.getByText("My Work Today")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Spring Portrait Day/i })).toBeInTheDocument();
+    expect(screen.getByText("Studio Pulse")).toBeInTheDocument();
+    expect(screen.getByText("Shoots This Week")).toBeInTheDocument();
+    expect(screen.getByText("ID Cards To Print")).toBeInTheDocument();
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
