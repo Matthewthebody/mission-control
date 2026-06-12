@@ -102,6 +102,7 @@ type RouteRender =
   | { kind: "studios-workspace"; focus?: "overview" | "today" | "travel" | "pre_service" | "readiness" | "workload" }
   | { kind: "global-search" }
   | { kind: "scheduling-workspace"; area?: "calendar" | "staffing" | "exceptions" | "outlook" }
+  | { kind: "staff-assignment-board" }
   | { kind: "schedule-workspace" }
   | { kind: "schools-hub" }
   | { kind: "sports-overview" }
@@ -418,13 +419,13 @@ const ROUTES: RouteDefinition[] = [
     id: "operations-staffing",
     label: "Staff Assignment Board",
     sectionKey: "leadership",
-    description: "Leadership-owned coverage gaps, staffing control, and lead assignment inside the shared schedule workspace.",
+    description: "Date-first staffing: shoots needing staff, gaps, availability, and real photographer/assistant assignment.",
     canonicalHash: "#operations/staffing?area=staffing",
     visibleTabs: ["calendar"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
     showInSectionNav: true,
-    render: { kind: "scheduling-workspace", area: "staffing" }
+    render: { kind: "staff-assignment-board" }
   },
   {
     id: "operations-attendance",

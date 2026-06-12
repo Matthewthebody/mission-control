@@ -81,6 +81,9 @@ const LazyScheduling = lazy(() =>
 const LazySchedule = lazy(() =>
   import("./pages/Schedule").then((module) => ({ default: module.Schedule }))
 );
+const LazyStaffAssignmentBoard = lazy(() =>
+  import("./pages/StaffAssignmentBoard").then((module) => ({ default: module.StaffAssignmentBoard }))
+);
 const LazyConciergeSearchPage = lazy(() =>
   import("./pages/ConciergeSearchPage").then((module) => ({ default: module.ConciergeSearchPage }))
 );
@@ -1546,6 +1549,14 @@ function renderRouteContent({
       <LazyJobCloseoutV1 token={token} currentUser={currentUser} />,
       "Loading job closeout",
       "Opening the post-shoot closeout and operations reporting foundation."
+    );
+  }
+
+  if (route.render.kind === "staff-assignment-board") {
+    return withRouteSuspense(
+      <LazyStaffAssignmentBoard token={token} currentUser={currentUser} socket={socket} />,
+      "Loading staff assignment board",
+      "Opening date-first staffing."
     );
   }
 
