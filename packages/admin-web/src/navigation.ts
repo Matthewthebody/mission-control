@@ -209,6 +209,12 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
     label: "Settings",
     description: "Your account, sign-in, preferences, and access.",
     routeId: "account"
+  },
+  {
+    key: "admin",
+    label: "Admin",
+    description: "Roles, integrations, system settings, audit, and admin-only tools.",
+    routeId: "admin"
   }
 ];
 
@@ -602,7 +608,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "workflow-template-builder",
     label: "Workflow Templates",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Leadership-only builder for reusable workflow templates, milestones, controlled steps, owners, SLAs, and dependencies.",
     canonicalHash: "#project-tracking/workflow-templates",
     visibleForEmployeeOnly: false,
@@ -929,7 +935,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "sports-settings",
     label: "Sports Settings",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Leadership and admin controls for sports checklist templates, product presets, thresholds, and saved view governance.",
     canonicalHash: "#sports/settings",
     visibleForEmployeeOnly: false,
@@ -1535,7 +1541,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin",
     label: "Admin",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "System controls, integrations, audit posture, reference data, and admin-only review work.",
     canonicalHash: "#admin",
     visibleTabs: ["access", "outlook", "admin-config", "security", "payroll"],
@@ -1554,13 +1560,12 @@ const ROUTES: RouteDefinition[] = [
     visibleForEmployeeOnly: true,
     visibleForFullShell: true,
     showInSectionNav: false,
-    utility: true,
     render: { kind: "tab", tab: "account" }
   },
   {
     id: "admin-roles",
     label: "Roles & Permissions",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "User directory, role posture, and access controls.",
     canonicalHash: "#admin/roles",
     visibleTabs: ["access"],
@@ -1572,7 +1577,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-integrations",
     label: "Integrations",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Calendar and external system integration health.",
     canonicalHash: "#admin/integrations",
     visibleTabs: ["outlook"],
@@ -1584,7 +1589,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-automations",
     label: "Automations",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Background retry pressure, sync conflicts, and automation health belong in Admin instead of scattered operational pages.",
     canonicalHash: "#admin/automations",
     visibleTabs: ["outlook", "security", "admin-config"],
@@ -1596,7 +1601,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-checklists",
     label: "Checklist Templates",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Reusable workflow checklist templates, version publishing, and stage-blocking rules for shoots and production.",
     canonicalHash: "#admin/templates",
     visibleTabs: ["admin-config"],
@@ -1608,7 +1613,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-settings",
     label: "Settings",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Stable system configuration and business rules with versioned change control.",
     canonicalHash: "#admin/settings",
     visibleTabs: ["admin-config"],
@@ -1620,7 +1625,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-audit",
     label: "Audit Controls",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Security review, audit posture, and controlled admin actions.",
     canonicalHash: "#admin/audit",
     visibleTabs: ["security"],
@@ -1632,7 +1637,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-reference-data",
     label: "Reference Data",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Reference data should stay centralized under Admin instead of leaking into multiple modules.",
     canonicalHash: "#admin/reference-data",
     visibleTabs: ["admin-config"],
@@ -1644,7 +1649,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system",
     label: "System Diagnostics",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Shared audit, diagnostics, sync, repair, and debug command surface for admins and tightly scoped maintainers.",
     canonicalHash: "#admin/system",
     visibleTabs: ["admin-config"],
@@ -1656,7 +1661,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-foundation",
     label: "Foundation",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Feature flags, startup validation, health checks, and reliability signals for the shared core platform.",
     canonicalHash: "#admin/system/foundation",
     visibleTabs: ["admin-config"],
@@ -1668,7 +1673,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-communications",
     label: "Communications",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Hardening, diagnostics, and rollout controls for internal communications, Teams delivery, and embedded communication entry points.",
     canonicalHash: "#admin/system/communications",
     visibleTabs: ["admin-config"],
@@ -1680,7 +1685,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-diagnostics",
     label: "Diagnostics",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Integrity findings, workflow drift, orphaned records, and targeted scans.",
     canonicalHash: "#admin/system/diagnostics",
     visibleTabs: ["admin-config"],
@@ -1692,7 +1697,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-audit-log",
     label: "Audit",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Formal mutation history and system audit trails.",
     canonicalHash: "#admin/system/audit",
     visibleTabs: ["admin-config"],
@@ -1704,7 +1709,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-sync",
     label: "Sync Health",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Pipeline health, failed deliveries, stale syncs, and queue integrity.",
     canonicalHash: "#admin/system/sync",
     visibleTabs: ["admin-config"],
@@ -1716,7 +1721,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-repairs",
     label: "Repairs",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Dry-run-first repair actions for common recoverable system failures.",
     canonicalHash: "#admin/system/repairs",
     visibleTabs: ["admin-config"],
@@ -1728,7 +1733,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-access-debug",
     label: "Access Debug",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Permission decision traces, visibility debugging, and access previews.",
     canonicalHash: "#admin/system/access-debug",
     visibleTabs: ["admin-config"],
@@ -1740,7 +1745,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-imports",
     label: "Imports",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Import audit records, rejection counts, and failure summaries.",
     canonicalHash: "#admin/system/imports",
     visibleTabs: ["admin-config"],
@@ -1752,7 +1757,7 @@ const ROUTES: RouteDefinition[] = [
   {
     id: "admin-system-exports",
     label: "Exports",
-    sectionKey: "settings",
+    sectionKey: "admin",
     description: "Export audit records, scope summaries, and selected column traces.",
     canonicalHash: "#admin/system/exports",
     visibleTabs: ["admin-config"],
@@ -1859,7 +1864,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "sports-reports",
     "exceptions"
   ],
-  settings: ["workflow-template-builder", "admin-checklists", "admin-integrations", "admin-roles", "admin-settings", "admin-reference-data", "sports-settings"]
+  admin: ["workflow-template-builder", "admin-checklists", "admin-integrations", "admin-roles", "admin-settings", "admin-reference-data", "sports-settings"]
 };
 
 export function getRouteById(routeId: ShellRouteId) {

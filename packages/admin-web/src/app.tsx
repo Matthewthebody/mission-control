@@ -1842,7 +1842,7 @@ function buildDesktopNavGroups(sections: ShellSection[]) {
     {
       id: "company",
       label: "Company",
-      keys: ["hr-admin", "leadership", "settings"] as const
+      keys: ["hr-admin", "leadership", "settings", "admin"] as const
     }
   ]
     .map((group) => ({
@@ -1911,6 +1911,7 @@ function ShellSidebarIcon({ sectionKey }: { sectionKey: ShellSection["key"] }) {
     case "contacts":
     case "hr-admin":
     case "settings":
+    case "admin":
       return (
         <svg {...iconProps}>
           <circle cx="10" cy="10" r="2.3" />

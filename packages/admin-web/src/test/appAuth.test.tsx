@@ -1557,7 +1557,8 @@ describe("app auth bootstrap", () => {
       "schedule",
       "hr-admin",
       "leadership",
-      "settings"
+      "settings",
+      "admin"
     ]);
     expect(photographySection?.label).toBe("Photography");
     expect(productionSection?.label).toBe("Production");
@@ -1605,7 +1606,8 @@ describe("app auth bootstrap", () => {
       "schedule",
       "hr-admin",
       "leadership",
-      "settings"
+      "settings",
+      "admin"
     ]);
   });
 
