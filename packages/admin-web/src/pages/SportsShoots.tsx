@@ -376,7 +376,12 @@ export function SportsShoots({ token, currentUser }: Props) {
                   <button type="button" onClick={() => (window.location.hash = `#sports/shoots/${detail.summary.id}`)}>
                     Open Detail
                   </button>
-                  <button type="button" className="secondary-button" onClick={() => detail.linked_context.production_hash && (window.location.hash = detail.linked_context.production_hash)}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!detail.linked_context.production_hash}
+                    onClick={() => detail.linked_context.production_hash && (window.location.hash = detail.linked_context.production_hash)}
+                  >
                     Open Production
                   </button>
                 </WorkspaceActionBar>

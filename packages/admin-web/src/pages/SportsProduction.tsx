@@ -176,6 +176,7 @@ export function SportsProduction({ token }: Props) {
                   <button
                     type="button"
                     className="secondary-button"
+                    disabled={!selected.linked_shoot_id}
                     onClick={() => {
                       if (selected.linked_shoot_id) {
                         window.location.hash = `#sports/shoots/${selected.linked_shoot_id}`;
