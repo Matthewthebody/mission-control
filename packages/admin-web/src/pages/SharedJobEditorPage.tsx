@@ -26,6 +26,7 @@ import {
   type JobIntakeTypeId
 } from "../components/jobs/JobRoutingFoundation";
 import { SharedContactPicker, SharedLocationPicker, SharedOrganizationPicker, SharedStaffPicker } from "../components/jobs/SharedJobPickers";
+import { LocationHistorySurface } from "../components/location/LocationHistorySurface";
 import { buildSharedJobHash, navigateToSharedJobHash, parseSharedJobIdFromPath } from "../components/jobs/sharedJobRouting";
 import { StatusPill, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
@@ -838,6 +839,14 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 onNoSingleLocation={markDistrictLevelJob}
               />
             ) : null}
+            {usesSchoolHierarchy && selectedSavedDistrict ? (
+              <LocationHistorySurface
+                variant="preview"
+                token={token}
+                locationName={selectedLocation?.location_name ?? (locationSearch.trim() ? locationSearch.trim() : null)}
+                locationAddress={selectedLocation?.address_display ?? null}
+              />
+            ) : null}
             <label className="filter-field filter-field--wide">
               <span>{isGlobalJobIntake ? "Job Name" : adapter.labels.titleLabel}</span>
               <input
@@ -976,6 +985,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       summary: "Choose where the team should go, then add shoot details that affect setup.",
       fields: ["primary_location_id"],
       body: (
+        <>
         <SharedLocationPicker
           label={isGlobalJobIntake ? locationFieldLabel : "Primary location"}
           placeholder={isGlobalJobIntake ? (usesSchoolHierarchy ? "Search schools or sites" : "Search locations or sites") : undefined}
@@ -999,6 +1009,13 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
           noSingleLocationLabel={usesSchoolHierarchy ? "District-level job / no single school" : undefined}
           onNoSingleLocation={usesSchoolHierarchy ? markDistrictLevelJob : undefined}
         />
+        <LocationHistorySurface
+          variant="preview"
+          token={token}
+          locationName={selectedLocation?.location_name ?? (locationSearch.trim() ? locationSearch.trim() : null)}
+          locationAddress={selectedLocation?.address_display ?? null}
+        />
+        </>
       )
     },
     {

@@ -29,6 +29,7 @@ import { CommunicationHistoryPanel } from "../components/CommunicationHistoryPan
 import { PreCallContextPanel } from "../components/PreCallContextPanel";
 import { TeamsCommunicationPanel } from "../components/TeamsCommunicationPanel";
 import { TeamsMeetingPanel } from "../components/TeamsMeetingPanel";
+import { LocationHistorySurface } from "../components/location/LocationHistorySurface";
 import {
   DayExecutionConsole,
   JobReadinessBoard,
@@ -831,6 +832,12 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
           </div>
         </section>
         <JobPriorIntelligencePanel intelligence={priorIntelligence} />
+        <LocationHistorySurface
+          variant="detail"
+          token={token}
+          locationName={detail.summary.primary_location_name}
+          locationAddress={detail.summary.primary_location_address}
+        />
         <RecordResourcesPanel
           token={token}
           objectType="job"

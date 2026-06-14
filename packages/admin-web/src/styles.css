@@ -23114,3 +23114,30 @@ html[data-theme="light"] .help-tooltip__bubble {
 .sports-cc-action__text { display: grid; gap: 1px; }
 .sports-cc-action__text strong { font-size: 0.86rem; color: var(--text); }
 .sports-cc-action__text span { font-size: 0.78rem; color: var(--text-muted); }
+
+/* ===================================================================== */
+/* Location Intelligence — job detail panel + intake compact preview     */
+/* ===================================================================== */
+
+.location-history-detail { display: grid; gap: 8px; }
+
+.location-history-preview {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(92, 162, 229, 0.32);
+  background: linear-gradient(135deg, rgba(92, 162, 229, 0.1), transparent 70%);
+  display: grid;
+  gap: 6px;
+}
+.location-history-preview__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.location-history-preview__badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #5ca2e5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.location-history-preview__meta { font-size: 0.82rem; color: var(--text-muted); }
+.location-history-preview__notes { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.location-history-preview__notes li { font-size: 0.8rem; color: var(--text-muted); }
