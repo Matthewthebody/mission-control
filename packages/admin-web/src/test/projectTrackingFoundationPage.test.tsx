@@ -520,19 +520,21 @@ describe("ProjectTrackingFoundation", () => {
   it("renders Project Tracking as a board-first kanban surface with owners, due dates, priority, and attention signals", async () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
-    expect(await screen.findByRole("heading", { name: "Project Tracking" })).toBeInTheDocument();
-    expect(screen.getByText("Track what work exists, who owns it, where it sits in the workflow, and what needs attention next.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Production Tracker" })).toBeInTheDocument();
+    expect(screen.getByText("Company-wide view of active jobs, ownership, workflow step, deadline risk, and delivery readiness.")).toBeInTheDocument();
     expect(screen.queryByText("Open First")).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Shortcuts")).not.toBeInTheDocument();
     expect(screen.queryByText(/Work Spine/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Work Pulse")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Active/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Due Soon/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Company Command")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Active Jobs/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /At Risk/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /\bLate\b/i }).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Project Tracking Needs Attention Review")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Needs Review/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Blocked/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Done Recently/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /To Delegate/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Due in 72 Hours/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /In Review/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Recently Done/i }).length).toBeGreaterThan(0);
     // Leadership Operating Report is no longer rendered inside Project Tracking
     // (board-first; the report relocates to the Leadership Operating Center next).
     expect(screen.queryByText("Leadership Operating Report")).not.toBeInTheDocument();
@@ -803,7 +805,7 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.queryByText(/Project dashboard is unavailable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Internal server error/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByText("Work Pulse")).toBeInTheDocument();
+    expect(screen.getByText("Company Command")).toBeInTheDocument();
     expect(screen.getByText("Job Progress Board")).toBeInTheDocument();
   });
 

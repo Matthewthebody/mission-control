@@ -170,7 +170,7 @@ const SECTION_DEFINITIONS: Array<{ key: ShellSectionKey; label: string; descript
   },
   {
     key: "project-tracking",
-    label: "Project Tracking",
+    label: "Production Tracker",
     description: "Shared project board for active work, next owners, due dates, blockers, and recent changes.",
     routeId: "project-tracking"
   },
@@ -574,7 +574,7 @@ const ROUTES: RouteDefinition[] = [
   },
   {
     id: "project-tracking",
-    label: "Project Tracking",
+    label: "Production Tracker",
     sectionKey: "project-tracking",
     description: "Company-wide overview of live jobs, current workflow step, deadlines, and risk.",
     canonicalHash: "#project-tracking",

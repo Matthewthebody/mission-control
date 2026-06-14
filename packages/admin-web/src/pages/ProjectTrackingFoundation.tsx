@@ -469,6 +469,20 @@ function isMissingOwnerOrInfo(row: ProjectWorkflowJobRow) {
   return row.missing_info_flags.length > 0 || row.current_step?.assignment_status === "needs_assignment";
 }
 
+function isLateWork(row: ProjectWorkflowJobRow) {
+  return row.health === "running_late" || row.deadline_state === "running_late";
+}
+
+function isToDelegateWork(row: ProjectWorkflowJobRow) {
+  return row.current_step?.assignment_status === "needs_assignment" || row.missing_info_flags.includes("missing_owner");
+}
+
+function isInReviewWork(row: ProjectWorkflowJobRow) {
+  const phase = `${row.phase} ${row.current_step?.phase ?? ""}`.toLowerCase();
+  const stepName = (row.current_step?.name ?? "").toLowerCase();
+  return /\b(qa|review)\b/.test(phase) || /\b(qa|review|gallery review)\b/.test(stepName);
+}
+
 function matchesPreset(row: ProjectWorkflowJobRow, preset: ProjectTrackingPreset) {
   if (preset === "all_active") {
     return isActiveWork(row);
@@ -2257,23 +2271,26 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   }, [token, workflowRunId]);
 
   if (status === "loading") {
-    return <WorkspaceLoadingBlock title="Loading Project Tracking" summary="Building active work from live project data." />;
+    return <WorkspaceLoadingBlock title="Loading Production Tracker" summary="Building active work from live project data." />;
   }
 
   const globalSummary = summaryFor(globalCommandCenter);
   const jobBoardRows = buildJobBoardRows(globalCommandCenter);
   const areaScopedRows = jobBoardRows.filter((row) => matchesAreaFilter(row, areaFilter));
   const summaryMetrics: Array<{ filter: ProjectTrackingFilter; label: string; value: number; title?: string }> = [
-    { filter: "all", label: "Active", value: areaScopedRows.filter(isActiveWork).length },
+    { filter: "all", label: "Active Jobs", value: areaScopedRows.filter(isActiveWork).length, title: "Active jobs across the company." },
+    { filter: "attention", label: "At Risk", value: areaScopedRows.filter(isAtRiskWork).length, title: "Work trending at risk." },
+    { filter: "running_late", label: "Late", value: areaScopedRows.filter(isLateWork).length, title: "Behind step target or promised delivery." },
     {
-      filter: "due_soon",
-      label: "Due Soon",
-      value: areaScopedRows.filter(isDueSoonWork).length,
-      title: "Work due soon that is not necessarily blocked."
+      filter: "blocked",
+      label: "Blocked / Waiting",
+      value: areaScopedRows.filter((row) => isBlockedWork(row) || isWaitingWork(row)).length,
+      title: "Blocked, or waiting on a school, association, client, or another team."
     },
-    { filter: "blocked", label: "Blocked", value: areaScopedRows.filter(isBlockedWork).length },
-    { filter: "waiting_review", label: "Needs Review", value: areaScopedRows.filter(isAtRiskWork).length },
-    { filter: "complete", label: "Done Recently", value: areaScopedRows.filter((row) => isCompletedThisMonth(row)).length }
+    { filter: "needs_assignment", label: "To Delegate", value: areaScopedRows.filter(isToDelegateWork).length, title: "In the queue but not yet assigned to a person." },
+    { filter: "due_soon", label: "Due in 72 Hours", value: areaScopedRows.filter(isDueSoonWork).length, title: "Due soon — within roughly 72 hours." },
+    { filter: "waiting_review", label: "In Review", value: areaScopedRows.filter(isInReviewWork).length, title: "In QA or review." },
+    { filter: "complete", label: "Recently Done", value: areaScopedRows.filter((row) => isCompletedThisMonth(row)).length, title: "Passed final QA recently." }
   ];
   const commandGroups = commandGroupsFor(jobBoardRows, globalCommandCenter?.generated_at);
   const commandCount = (groupId: ProjectTrackingCommandGroupId) => commandGroups.find((group) => group.id === groupId)?.rows.length ?? 0;
@@ -2368,11 +2385,11 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
   return (
     <main className="workspace-page project-tracking-foundation-page">
       {!isWorkflowRoute ? (
-        <section className="project-tracking-board-header" aria-label="Project Tracking">
+        <section className="project-tracking-board-header" aria-label="Production Tracker">
           <div>
             <p className="section-kicker">Operations</p>
-            <h1>Project Tracking</h1>
-            <p>Track what work exists, who owns it, where it sits in the workflow, and what needs attention next.</p>
+            <h1>Production Tracker</h1>
+            <p>Company-wide view of active jobs, ownership, workflow step, deadline risk, and delivery readiness.</p>
           </div>
           <div className="project-tracking-board-header__actions">
             <button className="button button-secondary" type="button" onClick={() => applyPreset("blocked")}>
@@ -2412,9 +2429,9 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
 
           <section className="project-tracking-summary-strip" aria-label="Project tracking summary filters">
             <div className="project-tracking-summary-strip__label">
-              <strong>Work Pulse</strong>
+              <strong>Company Command</strong>
               <span>{globalSummary.source === "true_totals" ? "All tracked work" : "Shown work"}</span>
-              <small>Active, due-soon, blocked, and review-needed work.</small>
+              <small>What is happening today, and what could hurt delivery.</small>
             </div>
             <div className="project-tracking-metric-grid">
               {summaryMetrics.map((metric) => (
