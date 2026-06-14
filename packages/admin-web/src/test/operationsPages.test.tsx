@@ -5023,7 +5023,7 @@ describe("admin operations regressions", () => {
     cleanup();
   });
 
-  it("renders the role-aware home dashboard with the compact operating surfaces", async () => {
+  it("renders the role-aware Company Command home for leadership", async () => {
     apiFetchMock.mockImplementation(async (path: string, _token?: string, init?: RequestInit) => {
       if (path === "/api/jobs/dashboard/home") {
         return sharedHomeDashboardResponse;
@@ -5081,27 +5081,17 @@ describe("admin operations regressions", () => {
 
     render(<Dashboard token="token" currentUser={leadershipUser} socket={null} />);
 
-    expect(screen.getByText("Loading My Dashboard")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Company Command" })).toBeInTheDocument();
+    expect(screen.getByText("On Fire")).toBeInTheDocument();
+    expect(screen.getByText("Shoots Today")).toBeInTheDocument();
+    expect(screen.getByText("Client Issues")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Needs Attention/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Viewing as")).toBeInTheDocument();
+    expect(screen.queryByText("This Week's Operational Priorities")).not.toBeInTheDocument();
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Sports Tasks/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Today's Shoots/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add Task" })).not.toBeInTheDocument();
-    expect(screen.getByText("This Week's Operational Priorities")).toBeInTheDocument();
-    expect(screen.queryByText("Work That Needs To Be Processed This Week")).not.toBeInTheDocument();
-    expect(screen.queryByText("Jobs That Need To Go Out This Week")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Jobs awaiting production/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Work ready to release/i })).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: /Ask Concierge Anything/i })).toHaveAttribute("placeholder", "Ask Concierge Anything...");
-    expect(screen.queryByRole("button", { name: "My Schedule" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Alerts" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "My Tasks" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create Event" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create Task" })).not.toBeInTheDocument();
   });
 
-  it("keeps the role-aware home shell usable when the classic home surface is calm", async () => {
+  it("keeps the Company Command home free of legacy briefing clutter", async () => {
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path === "/api/jobs/dashboard/home") {
         return sharedHomeDashboardResponse;
@@ -5132,9 +5122,9 @@ describe("admin operations regressions", () => {
 
     render(<Dashboard token="token" currentUser={leadershipUser} socket={null} />);
 
-    expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Schools Tasks/i })).toBeInTheDocument();
-      expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Company Command" })).toBeInTheDocument();
+    expect(screen.getByText("Operating Areas")).toBeInTheDocument();
+    expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
     expect(screen.queryByText("Dashboard unavailable")).not.toBeInTheDocument();
   });
 
