@@ -309,7 +309,6 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const [selectedWorkArea, setSelectedWorkArea] = useState<IntakeWorkAreaId>(() => workAreaForIntakeType(initialGlobalIntakeType ?? "school_picture_day"));
   const [selectedShootType, setSelectedShootType] = useState<IntakeShootTypeId>(() => shootTypeForIntakeType(initialGlobalIntakeType ?? "school_picture_day"));
   const [jobNameManuallyEdited, setJobNameManuallyEdited] = useState(false);
-  const [prepFiles, setPrepFiles] = useState<Record<"schedule" | "qr" | "reference", string[]>>({ schedule: [], qr: [], reference: [] });
   const ignoreDirtyRef = useRef(false);
   const lastSuggestedJobNameRef = useRef("");
 
@@ -632,15 +631,6 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     }));
   }
 
-  function updatePrepFiles(key: "schedule" | "qr" | "reference", files: FileList | null) {
-    const names = files ? Array.from(files).map((file) => file.name) : [];
-    setPrepFiles((current) => ({ ...current, [key]: names }));
-  }
-
-  function clearPrepFiles(key: "schedule" | "qr" | "reference") {
-    setPrepFiles((current) => ({ ...current, [key]: [] }));
-  }
-
   async function persist(target: "draft" | "publish") {
     if ((target === "draft" && readOnly) || (target === "publish" && (!canPublishJob || readOnly))) {
       setError(target === "publish" ? "You do not have permission to publish this job." : isGlobalJobIntake ? JOB_CREATE_RESTRICTED_MESSAGE : "You do not have permission to edit this job.");
@@ -732,28 +722,6 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
     ...(!isGlobalJobIntake ? adapter.getSidebarCards({ state: formState, setState: updateState, errors: fieldErrors, currentUser, canViewFinance }) : []),
     ...visibleAdapterSections.filter((section) => section.slot === "sidebar.bottom").map((section) => ({ key: section.key, title: section.title, body: section.body }))
   ];
-
-  const renderPrepFileField = (
-    key: "schedule" | "qr" | "reference",
-    label: string,
-    accept: string,
-    multiple = false
-  ) => (
-    <div className="filter-field filter-field--wide">
-      <span>{label}</span>
-      <input aria-label={label} type="file" accept={accept} multiple={multiple} onChange={(event) => updatePrepFiles(key, event.target.files)} />
-      {prepFiles[key].length ? (
-        <div className="job-intake__helper">
-          Selected: {prepFiles[key].join(", ")}
-          <button type="button" className="secondary-button job-intake__lookup-inline-action" onClick={() => clearPrepFiles(key)}>
-            Remove
-          </button>
-        </div>
-      ) : (
-        <div className="job-intake__helper">No file selected yet.</div>
-      )}
-    </div>
-  );
 
   const sharedSections = [
     {
@@ -1094,11 +1062,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 <label className="filter-field filter-field--wide"><span>Setup and equipment notes</span><textarea rows={3} value={formState.department_type === "schools" ? formState.school_profile.special_instructions : formState.sports_profile.client_expectations_notes} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, special_instructions: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, client_expectations_notes: event.target.value } })} /></label>
                 <div className="filter-field filter-field--wide">
                   <span>Prep files</span>
-                  <div className="job-intake__helper">Upload schedule, QR codes, or reference images so Photography and Production can prepare from the same source materials.</div>
+                  <div className="job-intake__helper">File attachments are not available here yet. For now, note any schedule, QR, or reference materials in the setup and equipment notes above so Photography and Production can find them on the job.</div>
                 </div>
-                {renderPrepFileField("schedule", "Schedule file", ".pdf,.csv,.xls,.xlsx,.doc,.docx,image/*")}
-                {renderPrepFileField("qr", "QR code file", ".pdf,.png,.jpg,.jpeg,image/png,image/jpeg")}
-                {renderPrepFileField("reference", "Reference images", ".png,.jpg,.jpeg,.heic,image/*", true)}
               </div>
             )
           }

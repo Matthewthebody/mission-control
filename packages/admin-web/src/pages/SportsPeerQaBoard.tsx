@@ -418,7 +418,7 @@ export function SportsPeerQaBoard({ token }: Props) {
                   <div className="sports-detail-card__header">
                     <div>
                       <h4>Board actions</h4>
-                      <p>Move the review, note what is holding release, and keep the demo queue current.</p>
+                      <p>Move the review, note what is holding release, and keep the review queue current.</p>
                     </div>
                   </div>
                   <div className="sports-qa-quick-actions">

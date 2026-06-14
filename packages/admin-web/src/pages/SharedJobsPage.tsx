@@ -626,7 +626,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
       if (!cancelled) {
         setItems([]);
         console.error("Unable to load shared jobs", loadError);
-        setError("Jobs are not available in this demo view. Refresh if this does not resolve.");
+        setError("We couldn't load jobs right now. Refresh to try again.");
       }
     }).finally(() => {
       if (!cancelled) {

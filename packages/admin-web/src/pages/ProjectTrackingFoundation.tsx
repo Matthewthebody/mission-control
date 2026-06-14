@@ -2390,7 +2390,7 @@ export function ProjectTrackingFoundation({ token, currentUser }: Props) {
       {status === "error" ? (
         <section className="project-tracking-inline-notice" role="status" aria-label="Project data notice">
           <strong>Project data notice</strong>
-          <p>Project data is not available in this demo view. Refresh if this does not resolve.</p>
+          <p>We couldn't load project data right now. Refresh to try again.</p>
         </section>
       ) : null}
 

@@ -45,7 +45,7 @@ export function ProductionHub({ token, currentUser }: Props) {
     } catch (loadError) {
       console.error("Production queue failed to load", loadError);
       setPayload(null);
-      setError("Production data is not available in this demo view.");
+      setError("We couldn't load production data right now. Refresh to try again.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export function ProductionHub({ token, currentUser }: Props) {
   const urgentCount = blockedCount + (summary?.overdue_count ?? 0);
   const dataUnavailable = Boolean(error && !payload);
   const statusTone: HubTone = dataUnavailable ? "watch" : urgentCount > 0 ? "danger" : readyForQaCount > 0 || dueThisWeek.length > 0 ? "watch" : "good";
-  const statusLabel = dataUnavailable ? "Demo data unavailable" : statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
+  const statusLabel = dataUnavailable ? "Data unavailable" : statusTone === "danger" ? "Needs attention" : statusTone === "watch" ? "Watch" : "Healthy";
   const productionViewerName = currentUser.fullName.trim().toLowerCase() === "demo admin" ? "Mission Control User" : currentUser.fullName;
   const openFirstCards: DepartmentHubCard[] = [
     { label: "Ready", value: waitingCount, detail: "Needs ingest or owner.", href: "#production-queue", tone: waitingCount ? "warning" : "success" },

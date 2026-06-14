@@ -798,7 +798,7 @@ describe("ProjectTrackingFoundation", () => {
     render(<ProjectTrackingFoundation token="token" currentUser={leadershipUser} />);
 
     expect(await screen.findByRole("status", { name: "Project data notice" })).toBeInTheDocument();
-    expect(screen.getByText("Project data is not available in this demo view. Refresh if this does not resolve.")).toBeInTheDocument();
+    expect(screen.getByText("We couldn't load project data right now. Refresh to try again.")).toBeInTheDocument();
     expect(screen.queryByText(/Project Tracking did not load/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Project dashboard is unavailable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Internal server error/i)).not.toBeInTheDocument();

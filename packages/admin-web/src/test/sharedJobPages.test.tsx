@@ -2563,9 +2563,10 @@ beforeEach(() => {
     expect(screen.queryByText("Assistants needed")).not.toBeInTheDocument();
     expect(getControlWithinLabel("Roster or team list source", "input")).toBeInTheDocument();
     expect(getControlWithinLabel("Teams, classes, or groups", "input")).toBeInTheDocument();
-    expect(screen.getByLabelText("Schedule file")).toBeInTheDocument();
-    expect(screen.getByLabelText("QR code file")).toBeInTheDocument();
-    expect(screen.getByLabelText("Reference images")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Schedule file")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("QR code file")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Reference images")).not.toBeInTheDocument();
+    expect(screen.getByText(/File attachments are not available here yet/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Indoor / Outdoor")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Tethered / Untethered")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Rain location?")).not.toBeInTheDocument();

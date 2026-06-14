@@ -223,7 +223,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
             eyebrow="Heads Up"
             value={headsUpItems.length}
             detail={headsUpItems.length ? "Important items to notice before work stalls." : "No important acknowledgements are waiting."}
-            helper={headsUpItems[0]?.summary ?? "Your day looks clear from the current demo data."}
+            helper={headsUpItems[0]?.summary ?? "Your day looks clear right now."}
             tone={headsUpItems.length ? "heads_up" : "good"}
             active={activeLaunchpadSection === "heads-up"}
             controlsId={launchpadTargetId("heads-up")}
