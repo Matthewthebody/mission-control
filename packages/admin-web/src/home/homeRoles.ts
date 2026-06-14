@@ -9,6 +9,7 @@ export type HomeRoleId =
   | "matthew"
   | "jessica"
   | "josh"
+  | "sam"
   | "carisa"
   | "spencer"
   | "graphic_artist"
@@ -46,6 +47,7 @@ export const HOME_ROLES: HomeRole[] = [
   { id: "matthew", label: "Matthew / Owner", shortLabel: "Matthew", title: "Owner", mode: "company_command", emphasizedArea: "company", leadership: true },
   { id: "jessica", label: "Jessica / Schools Director", shortLabel: "Jessica", title: "Schools Director", mode: "company_command", emphasizedArea: "schools", leadership: true },
   { id: "josh", label: "Josh / Sports Director", shortLabel: "Josh", title: "Sports Director", mode: "company_command", emphasizedArea: "sports", leadership: true },
+  { id: "sam", label: "Sam / Sports Coordinator", shortLabel: "Sam", title: "Sports Coordinator", mode: "my_workspace", emphasizedArea: "sports", leadership: false },
   { id: "carisa", label: "Carisa / Photography Ops", shortLabel: "Carisa", title: "Photography Ops", mode: "company_command", emphasizedArea: "photography", leadership: true },
   { id: "spencer", label: "Spencer / Production", shortLabel: "Spencer", title: "Production Lead", mode: "company_command", emphasizedArea: "production", leadership: true },
   { id: "graphic_artist", label: "Graphic Artist", shortLabel: "Graphic Artist", title: "Graphic Artist", mode: "my_workspace", emphasizedArea: "production", leadership: false },

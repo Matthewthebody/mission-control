@@ -11,6 +11,8 @@ import {
 import { RolePreviewSwitcher } from "../../home/RolePreviewSwitcher";
 import { CompanyCommandHome } from "../../home/CompanyCommandHome";
 import { MyWorkspaceHome } from "../../home/MyWorkspaceHome";
+import { SportsCommandCenter } from "../../home/SportsCommandCenter";
+import { SamSportsWorkspace } from "../../home/SamSportsWorkspace";
 
 type Props = {
   token: string;
@@ -50,10 +52,22 @@ export function HomeCommandSurface({ currentUser, onOpenConcierge }: Props) {
   }, [homeRoleId]);
 
   const isCommand = homeRole.mode === "company_command";
-  const title = isCommand ? "Company Command" : "My Workspace";
-  const summary = isCommand
-    ? "What is happening across the company, what is on fire, and who needs help."
-    : "What you need to do today — your shift, your queue, and your next action.";
+  const isSportsCommand = homeRole.id === "josh";
+  const isSamWorkspace = homeRole.id === "sam";
+  const title = isSportsCommand
+    ? "Sports Command Center"
+    : isSamWorkspace
+      ? "My Sports Work"
+      : isCommand
+        ? "Company Command"
+        : "My Workspace";
+  const summary = isSportsCommand
+    ? "What changed, what is at risk, what needs approval, and what to rebook — for sports."
+    : isSamWorkspace
+      ? "Your groups, your next actions, and what you are waiting on."
+      : isCommand
+        ? "What is happening across the company, what is on fire, and who needs help."
+        : "What you need to do today — your shift, your queue, and your next action.";
 
   function submitConcierge(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,7 +102,15 @@ export function HomeCommandSurface({ currentUser, onOpenConcierge }: Props) {
           </div>
         }
       />
-      {isCommand ? <CompanyCommandHome role={homeRole} /> : <MyWorkspaceHome role={homeRole} />}
+      {isSportsCommand ? (
+        <SportsCommandCenter currentUser={currentUser} />
+      ) : isSamWorkspace ? (
+        <SamSportsWorkspace />
+      ) : isCommand ? (
+        <CompanyCommandHome role={homeRole} />
+      ) : (
+        <MyWorkspaceHome role={homeRole} />
+      )}
     </div>
   );
 }

@@ -141,10 +141,27 @@ describe("role-aware Home", () => {
     expect(screen.getAllByText("Production").length).toBeGreaterThan(0);
   });
 
-  it("emphasizes Sports for Josh", () => {
+  it("renders the Sports Command Center for Josh", () => {
     renderHome(leadershipUser);
     setRole("josh");
-    expect(emphasizedCardText()).toContain("Sports");
+    expect(screen.getByRole("heading", { name: "Sports Command Center" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Sports Pulse/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Current Season/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Building Next Season/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Specialty Product Tracker/i })).toBeInTheDocument();
+    // Josh gets the sports command center, not the generic company command strip
+    expect(screen.queryByText("On Fire")).not.toBeInTheDocument();
+  });
+
+  it("renders Sam's task workspace without company KPIs or the sports pulse", () => {
+    renderHome(leadershipUser);
+    setRole("sam");
+    expect(screen.getByRole("heading", { name: "My Sports Work" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /My Groups/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /My Next Actions/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Waiting On/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Sports Pulse/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("On Fire")).not.toBeInTheDocument();
   });
 
   it("emphasizes Photography / Staffing for Carisa", () => {

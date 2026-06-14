@@ -22980,3 +22980,137 @@ html[data-theme="light"] .help-tooltip__bubble {
   .home-command__cards { grid-template-columns: 1fr; }
   .home-operational__header-actions { justify-content: flex-start; }
 }
+
+/* ===================================================================== */
+/* Sports Command Center (Josh) + Sam sports workspace                   */
+/* ===================================================================== */
+
+.sports-cc-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.sports-cc-panel { display: grid; align-content: start; }
+
+.sports-cc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.sports-cc-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-left-width: 3px;
+  background: var(--surface, rgba(255, 255, 255, 0.02));
+}
+
+.sports-cc-row--critical { border-left-color: #e05454; }
+.sports-cc-row--warning { border-left-color: #e0934a; }
+.sports-cc-row--watch { border-left-color: #d8b34a; }
+.sports-cc-row--healthy { border-left-color: #4ab87a; }
+.sports-cc-row--info { border-left-color: #5ca2e5; }
+.sports-cc-row--neutral { border-left-color: rgba(127, 127, 127, 0.5); }
+
+.sports-cc-row__main { flex: 1 1 320px; display: grid; gap: 5px; }
+.sports-cc-row__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sports-cc-row__head strong { font-size: 0.92rem; color: var(--text); }
+.sports-cc-row__sub { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
+.sports-cc-row__due { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+.sports-cc-row__waiting { font-size: 0.74rem; color: var(--text-muted); }
+.sports-cc-row__flags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.sports-cc-flag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(127, 127, 127, 0.14);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.sports-cc-row__side {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  text-align: right;
+  min-width: 170px;
+}
+.sports-cc-row__owner { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+.sports-cc-row__action { font-size: 0.8rem; color: var(--text-muted); }
+
+.sports-cc-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent, #5ca2e5);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  justify-self: end;
+}
+
+.sports-cc-rebook-summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(92, 162, 229, 0.1), transparent 70%);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  margin-bottom: 12px;
+}
+.sports-cc-rebook-metric { display: grid; gap: 0; }
+.sports-cc-rebook-metric strong {
+  font-size: 2rem;
+  line-height: 1;
+  font-family: "Barlow Semi Condensed", sans-serif;
+  color: var(--text);
+}
+.sports-cc-rebook-metric span { font-size: 0.74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.sports-cc-rebook-detail { display: grid; gap: 2px; font-size: 0.82rem; color: var(--text-muted); }
+
+.sports-cc-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.sports-cc-health-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-top-width: 3px;
+  background: var(--surface, rgba(255, 255, 255, 0.02));
+}
+.sports-cc-health-card--critical { border-top-color: #e05454; }
+.sports-cc-health-card--warning { border-top-color: #e0934a; }
+.sports-cc-health-card--watch { border-top-color: #d8b34a; }
+.sports-cc-health-card--healthy { border-top-color: #4ab87a; }
+.sports-cc-health-card--neutral,
+.sports-cc-health-card--info { border-top-color: #5ca2e5; }
+.sports-cc-health-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sports-cc-health-card__head strong { color: var(--text); }
+.sports-cc-health-card p { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
+.sports-cc-health-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.78rem; color: var(--text-muted); }
+
+.sports-cc-action-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sports-cc-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+.sports-cc-action__text { display: grid; gap: 1px; }
+.sports-cc-action__text strong { font-size: 0.86rem; color: var(--text); }
+.sports-cc-action__text span { font-size: 0.78rem; color: var(--text-muted); }
