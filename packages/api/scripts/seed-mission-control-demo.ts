@@ -964,6 +964,212 @@ export async function seedSportsPeerQaDemoData() {
   }
 }
 
+const WAYZATA_ORG_NAME = "Wayzata Public Schools";
+const WAYZATA_HIGH_SCHOOL = "Wayzata High School";
+
+type WayzataEvaluationSeed = {
+  monthsAgo: number;
+  shootName: string;
+  shootType: string;
+  rating: number;
+  onTime: "Yes" | "No";
+  easyAccess: "Yes" | "No";
+  photographerName: string;
+  outcome: "smooth" | "minor_issues" | "major_issues";
+  staffingFit: "understaffed" | "right_sized" | "overstaffed";
+  setupDifficulty: "low" | "medium" | "high";
+  issueCategory: string | null;
+  startedOnTime: boolean;
+  leadershipReviewNeeded: boolean;
+  summary: string;
+  watchOut: string | null;
+  nextTime: string | null;
+  arrivalBuffer: number | null;
+  staffingNext: number | null;
+};
+
+// ~3.5 years of remembered shoots at Wayzata High School. Authored so the
+// historical-intelligence panel lights up: distinct (date,name) pairs drive the
+// prior-visit count, repeated understaffing/parking categories trigger pattern
+// signals, one rough lighting day creates an open follow-up, and a few client
+// quotes surface as "what we learned / client feedback."
+const WAYZATA_EVALUATIONS: WayzataEvaluationSeed[] = [
+  { monthsAgo: 2, shootName: "Fall Picture Day 2025", shootType: "School Picture Day", rating: 5, onTime: "Yes", easyAccess: "Yes", photographerName: "Carisa Anderson", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "low", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Client feedback: \"Photographers were excellent and the lines moved quickly.\"", watchOut: "Load in through the west athletic entrance — the main doors stay locked until 7:30 AM.", nextTime: "Confirm facilities props the west door before the crew arrives.", arrivalBuffer: 30, staffingNext: 5 },
+  { monthsAgo: 4, shootName: "Senior Graduation 2025", shootType: "Graduation", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Josh Park", outcome: "minor_issues", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: "line_flow_traffic", startedOnTime: true, leadershipReviewNeeded: false, summary: "Stage looked great; processional flow tightened up after the first 20 minutes.", watchOut: null, nextTime: "Add a second floor marshal for the processional.", arrivalBuffer: null, staffingNext: 6 },
+  { monthsAgo: 9, shootName: "Spring Picture Day 2025", shootType: "School Picture Day", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Jessica Lee", outcome: "minor_issues", staffingFit: "understaffed", setupDifficulty: "medium", issueCategory: "staffing", startedOnTime: true, leadershipReviewNeeded: false, summary: "Client feedback: \"Communication from the studio was excellent.\" We were a camera short before 9 AM, though.", watchOut: "Peak volume runs 7:45–9:00 AM — staff the first wave heavier.", nextTime: "Add one more photographer for the morning rush.", arrivalBuffer: null, staffingNext: 6 },
+  { monthsAgo: 12, shootName: "Fall Picture Day 2024", shootType: "School Picture Day", rating: 2, onTime: "No", easyAccess: "Yes", photographerName: "Carisa Anderson", outcome: "major_issues", staffingFit: "understaffed", setupDifficulty: "high", issueCategory: "lighting_environment", startedOnTime: false, leadershipReviewNeeded: true, summary: "Gym lights were off at call time and we were short a hand — the first 30 minutes were dim under house lights.", watchOut: "Gym lights are on a manual panel by the locker rooms — bring them up at arrival.", nextTime: "Switch on the gym lights at load-in and verify with facilities.", arrivalBuffer: 30, staffingNext: 6 },
+  { monthsAgo: 14, shootName: "Sports Fall Teams 2024", shootType: "Sports - Fall", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Spencer Vue", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Field house team composites ran on schedule.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 18, shootName: "Senior Graduation 2024", shootType: "Graduation", rating: 3, onTime: "No", easyAccess: "Yes", photographerName: "Josh Park", outcome: "minor_issues", staffingFit: "understaffed", setupDifficulty: "high", issueCategory: "parking_load_in", startedOnTime: false, leadershipReviewNeeded: false, summary: "Load-in was slow; the west bay was blocked by a facilities truck at call time.", watchOut: "The west athletic entrance can be blocked — confirm the bay is clear the night before.", nextTime: "Call facilities to reserve the west bay.", arrivalBuffer: 30, staffingNext: null },
+  { monthsAgo: 21, shootName: "Spring Picture Day 2024", shootType: "School Picture Day", rating: 5, onTime: "Yes", easyAccess: "Yes", photographerName: "Jessica Lee", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "low", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Client feedback: \"Lines moved quickly and the staff were friendly.\"", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 24, shootName: "Fall Picture Day 2023", shootType: "School Picture Day", rating: 2, onTime: "No", easyAccess: "No", photographerName: "Carisa Anderson", outcome: "major_issues", staffingFit: "understaffed", setupDifficulty: "high", issueCategory: "lighting_environment", startedOnTime: false, leadershipReviewNeeded: true, summary: "Gym lights were off at call time; first 30 minutes shot under house lights and early photos looked dim.", watchOut: "Gym lights are on a manual panel by the locker rooms — bring them up at arrival.", nextTime: "Switch on the gym lights immediately at load-in and verify with facilities.", arrivalBuffer: 30, staffingNext: 6 },
+  { monthsAgo: 27, shootName: "Sports Winter Teams 2023", shootType: "Sports - Winter", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Spencer Vue", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Auxiliary gym worked well for team composites.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 30, shootName: "Spring Retakes 2023", shootType: "Underclass Retakes", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Mike Olson", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "low", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Quick retake session in the Commons.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 33, shootName: "Senior Graduation 2023", shootType: "Graduation", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Josh Park", outcome: "minor_issues", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: "student_parent_flow", startedOnTime: true, leadershipReviewNeeded: false, summary: "A few parents had trouble finding the entrance.", watchOut: "Parents miss the entrance — add a sandwich-board sign at the south lot.", nextTime: "Place entrance signage at the south lot.", arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 36, shootName: "Fall Picture Day 2022", shootType: "School Picture Day", rating: 5, onTime: "Yes", easyAccess: "Yes", photographerName: "Carisa Anderson", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "low", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Smooth, well-staffed picture day.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 38, shootName: "Sports Fall Teams 2022", shootType: "Sports - Fall", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Spencer Vue", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "On schedule in the field house.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 40, shootName: "Spring Picture Day 2022", shootType: "School Picture Day", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Jessica Lee", outcome: "minor_issues", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: "parking_load_in", startedOnTime: true, leadershipReviewNeeded: false, summary: "South lot was busy; load-in took longer than planned.", watchOut: "South lot fills up early — arrive ahead for load-in.", nextTime: "Arrive 30 minutes early for load-in.", arrivalBuffer: 30, staffingNext: null },
+  { monthsAgo: 42, shootName: "Senior Graduation 2022", shootType: "Graduation", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Josh Park", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "medium", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Processional ran on time.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 44, shootName: "Fall Retakes 2021", shootType: "Underclass Retakes", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Mike Olson", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "low", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Quiet retake day.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null },
+  { monthsAgo: 46, shootName: "Fall Picture Day 2021", shootType: "School Picture Day", rating: 4, onTime: "Yes", easyAccess: "Yes", photographerName: "Carisa Anderson", outcome: "smooth", staffingFit: "right_sized", setupDifficulty: "low", issueCategory: null, startedOnTime: true, leadershipReviewNeeded: false, summary: "Solid baseline picture day.", watchOut: null, nextTime: null, arrivalBuffer: null, staffingNext: null }
+];
+
+// Demo-only: gives "Wayzata Public Schools -> Wayzata High School" a deep,
+// believable history so the Location Intelligence panel has something real to
+// remember. One shoot_location row serves both the approved-location picker and
+// the /api/locations/intelligence name match.
+async function seedWayzataLocationIntelligence() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const tenant = await client.query<{ id: string }>("SELECT id::text FROM tenant WHERE name = 'Demo Studio' LIMIT 1");
+    const tenantId = tenant.rows[0]?.id;
+    if (!tenantId) {
+      throw new Error("Demo Studio tenant is required before seeding Wayzata location intelligence.");
+    }
+    const users = await client.query<{ id: string; email: string }>(
+      "SELECT id::text, lower(email) AS email FROM app_user WHERE tenant_id = $1 ORDER BY created_at ASC",
+      [tenantId]
+    );
+    const userByEmail = new Map(users.rows.map((user) => [user.email, user]));
+    const actor = userByEmail.get("leadership@example.com") ?? userByEmail.get("photo@example.com") ?? users.rows[0];
+    if (!actor) {
+      throw new Error("Demo users are required before seeding Wayzata location intelligence.");
+    }
+    const actorUserId = actor.id;
+
+    const existingOrg = await client.query<{ id: string }>(
+      "SELECT id::text FROM organization WHERE tenant_id = $1 AND normalized_canonical_name = $2 LIMIT 1",
+      [tenantId, normalizeName(WAYZATA_ORG_NAME)]
+    );
+    let organizationId = existingOrg.rows[0]?.id;
+    if (!organizationId) {
+      const insertedOrg = await client.query<{ id: string }>(
+        `
+          INSERT INTO organization (
+            tenant_id, canonical_name, normalized_canonical_name, display_name,
+            account_type, notes, created_by_user_id, updated_by_user_id
+          )
+          VALUES ($1, $2, $3, $2, 'schools_underclass_portraits'::organization_account_type, $4, $5, $5)
+          RETURNING id::text
+        `,
+        [tenantId, WAYZATA_ORG_NAME, normalizeName(WAYZATA_ORG_NAME), "[wayzata_location_intel_v1] Location intelligence demo account.", actorUserId]
+      );
+      organizationId = insertedOrg.rows[0]!.id;
+    }
+
+    const locationId = await upsertPilotLocation(client, {
+      tenantId,
+      organizationId,
+      externalKey: "wayzata-high-school",
+      name: WAYZATA_HIGH_SCHOOL,
+      address: "4955 Peony Ln N, Plymouth, MN 55446",
+      addressLine1: "4955 Peony Ln N",
+      city: "Plymouth",
+      state: "MN",
+      zip: "55446",
+      actorUserId,
+      navigationNotes: "Use the west athletic entrance off the south lot for picture-day load-in.",
+      parkingInstructions: "Staff parking in the south lot; the load-in bay is the west athletic entrance.",
+      entranceInstructions: "Main front doors are locked until 7:30 AM. Facilities will prop the west door if you call ahead.",
+      setupArea: "Main Gym (primary); Auxiliary Gym and Commons for overflow.",
+      employeeFacingNotes: "Gym lights are on a manual panel by the locker rooms — budget about 10 minutes to bring them up."
+    });
+
+    await client.query("DELETE FROM post_shoot_evaluation WHERE tenant_id = $1 AND location_id = $2", [tenantId, locationId]);
+    for (const evaluation of WAYZATA_EVALUATIONS) {
+      const when = new Date();
+      when.setMonth(when.getMonth() - evaluation.monthsAgo);
+      when.setHours(9, 0, 0, 0);
+      const shootDate = toIsoDateOnly(when);
+      const recordedAt = when.toISOString();
+      await client.query(
+        `
+          INSERT INTO post_shoot_evaluation (
+            tenant_id, location_id, shoot_name, shoot_date, photographer_name, shoot_type,
+            on_time, easy_access, overall_rating, photos_uploaded,
+            photographer_user_id, submitted_by_user_id, notes, recommendations,
+            overall_outcome, staffing_fit, setup_difficulty, issue_category, started_on_time,
+            short_summary_note, next_time_recommendation, top_watch_out,
+            recommended_arrival_buffer_minutes, recommended_staffing_next_time, leadership_review_needed,
+            source, created_at, updated_at
+          )
+          VALUES (
+            $1, $2, $3, $4::date, $5, $6,
+            $7, $8, $9, $10,
+            $11, $11, $12, $13,
+            $14::post_shoot_eval_outcome, $15::post_shoot_eval_staffing_fit, $16::post_shoot_eval_setup_difficulty, $17::post_shoot_issue_category, $18,
+            $19, $20, $21,
+            $22, $23, $24,
+            'mission_control', $25::timestamptz, $25::timestamptz
+          )
+        `,
+        [
+          tenantId,
+          locationId,
+          evaluation.shootName,
+          shootDate,
+          evaluation.photographerName,
+          evaluation.shootType,
+          evaluation.onTime,
+          evaluation.easyAccess,
+          evaluation.rating,
+          "Yes",
+          actorUserId,
+          evaluation.summary,
+          evaluation.nextTime ?? evaluation.summary,
+          evaluation.outcome,
+          evaluation.staffingFit,
+          evaluation.setupDifficulty,
+          evaluation.issueCategory,
+          evaluation.startedOnTime,
+          evaluation.summary,
+          evaluation.nextTime,
+          evaluation.watchOut,
+          evaluation.arrivalBuffer,
+          evaluation.staffingNext,
+          evaluation.leadershipReviewNeeded,
+          recordedAt
+        ]
+      );
+    }
+
+    await client.query(
+      "DELETE FROM operational_note WHERE tenant_id = $1 AND object_type = 'location' AND object_id = $2 AND note_type = 'location_memory'",
+      [tenantId, locationId]
+    );
+    const memoryNotes: Array<{ body: string; pinned: boolean }> = [
+      { body: "Load in through the west athletic entrance — the main front doors stay locked until 7:30 AM. Facilities will prop the west door if you call ahead.", pinned: true },
+      { body: "Gym lights must be turned on manually at the panel outside the locker rooms; they are not on a timer. Budget about 10 minutes.", pinned: false },
+      { body: "Morning traffic on Vicksburg Ln backs up before 8 AM — plan to arrive about 30 minutes early.", pinned: false }
+    ];
+    for (const note of memoryNotes) {
+      await client.query(
+        `
+          INSERT INTO operational_note (
+            tenant_id, object_type, object_id, note_type, body, author_user_id,
+            permanence_classification, visibility_scope, publication_state, source_context, pinned,
+            promoted_to_location_id, promotion_published_at
+          )
+          VALUES (
+            $1, 'location'::operational_note_object_type, $2::uuid, 'location_memory'::operational_note_type, $3, $4,
+            'persistent_memory'::operational_note_permanence, 'object_viewers'::operational_note_visibility_scope, 'active'::operational_note_publication_state, 'mission_control', $5,
+            $2::uuid, now()
+          )
+        `,
+        [tenantId, locationId, note.body, actorUserId, note.pinned]
+      );
+    }
+
+    await client.query("COMMIT");
+    return { organization_id: organizationId, location_id: locationId, evaluations: WAYZATA_EVALUATIONS.length, memory_notes: memoryNotes.length };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function seedMissionControlDemoData(argv = process.argv) {
   assertMissionControlDemoSeedAllowed(argv, process.env);
   await runClientCommandCenterDemoSeed(argv.includes("--reset") ? argv : [...argv, "--reset"]);
@@ -971,6 +1177,7 @@ export async function seedMissionControlDemoData(argv = process.argv) {
   const jobCloseout = await seedJobCloseoutDemoData(argv);
   const sportsPeerQa = await seedSportsPeerQaDemoData();
   const photographyToday = await seedSameDayPhotographyPilotRows();
+  const wayzataLocationIntel = await seedWayzataLocationIntelligence();
   const counts = await getDemoCounts();
   assertDemoCaps(counts);
   return {
@@ -980,8 +1187,9 @@ export async function seedMissionControlDemoData(argv = process.argv) {
     job_closeout: jobCloseout,
     sports_peer_qa: sportsPeerQa,
     photography_today: photographyToday,
+    wayzata_location_intel: wayzataLocationIntel,
     counts,
-    seeded_areas: ["client_command_center", "project_tracking", "workflow_templates", "job_closeout", "sports_peer_qa", "photography_today"],
+    seeded_areas: ["client_command_center", "project_tracking", "workflow_templates", "job_closeout", "sports_peer_qa", "photography_today", "wayzata_location_intel"],
     reference_areas: ["checklist_template_defaults"],
     deferred_areas: ["compliance_workspace_specific_story"]
   };

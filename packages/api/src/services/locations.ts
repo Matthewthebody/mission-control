@@ -373,7 +373,10 @@ async function loadLocationDataset(client: PoolClient, tenantId: string) {
   const evaluationsByLocationId = new Map<string, ShootLocationEvaluation[]>();
   for (const record of records) {
     const missionControlRows = (localEvaluationMap.get(record.id) ?? []).map(mapLocalEvaluation);
-    const mondayRows = mondayEvaluations.get(record.id) ?? [];
+    // Prefer real remembered history: only fall back to Monday/mock rows when we
+    // have no local evaluations for this location, so a seeded location's own
+    // history is never shadowed by a synthetic "follow-up" row.
+    const mondayRows = missionControlRows.length > 0 ? [] : (mondayEvaluations.get(record.id) ?? []);
     const combined = [...mondayRows, ...missionControlRows].sort(
       (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
     );
@@ -758,6 +761,7 @@ function buildHistoricalContext(input: {
   locationMemory: ReturnType<typeof buildLocationMemorySummary>;
   memoryNotes: Awaited<ReturnType<typeof listLocationMemoryNotesForLocation>>["notes"];
   evaluations: ShootLocationEvaluation[];
+  allTimeEvaluations?: ShootLocationEvaluation[];
   photos: ShootLocationPhoto[];
 }): LocationHistoricalContext {
   const publishedNotes = input.memoryNotes.filter((note) => note.publication_state === "active" && !note.archived_at);
@@ -790,7 +794,7 @@ function buildHistoricalContext(input: {
   return {
     quick_context: {
       first_time_location: firstTimeLocation,
-      total_prior_visits: countDistinctPriorVisits(input.evaluations),
+      total_prior_visits: countDistinctPriorVisits(input.allTimeEvaluations ?? input.evaluations),
       last_visit_date: lastEvaluation?.shoot_date ?? null,
       last_confirmed_memory_date: input.locationMemory.last_confirmed_at,
       top_watch_outs: watchOuts,
@@ -1269,7 +1273,8 @@ export async function getShootLocationIntelligence(
   const locationMemory = matchedLocationId ? await listLocationMemoryNotesForLocation(client, auth, matchedLocationId, { limit: 8 }) : null;
   const summary = matchedLocationId ? dataset.summaryById.get(matchedLocationId) ?? null : null;
   const record = matchedLocationId ? dataset.recordById.get(matchedLocationId) ?? null : null;
-  const recentEvaluations = matchedLocationId ? (dataset.evaluationsByLocationId.get(matchedLocationId) ?? []).slice(0, 5) : [];
+  const allEvaluations = matchedLocationId ? dataset.evaluationsByLocationId.get(matchedLocationId) ?? [] : [];
+  const recentEvaluations = allEvaluations.slice(0, 5);
   const recentPhotos =
     matchedLocationId && record ? buildPhotoGallery(record, dataset.photosByLocationId.get(matchedLocationId) ?? []).slice(0, 6) : [];
   const missingAlert = input.shootId ? await loadMissingSetupPhotoAlert(client, input.shootId) : null;
@@ -1302,6 +1307,7 @@ export async function getShootLocationIntelligence(
             locationMemory: locationMemorySummary,
             memoryNotes: locationMemory.notes,
             evaluations: recentEvaluations,
+            allTimeEvaluations: allEvaluations,
             photos: recentPhotos
           })
         : null
