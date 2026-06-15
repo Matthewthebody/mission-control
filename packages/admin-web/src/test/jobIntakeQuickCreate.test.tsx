@@ -295,7 +295,8 @@ function buildDepartmentJob(overrides: Partial<SharedJobListItem> = {}): SharedJ
       advisor_sorting_required: false,
       homeroom_sorting_required: true,
       data_import_mode: "roster_csv",
-      special_instructions: null
+      special_instructions: null,
+      specific_area: null
     },
     sports_profile: null,
     department_summary: {},

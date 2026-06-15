@@ -36,7 +36,8 @@ const JOB_TRUTH_TEST_JOB_TITLE_PREFIXES = [
   "Task Host Job",
   "Workflow-linked Task Host",
   "Lifecycle Job",
-  "Command Layer Job"
+  "Command Layer Job",
+  "Specific Area Roundtrip"
 ];
 
 type LegacyShootFixture = {
@@ -736,6 +737,31 @@ describe("shared job truth layer", () => {
     expect(response.body.prep_readiness.warnings.map((warning: { code: string }) => warning.code)).not.toContain("missing_primary_location");
     expect(response.body.prep_readiness.warnings.map((warning: { code: string }) => warning.code)).not.toContain("no_day_of_contact");
     expect(response.body.prep_readiness.status).toBe("ready");
+  });
+
+  it("persists an optional school specific_area through create and read-back", async () => {
+    const draft = await createDraft(schoolsToken, {
+      department_type: "schools",
+      job_category: "photo_day",
+      organization_id: schoolsOrganizationId,
+      primary_contact_id: schoolsContactId,
+      title: `Specific Area Roundtrip ${JOB_TRUTH_TEST_RUN_ID}`,
+      scheduled_start_at: plusDaysWithHours(13, 8),
+      timezone: "America/Chicago",
+      estimated_staff_count: 2,
+      school_profile: {
+        school_type: "high_school",
+        school_year: "2026-2027",
+        grade_scope: "9-12",
+        specific_area: "Auxiliary gym, west entrance"
+      }
+    });
+    expect(draft.status, JSON.stringify(draft.body)).toBe(201);
+
+    const response = await request(app).get(`/api/jobs/${draft.body.job.id}`).set("Authorization", `Bearer ${schoolsToken}`);
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    // The free-text detail survives the DB round-trip while the approved location stays canonical.
+    expect(response.body.school_profile.specific_area).toBe("Auxiliary gym, west entrance");
   });
 
   it("blocks prep readiness when the job is missing a primary location or prep email recipient", async () => {

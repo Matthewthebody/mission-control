@@ -120,7 +120,8 @@ const schoolProfileSchema = z
     advisor_sorting_required: z.boolean().nullable().optional(),
     homeroom_sorting_required: z.boolean().nullable().optional(),
     data_import_mode: nullableString(120),
-    special_instructions: nullableString(4000)
+    special_instructions: nullableString(4000),
+    specific_area: nullableString(240)
   })
   .strict();
 

@@ -150,9 +150,10 @@ const schoolsAdapter: DepartmentAdapter = {
           advisor_sorting_required,
           homeroom_sorting_required,
           data_import_mode,
-          special_instructions
+          special_instructions,
+          specific_area
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
         ON CONFLICT (job_id)
         DO UPDATE SET
           district_id = EXCLUDED.district_id,
@@ -169,6 +170,7 @@ const schoolsAdapter: DepartmentAdapter = {
           homeroom_sorting_required = EXCLUDED.homeroom_sorting_required,
           data_import_mode = EXCLUDED.data_import_mode,
           special_instructions = EXCLUDED.special_instructions,
+          specific_area = EXCLUDED.specific_area,
           updated_at = now()
       `,
       [
@@ -187,7 +189,8 @@ const schoolsAdapter: DepartmentAdapter = {
         schoolProfile.advisor_sorting_required ?? false,
         schoolProfile.homeroom_sorting_required ?? false,
         schoolProfile.data_import_mode ?? null,
-        schoolProfile.special_instructions ?? null
+        schoolProfile.special_instructions ?? null,
+        schoolProfile.specific_area ?? null
       ]
     );
   }

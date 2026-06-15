@@ -71,6 +71,7 @@ export type SharedJobFormState = {
     homeroom_sorting_required: boolean;
     data_import_mode: string;
     special_instructions: string;
+    specific_area: string;
   };
   sports_profile: {
     sport_type: string;
@@ -430,7 +431,8 @@ export function createBlankSharedJobFormState(departmentType: Extract<JobDepartm
       advisor_sorting_required: false,
       homeroom_sorting_required: false,
       data_import_mode: "",
-      special_instructions: ""
+      special_instructions: "",
+      specific_area: ""
     },
     sports_profile: {
       sport_type: "",
@@ -620,7 +622,8 @@ function mapApiToSharedForm(apiRecord: SharedJobDetailResponse): SharedJobFormSt
       advisor_sorting_required: apiRecord.school_profile?.advisor_sorting_required ?? false,
       homeroom_sorting_required: apiRecord.school_profile?.homeroom_sorting_required ?? false,
       data_import_mode: apiRecord.school_profile?.data_import_mode ?? "",
-      special_instructions: apiRecord.school_profile?.special_instructions ?? ""
+      special_instructions: apiRecord.school_profile?.special_instructions ?? "",
+      specific_area: apiRecord.school_profile?.specific_area ?? ""
     },
     sports_profile: {
       sport_type: apiRecord.sports_profile?.sport_type ?? "",
@@ -1007,7 +1010,8 @@ const schoolsAdapter: DepartmentJobAdapterUI = {
         advisor_sorting_required: formState.school_profile.advisor_sorting_required,
         homeroom_sorting_required: formState.school_profile.homeroom_sorting_required,
         data_import_mode: formState.school_profile.data_import_mode || null,
-        special_instructions: formState.school_profile.special_instructions || null
+        special_instructions: formState.school_profile.special_instructions || null,
+        specific_area: formState.school_profile.specific_area || null
       },
       sports_profile: null
     };

@@ -2742,6 +2742,102 @@ beforeEach(() => {
     expect(payload.location_override_note).toBeNull();
   });
 
+  it("captures an optional specific area without letting it replace the approved school location", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "picture_day" } });
+    fireEvent.change(getControlWithinLabel("Job Name", "input"), { target: { value: "North High Picture Day" } });
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
+
+    // The optional free-text area only appears once a saved school is chosen.
+    const areaField = await screen.findByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3");
+    fireEvent.change(areaField, { target: { value: "Auxiliary gym, west doors" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
+
+    await waitFor(() => expect(createSharedJobDraftMock).toHaveBeenCalled());
+    const payload = createSharedJobDraftMock.mock.calls[0][1];
+    // The approved school still drives the canonical location; the free text is captured only as a detail.
+    expect(payload.primary_location_id).toBe("loc-school");
+    expect(payload.school_profile.specific_area).toBe("Auxiliary gym, west doors");
+    expect(payload.location_override_note).toBeNull();
+  });
+
+  it("scopes the school picker to the selected district and excludes other organizations' locations", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "picture_day" } });
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+
+    // "Field" matches only the sports org's location, which must never appear under the school district.
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Field" } });
+    expect(screen.queryByRole("button", { name: /Metro Field House/i })).not.toBeInTheDocument();
+    // The district's own school is offered.
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
+    expect(await screen.findByRole("button", { name: /North High Main Gym/i })).toBeInTheDocument();
+  });
+
+  it("shows an honest empty state when the selected district has no saved schools", async () => {
+    // Only another organization's location exists in Directory, so the school district has none.
+    listDirectoryLocationsMock.mockResolvedValue({ locations: [sportsLocation] });
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "picture_day" } });
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+
+    // The honest empty state renders (it appears both as the picker helper and the empty-options note).
+    expect(
+      (await screen.findAllByText("No saved schools found for this district. Choose district-level job or add the school to Directory first.")).length
+    ).toBeGreaterThan(0);
+  });
+
+  it("updates the available schools when the selected district changes", async () => {
+    const southDistrict = {
+      ...schoolOrganization,
+      id: "org-school-south",
+      canonical_name: "South Ridge District",
+      display_name: "South Ridge District",
+      contact_count: 1,
+      location_count: 0
+    };
+    listOrganizationsMock.mockResolvedValue({ organizations: [schoolOrganization, southDistrict, sportsOrganization] });
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "picture_day" } });
+
+    // North High offers its own gym...
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
+    expect(await screen.findByRole("button", { name: /North High Main Gym/i })).toBeInTheDocument();
+
+    // ...switching to a different district updates the list; that district has no saved schools here.
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "South Ridge" } });
+    fireEvent.click(await screen.findByRole("button", { name: /South Ridge District/i }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: /North High Main Gym/i })).not.toBeInTheDocument());
+    // The honest empty state renders (it appears both as the picker helper and the empty-options note).
+    expect(
+      (await screen.findAllByText("No saved schools found for this district. Choose district-level job or add the school to Directory first.")).length
+    ).toBeGreaterThan(0);
+  });
+
   it("routes sports intake packages with a Sports Director workflow confirmation notice", async () => {
     window.location.hash = "#jobs/new";
     render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);

@@ -284,6 +284,7 @@ export type SchoolJobProfileView = {
   homeroom_sorting_required: boolean;
   data_import_mode: string | null;
   special_instructions: string | null;
+  specific_area: string | null;
 };
 
 export type SportsJobProfileView = {

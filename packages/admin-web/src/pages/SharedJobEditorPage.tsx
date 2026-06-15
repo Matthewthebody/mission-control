@@ -839,6 +839,24 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                 onNoSingleLocation={markDistrictLevelJob}
               />
             ) : null}
+            {usesSchoolHierarchy && selectedLocation ? (
+              <>
+                <label className="filter-field filter-field--wide">
+                  <span>Specific area (optional)</span>
+                  <input
+                    value={formState.school_profile.specific_area}
+                    onChange={(event) =>
+                      updateState((current) => ({
+                        ...current,
+                        school_profile: { ...current.school_profile, specific_area: event.target.value }
+                      }))
+                    }
+                    placeholder="e.g. Gym, Auditorium, West entrance, Field 3"
+                  />
+                </label>
+                <div className="job-intake__helper">Optional spot within the approved school. Location Intelligence still keys off the school itself.</div>
+              </>
+            ) : null}
             {usesSchoolHierarchy && selectedSavedDistrict ? (
               <LocationHistorySurface
                 variant="preview"

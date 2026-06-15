@@ -239,7 +239,8 @@ const jobs: SharedJobListItem[] = [
       advisor_sorting_required: false,
       homeroom_sorting_required: false,
       data_import_mode: null,
-      special_instructions: null
+      special_instructions: null,
+      specific_area: null
     },
     sports_profile: null,
     department_summary: {},

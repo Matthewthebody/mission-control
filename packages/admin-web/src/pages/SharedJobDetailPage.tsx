@@ -229,6 +229,7 @@ function buildJobNotes(detail: SharedJobDetailResponse, selectedDay: SharedJobDe
     detail.school_profile?.special_instructions ??
     null;
   const shootNotes = [
+    detail.school_profile?.specific_area ? `Area: ${detail.school_profile.specific_area}` : null,
     selectedDay?.access_notes ? `Access: ${selectedDay.access_notes}` : null,
     selectedDay?.parking_notes ? `Parking: ${selectedDay.parking_notes}` : null,
     selectedDay?.setup_notes ? `Setup: ${selectedDay.setup_notes}` : null,

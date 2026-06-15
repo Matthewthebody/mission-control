@@ -939,7 +939,8 @@ export function buildJobIntakeManagementSummaryFromDetail(detail: SharedJobDetai
       advisor_sorting_required: detail.school_profile?.advisor_sorting_required ?? false,
       homeroom_sorting_required: detail.school_profile?.homeroom_sorting_required ?? false,
       data_import_mode: detail.school_profile?.data_import_mode ?? "",
-      special_instructions: detail.school_profile?.special_instructions ?? ""
+      special_instructions: detail.school_profile?.special_instructions ?? "",
+      specific_area: detail.school_profile?.specific_area ?? ""
     },
     sports_profile: {
       sport_type: detail.sports_profile?.sport_type ?? "",
