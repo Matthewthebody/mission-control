@@ -45,12 +45,12 @@ export function CompanyNeedsAttention({ emphasizedArea }: { emphasizedArea: Oper
       <HomeSectionHeader
         title="Needs Attention"
         count={items.length}
-        help="Strict by design. An item appears only if it is late, not acknowledged, affects a client or shoot within 72 hours, or is behind promised delivery."
+        help="Strict by design. An item appears only if it is late, not acknowledged, affects a client or shoot within 72 hours, behind promised delivery, blocked with no clear owner, or missing required details for an upcoming shoot or handoff."
       />
       {items.length === 0 ? (
         <div className="home-empty">
           <strong>No company attention items right now.</strong>
-          <p>Late, unacknowledged, 72-hour shoot/client risks, and promised delivery misses will appear here.</p>
+          <p>Late, unacknowledged, 72-hour shoot/client risks, promised-delivery misses, blocked work with no owner, and missing required details will appear here.</p>
         </div>
       ) : (
         <ul className="home-needs-attention__list">

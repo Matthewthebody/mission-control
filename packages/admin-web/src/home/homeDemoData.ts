@@ -193,7 +193,7 @@ export const DEMO_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     owner: "Greta",
     nextAction: "Follow up with the client today",
     dueAt: "Shoot this week",
-    reasons: ["affects_client_or_shoot_72h", "late"],
+    reasons: ["affects_client_or_shoot_72h", "missing_required_details"],
     severity: "watch",
     status: "waiting"
   }

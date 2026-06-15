@@ -38,6 +38,14 @@ describe("needsAttention logic", () => {
     expect(isNeedsAttention(item({ reasons: ["behind_promised_delivery"] }))).toBe(true);
   });
 
+  it("appears when an item is blocked with no clear owner", () => {
+    expect(isNeedsAttention(item({ reasons: ["blocked_no_owner"] }))).toBe(true);
+  });
+
+  it("appears when an item is missing required details for an upcoming shoot or handoff", () => {
+    expect(isNeedsAttention(item({ reasons: ["missing_required_details"] }))).toBe(true);
+  });
+
   it("does not appear for routine work on schedule (no qualifying reason)", () => {
     expect(isNeedsAttention(item({ reasons: [] }))).toBe(false);
   });
@@ -61,6 +69,26 @@ describe("needsAttention logic", () => {
       item({ id: "info", reasons: ["late"], severity: "info" })
     ]);
     expect(sorted.map((entry) => entry.id)).toEqual(["urgent", "watch", "info"]);
+  });
+
+  it("orders by reason priority within the same severity, including the two new reasons", () => {
+    const sorted = selectNeedsAttention([
+      item({ id: "not_ack", reasons: ["not_acknowledged"], severity: "watch" }),
+      item({ id: "missing", reasons: ["missing_required_details"], severity: "watch" }),
+      item({ id: "blocked", reasons: ["blocked_no_owner"], severity: "watch" }),
+      item({ id: "client72h", reasons: ["affects_client_or_shoot_72h"], severity: "watch" })
+    ]);
+    expect(sorted.map((entry) => entry.id)).toEqual(["client72h", "blocked", "missing", "not_ack"]);
+  });
+
+  it("ranks an item carrying multiple reasons by its strongest reason, stably", () => {
+    const sorted = selectNeedsAttention([
+      item({ id: "late_only", reasons: ["late"], severity: "watch" }),
+      item({ id: "multi_72h", reasons: ["not_acknowledged", "affects_client_or_shoot_72h", "late"], severity: "watch" }),
+      item({ id: "missing_multi", reasons: ["missing_required_details", "not_acknowledged"], severity: "watch" })
+    ]);
+    // multi_72h is ranked by its strongest reason (72h), ahead of late-only, ahead of missing + not-acknowledged.
+    expect(sorted.map((entry) => entry.id)).toEqual(["multi_72h", "late_only", "missing_multi"]);
   });
 
   it("raises the emphasized area within the same severity without hiding others", () => {

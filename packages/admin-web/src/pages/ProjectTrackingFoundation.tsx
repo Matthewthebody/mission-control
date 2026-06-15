@@ -280,7 +280,7 @@ function healthLabel(health: ProjectWorkflowJobHealth) {
     due_soon: "Due soon",
     running_late: "Running late",
     blocked: "Blocked",
-    at_risk: "Needs attention",
+    at_risk: "At risk",
     complete: "Complete",
     no_workflow: "Work record not connected",
     unknown: "Needs review"

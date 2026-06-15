@@ -613,15 +613,15 @@ describe("ProjectTrackingFoundation", () => {
     expect(screen.getAllByText("Running late").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Due soon").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Needs attention").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("At risk").length).toBeGreaterThan(0);
     const runningLateStatusChip = screen.getAllByText("Running late").find((element) => element.classList.contains("project-tracking-status-chip"));
     expect(runningLateStatusChip).toHaveClass("project-tracking-status-chip--blocked");
     const blockedStatusChip = screen.getAllByText("Blocked").find((element) => element.classList.contains("project-tracking-status-chip"));
     expect(blockedStatusChip).toHaveClass("project-tracking-status-chip--blocked");
     const dueSoonStatusChip = screen.getAllByText("Due soon").find((element) => element.classList.contains("project-tracking-status-chip"));
     expect(dueSoonStatusChip).toHaveClass("project-tracking-status-chip--at-risk");
-    const needsAttentionStatusChip = screen.getAllByText("Needs attention").find((element) => element.classList.contains("project-tracking-status-chip"));
-    expect(needsAttentionStatusChip).toHaveClass("project-tracking-status-chip--at-risk");
+    const atRiskStatusChip = screen.getAllByText("At risk").find((element) => element.classList.contains("project-tracking-status-chip"));
+    expect(atRiskStatusChip).toHaveClass("project-tracking-status-chip--at-risk");
     const schoolsAreaChip = screen.getAllByText("Schools").find((element) => element.classList.contains("project-tracking-area-chip"));
     expect(schoolsAreaChip).toHaveClass("project-tracking-area-chip--schools");
     const sportsAreaChip = screen.getAllByText("Sports").find((element) => element.classList.contains("project-tracking-area-chip"));

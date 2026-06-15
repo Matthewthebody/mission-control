@@ -2,20 +2,24 @@ import type { OperatingArea } from "./homeRoles";
 
 // Centralized Needs Attention logic. This is intentionally strict and easy to
 // replace later with real backend signals. Something is "Needs Attention" ONLY
-// if it meets one or more of the four locked rules below — nothing fuzzy or
+// if it meets one or more of the six locked rules below — nothing fuzzy or
 // nice-to-know belongs here.
 
 export type NeedsAttentionReason =
   | "late"
   | "not_acknowledged"
   | "affects_client_or_shoot_72h"
-  | "behind_promised_delivery";
+  | "behind_promised_delivery"
+  | "blocked_no_owner"
+  | "missing_required_details";
 
 export const NEEDS_ATTENTION_REASON_LABELS: Record<NeedsAttentionReason, string> = {
   late: "Late",
   not_acknowledged: "Not acknowledged",
   affects_client_or_shoot_72h: "Affects client/shoot within 72 hours",
-  behind_promised_delivery: "Behind promised delivery"
+  behind_promised_delivery: "Behind promised delivery",
+  blocked_no_owner: "Blocked with no clear owner",
+  missing_required_details: "Missing required details"
 };
 
 export type NeedsAttentionSeverity = "urgent" | "watch" | "info";
@@ -45,7 +49,7 @@ export type NeedsAttentionItem = {
 };
 
 // An item qualifies for Needs Attention only when it is unresolved AND carries
-// at least one of the four locked reasons. Routine, on-schedule, or purely
+// at least one of the six locked reasons. Routine, on-schedule, or purely
 // informational work has no reasons and therefore never appears.
 export function isNeedsAttention(item: NeedsAttentionItem): boolean {
   return item.status !== "resolved" && item.reasons.length > 0;
@@ -73,13 +77,16 @@ const SEVERITY_RANK: Record<NeedsAttentionSeverity, number> = {
   info: 2
 };
 
-// Lower rank sorts first. Encodes the locked priority: 72-hour shoot/client risk
-// and behind-promised-delivery ahead of late, ahead of not-acknowledged.
+// Lower rank sorts first. Encodes the locked priority: imminent 72-hour
+// shoot/client risk, then a broken delivery promise, then blocked-with-no-owner,
+// then late, then missing required details, then not-acknowledged.
 const REASON_RANK: Record<NeedsAttentionReason, number> = {
   affects_client_or_shoot_72h: 0,
   behind_promised_delivery: 1,
-  late: 2,
-  not_acknowledged: 3
+  blocked_no_owner: 2,
+  late: 3,
+  missing_required_details: 4,
+  not_acknowledged: 5
 };
 
 function bestReasonRank(item: NeedsAttentionItem): number {
@@ -87,8 +94,9 @@ function bestReasonRank(item: NeedsAttentionItem): number {
 }
 
 // Filter to real Needs Attention items and sort by the locked order:
-// 1) Urgent > Watch > Info, 2) reason priority (72h / behind delivery / late /
-// not acknowledged), 3) emphasized department rises slightly within ties.
+// 1) Urgent > Watch > Info, 2) reason priority (72h / behind delivery /
+// blocked-no-owner / late / missing details / not acknowledged), 3) emphasized
+// department rises slightly within ties.
 // The emphasized area never hides other company issues — it is only a tiebreaker.
 export function selectNeedsAttention(
   items: NeedsAttentionItem[],
