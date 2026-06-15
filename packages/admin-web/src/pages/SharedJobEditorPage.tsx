@@ -796,7 +796,9 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                     location_override_note: "",
                     primary_contact_id: "",
                     contact_override_note: "",
-                    school_profile: usesSchoolHierarchy ? { ...current.school_profile, district_id: organization.id } : current.school_profile
+                    school_profile: usesSchoolHierarchy
+                      ? { ...current.school_profile, district_id: organization.id, specific_area: "" }
+                      : current.school_profile
                   }));
                 }}
                 required

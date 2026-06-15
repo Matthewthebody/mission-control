@@ -2838,6 +2838,45 @@ beforeEach(() => {
     ).toBeGreaterThan(0);
   });
 
+  it("clears the selected school and its area detail when the district changes", async () => {
+    const southDistrict = {
+      ...schoolOrganization,
+      id: "org-school-south",
+      canonical_name: "South Ridge District",
+      display_name: "South Ridge District",
+      contact_count: 1,
+      location_count: 0
+    };
+    listOrganizationsMock.mockResolvedValue({ organizations: [schoolOrganization, southDistrict, sportsOrganization] });
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "picture_day" } });
+
+    // North High → pick the gym → add an area detail.
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
+    const areaField = await screen.findByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3");
+    fireEvent.change(areaField, { target: { value: "Main Gym" } });
+    expect(areaField).toHaveValue("Main Gym");
+
+    // Switch district → the stale school selection (and its area field) drop away.
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "South Ridge" } });
+    fireEvent.click(await screen.findByRole("button", { name: /South Ridge District/i }));
+    await waitFor(() => expect(screen.queryByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3")).not.toBeInTheDocument());
+
+    // Switch back and re-pick the same school → the old area detail did not carry over.
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
+    expect(await screen.findByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3")).toHaveValue("");
+  });
+
   it("routes sports intake packages with a Sports Director workflow confirmation notice", async () => {
     window.location.hash = "#jobs/new";
     render(<SharedJobEditorPage token="token-demo" currentUser={sportsManager} departmentType={null} routeBase="#jobs" mode="create" />);
