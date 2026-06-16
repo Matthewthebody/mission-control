@@ -26,6 +26,7 @@ import {
   type JobIntakeTypeId
 } from "../components/jobs/JobRoutingFoundation";
 import { SharedContactPicker, SharedLocationPicker, SharedOrganizationPicker, SharedStaffPicker } from "../components/jobs/SharedJobPickers";
+import { addBusinessDays, yearFromIsoDate } from "../components/jobs/intakeEstimates";
 import { LocationHistorySurface } from "../components/location/LocationHistorySurface";
 import { buildSharedJobHash, navigateToSharedJobHash, parseSharedJobIdFromPath } from "../components/jobs/sharedJobRouting";
 import { StatusPill, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
@@ -79,6 +80,10 @@ type IntakeShootTypeOption = {
   label: string;
   internalType: JobIntakeTypeId;
   workflowLabel?: string;
+  // Estimated production turnaround used to pre-fill (still editable) the
+  // production deadline. Business days, weekends skipped. Undefined = no
+  // workflow estimate yet (deadline stays blank, never a hidden blocker).
+  estimatedProductionTurnaroundBusinessDays?: number;
 };
 
 const INTAKE_WORK_AREA_OPTIONS: Array<{ id: IntakeWorkAreaId; label: string }> = [
@@ -91,9 +96,9 @@ const INTAKE_WORK_AREA_OPTIONS: Array<{ id: IntakeWorkAreaId; label: string }> =
 
 const INTAKE_SHOOT_TYPE_OPTIONS: Record<IntakeWorkAreaId, IntakeShootTypeOption[]> = {
   school_pictures: [
-    { id: "open_house_day", label: "Open House Day", internalType: "school_picture_day", workflowLabel: "Open House Day" },
-    { id: "picture_day", label: "Picture Day", internalType: "school_picture_day", workflowLabel: "School Picture Day" },
-    { id: "retake_day", label: "Retake Day", internalType: "retake_day" },
+    { id: "open_house_day", label: "Open House Day", internalType: "school_picture_day", workflowLabel: "Open House Day", estimatedProductionTurnaroundBusinessDays: 5 },
+    { id: "picture_day", label: "Picture Day", internalType: "school_picture_day", workflowLabel: "School Picture Day", estimatedProductionTurnaroundBusinessDays: 5 },
+    { id: "retake_day", label: "Retake Day", internalType: "retake_day", estimatedProductionTurnaroundBusinessDays: 5 },
     { id: "yearbook", label: "Yearbook", internalType: "yearbook" },
     { id: "cap_and_gown", label: "Cap & Gown", internalType: "cap_and_gown" }
   ],
@@ -156,13 +161,6 @@ function shootTypeForIntakeType(typeId: JobIntakeTypeId): IntakeShootTypeId {
   if (typeId === "event") return "school_event";
   if (typeId === "specialty") return "studio_portraits";
   return "other";
-}
-
-function formatSuggestedDate(value: string) {
-  if (!value) return "";
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return "";
-  return new Date(year, month - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function isSchoolDistrictOrganization(organization: OrganizationSummary) {
@@ -232,6 +230,26 @@ function collectServerIssues(error: unknown): SharedJobFormValidationIssue[] {
 function mapHeaderTone(status: string | null | undefined): WorkspaceHeaderMetaTone {
   const tone = statusTone(status);
   return tone === "danger" ? "critical" : tone;
+}
+
+// Make the shared validation messages specific to the global intake context so the
+// operator is told exactly what is missing instead of a vague section name.
+function remapIntakeIssue(
+  issue: SharedJobFormValidationIssue,
+  context: { usesSchoolHierarchy: boolean; usesSportsWorkArea: boolean }
+): SharedJobFormValidationIssue {
+  if (issue.field === "organization_id") {
+    const message = context.usesSchoolHierarchy
+      ? "Choose a district."
+      : context.usesSportsWorkArea
+        ? "Choose an association or organization."
+        : "Choose an organization.";
+    return { ...issue, message };
+  }
+  if (issue.field === "title") {
+    return { ...issue, message: "Add a job name (it can auto-fill once you choose the account and date)." };
+  }
+  return issue;
 }
 
 function groupSections(
@@ -310,8 +328,11 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const [selectedWorkArea, setSelectedWorkArea] = useState<IntakeWorkAreaId>(() => workAreaForIntakeType(initialGlobalIntakeType ?? "school_picture_day"));
   const [selectedShootType, setSelectedShootType] = useState<IntakeShootTypeId>(() => shootTypeForIntakeType(initialGlobalIntakeType ?? "school_picture_day"));
   const [jobNameManuallyEdited, setJobNameManuallyEdited] = useState(false);
+  const [productionDeadlineManuallyEdited, setProductionDeadlineManuallyEdited] = useState(false);
   const ignoreDirtyRef = useRef(false);
   const lastSuggestedJobNameRef = useRef("");
+  const lastEstimatedDeadlineRef = useRef("");
+  const validationSummaryRef = useRef<HTMLDivElement | null>(null);
 
   const adapter = getDepartmentJobAdapterUI((formState.department_type === "schools" ? "schools" : "sports"));
   const isGlobalJobIntake = departmentType == null && mode === "create";
@@ -338,6 +359,25 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const workflowPreviewLabel = activeShootTypeOption.workflowLabel ?? getJobIntakeTypeOption(activeIntakeType).label;
   const usesSchoolHierarchy = isGlobalJobIntake && SCHOOL_HIERARCHY_INTAKE_TYPES.includes(activeIntakeType);
   const usesSportsWorkArea = isGlobalJobIntake && selectedWorkArea === "sports_pictures";
+  // Open House / Picture Day school intake should stay calm: products, gallery output,
+  // and yearbook options are separate workflows and are hidden here (their payload
+  // defaults still flow through). They reappear for other shoot types/workflows.
+  const hideSchoolProductsGallery =
+    isGlobalJobIntake && selectedWorkArea === "school_pictures" && (selectedShootType === "open_house_day" || selectedShootType === "picture_day");
+  const estimatedProductionTurnaroundBusinessDays = activeShootTypeOption.estimatedProductionTurnaroundBusinessDays;
+  const estimatedProductionDeadline =
+    isGlobalJobIntake && estimatedProductionTurnaroundBusinessDays && formState.scheduled_start_date
+      ? addBusinessDays(formState.scheduled_start_date, estimatedProductionTurnaroundBusinessDays)
+      : "";
+  const productionDeadlineHint = !isGlobalJobIntake
+    ? null
+    : productionDeadlineManuallyEdited
+      ? "Deadline was manually edited."
+      : estimatedProductionDeadline
+        ? `Estimated from the ${workflowPreviewLabel} workflow (${estimatedProductionTurnaroundBusinessDays} business days after the shoot date). Editable.`
+        : estimatedProductionTurnaroundBusinessDays
+          ? "Add a shoot date to estimate the production deadline."
+          : "No workflow estimate configured.";
   const organizationFieldLabel = usesSchoolHierarchy ? "District" : usesSportsWorkArea ? "Association / Organization" : "Organization";
   const locationFieldLabel = usesSchoolHierarchy ? "School" : "Location";
   const organizationHelperText = usesSchoolHierarchy
@@ -353,7 +393,13 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const selectedSavedDistrict = usesSchoolHierarchy && selectedOrganization && isSchoolDistrictOrganization(selectedOrganization) ? selectedOrganization : null;
   const locationContextOrganizationId = usesSchoolHierarchy ? selectedSavedDistrict?.id ?? "" : formState.organization_id;
   const shouldShowLocationSection = !isGlobalJobIntake || !usesSchoolHierarchy;
-  const visibleContactOptions = isGlobalJobIntake && !contactSearch.trim() ? [] : contactOptions;
+  // Show the account's contacts as soon as a district/organization is chosen — do not
+  // make the operator type first (that read as a dead control during the walkthrough).
+  const visibleContactOptions = isGlobalJobIntake && !formState.organization_id ? [] : contactOptions;
+  const contactPickerEmptyText =
+    isGlobalJobIntake && formState.organization_id && contactOptions.length === 0
+      ? "No contacts found for this account. Add or select an account contact in Directory, or capture a draft placeholder below."
+      : undefined;
   const prioritizedLocationOptions = useMemo(
     () => {
       const scopedOptions =
@@ -375,14 +421,15 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
   const selectedLocation = prioritizedLocationOptions.find((location) => location.id === formState.primary_location_id) ?? null;
   const suggestedJobName = useMemo(() => {
     if (!isGlobalJobIntake) return "";
-    const dateLabel = formatSuggestedDate(formState.scheduled_start_date);
+    const yearLabel = yearFromIsoDate(formState.scheduled_start_date);
     const districtLevel = usesSchoolHierarchy && formState.location_override_note === "District-level job / no single school";
     const subject = usesSchoolHierarchy
       ? selectedLocation?.location_name ?? selectedOrganization?.display_name
       : selectedOrganization?.display_name;
     if (!subject) return "";
-    const shootLabel = districtLevel ? `District-level ${activeShootTypeOption.label}` : activeShootTypeOption.label;
-    return [subject, shootLabel, dateLabel].filter(Boolean).join(" - ");
+    const shootLabel = districtLevel ? `District ${activeShootTypeOption.label}` : activeShootTypeOption.label;
+    // "[School or District] — [Shoot Type] — [Year]" (e.g. "Wayzata High School — Open House Day — 2026").
+    return [subject, shootLabel, yearLabel].filter(Boolean).join(" — ");
   }, [activeShootTypeOption.label, formState.location_override_note, formState.scheduled_start_date, isGlobalJobIntake, selectedLocation?.location_name, selectedOrganization?.display_name, usesSchoolHierarchy]);
   const calendarReadiness = useMemo(
     () =>
@@ -472,6 +519,17 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       };
     });
   }, [isGlobalJobIntake, jobNameManuallyEdited, suggestedJobName]);
+
+  useEffect(() => {
+    if (!isGlobalJobIntake || productionDeadlineManuallyEdited || !estimatedProductionDeadline) {
+      return;
+    }
+    if (estimatedProductionDeadline === lastEstimatedDeadlineRef.current && estimatedProductionDeadline === formState.production_deadline_at) {
+      return;
+    }
+    lastEstimatedDeadlineRef.current = estimatedProductionDeadline;
+    updateState((current) => ({ ...current, production_deadline_at: estimatedProductionDeadline }));
+  }, [estimatedProductionDeadline, formState.production_deadline_at, isGlobalJobIntake, productionDeadlineManuallyEdited]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -637,9 +695,18 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       setError(target === "publish" ? "You do not have permission to publish this job." : isGlobalJobIntake ? JOB_CREATE_RESTRICTED_MESSAGE : "You do not have permission to edit this job.");
       return;
     }
-    const issues = target === "publish" ? adapter.validatePublish(formState) : adapter.validateDraft(formState);
+    const rawIssues = target === "publish" ? adapter.validatePublish(formState) : adapter.validateDraft(formState);
+    const issues = isGlobalJobIntake
+      ? rawIssues.map((issue) => remapIntakeIssue(issue, { usesSchoolHierarchy, usesSportsWorkArea }))
+      : rawIssues;
     if (issues.length) {
       setValidationIssues(issues);
+      if (isGlobalJobIntake) {
+        window.setTimeout(() => {
+          validationSummaryRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+          validationSummaryRef.current?.focus?.();
+        }, 0);
+      }
       return;
     }
     setValidationIssues([]);
@@ -844,7 +911,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             {usesSchoolHierarchy && selectedLocation ? (
               <>
                 <label className="filter-field filter-field--wide">
-                  <span>Specific area (optional)</span>
+                  <span>Location detail (optional)</span>
                   <input
                     value={formState.school_profile.specific_area}
                     onChange={(event) =>
@@ -853,10 +920,10 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
                         school_profile: { ...current.school_profile, specific_area: event.target.value }
                       }))
                     }
-                    placeholder="e.g. Gym, Auditorium, West entrance, Field 3"
+                    placeholder="e.g. Gym, Auditorium, Cafeteria, Main entrance, Commons, Media center"
                   />
                 </label>
-                <div className="job-intake__helper">Optional spot within the approved school. Location Intelligence still keys off the school itself.</div>
+                <div className="job-intake__helper">Optional detail within the approved school. Location Intelligence still keys off the school itself.</div>
               </>
             ) : null}
             {usesSchoolHierarchy && selectedSavedDistrict ? (
@@ -903,7 +970,7 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
               {fieldErrors.title ? <div className="shared-job-form__field-errors" role="alert">{fieldErrors.title.map((message) => <div key={message}>{message}</div>)}</div> : null}
             </label>
             {isGlobalJobIntake ? (
-              <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={visibleContactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={selectContact} errors={fieldErrors.primary_contact_id} helperText="Choose the main contact if they are already in the directory." />
+              <SharedContactPicker label="Primary contact" searchValue={contactSearch} onSearchChange={setContactSearch} unresolvedValue={formState.contact_override_note} onUnresolvedChange={(value) => updateState((current) => ({ ...current, contact_override_note: value }))} options={visibleContactOptions} selectedContactId={formState.primary_contact_id} onSelectContact={selectContact} errors={fieldErrors.primary_contact_id} helperText={formState.organization_id ? "Choose the account contact. Type to filter, or add a draft placeholder below." : "Choose the account first to load its contacts."} emptyOptionsText={contactPickerEmptyText} />
             ) : null}
           </div>
           {!isGlobalJobIntake ? (
@@ -1067,10 +1134,14 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       body: (
         <div className="field-grid shared-job-form__grid">
           <label className="filter-field"><span>Expected volume</span><input value={formState.estimated_subject_count} onChange={(event) => updateState((current) => ({ ...current, estimated_subject_count: event.target.value }))} inputMode="numeric" /></label>
-          <label className="filter-field"><span>{isGlobalJobIntake ? "Products and services" : "Delivery type"}</span><select value={formState.delivery_type} onChange={(event) => updateState((current) => ({ ...current, delivery_type: event.target.value }))}>{getSharedDeliveryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className="filter-field"><span>Gallery or output</span><select value={formState.gallery_type} onChange={(event) => updateState((current) => ({ ...current, gallery_type: event.target.value }))}>{getSharedGalleryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          {!hideSchoolProductsGallery ? (
+            <>
+              <label className="filter-field"><span>{isGlobalJobIntake ? "Products and services" : "Delivery type"}</span><select value={formState.delivery_type} onChange={(event) => updateState((current) => ({ ...current, delivery_type: event.target.value }))}>{getSharedDeliveryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="filter-field"><span>Gallery or output</span><select value={formState.gallery_type} onChange={(event) => updateState((current) => ({ ...current, gallery_type: event.target.value }))}>{getSharedGalleryTypeOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            </>
+          ) : null}
           <label className="filter-field"><span>Client deadline</span><input type="date" value={formState.client_deadline_at} onChange={(event) => updateState((current) => ({ ...current, client_deadline_at: event.target.value }))} /></label>
-          <label className="filter-field"><span>Production deadline</span><input type="date" value={formState.production_deadline_at} onChange={(event) => updateState((current) => ({ ...current, production_deadline_at: event.target.value }))} /></label>
+          <label className="filter-field"><span>{isGlobalJobIntake ? "Estimated production deadline" : "Production deadline"}</span><input type="date" value={formState.production_deadline_at} onChange={(event) => { if (isGlobalJobIntake) { setProductionDeadlineManuallyEdited(true); } updateState((current) => ({ ...current, production_deadline_at: event.target.value })); }} />{productionDeadlineHint ? <div className="job-intake__helper">{productionDeadlineHint}</div> : null}</label>
           <label className="shared-job-form__toggle"><input type="checkbox" checked={formState.production_required} onChange={(event) => updateState((current) => ({ ...current, production_required: event.target.checked }))} /><span>{isGlobalJobIntake ? "Production needed" : "Downstream production required"}</span></label>
           {!isGlobalJobIntake ? <label className="filter-field"><span>Estimated staff count</span><input value={formState.estimated_staff_count} onChange={(event) => updateState((current) => ({ ...current, estimated_staff_count: event.target.value }))} /></label> : null}
         </div>
@@ -1086,8 +1157,8 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
             fields: ["school_profile.roster_source", "sports_profile.estimated_team_count"],
             body: (
               <div className="field-grid shared-job-form__grid">
-                <label className="filter-field"><span>Roster or team list source</span><input value={formState.department_type === "schools" ? formState.school_profile.roster_source : formState.sports_profile.league_name} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, roster_source: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, league_name: event.target.value } })} /></label>
-                <label className="filter-field"><span>Teams, classes, or groups</span><input value={formState.department_type === "sports" ? formState.sports_profile.estimated_team_count : formState.school_profile.grade_scope} onChange={(event) => updateState((current) => current.department_type === "sports" ? { ...current, sports_profile: { ...current.sports_profile, estimated_team_count: event.target.value } } : { ...current, school_profile: { ...current.school_profile, grade_scope: event.target.value } })} /></label>
+                <label className="filter-field"><span>Roster, team list, or class list</span><input value={formState.department_type === "schools" ? formState.school_profile.roster_source : formState.sports_profile.league_name} onChange={(event) => updateState((current) => current.department_type === "schools" ? { ...current, school_profile: { ...current.school_profile, roster_source: event.target.value } } : { ...current, sports_profile: { ...current.sports_profile, league_name: event.target.value } })} placeholder={formState.department_type === "schools" ? "Where the class/roster list will come from (SIS export, office, etc.)" : "League or team list source"} /></label>
+                <label className="filter-field"><span>Group schedule</span><input value={formState.department_type === "sports" ? formState.sports_profile.estimated_team_count : formState.school_profile.grade_scope} onChange={(event) => updateState((current) => current.department_type === "sports" ? { ...current, sports_profile: { ...current.sports_profile, estimated_team_count: event.target.value } } : { ...current, school_profile: { ...current.school_profile, grade_scope: event.target.value } })} placeholder={formState.department_type === "schools" ? "Group flow / class-by-time, e.g. 8:00 K-2, 9:00 3-5, 10:00 staff" : "Teams, divisions, or group flow"} /></label>
                 {usesSportsWorkArea ? (
                   <>
                     <label className="filter-field"><span>Indoor / Outdoor</span><select value={formState.sports_setup.indoor_outdoor} onChange={(event) => updateState((current) => ({ ...current, sports_setup: { ...current.sports_setup, indoor_outdoor: event.target.value } }))}><option value="">Choose setting</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="mixed">Mixed</option></select></label>
@@ -1164,6 +1235,18 @@ export function SharedJobEditorPage({ token, currentUser, departmentType, routeB
       sidebarCards={sidebarCards}
       footer={
         <>
+          {isGlobalJobIntake && validationIssues.length ? (
+            <div className="feedback-strip feedback-strip--warning job-intake__validation-summary" role="alert" tabIndex={-1} ref={validationSummaryRef}>
+              <div className="feedback-strip__content">
+                <strong>Please complete these required fields before creating the job package:</strong>
+                <ul>
+                  {validationIssues.map((issue) => (
+                    <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
           {!isGlobalJobIntake ? <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
             Cancel
           </button> : null}

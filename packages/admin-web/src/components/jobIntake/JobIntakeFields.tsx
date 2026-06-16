@@ -92,6 +92,7 @@ type ContactLookupFieldProps = SharedLookupProps & {
   options: OrganizationContact[];
   selectedContactId: string;
   onSelectContact: (value: string) => void;
+  emptyOptionsText?: string;
 };
 
 type ScheduleSectionProps = {
@@ -546,7 +547,8 @@ export function ContactLookupField({
   disabled = false,
   required = false,
   helperText,
-  errors = []
+  errors = [],
+  emptyOptionsText
 }: ContactLookupFieldProps) {
   const query = searchValue.trim().toLowerCase();
   const filteredOptions = query
@@ -590,7 +592,7 @@ export function ContactLookupField({
       ) : selectedQueryMatches ? null : query ? (
         <div className="job-intake__helper">This does not match a saved contact yet. Add a placeholder only until Directory is updated.</div>
       ) : (
-        <div className="job-intake__helper">Select an organization to load contacts, or keep a draft placeholder.</div>
+        <div className="job-intake__helper">{emptyOptionsText ?? "Select an organization to load contacts, or keep a draft placeholder."}</div>
       )}
       <label className="filter-field filter-field--wide">
         <span>Unresolved primary contact placeholder</span>

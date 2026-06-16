@@ -56,6 +56,7 @@ type ContactPickerProps = SharedPickerProps & {
   options: OrganizationContact[];
   selectedContactId: string;
   onSelectContact: (value: string) => void;
+  emptyOptionsText?: string;
 };
 
 type StaffPickerProps = SharedPickerProps & {
@@ -136,6 +137,7 @@ export function SharedContactPicker(props: ContactPickerProps) {
       required={props.required}
       helperText={props.helperText}
       errors={props.errors}
+      emptyOptionsText={props.emptyOptionsText}
     />
   );
 }

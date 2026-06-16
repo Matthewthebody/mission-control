@@ -2546,23 +2546,23 @@ beforeEach(() => {
     fireEvent.change(schoolInput, { target: { value: "Gym" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
     expect(schoolInput).toHaveValue("North High Main Gym");
-    await waitFor(() => expect(getControlWithinLabel("Job Name", "input")).toHaveValue("North High Main Gym - Picture Day"));
+    await waitFor(() => expect(getControlWithinLabel("Job Name", "input")).toHaveValue("North High Main Gym — Picture Day"));
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-08-20" } });
-    await waitFor(() => expect(getControlWithinLabel("Job Name", "input")).toHaveValue("North High Main Gym - Picture Day - Aug 20"));
+    await waitFor(() => expect(getControlWithinLabel("Job Name", "input")).toHaveValue("North High Main Gym — Picture Day — 2026"));
     fireEvent.change(getControlWithinLabel("Job Name", "input"), { target: { value: "Custom school intake name" } });
     expect(getControlWithinLabel("Job Name", "input")).toHaveValue("Custom school intake name");
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-08-21" } });
     expect(getControlWithinLabel("Job Name", "input")).toHaveValue("Custom school intake name");
     fireEvent.click(screen.getByRole("button", { name: "Use suggested name" }));
-    expect(getControlWithinLabel("Job Name", "input")).toHaveValue("North High Main Gym - Picture Day - Aug 21");
+    expect(getControlWithinLabel("Job Name", "input")).toHaveValue("North High Main Gym — Picture Day — 2026");
     expect(screen.getByRole("button", { name: "District-level job / no single school" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Job Needs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Prep Details" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Staffing & Prep" })).not.toBeInTheDocument();
     expect(screen.queryByText("Photographers needed")).not.toBeInTheDocument();
     expect(screen.queryByText("Assistants needed")).not.toBeInTheDocument();
-    expect(getControlWithinLabel("Roster or team list source", "input")).toBeInTheDocument();
-    expect(getControlWithinLabel("Teams, classes, or groups", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("Roster, team list, or class list", "input")).toBeInTheDocument();
+    expect(getControlWithinLabel("Group schedule", "input")).toBeInTheDocument();
     expect(screen.queryByLabelText("Schedule file")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("QR code file")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Reference images")).not.toBeInTheDocument();
@@ -2571,7 +2571,10 @@ beforeEach(() => {
     expect(screen.queryByLabelText("Tethered / Untethered")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Rain location?")).not.toBeInTheDocument();
     expect(getControlWithinLabel("Expected volume", "input")).toBeInTheDocument();
-    expect(getControlWithinLabel("Products and services", "select")).toBeInTheDocument();
+    // School Open House / Picture Day intake hides products + gallery output (separate workflows).
+    expect(screen.queryByText("Products and services")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gallery or output")).not.toBeInTheDocument();
+    expect(getControlWithinLabel("Estimated production deadline", "input")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Important Notes" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Important notes" })).toBeInTheDocument();
     expect(screen.getByText(/Calendar readiness:/)).toBeInTheDocument();
@@ -2756,7 +2759,7 @@ beforeEach(() => {
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
 
     // The optional free-text area only appears once a saved school is chosen.
-    const areaField = await screen.findByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3");
+    const areaField = await screen.findByPlaceholderText("e.g. Gym, Auditorium, Cafeteria, Main entrance, Commons, Media center");
     fireEvent.change(areaField, { target: { value: "Auxiliary gym, west doors" } });
     fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
 
@@ -2766,6 +2769,56 @@ beforeEach(() => {
     expect(payload.primary_location_id).toBe("loc-school");
     expect(payload.school_profile.specific_area).toBe("Auxiliary gym, west doors");
     expect(payload.location_override_note).toBeNull();
+  });
+
+  it("auto-estimates the production deadline from the Open House workflow and preserves a manual override", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "open_house_day" } });
+    // Wed Aug 26, 2026 + 5 business days = Wed Sep 2, 2026.
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-08-26" } });
+    await waitFor(() => expect(getControlWithinLabel("Estimated production deadline", "input")).toHaveValue("2026-09-02"));
+    expect(screen.getByText(/Estimated from the Open House Day workflow \(5 business days after the shoot date\)/i)).toBeInTheDocument();
+
+    // A manual edit is respected and must not be silently overwritten when the date changes.
+    fireEvent.change(getControlWithinLabel("Estimated production deadline", "input"), { target: { value: "2026-09-10" } });
+    expect(screen.getByText("Deadline was manually edited.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-09-01" } });
+    await waitFor(() => expect(getControlWithinLabel("Estimated production deadline", "input")).toHaveValue("2026-09-10"));
+  });
+
+  it("shows a clear required-field summary instead of a vague Job Basics failure", async () => {
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    // No district chosen yet — creating must explain exactly what is missing.
+    fireEvent.click(screen.getByRole("button", { name: "Create Job Package" }));
+
+    expect(await screen.findByText("Please complete these required fields before creating the job package:")).toBeInTheDocument();
+    // The exact missing field shows both in the summary and inline at the field.
+    expect(screen.getAllByText("Choose a district.").length).toBeGreaterThanOrEqual(2);
+    expect(createSharedJobDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the account's contacts into the primary-contact picker once a district is selected", async () => {
+    listDirectoryContactsMock.mockResolvedValue({
+      contacts: [{ id: "contact-north-1", full_name: "Jamie Office", title: "Office Manager", phone: "555-0100", email: "jamie@north.example", notes: null }]
+    });
+    window.location.hash = "#jobs/new";
+    render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType={null} routeBase="#jobs" mode="create" />);
+
+    expect(await screen.findByRole("heading", { name: "Job Basics" })).toBeInTheDocument();
+    fireEvent.change(getControlWithinLabel("Work Area", "select"), { target: { value: "school_pictures" } });
+    fireEvent.change(getControlWithinLabel("Shoot Type", "select"), { target: { value: "picture_day" } });
+    fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
+    fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
+    // The account's contacts populate without the operator typing first (no dead control).
+    expect(await screen.findByRole("button", { name: /Jamie Office/i })).toBeInTheDocument();
   });
 
   it("scopes the school picker to the selected district and excludes other organizations' locations", async () => {
@@ -2860,21 +2913,21 @@ beforeEach(() => {
     fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
     fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
-    const areaField = await screen.findByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3");
+    const areaField = await screen.findByPlaceholderText("e.g. Gym, Auditorium, Cafeteria, Main entrance, Commons, Media center");
     fireEvent.change(areaField, { target: { value: "Main Gym" } });
     expect(areaField).toHaveValue("Main Gym");
 
     // Switch district → the stale school selection (and its area field) drop away.
     fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "South Ridge" } });
     fireEvent.click(await screen.findByRole("button", { name: /South Ridge District/i }));
-    await waitFor(() => expect(screen.queryByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByPlaceholderText("e.g. Gym, Auditorium, Cafeteria, Main entrance, Commons, Media center")).not.toBeInTheDocument());
 
     // Switch back and re-pick the same school → the old area detail did not carry over.
     fireEvent.change(screen.getByPlaceholderText("Search districts"), { target: { value: "North" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High.*3 contacts.*2 locations/i }));
     fireEvent.change(screen.getByPlaceholderText("Search schools or sites"), { target: { value: "Gym" } });
     fireEvent.click(await screen.findByRole("button", { name: /North High Main Gym/i }));
-    expect(await screen.findByPlaceholderText("e.g. Gym, Auditorium, West entrance, Field 3")).toHaveValue("");
+    expect(await screen.findByPlaceholderText("e.g. Gym, Auditorium, Cafeteria, Main entrance, Commons, Media center")).toHaveValue("");
   });
 
   it("routes sports intake packages with a Sports Director workflow confirmation notice", async () => {
