@@ -42,6 +42,41 @@ export function CompanyCommandHome({ role }: { role: HomeRole }) {
         </div>
       </section>
 
+      <section className="panel home-command__workflow" aria-label="Workflow command">
+        <HomeSectionHeader
+          title="Workflow Command"
+          help="Leadership entry point for workflow oversight and demos. Open the builder to review or clone a workflow, or test how a job moves through statuses — no need to hunt through Admin."
+        />
+        <div className="home-command__cards">
+          <button
+            type="button"
+            className="home-command-card home-command-card--info"
+            onClick={() => navigateToHash("#project-tracking/workflow-templates")}
+          >
+            <span className="home-command-card__label">Workflow Builder & Templates</span>
+            <strong className="home-command-card__value">Review or clone a workflow</strong>
+            <span className="home-command-card__helper">Open the leadership workflow builder — milestones, controlled steps, owners, and SLAs.</span>
+            <span className="home-command-card__drill">
+              Open Workflow Command
+              <span aria-hidden="true"> →</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="home-command-card home-command-card--info"
+            onClick={() => navigateToHash("#project-tracking")}
+          >
+            <span className="home-command-card__label">Test a Job Workflow</span>
+            <strong className="home-command-card__value">Move a job through statuses</strong>
+            <span className="home-command-card__helper">Open Production Tracker to work a job from Ready through Working, Waiting, Review, Delivery, and Done.</span>
+            <span className="home-command-card__drill">
+              Open Production Tracker
+              <span aria-hidden="true"> →</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
       <CompanyNeedsAttention emphasizedArea={role.emphasizedArea} />
       <OperatingAreaPulse emphasizedArea={role.emphasizedArea} />
       <AttendanceRiskPanel emphasizedArea={role.emphasizedArea} />
