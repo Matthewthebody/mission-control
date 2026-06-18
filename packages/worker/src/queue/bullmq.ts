@@ -10,6 +10,7 @@ import {
   monitorClientIntakeReminders,
   monitorMicrosoft365SmsReminders
 } from "../jobs/clientIntakeMonitor.js";
+import { monitorExceptionReconcile } from "../jobs/exceptionReconcileMonitor.js";
 import { monitorGear } from "../jobs/gearMonitor.js";
 import { monitorProjectTrackingSla } from "../jobs/projectTrackingSlaMonitor.js";
 import { monitorSalesPipeline } from "../jobs/salesPipelineMonitor.js";
@@ -31,6 +32,7 @@ export const alertsQueue = new Queue("alerts", { connection });
 export const attendanceQueue = new Queue("attendance", { connection });
 export const checklistQueue = new Queue("checklists", { connection });
 export const clientIntakeQueue = new Queue("client-intake", { connection });
+export const exceptionReconcileQueue = new Queue("exception-reconcile", { connection });
 export const gearQueue = new Queue("gear", { connection });
 export const projectTrackingSlaQueue = new Queue("project-tracking-sla", { connection });
 export const salesPipelineQueue = new Queue("sales-pipeline", { connection });
@@ -78,6 +80,14 @@ export const clientIntakeWorker = new Worker(
   { connection }
 );
 
+export const exceptionReconcileWorker = new Worker(
+  "exception-reconcile",
+  async () => {
+    await monitorExceptionReconcile();
+  },
+  { connection }
+);
+
 export const gearWorker = new Worker(
   "gear",
   async () => {
@@ -116,6 +126,7 @@ export async function scheduleJobs() {
   await attendanceQueue.upsertJobScheduler("attendance-repeat", { every: 60000 }, { name: "monitor-attendance", data: {} });
   await checklistQueue.upsertJobScheduler("checklists-repeat", { every: 60000 }, { name: "monitor-checklists", data: {} });
   await clientIntakeQueue.upsertJobScheduler("client-intake-repeat", { every: 60000 }, { name: "monitor-client-intake", data: {} });
+  await exceptionReconcileQueue.upsertJobScheduler("exception-reconcile-repeat", { every: 60000 }, { name: "monitor-exception-reconcile", data: {} });
   await gearQueue.upsertJobScheduler("gear-repeat", { every: 60000 }, { name: "monitor-gear", data: {} });
   await projectTrackingSlaQueue.upsertJobScheduler("project-tracking-sla-repeat", { every: 60000 }, { name: "monitor-project-tracking-sla", data: {} });
   await salesPipelineQueue.upsertJobScheduler("sales-pipeline-repeat", { every: 60000 }, { name: "monitor-sales-pipeline", data: {} });

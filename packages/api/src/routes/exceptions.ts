@@ -1,10 +1,17 @@
 import { Router } from "express";
 import { z } from "zod";
+import { config } from "../config.js";
 import { withClientTransaction } from "../db/tx.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireOperatingSystemModuleManage, requireOperatingSystemModuleView } from "../middleware/operatingSystemAccess.js";
 import { validateBody, validateQuery } from "../middleware/validate.js";
-import { applyExceptionAction, getExceptionDetail, getExceptionWorkspace, reconcileUrgentWatchWorkspace } from "../services/urgentWatch.js";
+import {
+  applyExceptionAction,
+  getExceptionDetail,
+  getExceptionWorkspace,
+  reconcileUrgentWatchWorkspace,
+  sweepUrgentWatchReconcile
+} from "../services/urgentWatch.js";
 import { getLocalDateString } from "../utils/localDate.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
@@ -20,6 +27,19 @@ const workspaceQuerySchema = z.object({
 const reconcileBodySchema = z.object({
   date: z.string().optional()
 });
+
+const internalReconcileSweepSchema = z
+  .object({
+    tenant_id: z.string().uuid().optional(),
+    date: z.string().optional()
+  })
+  .strict();
+
+function assertInternalExceptionSweepAccess(secret: string | undefined) {
+  if (secret !== config.INTERNAL_SOCKET_SECRET) {
+    throw new Error("Forbidden");
+  }
+}
 
 const exceptionActionSchema = z.discriminatedUnion("action", [
   z.object({
@@ -63,6 +83,26 @@ router.post("/reconcile", requireAuth, requireOperatingSystemModuleManage("excep
     );
     return res.status(204).send();
   } catch (error) {
+    return next(error);
+  }
+});
+
+// Internal, secret-guarded sweep that reconciles every tenant. Driven by the
+// worker's exception-reconcile scheduler so the Exception Center never serves
+// stale items. Not user-facing (no requireAuth) — authenticated by the shared
+// internal socket secret, mirroring the project-tracking SLA sweep.
+router.post("/internal/reconcile-sweep", validateBody(internalReconcileSweepSchema), async (req, res, next) => {
+  try {
+    assertInternalExceptionSweepAccess(req.header("X-PMC-Internal-Secret") ?? undefined);
+    const payload = await sweepUrgentWatchReconcile({
+      tenantId: req.body.tenant_id ?? null,
+      date: req.body.date ?? null
+    });
+    return res.json(payload);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Forbidden") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     return next(error);
   }
 });

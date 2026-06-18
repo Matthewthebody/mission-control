@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { config } from "../src/config.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin } from "./helpers.js";
 
@@ -39,6 +40,13 @@ async function reconcileExceptions(date: string) {
   if (response.status !== 204) {
     throw new Error(`Reconcile failed with ${response.status}: ${JSON.stringify(response.body)}`);
   }
+}
+
+function reconcileSweep(body: Record<string, unknown> = {}) {
+  return request(app)
+    .post("/api/exceptions/internal/reconcile-sweep")
+    .set("X-PMC-Internal-Secret", config.INTERNAL_SOCKET_SECRET)
+    .send(body);
 }
 
 async function createShoot(code: string, title: string, date: string, startTime: string) {
@@ -200,6 +208,163 @@ describe("exception routes and watch compatibility aliases", () => {
       [tenantId, shoot.id]
     );
     expect(afterReconcile.rows[0].count).toBeGreaterThan(0);
+  }, 30_000);
+
+  it("reconciles urgent watch items across tenants via the internal scheduled sweep", async () => {
+    const today = localDateString();
+    const shoot = await createShoot(`UW-${crypto.randomUUID().slice(0, 8)}`, "Scheduled Sweep Proof", today, "00:20");
+
+    // Reads are pure, so nothing exists until the sweep runs.
+    const before = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM urgent_watch_item
+        WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2
+      `,
+      [tenantId, shoot.id]
+    );
+    expect(before.rows[0].count).toBe(0);
+
+    // The sweep is internal-only: no secret → 403, and no work performed.
+    const denied = await request(app)
+      .post("/api/exceptions/internal/reconcile-sweep")
+      .send({ date: today });
+    expect(denied.status).toBe(403);
+
+    // The scheduled sweep runs as a background system actor (no user auth) and
+    // reconciles every tenant. failed_tenant_count must be 0 — proving the
+    // system-actor reconcile path runs cleanly end-to-end.
+    const sweep = await reconcileSweep({ tenant_id: tenantId, date: today });
+    expect(sweep.status).toBe(200);
+    expect(sweep.body.tenant_count).toBeGreaterThanOrEqual(1);
+    expect(sweep.body.reconciled_tenant_count).toBeGreaterThanOrEqual(1);
+    expect(sweep.body.failed_tenant_count).toBe(0);
+
+    const after = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM urgent_watch_item
+        WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2
+      `,
+      [tenantId, shoot.id]
+    );
+    expect(after.rows[0].count).toBeGreaterThan(0);
+  }, 30_000);
+
+  it("is idempotent and queues no user-facing notifications on repeat sweeps", async () => {
+    const today = localDateString();
+    const shoot = await createShoot(`UW-${crypto.randomUUID().slice(0, 8)}`, "Idempotent Sweep Proof", today, "00:22");
+
+    const notifBefore = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM app_event WHERE tenant_id = $1 AND event_type = 'notification.dispatch'`,
+      [tenantId]
+    );
+
+    await reconcileSweep({ tenant_id: tenantId, date: today });
+    const firstPass = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    const firstCount = firstPass.rows[0].count as number;
+    expect(firstCount).toBeGreaterThan(0);
+
+    // Re-running the same reconciliation must not create duplicate issues — the
+    // count stays stable (one shoot may legitimately raise more than one watch type).
+    await reconcileSweep({ tenant_id: tenantId, date: today });
+    const secondPass = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    expect(secondPass.rows[0].count).toBe(firstCount);
+
+    // Reconciliation is a derived-state sync; it must not queue user-facing notifications.
+    const notifAfter = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM app_event WHERE tenant_id = $1 AND event_type = 'notification.dispatch'`,
+      [tenantId]
+    );
+    expect(notifAfter.rows[0].count).toBe(notifBefore.rows[0].count);
+  }, 30_000);
+
+  it("closes the issue when the underlying source condition is cleared", async () => {
+    const today = localDateString();
+    const shoot = await createShoot(`UW-${crypto.randomUUID().slice(0, 8)}`, "Source Clear Proof", today, "00:24");
+
+    await reconcileSweep({ tenant_id: tenantId, date: today });
+    const active = await pool.query(
+      `SELECT status FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    expect(active.rows.length).toBeGreaterThan(0);
+    expect(active.rows.some((row: { status: string }) => row.status === "active")).toBe(true);
+
+    // Clear the source condition: move the shoot beyond the 30-day risk window
+    // (listSchedulingUrgentWatchCandidates scans anchorDate .. anchorDate+30).
+    const future = localDateString(45);
+    await pool.query(
+      `
+        UPDATE shoot
+        SET shoot_date = $3, arrival_time = $4, start_time = $4, end_time_est = $5, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+      `,
+      [tenantId, shoot.id, future, isoAt(future, "10:00"), isoAt(future, "12:00")]
+    );
+
+    await reconcileSweep({ tenant_id: tenantId, date: today });
+    const resolved = await pool.query(
+      `SELECT status FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    expect(resolved.rows.length).toBeGreaterThan(0);
+    expect(resolved.rows.every((row: { status: string }) => row.status === "resolved")).toBe(true);
+
+    // And the resolved issue no longer appears in the active exception workspace.
+    const workspace = await request(app)
+      .get(`/api/exceptions?date=${today}`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(workspace.status).toBe(200);
+    expect(workspace.body.items.some((item: { entity_id: string }) => item.entity_id === shoot.id)).toBe(false);
+  }, 30_000);
+
+  it("is tenant-scoped and cannot create, read, or update another tenant's issues", async () => {
+    const today = localDateString();
+    const shoot = await createShoot(`UW-${crypto.randomUUID().slice(0, 8)}`, "Tenant Scope Proof", today, "00:26");
+    const otherTenantId = crypto.randomUUID();
+
+    // A sweep scoped to a DIFFERENT tenant must not create our tenant's issue.
+    const foreignSweep = await reconcileSweep({ tenant_id: otherTenantId, date: today });
+    expect(foreignSweep.status).toBe(200);
+    const afterForeign = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    expect(afterForeign.rows[0].count).toBe(0);
+
+    // Our own sweep creates it.
+    await reconcileSweep({ tenant_id: tenantId, date: today });
+    const ownItems = await pool.query(
+      `SELECT status FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    expect(ownItems.rows.some((row: { status: string }) => row.status === "active")).toBe(true);
+
+    // Clear our source (beyond the 30-day window), then sweep the OTHER tenant —
+    // our active issue must remain untouched, proving a foreign-scoped sweep cannot
+    // resolve our records (only our own sweep could).
+    const future = localDateString(45);
+    await pool.query(
+      `
+        UPDATE shoot
+        SET shoot_date = $3, arrival_time = $4, start_time = $4, end_time_est = $5, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+      `,
+      [tenantId, shoot.id, future, isoAt(future, "10:00"), isoAt(future, "12:00")]
+    );
+    await reconcileSweep({ tenant_id: otherTenantId, date: today });
+    const stillActive = await pool.query(
+      `SELECT status FROM urgent_watch_item WHERE tenant_id = $1 AND source_module = 'scheduling' AND source_entity_id = $2`,
+      [tenantId, shoot.id]
+    );
+    expect(stillActive.rows.some((row: { status: string }) => row.status === "active")).toBe(true);
   }, 30_000);
 
   it("keeps the watch compatibility route working while the canonical queue lives at exceptions", async () => {

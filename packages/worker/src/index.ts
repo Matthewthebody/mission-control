@@ -4,6 +4,7 @@ import {
   attendanceWorker,
   checklistWorker,
   clientIntakeWorker,
+  exceptionReconcileWorker,
   gearWorker,
   outboxWorker,
   projectTrackingSlaWorker,
@@ -24,6 +25,7 @@ async function main() {
   attendanceWorker.on("completed", () => {});
   checklistWorker.on("completed", () => {});
   clientIntakeWorker.on("completed", () => {});
+  exceptionReconcileWorker.on("completed", () => {});
   gearWorker.on("completed", () => {});
   projectTrackingSlaWorker.on("completed", () => {});
   salesPipelineWorker.on("completed", () => {});

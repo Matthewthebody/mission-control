@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { ApiError } from "../errors/apiError.js";
+import { withClientTransaction, withSystemTransaction } from "../db/tx.js";
 import type { AuthUser } from "../types/auth.js";
 import type {
   OperationalExceptionActionInput,
@@ -325,6 +326,59 @@ export async function reconcileUrgentWatchWorkspace(
 ) {
   const anchorDate = options.date?.trim() || getLocalDateString();
   await syncUrgentWatchItems(client, auth, anchorDate);
+}
+
+export type UrgentWatchReconcileSweepResult = {
+  tenant_count: number;
+  reconciled_tenant_count: number;
+  failed_tenant_count: number;
+};
+
+// Background reconciliation across tenants. Exception READS are pure by design
+// (getExceptionWorkspace never mutates), so without a scheduled sweep a resolved,
+// canceled, or deleted-source issue lingers as "active" and a returned condition
+// is never reopened. This is that scheduled, mutating counterpart — it runs the
+// exact same logic as POST /api/exceptions/reconcile, once per tenant, each in its
+// own RLS-scoped transaction so one tenant's failure cannot abort the rest.
+export async function sweepUrgentWatchReconcile(
+  input: { tenantId?: string | null; date?: string | null } = {}
+): Promise<UrgentWatchReconcileSweepResult> {
+  const anchorDate = input.date?.trim() || getLocalDateString();
+  const tenantIds = input.tenantId
+    ? [input.tenantId]
+    : (
+        await withSystemTransaction((client) =>
+          client.query<{ id: string }>("SELECT id::text AS id FROM tenant ORDER BY created_at ASC")
+        )
+      ).rows.map((row) => row.id);
+
+  let reconciled = 0;
+  let failed = 0;
+  for (const tenantId of tenantIds) {
+    // Background actor: matches the repo's system-auth stub convention (see
+    // agreements.ts). A null actor id keeps audit/actor columns valid (uuid) and
+    // mirrors the null RLS user passed to withClientTransaction below.
+    const systemAuth = { tenantId, id: null, authorityTier: "super_admin" } as unknown as AuthUser;
+    try {
+      await withClientTransaction(tenantId, null, (client) =>
+        reconcileUrgentWatchWorkspace(client, systemAuth, { date: anchorDate })
+      );
+      reconciled += 1;
+    } catch (error) {
+      failed += 1;
+      // eslint-disable-next-line no-console
+      console.error(
+        `Urgent watch reconcile failed for tenant ${tenantId}:`,
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+
+  return {
+    tenant_count: tenantIds.length,
+    reconciled_tenant_count: reconciled,
+    failed_tenant_count: failed
+  };
 }
 
 async function syncUrgentWatchItems(client: PoolClient, auth: AuthUser, anchorDate: string) {
