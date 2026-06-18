@@ -516,6 +516,45 @@ describe("shared job truth layer", () => {
     expect(response.body.job.job_number).toBeNull();
   });
 
+  it("creates a draft when scheduled_end_at equals scheduled_start_at by normalizing the degenerate end to null", async () => {
+    // Global intake composes scheduled_end_at from the start date when no end is given,
+    // producing end === start. That previously hit the jobs end>start constraint and 500'd.
+    const sameMoment = plusDaysWithHours(16, 9);
+    const response = await createDraft(schoolsToken, {
+      department_type: "schools",
+      job_category: "photo_day",
+      organization_id: schoolsOrganizationId,
+      title: `Same Start End Job ${JOB_TRUTH_TEST_RUN_ID}`,
+      scheduled_start_at: sameMoment,
+      scheduled_end_at: sameMoment,
+      timezone: "America/Chicago",
+      production_required: true,
+      workflow_template_key: JOB_TRUTH_WORKFLOW_TEMPLATE_KEY,
+      school_profile: { school_year: "2026-2027" }
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.job.scheduled_start_at).not.toBeNull();
+    expect(response.body.job.scheduled_end_at).toBeNull();
+  });
+
+  it("preserves a real scheduled_end_at that is after the start", async () => {
+    const response = await createDraft(schoolsToken, {
+      department_type: "schools",
+      job_category: "photo_day",
+      organization_id: schoolsOrganizationId,
+      title: `Real End Job ${JOB_TRUTH_TEST_RUN_ID}`,
+      scheduled_start_at: plusDaysWithHours(17, 8),
+      scheduled_end_at: plusDaysWithHours(17, 12),
+      timezone: "America/Chicago",
+      production_required: true,
+      workflow_template_key: JOB_TRUTH_WORKFLOW_TEMPLATE_KEY
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.job.scheduled_end_at).not.toBeNull();
+  });
+
   it("blocks schools publish when adapter requirements are missing", async () => {
     const draft = await createDraft(schoolsToken, {
       department_type: "schools",

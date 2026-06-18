@@ -2079,6 +2079,17 @@ async function upsertJobCore(
   input: JobDraftInput,
   existingJobId?: string | null
 ) {
+  const scheduledStartAt = input.scheduled_start_at ?? null;
+  const rawScheduledEndAt = input.scheduled_end_at ?? null;
+  // The jobs table requires scheduled_end_at to be strictly after scheduled_start_at.
+  // Intake composes an end timestamp from the start date when no explicit end is given,
+  // which yields end === start (a zero-length window). Store that degenerate end as null
+  // instead of letting it violate the constraint as an unhandled 500. A real end > start
+  // is preserved; a genuinely invalid payload still fails validation upstream.
+  const scheduledEndAt =
+    rawScheduledEndAt && scheduledStartAt && new Date(rawScheduledEndAt).getTime() <= new Date(scheduledStartAt).getTime()
+      ? null
+      : rawScheduledEndAt;
   const { rows } = await client.query<JobRecord>(
     `
       INSERT INTO jobs (
@@ -2180,8 +2191,8 @@ async function upsertJobCore(
       (input as { priority_level?: JobPriorityLevel | null }).priority_level ?? "normal",
       normalizeNullableText(input.delivery_type),
       normalizeNullableText(input.gallery_type),
-      input.scheduled_start_at ?? null,
-      input.scheduled_end_at ?? null,
+      scheduledStartAt,
+      scheduledEndAt,
       normalizeNullableText(input.timezone) ?? "America/Chicago",
       input.estimated_subject_count ?? null,
       input.estimated_staff_count ?? null,
