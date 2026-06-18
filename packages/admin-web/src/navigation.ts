@@ -2086,7 +2086,14 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "prep-readiness" || path === "project-tracking/prep-readiness") {
     return pickVisibleRoute("prep-readiness-queue", availableTabs, employeeOnlyMode);
   }
-  if (path === "project-tracking/workflow-templates" || path === "project-tracking/templates" || path === "workflow-templates") {
+  if (
+    path === "project-tracking/workflow-templates" ||
+    path === "project-tracking/templates" ||
+    path === "workflow-templates" ||
+    // Alias the old Admin-style route id so the bare hash resolves to the builder
+    // instead of bouncing to Home.
+    path === "workflow-template-builder"
+  ) {
     return pickVisibleRoute("workflow-template-builder", availableTabs, employeeOnlyMode);
   }
   if (path === "client-command-center" || /^client-command-center\/accounts\/[^/]+$/i.test(path)) {

@@ -19,6 +19,7 @@ import {
   canAssignStaffingRecords,
   canChangeProductionStatus,
   canChangeSharedJobStatus,
+  canEditJobWorkflow,
   canChangeSharedTaskStatus,
   canConfigureSystemBehavior,
   canManageCanonicalDirectoryRecords,
@@ -77,6 +78,41 @@ const baseUser: SessionUser = {
   effectiveScopes: ["department_only"],
   sessionTrust: standardSessionTrust
 };
+
+describe("job workflow editing permissions", () => {
+  const job = { department_type: "schools", account_owner_user_id: "owner-9", lead_owner_user_id: "lead-9" };
+  const regularEmployee: SessionUser = {
+    ...baseUser,
+    id: "employee-1",
+    authorityTier: "standard_employee",
+    primaryJobFunctionProfile: "associate_photographer",
+    jobFunctionProfiles: ["associate_photographer"],
+    roles: ["office_employee"],
+    permissions: ["dashboard.read", "schedule.read"]
+  };
+
+  it("lets a job owner or lead edit their own job workflow without granting template management", () => {
+    const owner = { ...regularEmployee, id: "owner-9" };
+    const lead = { ...regularEmployee, id: "lead-9" };
+    expect(canEditJobWorkflow(owner, job)).toBe(true);
+    expect(canEditJobWorkflow(lead, job)).toBe(true);
+    // Owning a job must never grant global workflow-template management.
+    expect(canManageWorkflowTemplates(owner)).toBe(false);
+    expect(canManageWorkflowTemplates(lead)).toBe(false);
+  });
+
+  it("lets a department status-permission holder edit any job workflow", () => {
+    const manager = { ...regularEmployee, id: "manager-1", permissions: ["job.update"] };
+    expect(canChangeSharedJobStatus(manager)).toBe(true);
+    expect(canEditJobWorkflow(manager, job)).toBe(true);
+  });
+
+  it("blocks an unrelated regular employee from editing the job workflow or managing templates", () => {
+    const stranger = { ...regularEmployee, id: "stranger-1" };
+    expect(canEditJobWorkflow(stranger, job)).toBe(false);
+    expect(canManageWorkflowTemplates(stranger)).toBe(false);
+  });
+});
 
 describe("approval permission helpers", () => {
   it("treats PTO and trade requestors as approval-hub users", () => {

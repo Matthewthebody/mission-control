@@ -845,6 +845,24 @@ export function canChangeSharedJobStatus(user: SessionUser, department?: string 
   );
 }
 
+// Centralized predicate for who may move a specific job through its workflow statuses.
+// Reuses the existing shared job-status rule (leadership / managers / department status
+// permissions) and additionally lets the job's own owner or lead update their own job.
+// Global workflow TEMPLATE management stays separate and restricted
+// (see canManageWorkflowTemplates) — owning a job never grants template-editing access.
+export function canEditJobWorkflow(
+  user: SessionUser,
+  job: { department_type?: string | null; account_owner_user_id?: string | null; lead_owner_user_id?: string | null }
+) {
+  if (canChangeSharedJobStatus(user, job.department_type ?? null)) {
+    return true;
+  }
+  return (
+    (Boolean(job.account_owner_user_id) && job.account_owner_user_id === user.id) ||
+    (Boolean(job.lead_owner_user_id) && job.lead_owner_user_id === user.id)
+  );
+}
+
 export function canChangeSharedTaskStatus(user: SessionUser, department?: string | null) {
   return hasPolicyPermissionAccess(user, "task.status.change", department) || hasPermission(user, "task.update");
 }
