@@ -1,6 +1,6 @@
 import type { OperatingArea } from "./homeRoles";
 import { DEMO_WEATHER_IMPACT, type WeatherImpactItem } from "./homeDemoData";
-import { emphasisRank, HomePill, HomeSectionHeader, RelatedJobLink } from "./homeShared";
+import { emphasisRank, HomePill, HomeSectionHeader } from "./homeShared";
 
 const LEVEL_RANK: Record<WeatherImpactItem["level"], number> = { urgent: 0, watch: 1 };
 
@@ -28,7 +28,6 @@ function WeatherRow({ item }: { item: WeatherImpactItem }) {
           {item.acknowledged ? "✓ " : ""}
           {item.acknowledgment}
         </span>
-        {item.relatedJobId ? <RelatedJobLink jobName="Open shoot" /> : null}
       </div>
     </article>
   );
@@ -49,6 +48,9 @@ export function WeatherImpactPanel({ emphasizedArea }: { emphasizedArea: Operati
         count={items.length}
         help="Weather tied to specific jobs: which shoots are affected, who owns the plan, whether the crew acknowledged it, and whether there is an indoor backup."
       />
+      <p className="home-weather__notice" role="note">
+        Sample data — no live weather provider is connected yet. Forecasts shown are illustrative and have no drilldown.
+      </p>
       <div className="home-weather__list">
         {items.map((item) => (
           <WeatherRow key={item.id} item={item} />

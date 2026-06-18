@@ -22645,6 +22645,25 @@ html[data-theme="light"] .help-tooltip__bubble {
   margin-top: 2px;
 }
 
+/* A card whose source surface is not connected: no hover, no pointer, and a
+   muted reason in place of the drilldown affordance. Never a dead enabled CTA. */
+.home-command-card--disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.home-command-card--disabled:hover {
+  transform: none;
+  border-color: var(--border, rgba(255, 255, 255, 0.12));
+}
+
+.home-command-card__drill--off {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 /* --- Needs Attention ------------------------------------------------- */
 
 .home-needs-attention__list {
@@ -22790,9 +22809,32 @@ html[data-theme="light"] .help-tooltip__bubble {
 .home-attendance__employee { font-weight: 700; }
 .home-attendance__action { color: var(--text-muted); }
 
+.home-attendance__foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.home-attendance__open {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent, #5ca2e5);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* --- Weather Impact -------------------------------------------------- */
 
 .home-weather__list { display: grid; gap: 10px; }
+
+.home-weather__notice {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
 
 .home-weather-row {
   display: flex;

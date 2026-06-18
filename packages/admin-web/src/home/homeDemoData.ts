@@ -1,5 +1,6 @@
 import type { OperatingArea } from "./homeRoles";
 import { OPERATING_AREA_LABELS } from "./homeRoles";
+import type { ActionTarget } from "./actionTargets";
 import {
   countBySeverity,
   type NeedsAttentionItem
@@ -18,7 +19,7 @@ export type CompanyCommandCard = {
   value: string;
   helper: string;
   tone: CommandCardTone;
-  drilldownHash: string;
+  target: ActionTarget;
   drilldownLabel: string;
 };
 
@@ -210,7 +211,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: String(onFire),
       helper: `${onFire} urgent issues need leadership action now.`,
       tone: "critical",
-      drilldownHash: "#project-tracking",
+      target: { sourceType: "project_tracking" },
       drilldownLabel: "View urgent work"
     },
     {
@@ -219,7 +220,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "18",
       helper: "18 shoots today · 1 needs follow-up.",
       tone: "watch",
-      drilldownHash: "#schedule",
+      target: { sourceType: "schedule" },
       drilldownLabel: "Open today's schedule"
     },
     {
@@ -228,7 +229,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "3",
       helper: "1 unstaffed · 1 call-out · 1 assigned not acknowledged.",
       tone: "warning",
-      drilldownHash: "#operations/staffing",
+      target: { sourceType: "staffing" },
       drilldownLabel: "Open staffing board"
     },
     {
@@ -237,7 +238,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "2",
       helper: "2 past call time and not clocked in.",
       tone: "critical",
-      drilldownHash: "#operations/staffing",
+      target: { sourceType: "attendance" },
       drilldownLabel: "View attendance"
     },
     {
@@ -246,7 +247,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "5",
       helper: "5 jobs behind phase target or promised delivery.",
       tone: "warning",
-      drilldownHash: "#project-tracking",
+      target: { sourceType: "project_tracking" },
       drilldownLabel: "Open project tracking"
     },
     {
@@ -255,7 +256,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "6",
       helper: "6 outdoor jobs on weather watch · 2 no indoor backup.",
       tone: "watch",
-      drilldownHash: "#schedule",
+      target: { sourceType: "weather", unavailableReason: "No live weather provider connected." },
       drilldownLabel: "Review affected shoots"
     },
     {
@@ -264,7 +265,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "5 behind",
       helper: "5 behind delivery · tomorrow's load is low.",
       tone: "warning",
-      drilldownHash: "#production",
+      target: { sourceType: "production" },
       drilldownLabel: "Open production"
     },
     {
@@ -273,7 +274,7 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: "2",
       helper: "2 cases over response target · 1 archive request.",
       tone: "watch",
-      drilldownHash: "#leadership",
+      target: { sourceType: "client_case" },
       drilldownLabel: "Open client success"
     }
   ];

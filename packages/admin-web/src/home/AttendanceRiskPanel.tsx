@@ -1,11 +1,13 @@
 import type { OperatingArea } from "./homeRoles";
 import { DEMO_ATTENDANCE_RISK } from "./homeDemoData";
-import { emphasisRank, HomePill, HomeSectionHeader } from "./homeShared";
+import { emphasisRank, HomePill, HomeSectionHeader, navigateToHash } from "./homeShared";
+import { resolveActionTarget } from "./actionTargets";
 
 export function AttendanceRiskPanel({ emphasizedArea }: { emphasizedArea: OperatingArea }) {
   const rows = DEMO_ATTENDANCE_RISK.slice().sort(
     (left, right) => emphasisRank(left.area, emphasizedArea) - emphasisRank(right.area, emphasizedArea)
   );
+  const attendance = resolveActionTarget({ sourceType: "attendance" });
   return (
     <section className="panel home-attendance" aria-label="People and attendance risk">
       <HomeSectionHeader
@@ -35,6 +37,14 @@ export function AttendanceRiskPanel({ emphasizedArea }: { emphasizedArea: Operat
           </div>
         ))}
       </div>
+      {attendance.available ? (
+        <div className="home-attendance__foot">
+          <button type="button" className="home-attendance__open" onClick={() => navigateToHash(attendance.hash)}>
+            Open Attendance
+            <span aria-hidden="true"> →</span>
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

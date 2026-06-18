@@ -7,13 +7,31 @@ import { AttendanceRiskPanel } from "./AttendanceRiskPanel";
 import { WeatherImpactPanel } from "./WeatherImpactPanel";
 import { LeadershipReportsStrip } from "./LeadershipReportsStrip";
 import { HomeSectionHeader, navigateToHash } from "./homeShared";
+import { resolveActionTarget } from "./actionTargets";
 
 function CommandCard({ card }: { card: CompanyCommandCard }) {
+  const resolved = resolveActionTarget(card.target);
+  // An enabled card must perform the action its label promises. When the source
+  // surface is not connected (e.g. no weather provider) we render a clearly
+  // disabled state with the reason — never a dead or misleading drilldown.
+  if (!resolved.available) {
+    return (
+      <div
+        className={`home-command-card home-command-card--${card.tone} home-command-card--disabled`}
+        aria-disabled="true"
+      >
+        <span className="home-command-card__label">{card.label}</span>
+        <strong className="home-command-card__value">{card.value}</strong>
+        <span className="home-command-card__helper">{card.helper}</span>
+        <span className="home-command-card__drill home-command-card__drill--off">{resolved.reason}</span>
+      </div>
+    );
+  }
   return (
     <button
       type="button"
       className={`home-command-card home-command-card--${card.tone}`}
-      onClick={() => navigateToHash(card.drilldownHash)}
+      onClick={() => navigateToHash(resolved.hash)}
     >
       <span className="home-command-card__label">{card.label}</span>
       <strong className="home-command-card__value">{card.value}</strong>
