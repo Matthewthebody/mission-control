@@ -582,6 +582,8 @@ export type StaffingPlanLifecycleView = {
   has_draft_changes: boolean;
   republish_required: boolean;
   draft_comparison: "no_published_plan" | "unchanged_since_publish" | "draft_changes_exist";
+  planned_staff_count: number;
+  required_lead_count: number;
   assigned_staff_count: number; // raw current canonical (draft) distinct employees
   published_recipient_count: number;
   coverage_eligible_staff_count: number;
@@ -848,6 +850,8 @@ export async function getStaffingPlanLifecycleView(
     has_draft_changes: hasDraftChanges,
     republish_required: hasPublishedVersion && hasDraftChanges,
     draft_comparison: draftComparison,
+    planned_staff_count: plannedStaffCount,
+    required_lead_count: requiredLeadCount,
     assigned_staff_count: draft.recipients.length,
     published_recipient_count: publishedRecipients.length,
     coverage_eligible_staff_count: coverageEligibleStaffCount,

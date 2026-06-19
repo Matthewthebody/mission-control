@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { OperationalDetailSection } from "./OperationalDetailSection";
+import { StaffingLifecyclePanel } from "./StaffingLifecyclePanel";
 import {
   assignShootStaffingSlot,
   getShootStaffingSnapshot,
@@ -249,6 +250,8 @@ export function ShootStaffingCommand({
               <span>{snapshot.shoot.staffing_clean_for_ready ? "Ready staffing posture is clean right now." : "Resolve blockers before treating this as clean readiness."}</span>
             </div>
           )}
+
+          {snapshot.staffing_lifecycle ? <StaffingLifecyclePanel lifecycle={snapshot.staffing_lifecycle} /> : null}
 
           {snapshot.approval_summary.open_count > 0 ? (
             <div className="staffing-approval-banner">

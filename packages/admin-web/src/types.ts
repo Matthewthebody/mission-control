@@ -5252,6 +5252,61 @@ export type ShootStaffingSnapshot = {
   requirements: StaffingRequirementResponse[];
   slots: ShootStaffingSlot[];
   approval_summary: OperationalApprovalSourceSummary;
+  // Always present from the API; optional here so older fixtures/tests need not construct it (the
+  // drawer guards on its presence).
+  staffing_lifecycle?: StaffingPlanLifecycleView;
+};
+
+export type StaffingPlanLifecycleRecipientView = {
+  recipient_id: string | null;
+  employee_user_id: string;
+  employee_name: string | null;
+  version: number | null;
+  response_status: string;
+  acknowledgment_due_at: string | null;
+  responded_at: string | null;
+  decline_reason: string | null;
+  carried_forward_from_recipient_id: string | null;
+  recipient_hash: string | null;
+  hash_version: number | null;
+  lead_coverage: boolean;
+  assignments: unknown[];
+  coverage_eligible: boolean;
+  overdue: boolean;
+  draft_change: "unchanged" | "changed" | "newly_added" | "removed" | "declined";
+  requires_renewed_acknowledgment: boolean;
+  can_carry_forward: boolean;
+};
+
+export type StaffingPlanLifecycleView = {
+  has_published_version: boolean;
+  latest_version: number | null;
+  published_at: string | null;
+  published_by_user_id: string | null;
+  hash_version: number | null;
+  snapshot_schema_version: number | null;
+  has_draft_changes: boolean;
+  republish_required: boolean;
+  draft_comparison: "no_published_plan" | "unchanged_since_publish" | "draft_changes_exist";
+  planned_staff_count: number;
+  required_lead_count: number;
+  assigned_staff_count: number;
+  published_recipient_count: number;
+  coverage_eligible_staff_count: number;
+  pending_acknowledgment_count: number;
+  acknowledged_staff_count: number;
+  declined_staff_count: number;
+  superseded_recipient_count: number;
+  lead_assignment_count: number;
+  coverage_eligible_lead_count: number;
+  acknowledged_lead_count: number;
+  next_acknowledgment_due_at: string | null;
+  overdue_acknowledgment_count: number;
+  needs_acknowledgment_count: number;
+  acknowledgment_risk_state: "none" | "awaiting" | "needs_attention" | "overdue";
+  coverage_state: "complete" | "incomplete";
+  operational_readiness_status: "ready" | "awaiting_acknowledgment" | "confirmation_overdue" | "at_risk";
+  recipients: StaffingPlanLifecycleRecipientView[];
 };
 
 export type StaffingTemplateRole = {
