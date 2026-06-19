@@ -211,8 +211,9 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       value: String(onFire),
       helper: `${onFire} urgent issues need leadership action now.`,
       tone: "critical",
-      target: { sourceType: "project_tracking" },
-      drilldownLabel: "View urgent work"
+      // Opens the Urgent Window focused on unresolved (open) urgent items.
+      target: { sourceType: "urgent_window", focus: { status: "open" } },
+      drilldownLabel: "Open Urgent Window"
     },
     {
       id: "shoots-today",

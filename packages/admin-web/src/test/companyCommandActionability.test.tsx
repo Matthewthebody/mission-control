@@ -46,4 +46,10 @@ describe("Company Command card actionability", () => {
     fireEvent.click(screen.getByRole("button", { name: /Open Attendance/i }));
     expect(window.location.hash).toBe("#employees/attendance");
   });
+
+  it("opens the Urgent Window from On Fire focused on unresolved (open) items", () => {
+    render(<CompanyCommandHome role={getHomeRole("matthew")} />);
+    fireEvent.click(screen.getByRole("button", { name: /On Fire/i }));
+    expect(window.location.hash).toBe("#urgent-window?status=open");
+  });
 });

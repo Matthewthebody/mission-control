@@ -96,6 +96,9 @@ const LazyStudiosWorkspace = lazy(() =>
 const LazyOperationsExceptions = lazy(() =>
   import("./pages/OperationsWatch").then((module) => ({ default: module.OperationsWatch }))
 );
+const LazyUrgentWindow = lazy(() =>
+  import("./pages/UrgentWindowPage").then((module) => ({ default: module.UrgentWindowPage }))
+);
 const LazyLiveShoots = lazy(() =>
   import("./pages/LiveShoots").then((module) => ({ default: module.LiveShoots }))
 );
@@ -1491,6 +1494,14 @@ function renderRouteContent({
       <LazyOperationsExceptions token={token} currentUser={currentUser} />,
       "Loading exceptions",
       "Opening the operations exceptions queue."
+    );
+  }
+
+  if (route.render.kind === "urgent-window") {
+    return withRouteSuspense(
+      <LazyUrgentWindow token={token} currentUser={currentUser} />,
+      "Loading Urgent Window",
+      "Opening the Urgent Window."
     );
   }
 

@@ -2067,6 +2067,8 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
       return canAccessOperatingSystemModule(user, "exceptions");
     case "operations-watch":
       return canAccessOperatingSystemModule(user, "exceptions");
+    case "urgent-window":
+      return canAccessOperatingSystemModule(user, "exceptions");
     case "operations-today":
       return canAccessOperationsTodayBoard(user);
     case "studios":

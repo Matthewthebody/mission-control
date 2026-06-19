@@ -121,7 +121,8 @@ type RouteRender =
       kind: "admin-system";
       view: "overview" | "foundation" | "communications" | "diagnostics" | "audit" | "sync" | "repairs" | "access-debug" | "imports" | "exports" | "trace";
     }
-  | { kind: "hidden-redirect"; targetHash: string; summary: string };
+  | { kind: "hidden-redirect"; targetHash: string; summary: string }
+  | { kind: "urgent-window" };
 
 type RouteDefinition = {
   id: ShellRouteId;
@@ -374,6 +375,17 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: false,
     render: { kind: "operations-exceptions" }
+  },
+  {
+    id: "urgent-window",
+    label: "Urgent Window",
+    sectionKey: "leadership",
+    description: "Company Command's filterable view of every unresolved urgent issue, composed from live tracked records with exact source links.",
+    canonicalHash: "#urgent-window",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "urgent-window" }
   },
   {
     id: "operations-today",
@@ -1983,6 +1995,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "operations/watch" || path === "operations/urgent-watch" || path === "operations/exceptions" || path === "watch") {
     return pickVisibleRoute("operations-exceptions", availableTabs, employeeOnlyMode);
+  }
+  if (path === "urgent-window") {
+    return pickVisibleRoute("urgent-window", availableTabs, employeeOnlyMode);
   }
   if (path === "operations/today") {
     return pickVisibleRoute("operations-today", availableTabs, employeeOnlyMode);

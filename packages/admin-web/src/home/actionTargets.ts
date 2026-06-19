@@ -20,6 +20,7 @@ export type ActionSourceType =
   | "attendance"
   | "client_case"
   | "schedule"
+  | "urgent_window"
   | "weather";
 
 export type ActionTarget = {
@@ -52,6 +53,7 @@ const SOURCE_ROUTE: Record<ActionSourceType, string | null> = {
   attendance: "#employees/attendance",
   client_case: "#client-command-center",
   schedule: "#schedule",
+  urgent_window: "#urgent-window",
   weather: null
 };
 

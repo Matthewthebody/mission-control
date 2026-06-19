@@ -319,6 +319,7 @@ describe("approval permission helpers", () => {
     expect(canAccessRoute(fieldEmployee, "workflow-template-builder")).toBe(false);
     expect(canAccessRoute(fieldEmployee, "client-command-center")).toBe(false);
     expect(canAccessRoute(fieldEmployee, "operations-exceptions")).toBe(false);
+    expect(canAccessRoute(fieldEmployee, "urgent-window")).toBe(false);
     expect(canAccessRoute(fieldEmployee, "exceptions")).toBe(false);
     expect(canAccessRoute(fieldEmployee, "executive")).toBe(false);
     expect(canAccessRoute(fieldEmployee, "operations-scheduling")).toBe(false);
