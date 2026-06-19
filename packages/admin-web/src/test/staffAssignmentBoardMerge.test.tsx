@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Socket } from "socket.io-client";
 import type { SessionUser, ShootStaffingSnapshot, StaffingDashboardResponse } from "../types";
 
 const getStaffingDashboardMock = vi.fn();
@@ -183,5 +184,47 @@ describe("StaffAssignmentBoard merge coherence", () => {
     const stillThere = screen.getByRole("button", { name: /Wayzata Picture Day/i });
     expect(within(stillThere).getByText("1 of 3 positions filled")).toBeInTheDocument();
     expect(within(stillThere).getByText("Lead still required")).toBeInTheDocument();
+  });
+
+  it("a slower earlier GET in flight cannot overwrite a newer mutation merge", async () => {
+    let resolveStale: (value: StaffingDashboardResponse) => void = () => {};
+    getStaffingDashboardMock
+      .mockResolvedValueOnce(dashboard)
+      .mockImplementationOnce(
+        () => new Promise<StaffingDashboardResponse>((resolve) => { resolveStale = resolve; })
+      );
+
+    let scheduleHandler: (() => void) | null = null;
+    const socket = {
+      on: (event: string, handler: () => void) => {
+        if (event === "schedule_changed") scheduleHandler = handler;
+      },
+      off: () => {}
+    } as unknown as Socket;
+
+    render(<StaffAssignmentBoard token="token" currentUser={buildUser()} socket={socket} />);
+    const card = await screen.findByRole("button", { name: /Wayzata Picture Day/i });
+    fireEvent.click(card);
+
+    // A background reconcile (socket-triggered) is now in flight with the OLD payload.
+    act(() => {
+      scheduleHandler?.();
+    });
+
+    // A newer mutation merges after that GET started.
+    drawerState.snapshot = snapshot({ assigned_staff_count: 2, lead_coverage_count: 1, lead_name: "Sarah" });
+    fireEvent.click(screen.getByRole("button", { name: "mock-assign" }));
+    expect(
+      within(screen.getByRole("button", { name: /Wayzata Picture Day/i })).getByText("Lead: Sarah")
+    ).toBeInTheDocument();
+
+    // The stale GET resolves with the older payload — it must NOT revert the merge.
+    await act(async () => {
+      resolveStale(dashboard);
+      await Promise.resolve();
+    });
+    const finalCard = screen.getByRole("button", { name: /Wayzata Picture Day/i });
+    expect(within(finalCard).getByText("Lead: Sarah")).toBeInTheDocument();
+    expect(within(finalCard).queryByText("Lead still required")).toBeNull();
   });
 });

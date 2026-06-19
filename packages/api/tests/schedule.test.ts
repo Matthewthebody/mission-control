@@ -431,6 +431,66 @@ describe("unified schedule endpoints", () => {
     expect(published.body.shoot.publish_state).toBe("published");
   }, 15000);
 
+  it("returns the canonical staffing snapshot the board merge consumes after a successful lead assignment", async () => {
+    const date = localDateString(8);
+    const shoot = await createShoot(`STV-${randomUUID().slice(0, 8)}`, "Lead Assign Verification", date);
+
+    const before = await request(app)
+      .get(`/api/schedule/shoots/${shoot.id}/staffing`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(before.status).toBe(200);
+    expect(before.body.shoot.missing_lead).toBe(true);
+    const leadCoverageBefore = before.body.shoot.lead_coverage_count as number;
+    const assignedBefore = before.body.shoot.assigned_staff_count as number;
+
+    const leadSlot = before.body.slots.find((slot: { satisfies_lead_coverage: boolean }) => slot.satisfies_lead_coverage);
+    expect(leadSlot).toBeTruthy();
+    const leadCandidate = leadSlot.option_groups
+      .flatMap((group: { options: Array<{ user_id: string; disabled: boolean; requires_override: boolean }> }) => group.options)
+      .find((option: { disabled: boolean }) => !option.disabled);
+    expect(leadCandidate).toBeTruthy();
+
+    const assign = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/assign`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({
+        slot_key: leadSlot.slot_key,
+        assigned_user_id: leadCandidate.user_id,
+        override_conflict: Boolean(leadCandidate.requires_override),
+        ...(leadCandidate.requires_override
+          ? { approval_reason: "Leadership approved the lead assignment for verification." }
+          : {})
+      });
+
+    // A successful (200) assign returns the recomputed canonical snapshot the board merges.
+    expect(assign.status, JSON.stringify(assign.body)).toBe(200);
+    const snapshot = assign.body;
+
+    // "Lead still required" disappears and lead coverage updates.
+    expect(snapshot.shoot.missing_lead).toBe(false);
+    expect(snapshot.shoot.lead_coverage_count).toBeGreaterThan(leadCoverageBefore);
+    expect(snapshot.shoot.lead_name).toBeTruthy();
+    // Total filled count (shown as "N of M positions filled") updates.
+    expect(snapshot.shoot.assigned_staff_count).toBeGreaterThan(assignedBefore);
+
+    // The assigned employee name + role + draft status are on the slot the merge reads.
+    const filledLead = snapshot.slots.find((slot: { slot_key: string }) => slot.slot_key === leadSlot.slot_key);
+    expect(filledLead.assigned_user_id).toBe(leadCandidate.user_id);
+    expect(filledLead.assigned_user_name).toBeTruthy();
+    expect(filledLead.assigned_title).toBeTruthy();
+    expect(filledLead.assignment_status).toBe("draft");
+
+    // The exact shoot fields coverageRowFromSnapshot reads are present and numeric.
+    expect(snapshot.shoot).toMatchObject({
+      id: shoot.id,
+      planned_staff_count: expect.any(Number),
+      assigned_staff_count: expect.any(Number),
+      required_lead_count: expect.any(Number),
+      lead_coverage_count: expect.any(Number),
+      draft_shift_count: expect.any(Number)
+    });
+  }, 15000);
+
   it("does not synthesize Outlook busy conflicts during the delegated read-only pilot and still queues sync intent", async () => {
     Object.assign(config, {
       MICROSOFT_GRAPH_CLIENT_ID: "calendar-test-client",
