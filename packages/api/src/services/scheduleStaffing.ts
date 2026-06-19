@@ -302,9 +302,9 @@ type SchedulingWatchRow = {
   primary_contact_email: string | null;
   primary_contact_phone: string | null;
   assigned_staff_count: number | string | null;
-  readiness_coverage_count: number | string | null;
+  coverage_eligible_staff_count: number | string | null;
   lead_coverage_count: number | string | null;
-  readiness_lead_coverage_count: number | string | null;
+  coverage_eligible_lead_count: number | string | null;
   draft_shift_count: number | string | null;
   conflict_warning_count: number | string | null;
 };
@@ -326,13 +326,16 @@ type StaffingOverviewShootRow = {
   planned_staff_count: number | string | null;
   required_lead_count: number | string | null;
   assigned_staff_count: number | string | null;
-  readiness_coverage_count: number | string | null;
+  coverage_eligible_staff_count: number | string | null;
   published_staff_count: number | string | null;
   lead_coverage_count: number | string | null;
-  readiness_lead_coverage_count: number | string | null;
+  coverage_eligible_lead_count: number | string | null;
   lead_names: string | null;
   declined_lead_names: string | null;
-  readiness_lead_names: string | null;
+  coverage_eligible_lead_names: string | null;
+  pending_acknowledgment_count: number | string | null;
+  acknowledged_staff_count: number | string | null;
+  overdue_acknowledgment_count: number | string | null;
   conflict_warning_count: number | string | null;
   schedule_sync_state: string;
   schedule_sync_required: boolean;
@@ -2794,24 +2797,37 @@ function normalizeNullableText(value: string | null | undefined) {
 }
 
 function mapCoverageRow(row: StaffingOverviewShootRow, auth: AuthUser) {
-  // Raw assignment truth (preserved, never redefined): who is assigned / published / the assigned lead.
+  // Raw assignment truth (preserved, never redefined).
   const assignedStaffCount = Number(row.assigned_staff_count ?? 0);
   const publishedStaffCount = Number(row.published_staff_count ?? 0);
   const leadAssignmentCount = Number(row.lead_coverage_count ?? 0); // raw count of assigned lead-coverage shifts
-  // Readiness coverage = assigned AND NOT currently declined. A pending/awaiting employee still
-  // counts toward coverage — only an explicit decline drops out. This is deliberately NOT called
-  // "accepted": acknowledgment has not necessarily occurred. Readiness derives from these; the raw
-  // counts + names stay visible so a decline never erases assignment history.
-  const readinessCoverageCount = Number(row.readiness_coverage_count ?? assignedStaffCount);
-  const readinessLeadCoverageCount = Number(row.readiness_lead_coverage_count ?? leadAssignmentCount);
-  const declinedStaffCount = Math.max(assignedStaffCount - readinessCoverageCount, 0);
+  // Position COVERAGE = assigned AND NOT currently declined. A pending (awaiting-acknowledgment)
+  // employee fills the position, so they are coverage-eligible — but the shoot can still be
+  // operationally at risk if their acknowledgment is overdue. Coverage is NOT operational readiness,
+  // and a non-declined pending assignment is NOT "accepted" (acknowledgment has not occurred).
+  const coverageEligibleStaffCount = Number(row.coverage_eligible_staff_count ?? assignedStaffCount);
+  const coverageEligibleLeadCount = Number(row.coverage_eligible_lead_count ?? leadAssignmentCount);
+  const declinedStaffCount = Math.max(assignedStaffCount - coverageEligibleStaffCount, 0);
+  const pendingAcknowledgmentCount = Number(row.pending_acknowledgment_count ?? 0);
+  const acknowledgedStaffCount = Number(row.acknowledged_staff_count ?? 0);
+  const overdueAcknowledgmentCount = Number(row.overdue_acknowledgment_count ?? 0);
   const plannedStaffCount = Number(row.planned_staff_count ?? 0);
   const requiredLeadCount = Math.max(Number(row.required_lead_count ?? 1), 1);
   const conflictWarningCount = Number(row.conflict_warning_count ?? 0);
-  const missingLead = readinessLeadCoverageCount < requiredLeadCount;
-  const underStaffed = plannedStaffCount > readinessCoverageCount;
+  const missingLead = coverageEligibleLeadCount < requiredLeadCount; // no coverage-eligible lead
+  const underStaffed = plannedStaffCount > coverageEligibleStaffCount;
   const declinedLeadName = row.declined_lead_names || null;
   const replacementRequired = declinedStaffCount > 0 || Boolean(declinedLeadName);
+  // Operational readiness combines coverage with acknowledgment: a covered position whose
+  // acknowledgment is overdue is still operationally at risk.
+  const operationalReadinessStatus =
+    missingLead || underStaffed || replacementRequired
+      ? "at_risk"
+      : overdueAcknowledgmentCount > 0
+        ? "confirmation_overdue"
+        : pendingAcknowledgmentCount > 0
+          ? "awaiting_acknowledgment"
+          : "ready";
   const priorityState = buildPriorityState(row, auth);
 
   return {
@@ -2829,18 +2845,22 @@ function mapCoverageRow(row: StaffingOverviewShootRow, auth: AuthUser) {
     lead_coverage_count: leadAssignmentCount, // back-compat alias (raw assigned lead count)
     lead_assigned: leadAssignmentCount > 0,
     lead_name: row.lead_names || null, // raw assigned lead name (visible even after decline)
-    // Decline visibility.
+    // Acknowledgment state (current recipients).
+    pending_acknowledgment_count: pendingAcknowledgmentCount,
+    acknowledged_staff_count: acknowledgedStaffCount,
+    overdue_acknowledgment_count: overdueAcknowledgmentCount,
     declined_staff_count: declinedStaffCount,
     declined_lead_name: declinedLeadName,
     replacement_required: replacementRequired,
-    // Readiness (assigned and not declined).
-    readiness_coverage_count: readinessCoverageCount,
-    readiness_lead_coverage_count: readinessLeadCoverageCount,
-    readiness_lead_name: row.readiness_lead_names || null, // current readiness-qualified lead name
-    lead_readiness_met: readinessLeadCoverageCount >= requiredLeadCount,
+    // Position coverage (assigned and not declined).
+    coverage_eligible_staff_count: coverageEligibleStaffCount,
+    coverage_eligible_lead_count: coverageEligibleLeadCount,
+    coverage_eligible_lead_name: row.coverage_eligible_lead_names || null,
     lead_present: !missingLead,
     missing_lead: missingLead,
     under_staffed: underStaffed,
+    // Operational readiness (coverage + acknowledgment).
+    operational_readiness_status: operationalReadinessStatus,
     planned_staff_count: plannedStaffCount,
     required_lead_count: requiredLeadCount,
     conflict_warning_count: conflictWarningCount,
@@ -2851,7 +2871,9 @@ function mapCoverageRow(row: StaffingOverviewShootRow, auth: AuthUser) {
         ? "Assign a lead-qualified photographer"
         : underStaffed
           ? "Fill open slots"
-          : "Review warning",
+          : overdueAcknowledgmentCount > 0
+            ? "Confirm overdue acknowledgments"
+            : "Review warning",
     priority_label: priorityState.priority_label,
     priority_label_display: priorityState.priority_label_display,
     priority_reasons: priorityState.priority_reasons
@@ -2971,7 +2993,7 @@ async function listCoverageRows(client: PoolClient, auth: AuthUser, startDate: s
               )
           ),
           0
-        ) AS readiness_coverage_count,
+        ) AS coverage_eligible_staff_count,
         COALESCE(
           (
             SELECT COUNT(DISTINCT ws.assigned_user_id)
@@ -3012,7 +3034,7 @@ async function listCoverageRows(client: PoolClient, auth: AuthUser, startDate: s
               )
           ),
           0
-        ) AS readiness_lead_coverage_count,
+        ) AS coverage_eligible_lead_count,
         COALESCE(
           (
             SELECT string_agg(au.full_name, ', ' ORDER BY au.full_name ASC)
@@ -3066,7 +3088,42 @@ async function listCoverageRows(client: PoolClient, auth: AuthUser, startDate: s
               )
           ),
           ''
-        ) AS readiness_lead_names,
+        ) AS coverage_eligible_lead_names,
+        COALESCE(
+          (
+            SELECT COUNT(*)
+            FROM staffing_plan_recipient spr
+            WHERE spr.tenant_id = s.tenant_id
+              AND spr.shoot_id = s.id
+              AND spr.superseded_at IS NULL
+              AND spr.response_status = 'pending'
+          ),
+          0
+        ) AS pending_acknowledgment_count,
+        COALESCE(
+          (
+            SELECT COUNT(*)
+            FROM staffing_plan_recipient spr
+            WHERE spr.tenant_id = s.tenant_id
+              AND spr.shoot_id = s.id
+              AND spr.superseded_at IS NULL
+              AND spr.response_status = 'acknowledged'
+          ),
+          0
+        ) AS acknowledged_staff_count,
+        COALESCE(
+          (
+            SELECT COUNT(*)
+            FROM staffing_plan_recipient spr
+            WHERE spr.tenant_id = s.tenant_id
+              AND spr.shoot_id = s.id
+              AND spr.superseded_at IS NULL
+              AND spr.response_status = 'pending'
+              AND spr.acknowledgment_due_at IS NOT NULL
+              AND spr.acknowledgment_due_at < now()
+          ),
+          0
+        ) AS overdue_acknowledgment_count,
         COALESCE(
           (
             SELECT COUNT(*)
@@ -3108,7 +3165,13 @@ export async function getStaffingDashboardOverview(client: PoolClient, auth: Aut
 
   const mappedCoverage = coverageRows.map((row) => mapCoverageRow(row, auth));
   const openCoverage = mappedCoverage
-    .filter((row) => row.missing_lead || row.under_staffed || row.conflict_warning_count > 0)
+    .filter(
+      (row) =>
+        row.missing_lead ||
+        row.under_staffed ||
+        row.conflict_warning_count > 0 ||
+        row.overdue_acknowledgment_count > 0
+    )
     .sort(compareCoverageRowPriority);
   const missingLead = mappedCoverage.filter((row) => row.missing_lead).sort(compareCoverageRowPriority);
 
@@ -3236,7 +3299,7 @@ export async function listSchedulingUrgentWatchCandidates(
               )
           ),
           0
-        ) AS readiness_coverage_count,
+        ) AS coverage_eligible_staff_count,
         COALESCE(
           (
             SELECT COUNT(*)
@@ -3267,7 +3330,7 @@ export async function listSchedulingUrgentWatchCandidates(
               )
           ),
           0
-        ) AS readiness_lead_coverage_count,
+        ) AS coverage_eligible_lead_count,
         COALESCE(
           (
             SELECT COUNT(*)
@@ -3311,17 +3374,17 @@ export async function listSchedulingUrgentWatchCandidates(
   const candidates: UrgentWatchCandidate[] = [];
   for (const row of rows) {
     const plannedStaffCount = Math.max(Number(row.planned_staff_count ?? 0), 0);
-    // Raw assignment truth (kept for the snapshot/summary) vs readiness coverage (drives the gap).
+    // Raw assignment truth (kept for the snapshot/summary) vs coverage-eligible (drives the gap).
     const assignedStaffCount = Math.max(Number(row.assigned_staff_count ?? 0), 0);
-    const readinessCoverageCount = Math.max(Number(row.readiness_coverage_count ?? assignedStaffCount), 0);
+    const coverageEligibleStaffCount = Math.max(Number(row.coverage_eligible_staff_count ?? assignedStaffCount), 0);
     const requiredLeadCount = Math.max(Number(row.required_lead_count ?? 0), 1);
     const leadCoverageCount = Math.max(Number(row.lead_coverage_count ?? 0), 0);
-    const readinessLeadCoverage = Math.max(Number(row.readiness_lead_coverage_count ?? leadCoverageCount), 0);
+    const coverageEligibleLeadCount = Math.max(Number(row.coverage_eligible_lead_count ?? leadCoverageCount), 0);
     const draftShiftCount = Math.max(Number(row.draft_shift_count ?? 0), 0);
     const conflictWarningCount = Math.max(Number(row.conflict_warning_count ?? 0), 0);
-    // A declined assignment no longer satisfies readiness, so the gap/missing-lead use readiness counts.
-    const staffingGapCount = Math.max(plannedStaffCount - readinessCoverageCount, 0);
-    const missingLead = readinessLeadCoverage < requiredLeadCount;
+    // A declined assignment no longer covers a position, so the gap/missing-lead use coverage-eligible counts.
+    const staffingGapCount = Math.max(plannedStaffCount - coverageEligibleStaffCount, 0);
+    const missingLead = coverageEligibleLeadCount < requiredLeadCount;
     const missingContactInfo = !row.primary_contact_name && !row.primary_contact_email && !row.primary_contact_phone;
     const dueAt = buildSchedulingUrgentWatchDueAt(row.shoot_date, row.arrival_time, row.start_time);
     const dueMs = dueAt ? new Date(dueAt).getTime() : null;

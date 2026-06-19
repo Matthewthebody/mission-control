@@ -117,6 +117,56 @@ export function isWithinEscalationWindow(
  * the deadline has passed OR the shoot enters the escalation window. Anything not currently
  * pending (acknowledged / declined / canceled) is never "not acknowledged".
  */
+export type AcknowledgmentUrgency = {
+  responseStatus: string;
+  /** Whether this pending assignment is a not_acknowledged urgent issue right now. */
+  urgent: boolean;
+  /**
+   * Data-integrity flag: a pending assignment with no resolvable publication time. An unpublished
+   * plan simply has no acknowledgment obligation; a CURRENT recipient that hits this is a data
+   * anomaly the caller should surface/log. Either way the assignment is treated as NOT urgent and is
+   * never inferred to be overdue.
+   */
+  missingPublicationTime: boolean;
+};
+
+/**
+ * Evaluate the acknowledgment urgency of one recipient. A pending assignment is urgent only when it
+ * has a resolvable publication time, is past the effective grace boundary, and is either overdue or
+ * inside the escalation window. A null/unparseable publishedAt means no acknowledgment obligation —
+ * not urgent, and flagged via missingPublicationTime for the caller to diagnose current recipients.
+ */
+export function evaluateAcknowledgmentUrgency(
+  args: {
+    responseStatus: string;
+    publishedAt: TimeInput;
+    dueAt: TimeInput;
+    shootStartAt: TimeInput;
+    now: Date | string | number;
+  },
+  policy: StaffingAcknowledgmentPolicy = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY
+): AcknowledgmentUrgency {
+  // Only a pending assignment can be "not acknowledged" (declined is a separate, immediate risk).
+  if (args.responseStatus !== "pending") {
+    return { responseStatus: args.responseStatus, urgent: false, missingPublicationTime: false };
+  }
+  // No resolvable publication time -> no acknowledgment obligation; never infer a deadline / overdue.
+  if (toEpochMs(args.publishedAt) === null) {
+    return { responseStatus: args.responseStatus, urgent: false, missingPublicationTime: true };
+  }
+  const urgent =
+    // During the post-publication grace period it is "Awaiting Acknowledgment" — visible, not urgent.
+    isPastPublicationGrace(args.publishedAt, args.now, args.shootStartAt, policy) &&
+    (isAcknowledgmentOverdue(args.dueAt, args.now) ||
+      isWithinEscalationWindow(args.shootStartAt, args.now, policy));
+  return { responseStatus: args.responseStatus, urgent, missingPublicationTime: false };
+}
+
+/**
+ * A pending assignment is "not acknowledged" (a Needs-Attention / urgent issue) per
+ * evaluateAcknowledgmentUrgency. Anything not currently pending — and any pending assignment without
+ * a resolvable publication time — is never "not acknowledged".
+ */
 export function isPendingNotAcknowledged(
   args: {
     responseStatus: string;
@@ -127,16 +177,5 @@ export function isPendingNotAcknowledged(
   },
   policy: StaffingAcknowledgmentPolicy = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY
 ): boolean {
-  // Only a pending assignment can be "not acknowledged" (declined is a separate, immediate risk).
-  if (args.responseStatus !== "pending") {
-    return false;
-  }
-  // During the post-publication grace period it is "Awaiting Acknowledgment" — visible, not urgent.
-  if (!isPastPublicationGrace(args.publishedAt, args.now, args.shootStartAt, policy)) {
-    return false;
-  }
-  return (
-    isAcknowledgmentOverdue(args.dueAt, args.now) ||
-    isWithinEscalationWindow(args.shootStartAt, args.now, policy)
-  );
+  return evaluateAcknowledgmentUrgency(args, policy).urgent;
 }

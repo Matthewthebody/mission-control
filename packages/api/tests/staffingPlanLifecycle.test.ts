@@ -13,6 +13,7 @@ import {
 import { listSchedulingUrgentWatchCandidates } from "../src/services/scheduleStaffing.js";
 import {
   DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY,
+  evaluateAcknowledgmentUrgency,
   isAcknowledgmentOverdue,
   isPastPublicationGrace,
   isPendingNotAcknowledged,
@@ -813,15 +814,15 @@ describe("guardrails: raw-vs-accepted, version scoping, notes, publish sync, ato
     expect(dashboard.status).toBe(200);
     const row = dashboard.body.open_coverage.find((r: any) => r.shoot_id === shoot.id);
     expect(row).toBeTruthy();
-    // Readiness becomes at risk...
+    // Operational readiness becomes at risk...
     expect(row.missing_lead).toBe(true);
-    expect(row.lead_readiness_met).toBe(false);
+    expect(row.operational_readiness_status).toBe("at_risk");
     expect(row.replacement_required).toBe(true);
     // ...but raw assignment truth + the declined employee name stay visible (NOT "nobody assigned").
-    expect(row.assigned_staff_count).toBe(2);
-    expect(row.readiness_coverage_count).toBe(1);
+    expect(row.assigned_staff_count).toBe(2); // raw, unchanged by the decline
+    expect(row.coverage_eligible_staff_count).toBe(1); // the declined lead drops out of position coverage
     expect(row.declined_staff_count).toBe(1);
-    expect(row.lead_assigned).toBe(true);
+    expect(row.lead_assigned).toBe(true); // still assigned (raw truth)
     expect(row.lead_name).toBeTruthy();
     expect(row.declined_lead_name).toBe(row.lead_name);
   });
@@ -1164,5 +1165,75 @@ describe("guardrails round 2: snapshot schema, multiset identity, grace, notific
         )
       ).rejects.toThrow();
     }
+  });
+});
+
+describe("guardrails round 3: coverage-eligible naming + nullable publishedAt", () => {
+  it("37. (#2) a nullable/unresolvable publishedAt carries no acknowledgment obligation (not urgent + data-integrity flag)", () => {
+    const nowMs = new Date("2026-06-01T12:00:00.000Z").getTime();
+    const grace = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY.gracePeriodMinutes * 60 * 1000;
+    const within72h = new Date(nowMs + 24 * 3600 * 1000);
+    const farDue = new Date(nowMs + 10 * 24 * 3600 * 1000);
+    const pastDue = new Date(nowMs - 3600 * 1000);
+    const publishedLongAgo = new Date(nowMs - 24 * 3600 * 1000);
+
+    // draft/unpublished recipient (null publishedAt) -> not urgent, flagged for the caller.
+    const unpublished = evaluateAcknowledgmentUrgency({ responseStatus: "pending", publishedAt: null, dueAt: pastDue, shootStartAt: within72h, now: new Date(nowMs) });
+    expect(unpublished.urgent).toBe(false);
+    expect(unpublished.missingPublicationTime).toBe(true);
+    expect(isPendingNotAcknowledged({ responseStatus: "pending", publishedAt: null, dueAt: pastDue, shootStartAt: within72h, now: new Date(nowMs) })).toBe(false);
+
+    // published recipient during grace -> not urgent, no integrity issue.
+    const duringGrace = evaluateAcknowledgmentUrgency({ responseStatus: "pending", publishedAt: new Date(nowMs), dueAt: farDue, shootStartAt: within72h, now: new Date(nowMs + grace - 1) });
+    expect(duringGrace.urgent).toBe(false);
+    expect(duringGrace.missingPublicationTime).toBe(false);
+
+    // exactly at the grace boundary inside 72h -> urgent.
+    expect(evaluateAcknowledgmentUrgency({ responseStatus: "pending", publishedAt: new Date(nowMs), dueAt: farDue, shootStartAt: within72h, now: new Date(nowMs + grace) }).urgent).toBe(true);
+    // published recipient with a passed deadline -> urgent.
+    expect(evaluateAcknowledgmentUrgency({ responseStatus: "pending", publishedAt: publishedLongAgo, dueAt: pastDue, shootStartAt: farDue, now: new Date(nowMs) }).urgent).toBe(true);
+    // declined -> immediate risk via readiness, NOT a pending-not-ack case (never urgent here).
+    expect(evaluateAcknowledgmentUrgency({ responseStatus: "declined", publishedAt: new Date(nowMs), dueAt: pastDue, shootStartAt: within72h, now: new Date(nowMs + grace + 1) }).urgent).toBe(false);
+    // malformed CURRENT recipient missing publication metadata -> safely non-urgent + flagged.
+    const malformed = evaluateAcknowledgmentUrgency({ responseStatus: "pending", publishedAt: "not-a-date", dueAt: pastDue, shootStartAt: within72h, now: new Date(nowMs) });
+    expect(malformed.urgent).toBe(false);
+    expect(malformed.missingPublicationTime).toBe(true);
+  });
+
+  it("38. (#1) the coverage row separates position coverage, acknowledgment state, and operational readiness", async () => {
+    const date = localDateString(1);
+    const shoot = await makeShoot(date, "Operational Readiness");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+
+    // Acknowledge office; leave senior (the lead) pending and force its acknowledgment overdue.
+    const recs = await recipients(shoot.id);
+    await ackAs(officeId, recipientFor(recs, officeId).id);
+    await pool.query("UPDATE staffing_plan_recipient SET acknowledgment_due_at = now() - interval '1 hour' WHERE id = $1", [
+      recipientFor(recs, seniorId).id
+    ]);
+
+    const dashboard = await request(app)
+      .get(`/api/schedule/staffing-dashboard?anchor_date=${localDateString(0)}`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    const row = dashboard.body.open_coverage.find((r: any) => r.shoot_id === shoot.id);
+    expect(row).toBeTruthy(); // surfaced because an acknowledgment is overdue
+    // "Lead assigned, but confirmation overdue": position covered, yet operationally at risk.
+    expect(row.operational_readiness_status).toBe("confirmation_overdue");
+    expect(row.missing_lead).toBe(false); // a pending (non-declined) lead still COVERS the position
+    expect(row.coverage_eligible_staff_count).toBe(2);
+    expect(row.lead_assigned).toBe(true);
+    expect(row.pending_acknowledgment_count).toBe(1);
+    expect(row.acknowledged_staff_count).toBe(1);
+    expect(row.overdue_acknowledgment_count).toBe(1);
+
+    // Acknowledge the overdue lead -> no longer overdue -> operationally ready / off the at-risk list.
+    await ackAs(seniorId, recipientFor(recs, seniorId).id);
+    const dashboard2 = await request(app)
+      .get(`/api/schedule/staffing-dashboard?anchor_date=${localDateString(0)}`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    const row2 = dashboard2.body.open_coverage.find((r: any) => r.shoot_id === shoot.id);
+    expect(!row2 || row2.operational_readiness_status === "ready").toBe(true);
   });
 });
