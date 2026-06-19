@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { ShootStaffingCommand } from "../components/ShootStaffingCommand";
 import { canAccessRoute } from "../permissions";
 import { getStaffingDashboard } from "../services/scheduleStaffing";
+import { leadCoverageLabel, mergeStaffingSnapshot } from "./staffingBoardState";
 import type {
   SessionUser,
+  ShootStaffingSnapshot,
   StaffingDashboardCoverageRow,
   StaffingDashboardMember,
   StaffingDashboardResponse
@@ -94,6 +96,10 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selectedShootId, setSelectedShootId] = useState<string | null>(null);
+  const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
+  // Monotonic request guard: any load that is no longer the latest is ignored, so a
+  // slower earlier GET can never overwrite a newer mutation merge.
+  const requestSeqRef = useRef(0);
 
   const canPublish = canAccessRoute(currentUser, "operations-staffing");
   const coverageCards = useMemo(() => buildCoverageCards(payload), [payload]);
@@ -102,23 +108,45 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
     [coverageCards, selectedShootId]
   );
 
-  async function load(dateString: string) {
-    setLoading(true);
+  async function load(dateString: string, options: { background?: boolean } = {}) {
+    const seq = ++requestSeqRef.current;
+    if (!options.background) {
+      setLoading(true);
+    }
     try {
       const response = await getStaffingDashboard(token, dateString);
-      setPayload(response);
-      setError("");
+      // Ignore a stale response that a newer mutation merge or load has superseded.
+      if (requestSeqRef.current === seq) {
+        setPayload(response);
+        setError("");
+      }
     } catch (loadError) {
-      setPayload(null);
-      setError(loadError instanceof Error ? loadError.message : "We couldn't load the staffing board.");
+      if (requestSeqRef.current === seq && !options.background) {
+        setPayload(null);
+        setError(loadError instanceof Error ? loadError.message : "We couldn't load the staffing board.");
+      }
     } finally {
-      setLoading(false);
+      if (requestSeqRef.current === seq && !options.background) {
+        setLoading(false);
+      }
     }
+  }
+
+  // The mutation already committed; its snapshot is authoritative. Merge it in place
+  // (so the slot, name, lead state, and counts update with no reload) and invalidate
+  // any in-flight load so a slower earlier GET cannot revert the merge. We do NOT fire
+  // an unconditional GET here — member availability reconciles via the sequence-guarded
+  // socket refresh (and date changes), which can never restore an older count.
+  function mergeSnapshot(snapshot: ShootStaffingSnapshot) {
+    requestSeqRef.current += 1;
+    setSelectedTitle(snapshot.shoot.title);
+    setPayload((current) => (current ? mergeStaffingSnapshot(current, snapshot) : current));
   }
 
   useEffect(() => {
     void load(anchorDate);
     setSelectedShootId(null);
+    setSelectedTitle(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchorDate, token]);
 
@@ -127,7 +155,7 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
       return;
     }
     const onRefresh = () => {
-      void load(anchorDate);
+      void load(anchorDate, { background: true });
     };
     socket.on("schedule_changed", onRefresh);
     return () => {
@@ -213,7 +241,10 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
                   key={card.shoot_id}
                   type="button"
                   className={`staff-board__job-card staff-board__job-card--${departmentTone(card.department)}${active ? " is-active" : ""}`}
-                  onClick={() => setSelectedShootId(card.shoot_id)}
+                  onClick={() => {
+                    setSelectedShootId(card.shoot_id);
+                    setSelectedTitle(card.title);
+                  }}
                   aria-pressed={active}
                 >
                   <div className="staff-board__job-top">
@@ -226,12 +257,18 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
                   </div>
                   <div className="staff-board__job-staffing">
                     <span className="staff-board__staff-count">
-                      {card.assigned_staff_count}/{card.planned_staff_count} staffed
+                      {card.assigned_staff_count} of {card.planned_staff_count} positions filled
                     </span>
-                    {card.gap > 0 ? <span className="staff-board__badge staff-board__badge--danger">{card.gap} needed</span> : null}
-                    {card.missing_lead ? <span className="staff-board__badge staff-board__badge--warning">No lead</span> : null}
+                    {card.gap > 0 ? <span className="staff-board__badge staff-board__badge--danger">{card.gap} open</span> : null}
+                    {/* Lead coverage shown distinctly from total staffing — a non-lead body never reads as lead covered. */}
+                    <span className={`staff-board__badge staff-board__badge--${card.missing_lead ? "warning" : "good"}`}>
+                      {leadCoverageLabel(card)}
+                    </span>
+                    {/* Schedule overlap = dashboard time-overlap metric (distinct from the drawer's override-required count). */}
                     {card.conflict_warning_count > 0 ? (
-                      <span className="staff-board__badge staff-board__badge--danger">{card.conflict_warning_count} conflict{card.conflict_warning_count === 1 ? "" : "s"}</span>
+                      <span className="staff-board__badge staff-board__badge--danger">
+                        {card.conflict_warning_count} schedule overlap{card.conflict_warning_count === 1 ? "" : "s"}
+                      </span>
                     ) : null}
                     {card.gap === 0 && !card.missing_lead && card.conflict_warning_count === 0 ? (
                       <span className="staff-board__badge staff-board__badge--good">Ready</span>
@@ -279,7 +316,12 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
             <div className="staff-board__drawer-head">
               <div>
                 <div className="eyebrow">Assign staff</div>
-                <strong>{selectedCard?.title ?? "Shoot staffing"}</strong>
+                <strong>{selectedCard?.title ?? selectedTitle ?? "Shoot staffing"}</strong>
+                {selectedShootId && !selectedCard ? (
+                  <p className="staff-board__drawer-resolved">
+                    This shoot left the needs-staffing list. Review and publish below, or close.
+                  </p>
+                ) : null}
               </div>
               <button type="button" className="secondary-button" onClick={() => setSelectedShootId(null)}>
                 Close
@@ -289,12 +331,9 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
               token={token}
               shootId={selectedShootId}
               canPublish={canPublish}
-              onNotice={(message) => {
-                setNotice(message);
-                void load(anchorDate);
-              }}
+              onNotice={setNotice}
               onError={setError}
-              onUpdated={() => void load(anchorDate)}
+              onUpdated={mergeSnapshot}
               onClose={() => setSelectedShootId(null)}
               className="staff-board__staffing-command"
             />

@@ -129,9 +129,10 @@ describe("StaffAssignmentBoard", () => {
     expect(screen.getByText("Open slots")).toBeInTheDocument();
     const card = await screen.findByRole("button", { name: /Wayzata Picture Day/i });
     expect(card).toBeInTheDocument();
-    expect(screen.getByText("1/3 staffed")).toBeInTheDocument();
-    expect(screen.getByText("2 needed")).toBeInTheDocument();
-    expect(screen.getByText("No lead")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 positions filled")).toBeInTheDocument();
+    expect(screen.getByText("2 open")).toBeInTheDocument();
+    expect(screen.getByText("Lead still required")).toBeInTheDocument();
+    expect(screen.getByText("1 schedule overlap")).toBeInTheDocument();
 
     // Availability rail is real data.
     expect(screen.getByText("Sam Carter")).toBeInTheDocument();

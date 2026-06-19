@@ -576,7 +576,7 @@ export function ShootStaffingCommand({
                 <strong>{snapshot.shoot.open_required_slot_count}</strong>
               </div>
               <div className="dashboard-summary-row">
-                <span className="muted">Conflict warnings</span>
+                <span className="muted">Override required</span>
                 <strong>{snapshot.shoot.conflict_warning_count}</strong>
               </div>
               <div className="dashboard-summary-row">
@@ -639,6 +639,14 @@ export function ShootStaffingCommand({
               </div>
             </div>
           </OperationalDetailSection>
+
+          {snapshot.shoot.draft_shift_count > 0 ? (
+            <div className="staffing-draft-banner" role="status">
+              {!snapshot.shoot.missing_lead && !snapshot.shoot.under_staffed
+                ? "Draft staffing complete — publish to notify staff and clear the active staffing alert."
+                : "Assigned in draft — publish to notify staff. Published staffing is required before this issue is considered operationally resolved."}
+            </div>
+          ) : null}
 
           {canPublish || onClose ? (
             <div className="preview-detail-panel__actions">
