@@ -298,6 +298,119 @@ async function handleStaffingRecipientPublished(client: PoolClient, appEvent: an
   );
 }
 
+/**
+ * Manager-facing decline delivery. Consumes `staffing.plan.recipient_declined` and queues ONE idempotent
+ * notification to the smallest appropriate manager set — the manager(s) who own the declined employee's
+ * shift(s) on this shoot (work_shift.manager_user_id), excluding the declining employee. It does NOT claim
+ * the employee was removed (the raw assignment/history is preserved until a manager reassigns). If no manager
+ * owner can be resolved, it records the ownership gap and stops — never guessing or notifying everyone (the
+ * urgent staffing issue from reconcile remains the safety net). Historical/superseded declines do not notify.
+ */
+async function handleStaffingRecipientDeclined(client: PoolClient, appEvent: any) {
+  const payload = (appEvent.payload ?? {}) as Record<string, any>;
+  const tenantId = appEvent.tenant_id as string;
+  const shootId = payload.shoot_id as string | undefined;
+  const employeeUserId = payload.employee_user_id as string | undefined;
+  const recipientId = appEvent.aggregate_id as string | undefined;
+  if (!tenantId || !shootId || !employeeUserId) {
+    return;
+  }
+
+  // Currency: only the CURRENT recipient (superseded_at IS NULL) that is STILL declined yields a notification.
+  // A newer version that re-published this employee as pending makes the old decline historical (skip).
+  const context = await client.query(
+    `
+      SELECT r.response_status, r.decline_reason, r.responded_at::text AS responded_at,
+        s.shoot_code, s.title, s.shoot_date::text AS shoot_date, u.full_name AS employee_name
+      FROM staffing_plan_recipient r
+      JOIN shoot s ON s.id = r.shoot_id AND s.tenant_id = r.tenant_id
+      JOIN app_user u ON u.id = r.employee_user_id AND u.tenant_id = r.tenant_id
+      WHERE r.tenant_id = $1 AND r.shoot_id = $2 AND r.employee_user_id = $3 AND r.superseded_at IS NULL
+      LIMIT 1
+    `,
+    [tenantId, shootId, employeeUserId]
+  );
+  const ctx = context.rows[0];
+  if (!ctx || ctx.response_status !== "declined") {
+    return;
+  }
+
+  // Smallest appropriate manager set: the owner(s) of this employee's shift(s) on the shoot.
+  const managerRows = await client.query(
+    `
+      SELECT DISTINCT ws.manager_user_id::text AS manager_user_id, ws.staffing_role::text AS role
+      FROM work_shift ws
+      WHERE ws.tenant_id = $1 AND ws.shoot_id = $2 AND ws.assigned_user_id = $3 AND ws.cancelled_at IS NULL
+    `,
+    [tenantId, shootId, employeeUserId]
+  );
+  const managers = [
+    ...new Set(
+      managerRows.rows
+        .map((row: any) => row.manager_user_id as string | null)
+        .filter((id): id is string => Boolean(id) && id !== employeeUserId)
+    )
+  ];
+  const roleLabel = humanizeStaffingRole(
+    (managerRows.rows.find((row: any) => row.role)?.role as string | undefined) ?? null
+  );
+
+  if (managers.length === 0) {
+    // Ownership gap — do NOT guess or notify everyone. The decline already reduces coverage eligibility and
+    // surfaces as an urgent staffing issue via reconcile; record the gap for follow-up.
+    console.warn(
+      `[staffing-decline] no manager owner resolved for shoot=${shootId} employee=${employeeUserId}; relying on urgent-watch coverage gap`
+    );
+    return;
+  }
+
+  const dateLabel = ctx.shoot_date ?? "an upcoming date";
+  const reason = typeof ctx.decline_reason === "string" && ctx.decline_reason.trim() ? ctx.decline_reason.trim() : null;
+  const employeeName = ctx.employee_name ?? "An assigned employee";
+  const title = "Assignment declined — replacement required";
+  const body = `${employeeName} declined their ${roleLabel ?? "assignment"} on ${ctx.shoot_code}${ctx.title ? ` — ${ctx.title}` : ""} (${dateLabel}).${reason ? ` Reason: "${reason}".` : ""} A replacement is required.`;
+  const deepLink = `#operations/staffing?area=staffing&date=${ctx.shoot_date ?? ""}&shoot=${shootId}`;
+
+  for (const manager of managers) {
+    const dedupeKey = `staffing-decline:${recipientId ?? `${shootId}:${employeeUserId}`}:${manager}`;
+    await client.query(
+      `
+        INSERT INTO app_event (tenant_id, event_type, aggregate_type, aggregate_id, payload, dedupe_key)
+        VALUES ($1, 'notification.dispatch', 'ops_notification', $2, $3::jsonb, $4)
+        ON CONFLICT (tenant_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+      `,
+      [
+        tenantId,
+        recipientId ?? null,
+        JSON.stringify({
+          recipient_user_id: manager,
+          notification_type: "schedule.staffing.declined",
+          title,
+          body,
+          deep_link: deepLink,
+          shoot_id: shootId,
+          priority: "high",
+          channels: ["in_app", "push"],
+          category: "staffing",
+          severity: "high",
+          action_required: true,
+          action_owner_user_id: manager,
+          allow_snooze: false,
+          source_event: "staffing.plan.recipient_declined",
+          metadata: {
+            purpose: "staffing_decline",
+            declined_employee_user_id: employeeUserId,
+            recipient_id: recipientId ?? null,
+            replacement_required: true,
+            dedupe: dedupeKey
+          }
+        }),
+        dedupeKey
+      ]
+    );
+  }
+}
+
 export async function handleAppEvent(client: PoolClient, appEvent: any) {
   if (appEvent.event_type === "status_event.created") {
     publishRealtime(appEvent.tenant_id, "status_event", appEvent.payload);
@@ -316,6 +429,11 @@ export async function handleAppEvent(client: PoolClient, appEvent: any) {
 
   if (appEvent.event_type === "staffing.plan.recipient_published") {
     await handleStaffingRecipientPublished(client, appEvent);
+    return;
+  }
+
+  if (appEvent.event_type === "staffing.plan.recipient_declined") {
+    await handleStaffingRecipientDeclined(client, appEvent);
     return;
   }
 

@@ -38,6 +38,19 @@ function readInitialDateFromHash(): string {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : getLocalDateString();
 }
 
+/** A decline/publication notification deep-links to a specific shoot's staffing drawer (?shoot=<id>). */
+function readShootFromHash(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const hash = window.location.hash;
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex === -1) {
+    return null;
+  }
+  return new URLSearchParams(hash.slice(queryIndex + 1)).get("shoot");
+}
+
 function shiftDate(dateString: string, deltaDays: number) {
   const base = new Date(`${dateString}T12:00:00`);
   if (Number.isNaN(base.getTime())) {
@@ -100,6 +113,8 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
   // Monotonic request guard: any load that is no longer the latest is ignored, so a
   // slower earlier GET can never overwrite a newer mutation merge.
   const requestSeqRef = useRef(0);
+  // A pending deep-link shoot to open once the board has loaded (set from the hash on mount + hashchange).
+  const deepLinkShootRef = useRef<string | null>(readShootFromHash());
 
   const canPublish = canAccessRoute(currentUser, "operations-staffing");
   const coverageCards = useMemo(() => buildCoverageCards(payload), [payload]);
@@ -163,6 +178,28 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, anchorDate]);
+
+  // Deep-link: a publication/decline notification links to #operations/staffing?...&shoot=<id>. Honor it on
+  // mount + hashchange by anchoring the date and opening that shoot's drawer once the board has loaded (the
+  // date-change effect clears any open drawer, so we re-open from the ref after the load settles).
+  useEffect(() => {
+    const applyHash = () => {
+      const shoot = readShootFromHash();
+      if (shoot) {
+        deepLinkShootRef.current = shoot;
+        setAnchorDate(readInitialDateFromHash());
+      }
+    };
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  useEffect(() => {
+    if (deepLinkShootRef.current && payload) {
+      setSelectedShootId(deepLinkShootRef.current);
+      deepLinkShootRef.current = null;
+    }
+  }, [payload]);
 
   const summary = payload?.summary ?? null;
   const summaryTiles = summary

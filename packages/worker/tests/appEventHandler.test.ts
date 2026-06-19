@@ -601,3 +601,89 @@ describe("per-recipient staffing publication delivery", () => {
     expect(findInsert(query)).toBeUndefined();
   });
 });
+
+describe("manager-facing staffing decline notification", () => {
+  const declinedEvent = {
+    tenant_id: "tenant-1",
+    aggregate_id: "recipient-1",
+    event_type: "staffing.plan.recipient_declined",
+    payload: { shoot_id: "shoot-1", employee_user_id: "emp-1", decline_reason: "Family conflict" }
+  };
+  const declinedContext = {
+    response_status: "declined",
+    decline_reason: "Family conflict",
+    responded_at: "2027-06-01T10:00:00.000Z",
+    shoot_code: "WBL-01",
+    title: "Picture Day",
+    shoot_date: "2027-06-07",
+    employee_name: "Pat Lee"
+  };
+  function findInsert(query: ReturnType<typeof vi.fn>) {
+    return query.mock.calls.find((call) => /INSERT INTO app_event/.test(String(call[0])));
+  }
+  function allInserts(query: ReturnType<typeof vi.fn>) {
+    return query.mock.calls.filter((call) => /INSERT INTO app_event/.test(String(call[0])));
+  }
+
+  it("notifies the shift's owning manager with replacement-required, reason, and a drawer deep link", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [declinedContext] }) // currency + context
+      .mockResolvedValueOnce({ rows: [{ manager_user_id: "mgr-1", role: "lead_photographer" }] }) // managers
+      .mockResolvedValueOnce({ rows: [] }); // insert
+
+    await handleAppEvent({ query } as never, declinedEvent);
+
+    const insert = findInsert(query);
+    expect(insert).toBeTruthy();
+    expect(String(insert![0])).toMatch(/ON CONFLICT.*DO NOTHING/s);
+    const params = insert![1] as unknown[];
+    const dispatch = JSON.parse(String(params[2]));
+    expect(dispatch.recipient_user_id).toBe("mgr-1");
+    expect(dispatch.notification_type).toBe("schedule.staffing.declined");
+    expect(dispatch.title).toMatch(/replacement required/i);
+    expect(dispatch.body).toMatch(/Pat Lee/);
+    expect(dispatch.body).toMatch(/Family conflict/); // reason for the authorized owning manager
+    expect(dispatch.body).toMatch(/replacement is required/i);
+    expect(dispatch.body).not.toMatch(/removed from the schedule/i); // raw assignment is preserved
+    expect(dispatch.deep_link).toBe("#operations/staffing?area=staffing&date=2027-06-07&shoot=shoot-1");
+    expect(dispatch.metadata.replacement_required).toBe(true);
+    expect(params[3]).toBe("staffing-decline:recipient-1:mgr-1");
+  });
+
+  it("does not notify for a historical/superseded decline (current recipient no longer declined)", async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [{ ...declinedContext, response_status: "pending" }] });
+    await handleAppEvent({ query } as never, declinedEvent);
+    expect(findInsert(query)).toBeUndefined();
+    expect(query).toHaveBeenCalledTimes(1); // stops at the currency check
+  });
+
+  it("records an ownership gap and notifies no one when no manager owner resolves", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [declinedContext] })
+      .mockResolvedValueOnce({ rows: [{ manager_user_id: null, role: "photographer" }] });
+    await handleAppEvent({ query } as never, declinedEvent);
+    expect(findInsert(query)).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/no manager owner/));
+    warn.mockRestore();
+  });
+
+  it("excludes the declining employee from the manager set", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [declinedContext] })
+      .mockResolvedValueOnce({
+        rows: [
+          { manager_user_id: "emp-1", role: "photographer" }, // the declining employee — must be excluded
+          { manager_user_id: "mgr-1", role: "lead_photographer" }
+        ]
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    await handleAppEvent({ query } as never, declinedEvent);
+    const inserts = allInserts(query);
+    expect(inserts.length).toBe(1);
+    expect(JSON.parse(String((inserts[0][1] as unknown[])[2])).recipient_user_id).toBe("mgr-1");
+  });
+});

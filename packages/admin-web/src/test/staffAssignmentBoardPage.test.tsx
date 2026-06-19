@@ -142,4 +142,18 @@ describe("StaffAssignmentBoard", () => {
     expect(screen.getByText("Assign staff")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Close" }).length).toBeGreaterThan(0);
   });
+
+  it("opens the staffing drawer directly from a ?shoot= deep link (publication/decline notification)", async () => {
+    window.location.hash = "#operations/staffing?area=staffing&date=2026-05-01&shoot=shoot-1";
+    getStaffingDashboardMock.mockResolvedValue(dashboard);
+    getShootStaffingSnapshotMock.mockImplementation(() => new Promise(() => {}));
+    try {
+      render(<StaffAssignmentBoard token="token" currentUser={buildUser()} socket={null} />);
+      // The drawer opens for the linked shoot with no click.
+      expect(await screen.findByText("Assign staff")).toBeInTheDocument();
+      expect(getShootStaffingSnapshotMock).toHaveBeenCalledWith("token", "shoot-1");
+    } finally {
+      window.location.hash = "";
+    }
+  });
 });
