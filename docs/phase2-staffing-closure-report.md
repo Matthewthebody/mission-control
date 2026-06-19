@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-19
 **Branch:** `feature/work-spine-foundation-v1`
-**Closing HEAD:** `<filled at commit time>` (`test: close phase 2 staffing verification`)
+**Closing HEAD:** `74ec2a6` (`test: close phase 2 staffing verification`) — the Phase 2 closing commit; this hash was filled in by the immediately-following documentation commit.
 **Scope:** Staffing capacity correctness, per-recipient publication delivery, decline notifications, acknowledgment reminders, Staff Assignment Board cleanup, and end-to-end verification. No Jobs, Directory, Schools, Monday migration, payroll, or notification-center redesign work was started.
 
 ---
@@ -20,7 +20,7 @@ Phase 2 builds on two preserved baseline commits and adds six closure commits.
 | 3 | `35f5943` | feat: notify staffing managers of assignment declines |
 | 4 | `62b3dca` | feat: add staffing acknowledgment reminder action |
 | 5 | `3fda506` | fix: complete staffing control cleanup |
-| 6 | `<this commit>` | test: close phase 2 staffing verification |
+| 6 | `74ec2a6` | test: close phase 2 staffing verification |
 
 Part 4 (scheduled exception-reconcile worker observation) was a **verification-only** step — it ran the real worker + scheduler and observed an end-to-end scheduled reconcile cycle. It produced no code commit by design.
 
