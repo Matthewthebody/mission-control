@@ -196,6 +196,14 @@ export function buildUrgentWindowRows(items: OperationalExceptionListItem[], now
   });
 }
 
+// The live unresolved count behind the Company Command "On Fire" card. It is the
+// EXACT number of records the card's destination (#urgent-window?status=open)
+// renders, derived from the same canonical items — so card and destination can
+// never disagree.
+export function countUnresolvedUrgentRows(items: OperationalExceptionListItem[], nowMs: number): number {
+  return buildUrgentWindowRows(items, nowMs).filter((row) => row.status === "open").length;
+}
+
 export type UrgentWindowFilters = {
   category: UrgentWindowCategory | "all";
   department: string | "all";

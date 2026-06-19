@@ -38,7 +38,7 @@ function readInitialHomeRole(user: SessionUser): HomeRoleId {
 // Role-aware Home. Leadership and department leads land on Company Command;
 // associates land on My Workspace. The single page header carries the role-aware
 // title and the demo role-preview switcher so there is never a duplicate header.
-export function HomeCommandSurface({ currentUser, onOpenConcierge }: Props) {
+export function HomeCommandSurface({ token, currentUser, onOpenConcierge }: Props) {
   const [homeRoleId, setHomeRoleId] = useState<HomeRoleId>(() => readInitialHomeRole(currentUser));
   const [conciergeQuery, setConciergeQuery] = useState("");
   const homeRole = getHomeRole(homeRoleId);
@@ -107,7 +107,7 @@ export function HomeCommandSurface({ currentUser, onOpenConcierge }: Props) {
       ) : isSamWorkspace ? (
         <SamSportsWorkspace />
       ) : isCommand ? (
-        <CompanyCommandHome role={homeRole} />
+        <CompanyCommandHome role={homeRole} token={token} />
       ) : (
         <MyWorkspaceHome role={homeRole} />
       )}

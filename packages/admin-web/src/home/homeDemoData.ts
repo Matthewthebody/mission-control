@@ -1,10 +1,7 @@
 import type { OperatingArea } from "./homeRoles";
 import { OPERATING_AREA_LABELS } from "./homeRoles";
 import type { ActionTarget } from "./actionTargets";
-import {
-  countBySeverity,
-  type NeedsAttentionItem
-} from "./needsAttention";
+import type { NeedsAttentionItem } from "./needsAttention";
 
 // Realistic, demo-safe Kemmetmueller data so Home clearly proves the operating
 // model. Replaceable later with real backend signals. Severity/tone vocab is
@@ -13,12 +10,19 @@ import {
 
 export type CommandCardTone = "critical" | "warning" | "watch" | "healthy" | "neutral";
 
+// How a card's displayed value is sourced:
+//   live        — a real count from a canonical backend (shown as a true number)
+//   sample      — illustrative demo data (must be visibly labeled, never live truth)
+//   unavailable — no connected source (rendered disabled with a reason, no count)
+export type CommandCardDataSource = "live" | "sample" | "unavailable";
+
 export type CompanyCommandCard = {
   id: string;
   label: string;
   value: string;
   helper: string;
   tone: CommandCardTone;
+  dataSource: CommandCardDataSource;
   target: ActionTarget;
   drilldownLabel: string;
 };
@@ -203,15 +207,16 @@ export const DEMO_NEEDS_ATTENTION: NeedsAttentionItem[] = [
 // ---- Company Command top row (locked eight cards) -----------------------------
 
 export function buildCompanyCommandCards(): CompanyCommandCard[] {
-  const onFire = countBySeverity(DEMO_NEEDS_ATTENTION).urgent;
   return [
     {
       id: "on-fire",
+      // Live: the real unresolved urgent count is injected at render from the same
+      // /api/exceptions source the Urgent Window uses (value here is a placeholder).
       label: "On Fire",
-      value: String(onFire),
-      helper: `${onFire} urgent issues need leadership action now.`,
+      value: "—",
+      helper: "Unresolved urgent issues needing leadership action now.",
       tone: "critical",
-      // Opens the Urgent Window focused on unresolved (open) urgent items.
+      dataSource: "live",
       target: { sourceType: "urgent_window", focus: { status: "open" } },
       drilldownLabel: "Open Urgent Window"
     },
@@ -219,8 +224,9 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       id: "shoots-today",
       label: "Shoots Today",
       value: "18",
-      helper: "18 shoots today · 1 needs follow-up.",
+      helper: "Illustrative — open the schedule for today's live shoots.",
       tone: "watch",
+      dataSource: "sample",
       target: { sourceType: "schedule" },
       drilldownLabel: "Open today's schedule"
     },
@@ -228,8 +234,9 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       id: "staffing-risk",
       label: "Staffing Risk",
       value: "3",
-      helper: "1 unstaffed · 1 call-out · 1 assigned not acknowledged.",
+      helper: "Illustrative — open the staffing board for live coverage risk.",
       tone: "warning",
+      dataSource: "sample",
       target: { sourceType: "staffing" },
       drilldownLabel: "Open staffing board"
     },
@@ -237,8 +244,9 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       id: "late-not-clocked-in",
       label: "Late / Not Clocked In",
       value: "2",
-      helper: "2 past call time and not clocked in.",
+      helper: "Sample figure — live clock-in status is on the Attendance page.",
       tone: "critical",
+      dataSource: "sample",
       target: { sourceType: "attendance" },
       drilldownLabel: "View attendance"
     },
@@ -246,17 +254,19 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       id: "jobs-behind",
       label: "Jobs Behind",
       value: "5",
-      helper: "5 jobs behind phase target or promised delivery.",
+      helper: "Sample figure — live delivery risk is in Production Tracker.",
       tone: "warning",
+      dataSource: "sample",
       target: { sourceType: "project_tracking" },
       drilldownLabel: "Open project tracking"
     },
     {
       id: "weather-watch",
       label: "Weather Watch",
-      value: "6",
-      helper: "6 outdoor jobs on weather watch · 2 no indoor backup.",
+      value: "—",
+      helper: "No live weather provider connected.",
       tone: "watch",
+      dataSource: "unavailable",
       target: { sourceType: "weather", unavailableReason: "No live weather provider connected." },
       drilldownLabel: "Review affected shoots"
     },
@@ -264,18 +274,25 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       id: "production-load",
       label: "Production Load",
       value: "5 behind",
-      helper: "5 behind delivery · tomorrow's load is low.",
+      helper: "Illustrative — open Production for live delivery load.",
       tone: "warning",
+      dataSource: "sample",
       target: { sourceType: "production" },
       drilldownLabel: "Open production"
     },
     {
       id: "client-issues",
+      // No canonical client-case source feeds an urgent count, so this is shown as
+      // not-connected rather than implying specific unresolved cases exist.
       label: "Client Issues",
-      value: "2",
-      helper: "2 cases over response target · 1 archive request.",
+      value: "—",
+      helper: "No live client-case feed connected — client issues are not tracked here yet.",
       tone: "watch",
-      target: { sourceType: "client_case" },
+      dataSource: "unavailable",
+      target: {
+        sourceType: "client_case",
+        unavailableReason: "No live client-case feed connected — client issues are not tracked here yet."
+      },
       drilldownLabel: "Open client success"
     }
   ];

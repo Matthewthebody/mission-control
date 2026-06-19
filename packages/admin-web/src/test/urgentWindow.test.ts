@@ -8,6 +8,7 @@ import {
   filterUrgentWindowRows,
   mapExceptionToRow,
   readUrgentWindowFilters,
+  countUnresolvedUrgentRows,
   URGENT_WINDOW_CATEGORY_AVAILABILITY
 } from "../home/urgentWindow";
 
@@ -151,6 +152,16 @@ describe("urgent window read model", () => {
 
   it("produces a bare hash when no filters or focus are set", () => {
     expect(buildUrgentWindowHash(base(), null)).toBe("#urgent-window");
+  });
+
+  it("counts only unresolved (open) rows for the On Fire live count", () => {
+    const items = [
+      makeItem({ id: "o1", status: "open" }),
+      makeItem({ id: "o2", status: "open" }),
+      makeItem({ id: "s1", status: "snoozed" })
+    ];
+    expect(countUnresolvedUrgentRows(items, NOW)).toBe(2);
+    expect(countUnresolvedUrgentRows([], NOW)).toBe(0);
   });
 });
 

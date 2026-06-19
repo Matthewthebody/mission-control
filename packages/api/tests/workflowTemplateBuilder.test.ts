@@ -7,6 +7,7 @@ let app: Express;
 let pool: Pool;
 let leadershipToken = "";
 let associateToken = "";
+let ownerToken = "";
 const createdTemplateIds: string[] = [];
 
 async function devLogin(email: string) {
@@ -22,6 +23,7 @@ beforeAll(async () => {
   pool = poolModule.pool;
   leadershipToken = await devLogin("leadership@example.com");
   associateToken = await devLogin("associate@example.com");
+  ownerToken = await devLogin("matthew@example.com");
 });
 
 afterAll(async () => {
@@ -44,6 +46,39 @@ afterAll(async () => {
 });
 
 describe("workflow template builder v1", () => {
+  it("REGRESSION: owner/super_admin keeps workflow-admin access while unauthorized roles stay denied", async () => {
+    const suffix = `regression_${Date.now()}`;
+    // The owner (super_admin) must be able to manage workflow templates. This is the
+    // "owner assigned but unauthorized in workflow admin" defect — it must not recur.
+    const ownerCreate = await request(app)
+      .post("/api/workflows/template-builder/templates")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({
+        template_key: `builder_owner_${suffix}`,
+        name: "Owner Workflow Admin Regression",
+        description: "Owner must retain workflow-admin access.",
+        job_type: "photo_day",
+        category: "schools",
+        departments_involved: ["schools"]
+      });
+    expect(ownerCreate.status, JSON.stringify(ownerCreate.body)).toBe(201);
+    createdTemplateIds.push(ownerCreate.body.template.id);
+
+    // An unauthorized associate must remain denied.
+    const associateCreate = await request(app)
+      .post("/api/workflows/template-builder/templates")
+      .set("Authorization", `Bearer ${associateToken}`)
+      .send({
+        template_key: `builder_assoc_${suffix}`,
+        name: "Associate Denied",
+        description: "Unauthorized role must be denied.",
+        job_type: "photo_day",
+        category: "schools",
+        departments_involved: ["schools"]
+      });
+    expect(associateCreate.status).toBe(403);
+  });
+
   it("lets leadership build, preview, publish, and lock a linear workflow template version", async () => {
     const suffix = Date.now();
     const draft = await request(app)

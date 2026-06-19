@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { HomeRole } from "./homeRoles";
 import { buildCompanyCommandCards, type CompanyCommandCard } from "./homeDemoData";
 import { canSeeLeadershipReports } from "./homePermissions";
@@ -8,12 +9,59 @@ import { WeatherImpactPanel } from "./WeatherImpactPanel";
 import { LeadershipReportsStrip } from "./LeadershipReportsStrip";
 import { HomeSectionHeader, navigateToHash } from "./homeShared";
 import { resolveActionTarget } from "./actionTargets";
+import { getExceptionWorkspace } from "../services/exceptionsApi";
+import { countUnresolvedUrgentRows } from "./urgentWindow";
 
-function CommandCard({ card }: { card: CompanyCommandCard }) {
+// Live count state for the "On Fire" card. We never fall back to a fabricated
+// number: loading shows an ellipsis, error / no-session shows a dash.
+type LiveCountState =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "ready"; count: number }
+  | { state: "error" };
+
+function useUnresolvedUrgentCount(token?: string): LiveCountState {
+  const [state, setState] = useState<LiveCountState>(token ? { state: "loading" } : { state: "idle" });
+  useEffect(() => {
+    if (!token) {
+      setState({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ state: "loading" });
+    getExceptionWorkspace(token)
+      .then((workspace) => {
+        if (!cancelled) setState({ state: "ready", count: countUnresolvedUrgentRows(workspace.items, Date.now()) });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ state: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+  return state;
+}
+
+function liveValue(state: LiveCountState): string {
+  if (state.state === "ready") return String(state.count);
+  if (state.state === "loading") return "…";
+  return "—"; // idle / error — never a fabricated operational number
+}
+
+function liveHelper(state: LiveCountState, fallback: string): string {
+  if (state.state === "ready") {
+    return `${state.count} unresolved urgent ${state.count === 1 ? "issue" : "issues"} — open to act.`;
+  }
+  if (state.state === "loading") return "Loading live urgent count…";
+  if (state.state === "error") return "Live count unavailable — open the Urgent Window.";
+  return fallback;
+}
+
+function CommandCard({ card, liveCount }: { card: CompanyCommandCard; liveCount?: LiveCountState }) {
   const resolved = resolveActionTarget(card.target);
-  // An enabled card must perform the action its label promises. When the source
-  // surface is not connected (e.g. no weather provider) we render a clearly
-  // disabled state with the reason — never a dead or misleading drilldown.
+  // Not connected: a clearly disabled state with the reason and NO operational
+  // count — an unavailable source must never display a number.
   if (!resolved.available) {
     return (
       <div
@@ -21,12 +69,14 @@ function CommandCard({ card }: { card: CompanyCommandCard }) {
         aria-disabled="true"
       >
         <span className="home-command-card__label">{card.label}</span>
-        <strong className="home-command-card__value">{card.value}</strong>
-        <span className="home-command-card__helper">{card.helper}</span>
-        <span className="home-command-card__drill home-command-card__drill--off">{resolved.reason}</span>
+        <span className="home-command-card__badge home-command-card__badge--off">Not connected</span>
+        <span className="home-command-card__helper">{resolved.reason}</span>
       </div>
     );
   }
+  const isLive = card.dataSource === "live";
+  const value = isLive ? liveValue(liveCount ?? { state: "idle" }) : card.value;
+  const helper = isLive ? liveHelper(liveCount ?? { state: "idle" }, card.helper) : card.helper;
   return (
     <button
       type="button"
@@ -34,8 +84,11 @@ function CommandCard({ card }: { card: CompanyCommandCard }) {
       onClick={() => navigateToHash(resolved.hash)}
     >
       <span className="home-command-card__label">{card.label}</span>
-      <strong className="home-command-card__value">{card.value}</strong>
-      <span className="home-command-card__helper">{card.helper}</span>
+      {card.dataSource === "sample" ? (
+        <span className="home-command-card__badge home-command-card__badge--sample">Sample</span>
+      ) : null}
+      <strong className="home-command-card__value">{value}</strong>
+      <span className="home-command-card__helper">{helper}</span>
       <span className="home-command-card__drill">
         {card.drilldownLabel}
         <span aria-hidden="true"> →</span>
@@ -44,8 +97,9 @@ function CommandCard({ card }: { card: CompanyCommandCard }) {
   );
 }
 
-export function CompanyCommandHome({ role }: { role: HomeRole }) {
+export function CompanyCommandHome({ role, token }: { role: HomeRole; token?: string }) {
   const cards = buildCompanyCommandCards();
+  const unresolvedUrgent = useUnresolvedUrgentCount(token);
   return (
     <>
       <section className="panel home-command__toprow" aria-label="Company command top row">
@@ -55,7 +109,7 @@ export function CompanyCommandHome({ role }: { role: HomeRole }) {
         />
         <div className="home-command__cards">
           {cards.map((card) => (
-            <CommandCard key={card.id} card={card} />
+            <CommandCard key={card.id} card={card} liveCount={card.id === "on-fire" ? unresolvedUrgent : undefined} />
           ))}
         </div>
       </section>

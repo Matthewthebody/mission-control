@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard } from "../pages/Dashboard";
 import type { SessionUser } from "../types";
 
-// The role-aware Home is demo-data-driven and makes no backend calls; the mock
-// is here only to prove that.
+// The role-aware Home is demo-data-driven EXCEPT the live "On Fire" count, which
+// fetches the unresolved total from the canonical /api/exceptions source. The mock
+// proves the Company Command Home makes exactly that one backend call and no more.
 const apiFetchMock = vi.fn();
 vi.mock("../api", async () => {
   const actual = await vi.importActual<typeof import("../api")>("../api");
@@ -111,7 +112,9 @@ describe("role-aware Home", () => {
     expect(screen.getByRole("heading", { name: /People \/ Attendance Risk/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Weather Impact/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^Reports$/i })).toBeInTheDocument();
-    expect(apiFetchMock).not.toHaveBeenCalled();
+    // Exactly one backend call — the live On Fire unresolved count — and nothing else.
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+    expect(String(apiFetchMock.mock.calls[0]?.[0])).toContain("/api/exceptions");
   });
 
   it("defaults associates to My Workspace, not Company Command", () => {

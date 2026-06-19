@@ -22,10 +22,11 @@ describe("Company Command card actionability", () => {
     expect(window.location.hash).toBe("#employees/attendance");
   });
 
-  it("routes Client Issues to client success, not the executive dashboard", () => {
+  it("disables Client Issues because no live client-case feed is connected", () => {
     render(<CompanyCommandHome role={getHomeRole("matthew")} />);
-    fireEvent.click(screen.getByRole("button", { name: /Client Issues/i }));
-    expect(window.location.hash).toBe("#client-command-center");
+    // No fabricated case count and no enabled CTA — just an honest not-connected state.
+    expect(screen.queryByRole("button", { name: /Client Issues/i })).toBeNull();
+    expect(screen.getByText(/No live client-case feed connected/i)).toBeInTheDocument();
   });
 
   it("keeps Staffing Risk on the staffing board with its area focus", () => {

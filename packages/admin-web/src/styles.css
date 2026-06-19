@@ -22664,6 +22664,28 @@ html[data-theme="light"] .help-tooltip__bubble {
   margin-top: 2px;
 }
 
+/* Source classification badge: sample (illustrative) / off (not connected). */
+.home-command-card__badge {
+  justify-self: start;
+  width: fit-content;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.home-command-card__badge--sample {
+  background: rgba(216, 179, 74, 0.18);
+  color: #d8b34a;
+  border: 1px solid rgba(216, 179, 74, 0.4);
+}
+.home-command-card__badge--off {
+  background: rgba(127, 127, 127, 0.14);
+  color: var(--text-muted);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+}
+
 /* --- Needs Attention ------------------------------------------------- */
 
 .home-needs-attention__list {
