@@ -106,3 +106,49 @@ describe("GET /api/jobs/status-counts", () => {
     expect(limited.body.counts.total_active).toBeGreaterThanOrEqual(0);
   });
 });
+
+// Coherence: a Company Command card's count must equal exactly what its
+// #jobs?<filter> drilldown returns. The jobs list is capped at 200 rows for
+// display, so the destination must filter server-side to return the full matching
+// set rather than only the matches that fall inside that window.
+describe("GET /api/jobs server-side status filter (count == drilldown)", () => {
+  async function counts() {
+    const response = await request(app)
+      .get("/api/jobs/status-counts")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    return response.body.counts as Counts;
+  }
+
+  it("returns the full blocked set so Production Load equals its #jobs?production_status=blocked drilldown", async () => {
+    const { blocked_production } = await counts();
+    const response = await request(app)
+      .get("/api/jobs?production_status=blocked")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(response.status).toBe(200);
+    const jobs = response.body.jobs as Array<{ production_status: string }>;
+    expect(jobs.every((job) => job.production_status === "blocked")).toBe(true);
+    expect(jobs.length).toBe(blocked_production);
+  });
+
+  it("returns the full off_track set so Jobs Behind equals its #jobs?readiness_status=off_track drilldown", async () => {
+    const { behind } = await counts();
+    const response = await request(app)
+      .get("/api/jobs?readiness_status=off_track")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(response.status).toBe(200);
+    const jobs = response.body.jobs as Array<{ readiness_status: string }>;
+    expect(jobs.every((job) => job.readiness_status === "off_track")).toBe(true);
+    expect(jobs.length).toBe(behind);
+  });
+
+  it("matches an unrecognized status value as text — no rows, never an enum error", async () => {
+    // needs_date is an overloaded calendar-readiness concept, not a readiness_status
+    // column value; the text comparison yields zero rows instead of a 500.
+    const response = await request(app)
+      .get("/api/jobs?readiness_status=needs_date")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.jobs)).toBe(true);
+    expect((response.body.jobs as unknown[]).length).toBe(0);
+  });
+});

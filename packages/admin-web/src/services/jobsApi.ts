@@ -108,6 +108,12 @@ export async function listSharedJobs(token: string, query: SharedJobListQuery = 
   if (query.day_date?.trim()) {
     params.set("day_date", query.day_date.trim());
   }
+  if (query.production_status?.trim()) {
+    params.set("production_status", query.production_status.trim());
+  }
+  if (query.readiness_status?.trim()) {
+    params.set("readiness_status", query.readiness_status.trim());
+  }
   const search = params.toString();
   return apiFetch<{ jobs: SharedJobListItem[] }>(`${JOBS_BASE}${search ? `?${search}` : ""}`, token);
 }

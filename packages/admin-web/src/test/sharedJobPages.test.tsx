@@ -2414,6 +2414,39 @@ beforeEach(() => {
     expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
   });
 
+  it("forwards a deep-linked production_status filter to the jobs fetch so the count's drilldown is complete", async () => {
+    window.location.hash = "#jobs?productionStatus=blocked";
+    listSharedJobsMock.mockResolvedValue({ jobs: [buildJobListItem({ id: "blocked-1", production_status: "blocked" })] });
+
+    render(<SharedJobsPage token="token-demo" currentUser={sportsCoordinator} departmentType={null} routeBase="#jobs" />);
+    await screen.findByRole("heading", { name: "Jobs" });
+
+    // The fetch carries the column-mapped status so the server returns the FULL
+    // blocked set (not only the matches inside the 200-row display window), keeping a
+    // Company Command card's count and its #jobs drilldown in agreement.
+    expect(
+      listSharedJobsMock.mock.calls.some(
+        (call) => (call[1] as { production_status?: string | null })?.production_status === "blocked"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps an overloaded calendar-readiness value client-side, never on the server status filter", async () => {
+    window.location.hash = "#jobs?readinessStatus=needs_date";
+    listSharedJobsMock.mockResolvedValue({ jobs: [buildJobListItem({})] });
+
+    render(<SharedJobsPage token="token-demo" currentUser={sportsCoordinator} departmentType={null} routeBase="#jobs" />);
+    await screen.findByRole("heading", { name: "Jobs" });
+
+    // needs_date is a calendar concept, not a readiness_status column value; it must
+    // not reach the server status filter — it stays a client-side derived filter.
+    expect(
+      listSharedJobsMock.mock.calls.every(
+        (call) => (call[1] as { readiness_status?: string | null })?.readiness_status == null
+      )
+    ).toBe(true);
+  });
+
   it("renders the shared editor with school adapter sections", async () => {
     window.location.hash = "#schools/jobs/new";
     render(<SharedJobEditorPage token="token-demo" currentUser={schoolsManager} departmentType="schools" routeBase="#schools/jobs" mode="create" />);

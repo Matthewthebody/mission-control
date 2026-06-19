@@ -113,6 +113,12 @@ const CALENDAR_READINESS_FILTERS = new Set([
   "shoot_manager_assigned"
 ]);
 
+// Truth-layer readiness values (the canonical `readiness_status` column). The same
+// `readinessStatus` filter key is overloaded with the calendar-readiness values
+// above, which are derived client-side — only these map to the column and are safe
+// to push to the server status filter.
+const TRUTH_LAYER_READINESS_STATUSES = new Set(["off_track", "at_risk", "on_track", "ready"]);
+
 function matchesSearch(item: SharedJobListItem, search: string) {
   const query = search.trim().toLowerCase();
   if (!query) {
@@ -613,11 +619,25 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
   const createAllowed = canCreateByPolicy || (departmentType === "schools" ? canManageSchoolsHub(currentUser) || canCreateShootRecords(currentUser) : departmentType === "sports" ? canManageSportsWorkspace(currentUser) || canCreateShootRecords(currentUser) : canCreateShootRecords(currentUser));
   const isGlobalJobsPage = departmentType == null;
 
+  // Push the column-mapped status filters to the server ONLY on the global jobs page,
+  // so a deep-linked filtered view (e.g. #jobs?productionStatus=blocked, the target
+  // of the Company Command cards) returns the FULL matching set instead of only the
+  // matches inside the 200-row display window — keeping a card's count and its
+  // drilldown in agreement. The overloaded calendar-readiness values stay client-side.
+  const serverProductionStatus = isGlobalJobsPage && filters.productionStatus ? filters.productionStatus : "";
+  const serverReadinessStatus =
+    isGlobalJobsPage && TRUTH_LAYER_READINESS_STATUSES.has(filters.readinessStatus) ? filters.readinessStatus : "";
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
-    void listSharedJobs(token, { department_type: departmentType ?? "all", search: null }).then((response) => {
+    void listSharedJobs(token, {
+      department_type: departmentType ?? "all",
+      search: null,
+      production_status: serverProductionStatus || null,
+      readiness_status: serverReadinessStatus || null
+    }).then((response) => {
       if (!cancelled) {
         setItems(response.jobs);
         setSelectedJobId((current) => current ?? response.jobs[0]?.id ?? null);
@@ -636,7 +656,7 @@ export function SharedJobsPage({ token, currentUser, departmentType, routeBase }
     return () => {
       cancelled = true;
     };
-  }, [departmentType, token]);
+  }, [departmentType, token, serverProductionStatus, serverReadinessStatus]);
 
   useEffect(() => {
     setCurrentPage(1);

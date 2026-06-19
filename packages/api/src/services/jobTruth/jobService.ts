@@ -3015,7 +3015,13 @@ async function validateDepartmentPublish(client: PoolClient, aggregate: LoadedJo
 export async function listJobs(
   client: PoolClient,
   auth: AuthUser,
-  filters: { department_type?: JobDepartmentType | null; search?: string | null; day_date?: string | null } = {}
+  filters: {
+    department_type?: JobDepartmentType | null;
+    search?: string | null;
+    day_date?: string | null;
+    production_status?: string | null;
+    readiness_status?: string | null;
+  } = {}
 ) {
   const department = filters.department_type ?? null;
   if (department) {
@@ -3038,6 +3044,21 @@ export async function listJobs(
   if (search) {
     params.push(`%${search.toLowerCase()}%`);
     sql += ` AND (lower(j.title) LIKE $${params.length} OR lower(coalesce(j.event_name, '')) LIKE $${params.length} OR lower(coalesce(j.job_number, '')) LIKE $${params.length})`;
+  }
+  // Optional server-side status filters. These let a deep-linked filtered view
+  // (e.g. #jobs?productionStatus=blocked) return the FULL matching set instead of
+  // only the matches that fall inside the 200-row display window, so a Company
+  // Command count and its drilldown agree. Compared as text so an unrecognized
+  // value simply matches nothing rather than erroring on the enum cast.
+  const productionStatusFilter = normalizeNullableText(filters.production_status);
+  if (productionStatusFilter) {
+    params.push(productionStatusFilter);
+    sql += ` AND j.production_status::text = $${params.length}`;
+  }
+  const readinessStatusFilter = normalizeNullableText(filters.readiness_status);
+  if (readinessStatusFilter) {
+    params.push(readinessStatusFilter);
+    sql += ` AND j.readiness_status::text = $${params.length}`;
   }
   if (filters.day_date) {
     params.push(filters.day_date);

@@ -195,7 +195,12 @@ const listQuerySchema = z
   .object({
     department_type: z.enum(JOB_DEPARTMENT_TYPES).optional(),
     search: z.string().trim().max(120).optional(),
-    day_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+    day_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    // Optional status filters for deep-linked, coherent filtered views. Kept lenient
+    // (the service matches them as text); SharedJobsPage only sends column-mapped
+    // values, never the overloaded calendar/derived filter values.
+    production_status: z.string().trim().max(80).optional(),
+    readiness_status: z.string().trim().max(80).optional()
   })
   .strict();
 

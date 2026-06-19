@@ -946,6 +946,9 @@ export type SharedJobListQuery = {
   department_type?: JobDepartmentType | "all";
   search?: string | null;
   day_date?: string | null;
+  // Server-side status filters for coherent deep-linked views (see SharedJobsPage).
+  production_status?: string | null;
+  readiness_status?: string | null;
 };
 
 export type SharedJobLifecycleReasonInput = {
