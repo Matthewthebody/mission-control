@@ -10,6 +10,7 @@ import {
   listEmployeeStaffingAssignments,
   recordStaffingPlanPublication
 } from "../src/services/staffingPlanLifecycle.js";
+import { listSchedulingUrgentWatchCandidates } from "../src/services/scheduleStaffing.js";
 
 // Slice 2 sub-slice 3 — employee self-scoped staffing acknowledgment / decline (API).
 
@@ -151,6 +152,13 @@ async function declineHttp(token: string, recipientId: string, reason: unknown) 
     .post(`/api/employee/staffing-assignments/${recipientId}/decline`)
     .set("Authorization", `Bearer ${token}`)
     .send(reason === undefined ? {} : { reason });
+}
+
+async function candidatesFor(shootId: string) {
+  const all = await withClientTransaction(tenantId, leadershipId, (client) =>
+    listSchedulingUrgentWatchCandidates(client, tenantId, localDateString(0))
+  );
+  return all.filter((candidate) => candidate.source_entity_id === shootId);
 }
 
 async function recipientIdFor(shootId: string, userId: string) {
@@ -467,5 +475,80 @@ describe("employee staffing security + RBAC", () => {
         .set("Authorization", `Bearer ${photoToken}`)
         .send({ override_warnings: false })).status
     ).toBe(403);
+  });
+});
+
+describe("employee response -> urgent-watch integration", () => {
+  it("20. acknowledgment resolves the not-acknowledged urgent-watch candidate", async () => {
+    const date = localDateString(1); // tomorrow — inside the escalation window
+    const shoot = await makeShoot(date, "Ack Urgent Watch");
+    await seedShift(shoot.id, photoId, { date, lead: true });
+    await recordPublish(shoot.id);
+    const recipientId = await recipientIdFor(shoot.id, photoId);
+
+    // Move publication past grace -> the pending acknowledgment is now urgent (escalation window).
+    await pool.query("UPDATE staffing_plan_version SET published_at = now() - interval '1 hour' WHERE tenant_id = $1 AND shoot_id = $2", [tenantId, shoot.id]);
+    expect((await candidatesFor(shoot.id)).some((c) => c.watch_type === "staffing_unconfirmed")).toBe(true);
+
+    // Employee acknowledges -> the not-acknowledged candidate resolves.
+    expect((await acknowledgeHttp(photoToken, recipientId!)).status).toBe(200);
+    expect((await candidatesFor(shoot.id)).some((c) => c.watch_type === "staffing_unconfirmed")).toBe(false);
+  });
+
+  it("21. decline activates the staffing-risk candidate and the manager read model", async () => {
+    const date = localDateString(10);
+    const shoot = await makeShoot(date, "Decline Urgent Watch");
+    await seedShift(shoot.id, photoId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+    const recipientId = await recipientIdFor(shoot.id, photoId);
+
+    // Coverage complete before the decline (no lead gap).
+    expect((await candidatesFor(shoot.id)).some((c) => c.watch_type === "critical_role_gap")).toBe(false);
+
+    expect((await declineHttp(photoToken, recipientId!, "Cannot make it")).status).toBe(200);
+
+    // Manager read model: raw assignment visible, coverage-eligible lead drops, replacement required.
+    const view = await lifecycleView(shoot.id);
+    expect(view.assigned_staff_count).toBe(2);
+    expect(view.declined_staff_count).toBe(1);
+    expect(view.coverage_eligible_lead_count).toBe(0);
+    // Urgent-watch staffing risk becomes active (the declined lead re-opens the gap).
+    expect((await candidatesFor(shoot.id)).some((c) => c.watch_type === "critical_role_gap")).toBe(true);
+  });
+
+  it("22-newver. a new version supersedes the prior acknowledgment; the stale link cannot re-acknowledge", async () => {
+    const date = localDateString(11);
+    const shoot = await makeShoot(date, "New Version");
+    await seedShift(shoot.id, photoId, { date, lead: true });
+    await recordPublish(shoot.id); // v1
+    const v1RecipientId = await recipientIdFor(shoot.id, photoId);
+    expect((await acknowledgeHttp(photoToken, v1RecipientId!)).status).toBe(200);
+
+    // Manager materially changes the package, publishes v2.
+    await pool.query(
+      "UPDATE work_shift SET starts_at = starts_at + interval '45 minutes', ends_at = ends_at + interval '45 minutes' WHERE tenant_id = $1 AND shoot_id = $2 AND assigned_user_id = $3 AND cancelled_at IS NULL",
+      [tenantId, shoot.id, photoId]
+    );
+    await recordPublish(shoot.id); // v2
+
+    // v1 acknowledgment is historical; v2 is pending; the stale v1 link cannot re-acknowledge.
+    const v1Row = (await selectRows<{ response_status: string; superseded_at: string | null }>(
+      "SELECT response_status, superseded_at::text AS superseded_at FROM staffing_plan_recipient WHERE id = $1",
+      [v1RecipientId]
+    ))[0];
+    expect(v1Row.response_status).toBe("acknowledged");
+    expect(v1Row.superseded_at).not.toBeNull();
+    expect((await acknowledgeHttp(photoToken, v1RecipientId!)).status).toBe(409);
+
+    const v2RecipientId = await recipientIdFor(shoot.id, photoId);
+    expect(v2RecipientId).not.toBe(v1RecipientId);
+    const current = await myAssignments(photoToken);
+    expect(current.body.assignments.find((a: any) => a.shoot_id === shoot.id).response_status).toBe("pending");
+
+    // Employee acknowledges the current version.
+    expect((await acknowledgeHttp(photoToken, v2RecipientId!)).status).toBe(200);
+    const after = await myAssignments(photoToken);
+    expect(after.body.assignments.find((a: any) => a.shoot_id === shoot.id).response_status).toBe("acknowledged");
   });
 });

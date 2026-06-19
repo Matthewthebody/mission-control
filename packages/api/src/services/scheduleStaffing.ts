@@ -11,6 +11,7 @@ import {
 import type { AuthUser, DepartmentCode } from "../types/auth.js";
 import { createStaffingConflictEvaluationResult } from "../domain/staffing/staffing-conflict.js";
 import { evaluateLastMinuteStaffingChange } from "../domain/staffing/staffing-last-minute-change-evaluator.js";
+import { evaluateAcknowledgmentUrgency } from "../domain/staffing/staffing-acknowledgment-policy.js";
 import { createAuditLog } from "./audit.js";
 import {
   loadAvailabilityWindowsForUsersOnDate,
@@ -3383,6 +3384,44 @@ export async function listSchedulingUrgentWatchCandidates(
     [tenantId, startDate, endDate]
   );
 
+  // Count current pending recipients whose acknowledgment is urgent (past grace + overdue OR inside the
+  // escalation window) per the centralized policy — drives the not-acknowledged urgent-watch candidate.
+  const unconfirmedByShoot = new Map<string, number>();
+  if (rows.length) {
+    const { rows: pendingRows } = await client.query<{
+      shoot_id: string;
+      published_at: string | null;
+      acknowledgment_due_at: string | null;
+      arrival_time: string | null;
+      start_time: string | null;
+    }>(
+      `
+        SELECT r.shoot_id::text AS shoot_id, v.published_at::text AS published_at,
+               r.acknowledgment_due_at::text AS acknowledgment_due_at,
+               s.arrival_time::text AS arrival_time, s.start_time::text AS start_time
+        FROM staffing_plan_recipient r
+        JOIN staffing_plan_version v ON v.id = r.staffing_plan_version_id
+        JOIN shoot s ON s.id = r.shoot_id
+        WHERE r.tenant_id = $1 AND r.superseded_at IS NULL AND r.response_status = 'pending'
+          AND r.shoot_id = ANY($2::uuid[])
+      `,
+      [tenantId, rows.map((row) => row.id)]
+    );
+    const nowDate = new Date(now);
+    for (const pending of pendingRows) {
+      const urgent = evaluateAcknowledgmentUrgency({
+        responseStatus: "pending",
+        publishedAt: pending.published_at,
+        dueAt: pending.acknowledgment_due_at,
+        shootStartAt: pending.arrival_time ?? pending.start_time,
+        now: nowDate
+      }).urgent;
+      if (urgent) {
+        unconfirmedByShoot.set(pending.shoot_id, (unconfirmedByShoot.get(pending.shoot_id) ?? 0) + 1);
+      }
+    }
+  }
+
   const candidates: UrgentWatchCandidate[] = [];
   for (const row of rows) {
     const plannedStaffCount = Math.max(Number(row.planned_staff_count ?? 0), 0);
@@ -3461,6 +3500,33 @@ export async function listSchedulingUrgentWatchCandidates(
           lead_coverage_count: leadCoverageCount,
           assigned_staff_count: assignedStaffCount,
           planned_staff_count: plannedStaffCount
+        }
+      });
+    }
+
+    const unconfirmedAcknowledgments = unconfirmedByShoot.get(row.id) ?? 0;
+    if (unconfirmedAcknowledgments > 0) {
+      candidates.push({
+        source_module: "scheduling",
+        source_entity_type: "shoot",
+        source_entity_id: row.id,
+        source_entity_label: row.shoot_code,
+        scope_department: row.department ?? null,
+        watch_type: "staffing_unconfirmed",
+        severity,
+        title: `${row.shoot_code} has ${unconfirmedAcknowledgments} unconfirmed assignment${unconfirmedAcknowledgments === 1 ? "" : "s"}`,
+        summary: `${row.title}: ${unconfirmedAcknowledgments} assigned staff have not acknowledged their published assignment for ${locationLabel}.`,
+        owner_user_id: null,
+        owner_label: null,
+        due_at: dueAt,
+        next_action_label: "Open Scheduling",
+        action_hash: actionHash,
+        operational_impact_score: 70 + priorityBonus + unconfirmedAcknowledgments * 6,
+        source_snapshot: {
+          shoot_id: row.id,
+          shoot_code: row.shoot_code,
+          shoot_date: row.shoot_date,
+          unconfirmed_acknowledgment_count: unconfirmedAcknowledgments
         }
       });
     }

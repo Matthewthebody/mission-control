@@ -20,6 +20,7 @@ export type UrgentWatchStatus = (typeof URGENT_WATCH_STATUSES)[number];
 export const URGENT_WATCH_TYPES = [
   "staffing_gap",
   "critical_role_gap",
+  "staffing_unconfirmed",
   "unconfirmed_shoot",
   "missing_contact_info",
   "overdue_production_task",
