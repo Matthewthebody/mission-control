@@ -38,6 +38,7 @@ import {
 } from "./outlookCalendarSync.js";
 import { queueNotificationDispatch } from "./opsNotifications.js";
 import { queueStaffAssignmentConflictDetectedAlert } from "./operationalAlerting.js";
+import { recordStaffingPlanPublication } from "./staffingPlanLifecycle.js";
 import {
   consumeApprovedOperationalApproval,
   ensureOperationalApprovalRequest,
@@ -2660,6 +2661,15 @@ export async function publishShootStaffing(
     return approvalGate.approvalResponse;
   }
 
+  // Record the versioned staffing plan + per-recipient acknowledgment state before flipping
+  // shifts to published. Idempotent: an unchanged plan is a no-op that neither creates a new
+  // version, re-publishes shifts, nor re-notifies recipients. The shoot row is locked FOR UPDATE
+  // inside here so concurrent publishes / double-clicks / retries cannot duplicate versions.
+  const planPublication = await recordStaffingPlanPublication(client, auth, { shootId: input.shootId });
+  if (planPublication.status === "unchanged") {
+    return buildStaffingSnapshot(client, auth, input.shootId);
+  }
+
   for (const slot of snapshot.slots) {
     if (slot.assigned_shift_id && slot.shift_status !== "published" && slot.shift_status !== "completed") {
       await publishShift(client, auth, slot.assigned_shift_id, meta);
@@ -2718,17 +2728,10 @@ export async function publishShootStaffing(
     });
   }
 
-  await sendStaffingNotification(client, auth, {
-    recipientUserIds: snapshot.slots.flatMap((slot) => (slot.assigned_user_id ? [slot.assigned_user_id] : [])),
-    notificationType: "schedule.staffing.published",
-    title: "Assignment published",
-    body: `${snapshot.shoot.shoot_code} staffing is now published on your schedule.`,
-    shootId: input.shootId,
-    priority: protectedPublishEvaluation.windowEvaluation.insideProtectedWindow ? "high" : "normal",
-    metadata: {
-      dedupe: `staffing-publish:${input.shootId}:${snapshot.shoot.published_shift_count}:${snapshot.shoot.draft_shift_count}`
-    }
-  });
+  // Per-recipient publish notifications are emitted by recordStaffingPlanPublication using the
+  // version + recipient-hash dedupe key (staffing-publish:<shoot>:<version>:<employee>:<hash>),
+  // and only for recipients who require a new notification (new or materially changed). This
+  // replaces the prior coarse count-keyed dedupe so an unchanged re-publish never re-notifies.
   await markOperationalApprovalExecuted(
     client,
     auth,
@@ -2896,6 +2899,15 @@ async function listCoverageRows(client: PoolClient, auth: AuthUser, startDate: s
             WHERE ws.shoot_id = s.id
               AND ws.cancelled_at IS NULL
               AND ws.status IN ('draft', 'published', 'completed')
+              AND NOT EXISTS (
+                SELECT 1
+                FROM staffing_plan_recipient spr
+                WHERE spr.tenant_id = s.tenant_id
+                  AND spr.shoot_id = s.id
+                  AND spr.employee_user_id = ws.assigned_user_id
+                  AND spr.superseded_at IS NULL
+                  AND spr.response_status = 'declined'
+              )
           ),
           0
         ) AS assigned_staff_count,
@@ -2907,6 +2919,15 @@ async function listCoverageRows(client: PoolClient, auth: AuthUser, startDate: s
               AND ws.cancelled_at IS NULL
               AND ws.status IN ('draft', 'published', 'completed')
               AND ws.satisfies_lead_coverage = true
+              AND NOT EXISTS (
+                SELECT 1
+                FROM staffing_plan_recipient spr
+                WHERE spr.tenant_id = s.tenant_id
+                  AND spr.shoot_id = s.id
+                  AND spr.employee_user_id = ws.assigned_user_id
+                  AND spr.superseded_at IS NULL
+                  AND spr.response_status = 'declined'
+              )
           ),
           0
         ) AS lead_coverage_count,
@@ -2919,6 +2940,15 @@ async function listCoverageRows(client: PoolClient, auth: AuthUser, startDate: s
               AND ws.cancelled_at IS NULL
               AND ws.status IN ('draft', 'published', 'completed')
               AND ws.satisfies_lead_coverage = true
+              AND NOT EXISTS (
+                SELECT 1
+                FROM staffing_plan_recipient spr
+                WHERE spr.tenant_id = s.tenant_id
+                  AND spr.shoot_id = s.id
+                  AND spr.employee_user_id = ws.assigned_user_id
+                  AND spr.superseded_at IS NULL
+                  AND spr.response_status = 'declined'
+              )
           ),
           ''
         ) AS lead_names,
@@ -3070,6 +3100,15 @@ export async function listSchedulingUrgentWatchCandidates(
             WHERE ws.tenant_id = s.tenant_id
               AND ws.shoot_id = s.id
               AND ws.status IN ('published', 'completed')
+              AND NOT EXISTS (
+                SELECT 1
+                FROM staffing_plan_recipient spr
+                WHERE spr.tenant_id = s.tenant_id
+                  AND spr.shoot_id = s.id
+                  AND spr.employee_user_id = ws.assigned_user_id
+                  AND spr.superseded_at IS NULL
+                  AND spr.response_status = 'declined'
+              )
           ),
           0
         ) AS assigned_staff_count,
@@ -3081,6 +3120,15 @@ export async function listSchedulingUrgentWatchCandidates(
               AND ws.shoot_id = s.id
               AND ws.status IN ('published', 'completed')
               AND COALESCE(ws.satisfies_lead_coverage, false)
+              AND NOT EXISTS (
+                SELECT 1
+                FROM staffing_plan_recipient spr
+                WHERE spr.tenant_id = s.tenant_id
+                  AND spr.shoot_id = s.id
+                  AND spr.employee_user_id = ws.assigned_user_id
+                  AND spr.superseded_at IS NULL
+                  AND spr.response_status = 'declined'
+              )
           ),
           0
         ) AS lead_coverage_count,
