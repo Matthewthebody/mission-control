@@ -411,6 +411,96 @@ async function handleStaffingRecipientDeclined(client: PoolClient, appEvent: any
   }
 }
 
+/**
+ * Manager-initiated acknowledgment reminder delivery. Consumes `staffing.plan.recipient_reminder` (emitted
+ * by the cooldown-guarded remind endpoint) and re-nudges the employee — but only if their CURRENT recipient
+ * is still pending. Idempotent per reminder event (worker retry never double-delivers); cooldown/no-duplicate
+ * across reminders is enforced upstream by the event's per-window dedupe + the recipient cooldown column.
+ */
+async function handleStaffingRecipientReminder(client: PoolClient, appEvent: any) {
+  const payload = (appEvent.payload ?? {}) as Record<string, any>;
+  const tenantId = appEvent.tenant_id as string;
+  const shootId = payload.shoot_id as string | undefined;
+  const employeeUserId = payload.employee_user_id as string | undefined;
+  const recipientId = appEvent.aggregate_id as string | undefined;
+  if (!tenantId || !shootId || !employeeUserId) {
+    return;
+  }
+
+  const current = await client.query(
+    `
+      SELECT response_status
+      FROM staffing_plan_recipient
+      WHERE tenant_id = $1 AND shoot_id = $2 AND employee_user_id = $3 AND superseded_at IS NULL
+      LIMIT 1
+    `,
+    [tenantId, shootId, employeeUserId]
+  );
+  const recipient = current.rows[0];
+  if (!recipient || recipient.response_status !== "pending") {
+    return; // already acknowledged/declined/superseded — no reminder needed
+  }
+
+  const context = await client.query(
+    `
+      SELECT s.shoot_code, s.title, s.shoot_date::text AS shoot_date,
+        (
+          SELECT ws.staffing_role::text
+          FROM work_shift ws
+          WHERE ws.tenant_id = $1 AND ws.shoot_id = $2 AND ws.assigned_user_id = $3 AND ws.cancelled_at IS NULL
+          ORDER BY ws.satisfies_lead_coverage DESC, ws.starts_at ASC
+          LIMIT 1
+        ) AS role
+      FROM shoot s
+      WHERE s.id = $2 AND s.tenant_id = $1
+      LIMIT 1
+    `,
+    [tenantId, shootId, employeeUserId]
+  );
+  const ctx = context.rows[0];
+  if (!ctx) {
+    return;
+  }
+
+  const roleLabel = humanizeStaffingRole(ctx.role ?? null);
+  const dateLabel = ctx.shoot_date ?? "an upcoming date";
+  const body = `Reminder — ${ctx.shoot_code}${ctx.title ? ` — ${ctx.title}` : ""} on ${dateLabel}${roleLabel ? `, ${roleLabel}` : ""} is still awaiting your acknowledgment. Please review and acknowledge.`;
+  const dedupeKey = `staffing-reminder-notify:${appEvent.id ?? recipientId ?? `${shootId}:${employeeUserId}`}`;
+
+  await client.query(
+    `
+      INSERT INTO app_event (tenant_id, event_type, aggregate_type, aggregate_id, payload, dedupe_key)
+      VALUES ($1, 'notification.dispatch', 'ops_notification', $2, $3::jsonb, $4)
+      ON CONFLICT (tenant_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+    `,
+    [
+      tenantId,
+      recipientId ?? null,
+      JSON.stringify({
+        recipient_user_id: employeeUserId,
+        notification_type: "schedule.staffing.published",
+        title: "Reminder: please acknowledge your staffing assignment",
+        body,
+        deep_link: `#my-work?focus_shoot=${shootId}`,
+        shoot_id: shootId,
+        priority: "high",
+        channels: ["in_app", "push"],
+        category: "staffing",
+        severity: "high",
+        action_required: true,
+        allow_snooze: true,
+        source_event: "staffing.plan.recipient_reminder",
+        metadata: {
+          purpose: "staffing_reminder",
+          recipient_id: recipientId ?? null,
+          dedupe: dedupeKey
+        }
+      }),
+      dedupeKey
+    ]
+  );
+}
+
 export async function handleAppEvent(client: PoolClient, appEvent: any) {
   if (appEvent.event_type === "status_event.created") {
     publishRealtime(appEvent.tenant_id, "status_event", appEvent.payload);
@@ -434,6 +524,11 @@ export async function handleAppEvent(client: PoolClient, appEvent: any) {
 
   if (appEvent.event_type === "staffing.plan.recipient_declined") {
     await handleStaffingRecipientDeclined(client, appEvent);
+    return;
+  }
+
+  if (appEvent.event_type === "staffing.plan.recipient_reminder") {
+    await handleStaffingRecipientReminder(client, appEvent);
     return;
   }
 

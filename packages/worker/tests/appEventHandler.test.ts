@@ -687,3 +687,42 @@ describe("manager-facing staffing decline notification", () => {
     expect(JSON.parse(String((inserts[0][1] as unknown[])[2])).recipient_user_id).toBe("mgr-1");
   });
 });
+
+describe("staffing acknowledgment reminder delivery", () => {
+  const reminderEvent = {
+    tenant_id: "tenant-1",
+    id: "appevent-r1",
+    aggregate_id: "recipient-1",
+    event_type: "staffing.plan.recipient_reminder",
+    payload: { shoot_id: "shoot-1", employee_user_id: "emp-1", version: 1, reminded_by_user_id: "mgr-1" }
+  };
+  function findInsert(query: ReturnType<typeof vi.fn>) {
+    return query.mock.calls.find((call) => /INSERT INTO app_event/.test(String(call[0])));
+  }
+
+  it("re-nudges a still-pending employee with reminder framing and a My Work deep link", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ response_status: "pending" }] }) // currency
+      .mockResolvedValueOnce({ rows: [{ shoot_code: "WBL-01", title: "Picture Day", shoot_date: "2027-06-07", role: "photographer" }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await handleAppEvent({ query } as never, reminderEvent);
+
+    const insert = findInsert(query);
+    expect(insert).toBeTruthy();
+    const dispatch = JSON.parse(String((insert![1] as unknown[])[2]));
+    expect(dispatch.recipient_user_id).toBe("emp-1");
+    expect(dispatch.title).toMatch(/Reminder/);
+    expect(dispatch.body).toMatch(/awaiting your acknowledgment/i);
+    expect(dispatch.deep_link).toBe("#my-work?focus_shoot=shoot-1");
+    expect(dispatch.channels).toEqual(["in_app", "push"]);
+    expect((insert![1] as unknown[])[3]).toBe("staffing-reminder-notify:appevent-r1"); // idempotent per reminder event
+  });
+
+  it("does not re-nudge an employee who already acknowledged/declined", async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [{ response_status: "acknowledged" }] });
+    await handleAppEvent({ query } as never, reminderEvent);
+    expect(findInsert(query)).toBeUndefined();
+  });
+});

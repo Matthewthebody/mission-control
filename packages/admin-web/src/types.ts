@@ -5267,6 +5267,9 @@ export type StaffingPlanLifecycleRecipientView = {
   responded_at: string | null;
   decline_reason: string | null;
   carried_forward_from_recipient_id: string | null;
+  last_reminder_at: string | null;
+  reminder_count: number;
+  next_reminder_allowed_at: string | null;
   recipient_hash: string | null;
   hash_version: number | null;
   lead_coverage: boolean;

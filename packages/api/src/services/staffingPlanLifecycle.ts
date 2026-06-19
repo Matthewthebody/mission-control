@@ -19,6 +19,8 @@ import {
 } from "../domain/staffing/staffing-plan-hash.js";
 import { createAppEvent } from "./outbox.js";
 import { createAuditLog } from "./audit.js";
+import { config } from "../config.js";
+import { canCreateOrEditCalendarDepartment } from "../authz/authority.js";
 
 // Versioned staffing publish + per-recipient acknowledgment lifecycle.
 // Writes the immutable per-shoot version ledger (staffing_plan_version) and the per-recipient
@@ -744,6 +746,146 @@ export async function declineStaffingPlanRecipient(
   return view as EmployeeStaffingAssignment;
 }
 
+export type StaffingReminderResult = {
+  status: "queued" | "cooldown";
+  recipient_id: string;
+  recipient_state: "pending";
+  reminder_count: number;
+  last_reminder_at: string;
+  next_reminder_allowed_at: string;
+  cooldown_minutes: number;
+};
+
+/**
+ * Manager-initiated "resend acknowledgment reminder" for a CURRENT, PENDING recipient. Server-authoritative:
+ * the recipient must be the current (non-superseded) row on the latest version, still pending, and the caller
+ * must manage the shoot's department — none of which is trusted from the request body. A distinct
+ * staffing.plan.recipient_reminder event drives delivery (never a republish). A second request inside the
+ * configured cooldown is an honest no-op (status "cooldown") — it queues nothing.
+ */
+export async function resendStaffingPlanReminder(
+  client: PoolClient,
+  auth: AuthUser,
+  input: { shootId: string; recipientId: string }
+): Promise<StaffingReminderResult> {
+  const cooldownMinutes = config.STAFFING_REMINDER_COOLDOWN_MINUTES;
+  const cooldownMs = cooldownMinutes * 60_000;
+
+  const row = (
+    await client.query<{
+      shoot_id: string;
+      employee_user_id: string;
+      response_status: string;
+      superseded_at: string | null;
+      last_reminder_at: string | null;
+      reminder_count: number;
+      version: number;
+      latest_version: number;
+      department: string;
+    }>(
+      `
+        SELECT
+          r.shoot_id::text AS shoot_id,
+          r.employee_user_id::text AS employee_user_id,
+          r.response_status,
+          r.superseded_at::text AS superseded_at,
+          r.last_reminder_at::text AS last_reminder_at,
+          r.reminder_count,
+          v.version AS version,
+          s.department::text AS department,
+          (
+            SELECT MAX(v2.version)
+            FROM staffing_plan_version v2
+            WHERE v2.tenant_id = r.tenant_id AND v2.shoot_id = r.shoot_id
+          ) AS latest_version
+        FROM staffing_plan_recipient r
+        JOIN staffing_plan_version v ON v.id = r.staffing_plan_version_id AND v.tenant_id = r.tenant_id
+        JOIN shoot s ON s.id = r.shoot_id AND s.tenant_id = r.tenant_id
+        WHERE r.tenant_id = $1 AND r.id = $2
+        FOR UPDATE OF r
+      `,
+      [auth.tenantId, input.recipientId]
+    )
+  ).rows[0];
+
+  if (!row || row.shoot_id !== input.shootId) {
+    throw new ApiError(404, "Staffing recipient not found");
+  }
+  if (!canCreateOrEditCalendarDepartment(auth, row.department as never)) {
+    throw new ApiError(403, "You do not manage staffing for this department");
+  }
+  if (row.superseded_at || row.version !== row.latest_version) {
+    throw new ApiError(409, "This staffing package has been superseded by a newer version");
+  }
+  if (row.response_status !== "pending") {
+    throw new ApiError(409, `Cannot remind a recipient that is ${row.response_status}`);
+  }
+
+  const now = Date.now();
+  const lastReminderAtMs = row.last_reminder_at ? new Date(row.last_reminder_at).getTime() : null;
+  if (lastReminderAtMs !== null && now - lastReminderAtMs < cooldownMs) {
+    // Inside the cooldown — return an honest no-op. Nothing is queued; republishing is NOT a reminder.
+    return {
+      status: "cooldown",
+      recipient_id: input.recipientId,
+      recipient_state: "pending",
+      reminder_count: row.reminder_count,
+      last_reminder_at: new Date(lastReminderAtMs).toISOString(),
+      next_reminder_allowed_at: new Date(lastReminderAtMs + cooldownMs).toISOString(),
+      cooldown_minutes: cooldownMinutes
+    };
+  }
+
+  const windowBucket = Math.floor(now / cooldownMs);
+  await createAppEvent(client, {
+    tenantId: auth.tenantId,
+    eventType: "staffing.plan.recipient_reminder",
+    aggregateType: "staffing_plan_recipient",
+    aggregateId: input.recipientId,
+    payload: {
+      shoot_id: row.shoot_id,
+      employee_user_id: row.employee_user_id,
+      version: row.version,
+      reminded_by_user_id: auth.id
+    },
+    dedupeKey: `staffing-reminder:${input.recipientId}:${windowBucket}`
+  });
+  const updated = (
+    await client.query<{ last_reminder_at: string; reminder_count: number }>(
+      `
+        UPDATE staffing_plan_recipient
+        SET last_reminder_at = now(), reminder_count = reminder_count + 1, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING last_reminder_at::text AS last_reminder_at, reminder_count
+      `,
+      [auth.tenantId, input.recipientId]
+    )
+  ).rows[0];
+  const queuedAtMs = new Date(updated.last_reminder_at).getTime();
+
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    targetUserId: row.employee_user_id,
+    action: "schedule.staffing.recipient_reminder_sent",
+    entityType: "staffing_plan_recipient",
+    entityId: input.recipientId,
+    metadata: { shoot_id: row.shoot_id, version: row.version, reminder_count: updated.reminder_count },
+    ipAddress: null,
+    userAgent: null
+  });
+
+  return {
+    status: "queued",
+    recipient_id: input.recipientId,
+    recipient_state: "pending",
+    reminder_count: updated.reminder_count,
+    last_reminder_at: new Date(queuedAtMs).toISOString(),
+    next_reminder_allowed_at: new Date(queuedAtMs + cooldownMs).toISOString(),
+    cooldown_minutes: cooldownMinutes
+  };
+}
+
 export type StaffingPlanRecipientState = {
   id: string;
   staffing_plan_version_id: string;
@@ -807,6 +949,9 @@ export type StaffingPlanLifecycleRecipientView = {
   responded_at: string | null;
   decline_reason: string | null; // permission-gated; null when the viewer lacks permission
   carried_forward_from_recipient_id: string | null;
+  last_reminder_at: string | null; // when a manual acknowledgment reminder was last queued (pending only)
+  reminder_count: number;
+  next_reminder_allowed_at: string | null; // last_reminder_at + cooldown; null if never reminded
   recipient_hash: string | null;
   hash_version: number | null;
   lead_coverage: boolean;
@@ -921,12 +1066,15 @@ export async function getStaffingPlanLifecycleView(
           responded_at: string | null;
           decline_reason: string | null;
           carried_forward_from_recipient_id: string | null;
+          last_reminder_at: string | null;
+          reminder_count: number;
           assignment_snapshot: { assignments?: SnapshotAssignment[] };
         }>(
           `SELECT r.id, r.employee_user_id::text AS employee_user_id, u.full_name AS employee_name,
                   r.recipient_hash, r.hash_version, r.response_status,
                   r.acknowledgment_due_at::text AS acknowledgment_due_at, r.responded_at::text AS responded_at,
                   r.decline_reason, r.carried_forward_from_recipient_id::text AS carried_forward_from_recipient_id,
+                  r.last_reminder_at::text AS last_reminder_at, r.reminder_count,
                   r.assignment_snapshot
            FROM staffing_plan_recipient r
            LEFT JOIN app_user u ON u.id = r.employee_user_id
@@ -1001,6 +1149,11 @@ export async function getStaffingPlanLifecycleView(
       responded_at: row.responded_at,
       decline_reason: canViewDeclineReasons ? row.decline_reason : null,
       carried_forward_from_recipient_id: row.carried_forward_from_recipient_id,
+      last_reminder_at: row.last_reminder_at,
+      reminder_count: row.reminder_count,
+      next_reminder_allowed_at: row.last_reminder_at
+        ? new Date(new Date(row.last_reminder_at).getTime() + config.STAFFING_REMINDER_COOLDOWN_MINUTES * 60_000).toISOString()
+        : null,
       recipient_hash: row.recipient_hash,
       hash_version: row.hash_version,
       lead_coverage: snapshotHasLead(row.assignment_snapshot),
@@ -1028,6 +1181,9 @@ export async function getStaffingPlanLifecycleView(
       responded_at: null,
       decline_reason: null,
       carried_forward_from_recipient_id: null,
+      last_reminder_at: null,
+      reminder_count: 0,
+      next_reminder_allowed_at: null,
       recipient_hash: draftHashByEmployee.get(pkg.employeeUserId) ?? null,
       hash_version: STAFFING_PLAN_HASH_VERSION,
       lead_coverage: pkg.assignments.some((assignment) => Boolean(assignment.satisfiesLeadCoverage)),

@@ -251,7 +251,14 @@ export function ShootStaffingCommand({
             </div>
           )}
 
-          {snapshot.staffing_lifecycle ? <StaffingLifecyclePanel lifecycle={snapshot.staffing_lifecycle} /> : null}
+          {snapshot.staffing_lifecycle ? (
+            <StaffingLifecyclePanel
+              lifecycle={snapshot.staffing_lifecycle}
+              token={token}
+              shootId={snapshot.shoot.id}
+              canManage={canPublish}
+            />
+          ) : null}
 
           {snapshot.approval_summary.open_count > 0 ? (
             <div className="staffing-approval-banner">

@@ -26,6 +26,7 @@ import {
   publishShootStaffing,
   removeShootStaffingAssignment
 } from "../services/scheduleStaffing.js";
+import { resendStaffingPlanReminder } from "../services/staffingPlanLifecycle.js";
 import { getStaffingCapacityPlan, type CapacityWindow } from "../services/staffingCapacity.js";
 import { STAFFING_CAPACITY_TIMEZONE } from "../domain/staffing/staffing-capacity.js";
 import { getRequestMeta } from "../utils/requestMeta.js";
@@ -434,6 +435,26 @@ router.post(
         )
       );
       return res.status("approval_required" in payload ? 202 : 200).json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/shoots/:id/staffing/recipients/:recipientId/remind",
+  requireAuth,
+  requireAction("schedule.manage"),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        resendStaffingPlanReminder(client, auth, {
+          shootId: String(req.params.id),
+          recipientId: String(req.params.recipientId)
+        })
+      );
+      return res.json(payload);
     } catch (error) {
       return next(error);
     }

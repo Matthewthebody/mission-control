@@ -260,6 +260,9 @@ const configSchema = z.object({
   ADMIN_WEB_URL: z.string().default("http://localhost:5173"),
   // A single work_shift longer than this many minutes is treated as suspicious/corrupt (flagged, still clipped).
   CAPACITY_SUSPICIOUS_SHIFT_MINUTES: z.coerce.number().int().positive().default(DEFAULT_SUSPICIOUS_SHIFT_MINUTES),
+  // Cooldown between manual staffing acknowledgment reminders for the same recipient (minutes). Conservative
+  // default of one reminder per recipient per hour; a second request inside the window is an honest no-op.
+  STAFFING_REMINDER_COOLDOWN_MINUTES: z.coerce.number().int().positive().default(60),
   AUTH_SESSION_HOURS: z.coerce.number().default(8),
   AUTH_ELEVATED_MINUTES: z.coerce.number().default(10),
   AUTH_PRIVILEGED_MODE_MINUTES: z.coerce.number().default(15),

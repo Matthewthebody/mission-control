@@ -1513,4 +1513,75 @@ describe("manager staffing-plan read model", () => {
     const gated = await lifecycleView(shoot.id, { canViewDeclineReasons: false });
     expect(viewRecipient(gated, seniorId).decline_reason).toBeNull();
   });
+
+  it("52. (#remind) resend reminder queues once for a current pending recipient, then is a cooldown no-op", async () => {
+    const date = localDateString(53);
+    const shoot = await makeShoot(date, "Reminder Queue");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    const rec = recipientFor(await recipients(shoot.id), seniorId);
+
+    const reminderEvents = async () =>
+      Number(
+        (
+          await selectRows<{ n: string }>(
+            "SELECT COUNT(*)::int AS n FROM app_event WHERE tenant_id = $1 AND event_type = 'staffing.plan.recipient_reminder' AND aggregate_id = $2",
+            [tenantId, rec.id]
+          )
+        )[0].n
+      );
+
+    const first = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/recipients/${rec.id}/remind`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(first.status).toBe(200);
+    expect(first.body.status).toBe("queued");
+    expect(first.body.recipient_state).toBe("pending");
+    expect(first.body.reminder_count).toBe(1);
+    expect(new Date(first.body.next_reminder_allowed_at).getTime()).toBeGreaterThan(new Date(first.body.last_reminder_at).getTime());
+    expect(await reminderEvents()).toBe(1);
+
+    // A second request inside the cooldown queues nothing — an honest no-op (NOT a republish, NOT a duplicate).
+    const again = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/recipients/${rec.id}/remind`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(again.status).toBe(200);
+    expect(again.body.status).toBe("cooldown");
+    expect(again.body.next_reminder_allowed_at).toBe(first.body.next_reminder_allowed_at);
+    expect(await reminderEvents()).toBe(1);
+  });
+
+  it("53. (#remind) reminder is gated by manager access and rejected for non-pending / superseded recipients", async () => {
+    const date = localDateString(54);
+    const shoot = await makeShoot(date, "Reminder Guards");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    const rec = recipientFor(await recipients(shoot.id), seniorId);
+
+    // (a) RBAC: an employee cannot resend a reminder.
+    const denied = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/recipients/${rec.id}/remind`)
+      .set("Authorization", `Bearer ${photoToken}`)
+      .send({});
+    expect(denied.status).toBe(403);
+
+    // (b) acknowledged recipient -> 409 (nothing to remind).
+    await pool.query("UPDATE staffing_plan_recipient SET response_status = 'acknowledged', responded_at = now() WHERE id = $1", [rec.id]);
+    const acked = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/recipients/${rec.id}/remind`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(acked.status).toBe(409);
+
+    // (c) superseded recipient -> 409: a materially-changed v2 supersedes v1; the old recipient cannot be reminded.
+    await bumpShiftTime(shoot.id, seniorId);
+    await recordPublish(shoot.id);
+    const superseded = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/recipients/${rec.id}/remind`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(superseded.status).toBe(409);
+  });
 });

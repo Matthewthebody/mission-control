@@ -1,11 +1,20 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import { StaffingLifecyclePanel } from "../components/StaffingLifecyclePanel";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StaffingPlanLifecycleRecipientView, StaffingPlanLifecycleView } from "../types";
 
-afterEach(cleanup);
+const resendMock = vi.fn();
+vi.mock("../services/scheduleStaffing", () => ({
+  resendStaffingReminder: (...args: unknown[]) => resendMock(...args)
+}));
+
+import { StaffingLifecyclePanel } from "../components/StaffingLifecyclePanel";
+
+afterEach(() => {
+  cleanup();
+  resendMock.mockReset();
+});
 
 function recipient(overrides: Partial<StaffingPlanLifecycleRecipientView>): StaffingPlanLifecycleRecipientView {
   return {
@@ -18,6 +27,9 @@ function recipient(overrides: Partial<StaffingPlanLifecycleRecipientView>): Staf
     responded_at: null,
     decline_reason: null,
     carried_forward_from_recipient_id: null,
+    last_reminder_at: null,
+    reminder_count: 0,
+    next_reminder_allowed_at: null,
     recipient_hash: "h",
     hash_version: 1,
     lead_coverage: true,
@@ -128,5 +140,51 @@ describe("StaffingLifecyclePanel", () => {
     expect(screen.getByTestId("lifecycle-draft")).toHaveTextContent("Assigned Draft — not yet published");
     expect(screen.getByText("Assigned Draft")).toBeInTheDocument();
     expect(screen.getByTestId("lifecycle-notification")).toHaveTextContent("Not published");
+  });
+
+  it("offers Resend Reminder for a pending recipient and reports the cooldown result", async () => {
+    resendMock.mockResolvedValue({
+      status: "queued",
+      recipient_id: "r1",
+      recipient_state: "pending",
+      reminder_count: 1,
+      last_reminder_at: "2026-05-01T10:00:00.000Z",
+      next_reminder_allowed_at: "2026-05-01T11:00:00.000Z",
+      cooldown_minutes: 60
+    });
+    render(
+      <StaffingLifecyclePanel
+        lifecycle={view({ recipients: [recipient({ employee_user_id: "e1", recipient_id: "r1", response_status: "pending" })] })}
+        token="t"
+        shootId="shoot-1"
+        canManage
+      />
+    );
+    const button = screen.getByTestId("remind-e1");
+    fireEvent.click(button);
+    expect(await screen.findByText(/Reminder queued/)).toBeInTheDocument();
+    expect(resendMock).toHaveBeenCalledWith("t", "shoot-1", "r1");
+  });
+
+  it("hides Resend Reminder for non-pending recipients and without manage permission", () => {
+    const { rerender } = render(
+      <StaffingLifecyclePanel
+        lifecycle={view({ recipients: [recipient({ employee_user_id: "e2", response_status: "acknowledged" })] })}
+        token="t"
+        shootId="shoot-1"
+        canManage
+      />
+    );
+    expect(screen.queryByTestId("remind-e2")).not.toBeInTheDocument();
+
+    rerender(
+      <StaffingLifecyclePanel
+        lifecycle={view({ recipients: [recipient({ employee_user_id: "e1", response_status: "pending" })] })}
+        token="t"
+        shootId="shoot-1"
+        canManage={false}
+      />
+    );
+    expect(screen.queryByTestId("remind-e1")).not.toBeInTheDocument();
   });
 });

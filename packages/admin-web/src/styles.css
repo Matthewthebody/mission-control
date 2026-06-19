@@ -23359,3 +23359,8 @@ html[data-theme="light"] .help-tooltip__bubble {
 
 /* Deep-link focus highlight for an employee's staffing package (from a publication notification). */
 .notification-card--focus { outline: 2px solid #5ca2e5; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(92,162,229,0.18); transition: box-shadow 0.3s ease; }
+
+/* Manager Resend Reminder action on a pending staffing recipient. */
+.staffing-lifecycle-panel__reminder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.78rem; }
+.staffing-lifecycle-panel__remind { padding: 2px 10px; font-size: 0.78rem; }
+.staffing-lifecycle-panel__reminder-error { color: #c0392b; }

@@ -43,6 +43,24 @@ export async function removeShootStaffingAssignment(
   });
 }
 
+export type StaffingReminderResult = {
+  status: "queued" | "cooldown";
+  recipient_id: string;
+  recipient_state: "pending";
+  reminder_count: number;
+  last_reminder_at: string;
+  next_reminder_allowed_at: string;
+  cooldown_minutes: number;
+};
+
+export async function resendStaffingReminder(token: string, shootId: string, recipientId: string) {
+  return apiFetch<StaffingReminderResult>(
+    `/api/schedule/shoots/${shootId}/staffing/recipients/${recipientId}/remind`,
+    token,
+    { method: "POST", body: JSON.stringify({}) }
+  );
+}
+
 export async function publishShootStaffing(
   token: string,
   shootId: string,
