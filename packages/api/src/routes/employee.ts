@@ -12,6 +12,11 @@ import {
   getEmployeeShiftDetail,
   listEmployeeMyWork
 } from "../services/employeeExperience.js";
+import {
+  acknowledgeStaffingPlanRecipient,
+  declineStaffingPlanRecipient,
+  listEmployeeStaffingAssignments
+} from "../services/staffingPlanLifecycle.js";
 import { submitEmployeeFieldForm } from "../services/employeeFieldForms.js";
 import { submitPostShootEvaluationForShift } from "../services/postShootEvaluations.js";
 import { applyCompatibilityAliasHeaders } from "../utils/compatibilityAlias.js";
@@ -99,6 +104,56 @@ router.get(
         listEmployeeMyWork(client, auth, req.query.anchor_date ? String(req.query.anchor_date) : undefined)
       );
       return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+// Self-scoped staffing acknowledgment/decline. Employee identity is ALWAYS auth.id (never trusted
+// from the browser); every mutation validates tenant + ownership + current-version inside the tx.
+router.get(
+  "/staffing-assignments",
+  requireAction("schedule.read"),
+  validateQuery(z.object({ anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const assignments = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        listEmployeeStaffingAssignments(client, auth, {
+          anchorDate: req.query.anchor_date ? String(req.query.anchor_date) : undefined
+        })
+      );
+      return res.json({ assignments });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post("/staffing-assignments/:id/acknowledge", requireAction("schedule.read"), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const assignment = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      acknowledgeStaffingPlanRecipient(client, auth, String(req.params.id), getRequestMeta(req))
+    );
+    return res.json({ assignment });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post(
+  "/staffing-assignments/:id/decline",
+  requireAction("schedule.read"),
+  validateBody(z.object({ reason: z.string().trim().min(1).max(1000) })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const assignment = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        declineStaffingPlanRecipient(client, auth, String(req.params.id), { reason: String(req.body.reason) }, getRequestMeta(req))
+      );
+      return res.json({ assignment });
     } catch (error) {
       return next(error);
     }

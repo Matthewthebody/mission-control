@@ -4,7 +4,9 @@ import type { AuthUser } from "../types/auth.js";
 import {
   computeAcknowledgmentDueAt,
   evaluateAcknowledgmentUrgency,
-  isAcknowledgmentOverdue
+  isAcknowledgmentOverdue,
+  isPastPublicationGrace,
+  isWithinEscalationWindow
 } from "../domain/staffing/staffing-acknowledgment-policy.js";
 import {
   buildRecipientSnapshot,
@@ -393,23 +395,218 @@ export async function recordStaffingPlanPublication(
   };
 }
 
-async function loadOwnCurrentRecipient(
+// ---------------------------------------------------------------------------
+// Employee self-scoped acknowledgment / decline (Slice 2 sub-slice 3)
+// ---------------------------------------------------------------------------
+// Self-scoped read model + state machine for the authenticated employee. Exposes ONLY that
+// employee's own current published recipient packages — never other employees, manager-only counts,
+// plan/recipient hashes, internal audit, or work_shift.notes (that stays on the shift-note ack path).
+
+export type EmployeeStaffingAssignmentState =
+  | "awaiting"
+  | "needs_attention"
+  | "overdue"
+  | "acknowledged"
+  | "declined"
+  | "canceled";
+
+export type EmployeeStaffingAssignment = {
+  recipient_id: string;
+  shoot_id: string;
+  shoot_code: string;
+  shoot_title: string;
+  organization_name: string | null;
+  version: number;
+  shoot_date: string | null;
+  arrival_time: string | null;
+  start_time: string | null;
+  end_time_est: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  assignments: unknown[]; // normalized roles/slots/times (NO work_shift.notes)
+  lead_coverage: boolean;
+  response_status: string;
+  acknowledgment_state: EmployeeStaffingAssignmentState;
+  acknowledgment_due_at: string | null;
+  responded_at: string | null;
+  decline_reason: string | null; // the employee's OWN decline reason only
+  carried_forward: boolean;
+  can_acknowledge: boolean;
+  can_decline: boolean;
+  schedule_link: string;
+};
+
+type EmployeeAssignmentRow = {
+  recipient_id: string;
+  shoot_id: string;
+  shoot_code: string;
+  shoot_title: string;
+  organization_name: string | null;
+  version: number;
+  published_at: string | null;
+  shoot_date: string | null;
+  arrival_time: string | null;
+  start_time: string | null;
+  end_time_est: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  assignment_snapshot: { assignments?: SnapshotAssignment[] };
+  response_status: string;
+  acknowledgment_due_at: string | null;
+  responded_at: string | null;
+  decline_reason: string | null;
+  carried_forward_from_recipient_id: string | null;
+};
+
+const EMPLOYEE_ASSIGNMENT_COLUMNS = `
+  r.id::text AS recipient_id,
+  r.shoot_id::text AS shoot_id,
+  s.shoot_code,
+  s.title AS shoot_title,
+  org.display_name AS organization_name,
+  v.version,
+  v.published_at::text AS published_at,
+  s.shoot_date::text AS shoot_date,
+  s.arrival_time::text AS arrival_time,
+  s.start_time::text AS start_time,
+  s.end_time_est::text AS end_time_est,
+  s.location_name,
+  s.location_address,
+  r.assignment_snapshot,
+  r.response_status,
+  r.acknowledgment_due_at::text AS acknowledgment_due_at,
+  r.responded_at::text AS responded_at,
+  r.decline_reason,
+  r.carried_forward_from_recipient_id::text AS carried_forward_from_recipient_id
+`;
+
+function employeeAcknowledgmentState(row: EmployeeAssignmentRow, now: Date): EmployeeStaffingAssignmentState {
+  if (row.response_status === "acknowledged") return "acknowledged";
+  if (row.response_status === "declined") return "declined";
+  if (row.response_status === "canceled") return "canceled";
+  // pending — derive the timing state from the centralized policy (the sole timing source).
+  const shootStartAt = row.arrival_time ?? row.start_time;
+  if (!isPastPublicationGrace(row.published_at, now, shootStartAt)) return "awaiting";
+  if (isAcknowledgmentOverdue(row.acknowledgment_due_at, now)) return "overdue";
+  if (isWithinEscalationWindow(shootStartAt, now)) return "needs_attention";
+  return "awaiting";
+}
+
+function buildEmployeeAssignment(row: EmployeeAssignmentRow, now: Date): EmployeeStaffingAssignment {
+  const actionable = row.response_status !== "canceled";
+  return {
+    recipient_id: row.recipient_id,
+    shoot_id: row.shoot_id,
+    shoot_code: row.shoot_code,
+    shoot_title: row.shoot_title,
+    organization_name: row.organization_name,
+    version: row.version,
+    shoot_date: row.shoot_date,
+    arrival_time: row.arrival_time,
+    start_time: row.start_time,
+    end_time_est: row.end_time_est,
+    location_name: row.location_name,
+    location_address: row.location_address,
+    assignments: row.assignment_snapshot.assignments ?? [],
+    lead_coverage: snapshotHasLead(row.assignment_snapshot),
+    response_status: row.response_status,
+    acknowledgment_state: employeeAcknowledgmentState(row, now),
+    acknowledgment_due_at: row.acknowledgment_due_at,
+    responded_at: row.responded_at,
+    decline_reason: row.decline_reason,
+    carried_forward: Boolean(row.carried_forward_from_recipient_id),
+    can_acknowledge: actionable && row.response_status === "pending",
+    can_decline: actionable && (row.response_status === "pending" || row.response_status === "acknowledged"),
+    schedule_link: `#my-work?focus_shoot=${row.shoot_id}`
+  };
+}
+
+/** Self-scoped: the authenticated employee's current published recipient packages for upcoming shoots. */
+export async function listEmployeeStaffingAssignments(
   client: PoolClient,
   auth: AuthUser,
-  recipientId: string
+  opts: { anchorDate?: string; now?: Date } = {}
+): Promise<EmployeeStaffingAssignment[]> {
+  const now = opts.now ?? new Date();
+  const anchorDate = opts.anchorDate ?? now.toISOString().slice(0, 10);
+  const { rows } = await client.query<EmployeeAssignmentRow>(
+    `
+      SELECT ${EMPLOYEE_ASSIGNMENT_COLUMNS}
+      FROM staffing_plan_recipient r
+      JOIN staffing_plan_version v ON v.id = r.staffing_plan_version_id
+      JOIN shoot s ON s.id = r.shoot_id
+      LEFT JOIN organization org ON org.id = s.organization_id
+      WHERE r.tenant_id = $1
+        AND r.employee_user_id = $2
+        AND r.superseded_at IS NULL
+        AND r.response_status <> 'canceled'
+        AND s.shoot_date >= $3::date
+      ORDER BY s.shoot_date ASC, s.arrival_time ASC NULLS LAST
+    `,
+    [auth.tenantId, auth.id, anchorDate]
+  );
+  return rows.map((row) => buildEmployeeAssignment(row, now));
+}
+
+async function loadEmployeeAssignmentByRecipientId(
+  client: PoolClient,
+  auth: AuthUser,
+  recipientId: string,
+  now: Date
+): Promise<EmployeeStaffingAssignment | null> {
+  const { rows } = await client.query<EmployeeAssignmentRow>(
+    `
+      SELECT ${EMPLOYEE_ASSIGNMENT_COLUMNS}
+      FROM staffing_plan_recipient r
+      JOIN staffing_plan_version v ON v.id = r.staffing_plan_version_id
+      JOIN shoot s ON s.id = r.shoot_id
+      LEFT JOIN organization org ON org.id = s.organization_id
+      WHERE r.tenant_id = $1 AND r.id = $2 AND r.employee_user_id = $3
+    `,
+    [auth.tenantId, recipientId, auth.id]
+  );
+  return rows[0] ? buildEmployeeAssignment(rows[0], now) : null;
+}
+
+async function loadCurrentEmployeeAssignmentForShoot(
+  client: PoolClient,
+  auth: AuthUser,
+  shootId: string,
+  now: Date
+): Promise<EmployeeStaffingAssignment | null> {
+  const { rows } = await client.query<EmployeeAssignmentRow>(
+    `
+      SELECT ${EMPLOYEE_ASSIGNMENT_COLUMNS}
+      FROM staffing_plan_recipient r
+      JOIN staffing_plan_version v ON v.id = r.staffing_plan_version_id
+      JOIN shoot s ON s.id = r.shoot_id
+      LEFT JOIN organization org ON org.id = s.organization_id
+      WHERE r.tenant_id = $1 AND r.shoot_id = $2 AND r.employee_user_id = $3 AND r.superseded_at IS NULL
+      LIMIT 1
+    `,
+    [auth.tenantId, shootId, auth.id]
+  );
+  return rows[0] ? buildEmployeeAssignment(rows[0], now) : null;
+}
+
+// Load the employee's own recipient and enforce the response guard inside the transaction:
+// 404 (missing), 403 (not the owner), or 409 with details.current_package (superseded / canceled —
+// no longer the current published version). A stale link can never mutate historical data.
+async function loadOwnRecipientForResponse(
+  client: PoolClient,
+  auth: AuthUser,
+  recipientId: string,
+  now: Date
 ): Promise<RecipientStateRow> {
+  // FOR UPDATE serializes concurrent acknowledge/decline on the same recipient — exactly one valid
+  // transition wins and the other caller evaluates against the committed state (coherent result).
   const { rows } = await client.query<RecipientStateRow>(
     `
-      SELECT
-        id,
-        employee_user_id::text AS employee_user_id,
-        response_status,
-        superseded_at,
-        recipient_hash,
-        shoot_id::text AS shoot_id,
-        staffing_plan_version_id::text AS staffing_plan_version_id
+      SELECT id, employee_user_id::text AS employee_user_id, response_status, superseded_at,
+             recipient_hash, shoot_id::text AS shoot_id, staffing_plan_version_id::text AS staffing_plan_version_id
       FROM staffing_plan_recipient
       WHERE tenant_id = $1 AND id = $2
+      FOR UPDATE
     `,
     [auth.tenantId, recipientId]
   );
@@ -417,12 +614,15 @@ async function loadOwnCurrentRecipient(
   if (!recipient) {
     throw new ApiError(404, "Staffing assignment not found");
   }
-  // Employee response routes may only mutate the employee's OWN current recipient record.
   if (recipient.employee_user_id !== auth.id) {
     throw new ApiError(403, "You can only respond to your own staffing assignment");
   }
-  if (recipient.superseded_at) {
-    throw new ApiError(409, "This staffing assignment version is no longer current");
+  if (recipient.superseded_at || recipient.response_status === "canceled") {
+    const current = await loadCurrentEmployeeAssignmentForShoot(client, auth, recipient.shoot_id, now);
+    throw new ApiError(409, "This assignment is no longer current. Review the current assignment and respond again.", {
+      conflict: "not_current",
+      current_package: current
+    });
   }
   return recipient;
 }
@@ -432,32 +632,50 @@ export async function acknowledgeStaffingPlanRecipient(
   auth: AuthUser,
   recipientId: string,
   meta: RequestMeta = {}
-): Promise<{ recipient_id: string; response_status: "acknowledged" }> {
-  const recipient = await loadOwnCurrentRecipient(client, auth, recipientId);
-  await client.query(
-    `
-      UPDATE staffing_plan_recipient
-      SET response_status = 'acknowledged',
-          responded_at = now(),
-          responded_by_user_id = $3,
-          decline_reason = NULL,
-          updated_at = now()
-      WHERE tenant_id = $1 AND id = $2
-    `,
-    [auth.tenantId, recipientId, auth.id]
-  );
-  await createAuditLog(client, {
-    tenantId: auth.tenantId,
-    actorUserId: auth.id,
-    targetUserId: auth.id,
-    action: "schedule.staffing.recipient_acknowledged",
-    entityType: "staffing_plan_recipient",
-    entityId: recipientId,
-    metadata: { shoot_id: recipient.shoot_id, recipient_hash: recipient.recipient_hash },
-    ipAddress: meta.ipAddress ?? null,
-    userAgent: meta.userAgent ?? null
-  });
-  return { recipient_id: recipientId, response_status: "acknowledged" };
+): Promise<EmployeeStaffingAssignment> {
+  const now = new Date();
+  const recipient = await loadOwnRecipientForResponse(client, auth, recipientId, now);
+  // declined -> acknowledged is NOT allowed on the same version; a manager must reassign/republish.
+  if (recipient.response_status === "declined") {
+    const current = await loadEmployeeAssignmentByRecipientId(client, auth, recipientId, now);
+    throw new ApiError(
+      409,
+      "This assignment was declined. A manager must reassign or republish before it can be acknowledged.",
+      { conflict: "declined", current_package: current }
+    );
+  }
+  // pending -> acknowledged (acknowledged -> acknowledged is an idempotent no-op).
+  if (recipient.response_status !== "acknowledged") {
+    await client.query(
+      `
+        UPDATE staffing_plan_recipient
+        SET response_status = 'acknowledged', responded_at = now(), responded_by_user_id = $3, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+      `,
+      [auth.tenantId, recipientId, auth.id]
+    );
+    await createAuditLog(client, {
+      tenantId: auth.tenantId,
+      actorUserId: auth.id,
+      targetUserId: auth.id,
+      action: "schedule.staffing.recipient_acknowledged",
+      entityType: "staffing_plan_recipient",
+      entityId: recipientId,
+      metadata: { shoot_id: recipient.shoot_id, recipient_hash: recipient.recipient_hash },
+      ipAddress: meta.ipAddress ?? null,
+      userAgent: meta.userAgent ?? null
+    });
+    await createAppEvent(client, {
+      tenantId: auth.tenantId,
+      eventType: "staffing.plan.recipient_acknowledged",
+      aggregateType: "staffing_plan_recipient",
+      aggregateId: recipientId,
+      payload: { shoot_id: recipient.shoot_id, employee_user_id: auth.id },
+      dedupeKey: `staffing-response:${recipientId}:acknowledged`
+    });
+  }
+  const view = await loadEmployeeAssignmentByRecipientId(client, auth, recipientId, now);
+  return view as EmployeeStaffingAssignment;
 }
 
 export async function declineStaffingPlanRecipient(
@@ -466,36 +684,53 @@ export async function declineStaffingPlanRecipient(
   recipientId: string,
   input: { reason: string },
   meta: RequestMeta = {}
-): Promise<{ recipient_id: string; response_status: "declined"; decline_reason: string }> {
+): Promise<EmployeeStaffingAssignment> {
+  const now = new Date();
   const reason = input.reason?.trim();
   if (!reason) {
     throw new ApiError(400, "A decline reason is required");
   }
-  const recipient = await loadOwnCurrentRecipient(client, auth, recipientId);
-  await client.query(
-    `
-      UPDATE staffing_plan_recipient
-      SET response_status = 'declined',
-          responded_at = now(),
-          responded_by_user_id = $3,
-          decline_reason = $4,
-          updated_at = now()
-      WHERE tenant_id = $1 AND id = $2
-    `,
-    [auth.tenantId, recipientId, auth.id, reason]
-  );
-  await createAuditLog(client, {
-    tenantId: auth.tenantId,
-    actorUserId: auth.id,
-    targetUserId: auth.id,
-    action: "schedule.staffing.recipient_declined",
-    entityType: "staffing_plan_recipient",
-    entityId: recipientId,
-    metadata: { shoot_id: recipient.shoot_id, recipient_hash: recipient.recipient_hash, decline_reason: reason },
-    ipAddress: meta.ipAddress ?? null,
-    userAgent: meta.userAgent ?? null
-  });
-  return { recipient_id: recipientId, response_status: "declined", decline_reason: reason };
+  if (reason.length > 1000) {
+    throw new ApiError(400, "Decline reason is too long (max 1000 characters)");
+  }
+  const recipient = await loadOwnRecipientForResponse(client, auth, recipientId, now);
+  // pending / acknowledged -> declined (a later withdrawal). declined -> declined is an idempotent
+  // no-op: the original reason is NOT overwritten, so a repeated decline is never an untracked edit.
+  if (recipient.response_status !== "declined") {
+    await client.query(
+      `
+        UPDATE staffing_plan_recipient
+        SET response_status = 'declined', responded_at = now(), responded_by_user_id = $3,
+            decline_reason = $4, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+      `,
+      [auth.tenantId, recipientId, auth.id, reason]
+    );
+    await createAuditLog(client, {
+      tenantId: auth.tenantId,
+      actorUserId: auth.id,
+      targetUserId: auth.id,
+      action: "schedule.staffing.recipient_declined",
+      entityType: "staffing_plan_recipient",
+      entityId: recipientId,
+      metadata: { shoot_id: recipient.shoot_id, recipient_hash: recipient.recipient_hash, decline_reason: reason },
+      ipAddress: meta.ipAddress ?? null,
+      userAgent: meta.userAgent ?? null
+    });
+    // Idempotent manager-facing lifecycle marker. The decline is ALSO immediately visible to managers
+    // via the canonical readiness exclusion + urgent-watch reconcile; this is NOT a delivered employee
+    // notification (no channel/receipt is claimed).
+    await createAppEvent(client, {
+      tenantId: auth.tenantId,
+      eventType: "staffing.plan.recipient_declined",
+      aggregateType: "staffing_plan_recipient",
+      aggregateId: recipientId,
+      payload: { shoot_id: recipient.shoot_id, employee_user_id: auth.id, decline_reason: reason },
+      dedupeKey: `staffing-response:${recipientId}:declined`
+    });
+  }
+  const view = await loadEmployeeAssignmentByRecipientId(client, auth, recipientId, now);
+  return view as EmployeeStaffingAssignment;
 }
 
 export type StaffingPlanRecipientState = {
