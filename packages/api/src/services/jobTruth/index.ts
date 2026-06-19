@@ -10,6 +10,7 @@ export * from "./jobDayService.js";
 export * from "./jobPublishService.js";
 export * from "./jobReadinessService.js";
 export * from "./jobService.js";
+export * from "./jobsCanonicalIndex.js";
 export * from "./jobStaffingService.js";
 export * from "./jobStatusEngine.js";
 export * from "./operationalHealthService.js";

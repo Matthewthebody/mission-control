@@ -48,6 +48,7 @@ import {
   getProductionReporting,
   getJobDetail,
   getJobStatusCounts,
+  getJobsCanonicalIndex,
   listAlertCenter,
   listDashboardWidgetPreferences,
   listJobs,
@@ -201,6 +202,29 @@ const listQuerySchema = z
     // values, never the overloaded calendar/derived filter values.
     production_status: z.string().trim().max(80).optional(),
     readiness_status: z.string().trim().max(80).optional()
+  })
+  .strict();
+
+// Canonical Jobs index (Phase 3B): one predicate layer for rows + summary counts.
+const jobsIndexQuerySchema = z
+  .object({
+    search: z.string().trim().max(120).optional(),
+    department_type: z.enum(JOB_DEPARTMENT_TYPES).optional(),
+    owner_user_id: z.string().uuid().optional(),
+    job_status: z.string().trim().max(80).optional(),
+    production_status: z.string().trim().max(80).optional(),
+    readiness_status: z.string().trim().max(80).optional(),
+    risk_status: z.string().trim().max(80).optional(),
+    staffing_status: z.string().trim().max(80).optional(),
+    date_window: z.enum(["today", "next-7", "next-14", "overdue", "all"]).optional(),
+    shoot_link_status: z.enum(["linked", "unlinked"]).optional(),
+    workflow_link_status: z.enum(["linked", "unlinked"]).optional(),
+    archived: z.enum(["active", "archived", "all"]).optional(),
+    metric: z.string().trim().max(60).optional(),
+    sort: z.enum(["date", "created", "updated", "name", "status"]).optional(),
+    direction: z.enum(["asc", "desc"]).optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+    offset: z.coerce.number().int().min(0).optional()
   })
   .strict();
 
@@ -956,6 +980,24 @@ router.get("/status-counts", validateQuery(dashboardQuerySchema), async (req, re
         department_type: (req.query.department_type as any) ?? null
       });
       return res.json({ counts });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Canonical Jobs index read model: paginated rows + summary counts that share one
+// predicate layer (summary[metric] === total returned when ?metric=<key>). Canonical
+// Jobs data + confirmed Shoot links only; same router auth + per-department read scope.
+router.get("/index", validateQuery(jobsIndexQuerySchema), async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const client = await connectGuardedClient();
+    try {
+      const result = await getJobsCanonicalIndex(client, auth, req.query as any);
+      return res.json(result);
     } finally {
       client.release();
     }
