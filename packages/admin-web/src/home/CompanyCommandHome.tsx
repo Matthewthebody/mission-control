@@ -10,6 +10,7 @@ import { LeadershipReportsStrip } from "./LeadershipReportsStrip";
 import { HomeSectionHeader, navigateToHash } from "./homeShared";
 import { resolveActionTarget } from "./actionTargets";
 import { getExceptionWorkspace } from "../services/exceptionsApi";
+import { getSharedJobStatusCounts, type SharedJobStatusCounts } from "../services/jobsApi";
 import { countUnresolvedUrgentRows } from "./urgentWindow";
 
 // Live count state for the "On Fire" card. We never fall back to a fabricated
@@ -58,7 +59,69 @@ function liveHelper(state: LiveCountState, fallback: string): string {
   return fallback;
 }
 
-function CommandCard({ card, liveCount }: { card: CompanyCommandCard; liveCount?: LiveCountState }) {
+// Live state for the canonical job-status counts (one fetch, several cards). Same
+// honesty discipline: loading → "…", error / no-session → "—", never a fabricated
+// number.
+type JobCountsState =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "ready"; counts: SharedJobStatusCounts }
+  | { state: "error" };
+
+function useJobStatusCounts(token?: string): JobCountsState {
+  const [state, setState] = useState<JobCountsState>(token ? { state: "loading" } : { state: "idle" });
+  useEffect(() => {
+    if (!token) {
+      setState({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ state: "loading" });
+    getSharedJobStatusCounts(token)
+      .then((response) => {
+        if (!cancelled) setState({ state: "ready", counts: response.counts });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ state: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+  return state;
+}
+
+// Project a single canonical count onto the shared LiveCountState the cards render.
+function pickJobCount(state: JobCountsState, key: keyof SharedJobStatusCounts): LiveCountState {
+  if (state.state === "ready") return { state: "ready", count: state.counts[key] };
+  if (state.state === "loading") return { state: "loading" };
+  if (state.state === "error") return { state: "error" };
+  return { state: "idle" };
+}
+
+function jobsBehindHelper(state: LiveCountState, fallback: string): string {
+  if (state.state === "ready") {
+    return state.count === 0
+      ? "No jobs behind on readiness right now."
+      : `${state.count} job${state.count === 1 ? "" : "s"} behind on readiness — open to act.`;
+  }
+  if (state.state === "loading") return "Loading live job status…";
+  if (state.state === "error") return "Live count unavailable — open Jobs.";
+  return fallback;
+}
+
+function productionLoadHelper(state: LiveCountState, fallback: string): string {
+  if (state.state === "ready") {
+    return state.count === 0
+      ? "No jobs blocked in production right now."
+      : `${state.count} job${state.count === 1 ? "" : "s"} blocked in production — open to clear.`;
+  }
+  if (state.state === "loading") return "Loading live production load…";
+  if (state.state === "error") return "Live count unavailable — open Jobs.";
+  return fallback;
+}
+
+function CommandCard({ card, live }: { card: CompanyCommandCard; live?: { state: LiveCountState; helper: string } }) {
   const resolved = resolveActionTarget(card.target);
   // Not connected: a clearly disabled state with the reason and NO operational
   // count — an unavailable source must never display a number.
@@ -75,8 +138,8 @@ function CommandCard({ card, liveCount }: { card: CompanyCommandCard; liveCount?
     );
   }
   const isLive = card.dataSource === "live";
-  const value = isLive ? liveValue(liveCount ?? { state: "idle" }) : card.value;
-  const helper = isLive ? liveHelper(liveCount ?? { state: "idle" }, card.helper) : card.helper;
+  const value = isLive ? liveValue(live?.state ?? { state: "idle" }) : card.value;
+  const helper = isLive ? (live?.helper ?? card.helper) : card.helper;
   return (
     <button
       type="button"
@@ -100,6 +163,9 @@ function CommandCard({ card, liveCount }: { card: CompanyCommandCard; liveCount?
 export function CompanyCommandHome({ role, token }: { role: HomeRole; token?: string }) {
   const cards = buildCompanyCommandCards();
   const unresolvedUrgent = useUnresolvedUrgentCount(token);
+  const jobCounts = useJobStatusCounts(token);
+  const jobsBehind = pickJobCount(jobCounts, "behind");
+  const productionLoad = pickJobCount(jobCounts, "blocked_production");
   return (
     <>
       <section className="panel home-command__toprow" aria-label="Company command top row">
@@ -108,9 +174,17 @@ export function CompanyCommandHome({ role, token }: { role: HomeRole; token?: st
           help="What is happening today, and what could hurt us today. Every card is a drilldown."
         />
         <div className="home-command__cards">
-          {cards.map((card) => (
-            <CommandCard key={card.id} card={card} liveCount={card.id === "on-fire" ? unresolvedUrgent : undefined} />
-          ))}
+          {cards.map((card) => {
+            let live: { state: LiveCountState; helper: string } | undefined;
+            if (card.id === "on-fire") {
+              live = { state: unresolvedUrgent, helper: liveHelper(unresolvedUrgent, card.helper) };
+            } else if (card.id === "jobs-behind") {
+              live = { state: jobsBehind, helper: jobsBehindHelper(jobsBehind, card.helper) };
+            } else if (card.id === "production-load") {
+              live = { state: productionLoad, helper: productionLoadHelper(productionLoad, card.helper) };
+            }
+            return <CommandCard key={card.id} card={card} live={live} />;
+          })}
         </div>
       </section>
 

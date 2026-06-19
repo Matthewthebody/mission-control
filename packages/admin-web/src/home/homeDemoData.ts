@@ -253,12 +253,12 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
     {
       id: "jobs-behind",
       label: "Jobs Behind",
-      value: "5",
-      helper: "Sample figure — live delivery risk is in Production Tracker.",
+      value: "—",
+      helper: "Jobs behind on readiness — open Jobs to review.",
       tone: "warning",
-      dataSource: "sample",
-      target: { sourceType: "project_tracking" },
-      drilldownLabel: "Open project tracking"
+      dataSource: "live",
+      target: { sourceType: "job", focus: { readinessStatus: "off_track" } },
+      drilldownLabel: "Open jobs behind"
     },
     {
       id: "weather-watch",
@@ -273,12 +273,12 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
     {
       id: "production-load",
       label: "Production Load",
-      value: "5 behind",
-      helper: "Illustrative — open Production for live delivery load.",
+      value: "—",
+      helper: "Jobs blocked in production — open Jobs to clear them.",
       tone: "warning",
-      dataSource: "sample",
-      target: { sourceType: "production" },
-      drilldownLabel: "Open production"
+      dataSource: "live",
+      target: { sourceType: "job", focus: { productionStatus: "blocked" } },
+      drilldownLabel: "Open blocked jobs"
     },
     {
       id: "client-issues",

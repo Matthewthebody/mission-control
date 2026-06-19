@@ -116,6 +116,33 @@ export async function getSharedJobDetail(token: string, jobId: string) {
   return apiFetch<SharedJobDetailResponse>(`${JOBS_BASE}/${jobId}`, token);
 }
 
+export type SharedJobStatusCounts = {
+  total_active: number;
+  behind: number;
+  at_risk: number;
+  blocked_production: number;
+  high_risk: number;
+  staffing_gap: number;
+};
+
+// Accurate, uncapped canonical job-status counts behind the Company Command
+// headline cards. Each count maps to a single Jobs-index filter so the card's
+// number and its #jobs?<filter> drilldown stay coherent.
+export async function getSharedJobStatusCounts(
+  token: string,
+  department_type?: SharedJobListQuery["department_type"]
+) {
+  const params = new URLSearchParams();
+  if (department_type && department_type !== "all") {
+    params.set("department_type", department_type);
+  }
+  const search = params.toString();
+  return apiFetch<{ counts: SharedJobStatusCounts }>(
+    `${JOBS_BASE}/status-counts${search ? `?${search}` : ""}`,
+    token
+  );
+}
+
 export async function listSharedPrepReadinessQueue(
   token: string,
   query: {

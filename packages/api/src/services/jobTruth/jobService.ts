@@ -3248,6 +3248,67 @@ export async function listJobs(
   return sanitizeJobListItems(client, auth, items);
 }
 
+export type JobStatusCounts = {
+  total_active: number;
+  behind: number;
+  at_risk: number;
+  blocked_production: number;
+  high_risk: number;
+  staffing_gap: number;
+};
+
+const EMPTY_JOB_STATUS_COUNTS: JobStatusCounts = {
+  total_active: 0,
+  behind: 0,
+  at_risk: 0,
+  blocked_production: 0,
+  high_risk: 0,
+  staffing_gap: 0
+};
+
+// Accurate, uncapped job-level status counts for the canonical jobs world. Unlike
+// listJobs (LIMIT 200, tuned for display), this aggregates over every active job
+// the caller can read, so Company Command headline counts stay honest at any
+// scale. Each count maps to a single Jobs-index filter (e.g. behind ->
+// readinessStatus=off_track, blocked_production -> productionStatus=blocked) so a
+// card's number stays coherent with what its #jobs?<filter> drilldown shows.
+export async function getJobStatusCounts(
+  client: PoolClient,
+  auth: AuthUser,
+  filters: { department_type?: JobDepartmentType | null } = {}
+): Promise<JobStatusCounts> {
+  const requestedDepartment = filters.department_type ?? null;
+  const departments = (
+    requestedDepartment
+      ? [requestedDepartment]
+      : (["schools", "sports", "corporate", "headshots", "other"] as JobDepartmentType[])
+  ).filter((department) => hasReadScope(auth, department) != null);
+  if (!departments.length) {
+    if (requestedDepartment) {
+      throw new ApiError(403, "Forbidden");
+    }
+    return { ...EMPTY_JOB_STATUS_COUNTS };
+  }
+  const rows = await listRows<JobStatusCounts>(
+    client,
+    `
+      SELECT
+        count(*)::int AS total_active,
+        count(*) FILTER (WHERE readiness_status = 'off_track')::int AS behind,
+        count(*) FILTER (WHERE readiness_status = 'at_risk')::int AS at_risk,
+        count(*) FILTER (WHERE production_status = 'blocked')::int AS blocked_production,
+        count(*) FILTER (WHERE risk_status IN ('high', 'critical'))::int AS high_risk,
+        count(*) FILTER (WHERE staffing_status = 'gap_flagged')::int AS staffing_gap
+      FROM jobs
+      WHERE tenant_id = $1
+        AND archived_at IS NULL
+        AND department_type = ANY($2::job_department_type[])
+    `,
+    [auth.tenantId, departments]
+  );
+  return rows[0] ?? { ...EMPTY_JOB_STATUS_COUNTS };
+}
+
 export async function listPrepReadinessQueue(
   client: PoolClient,
   auth: AuthUser,

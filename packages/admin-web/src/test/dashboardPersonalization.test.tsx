@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard } from "../pages/Dashboard";
 import type { SessionUser } from "../types";
 
-// The role-aware Home is demo-data-driven EXCEPT the live "On Fire" count, which
-// fetches the unresolved total from the canonical /api/exceptions source. The mock
-// proves the Company Command Home makes exactly that one backend call and no more.
+// The role-aware Home is demo-data-driven EXCEPT the live "On Fire" count
+// (/api/exceptions) and the canonical "Jobs Behind" / "Production Load" counts
+// (/api/jobs/status-counts). The mock proves the Company Command Home makes exactly
+// those two backend calls and no more.
 const apiFetchMock = vi.fn();
 vi.mock("../api", async () => {
   const actual = await vi.importActual<typeof import("../api")>("../api");
@@ -112,9 +113,13 @@ describe("role-aware Home", () => {
     expect(screen.getByRole("heading", { name: /People \/ Attendance Risk/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Weather Impact/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^Reports$/i })).toBeInTheDocument();
-    // Exactly one backend call — the live On Fire unresolved count — and nothing else.
-    expect(apiFetchMock).toHaveBeenCalledTimes(1);
-    expect(String(apiFetchMock.mock.calls[0]?.[0])).toContain("/api/exceptions");
+    // Exactly two live backend calls — the On Fire unresolved count
+    // (/api/exceptions) and the canonical job-status counts behind Jobs Behind /
+    // Production Load (/api/jobs/status-counts) — and nothing else.
+    expect(apiFetchMock).toHaveBeenCalledTimes(2);
+    const calledUrls = apiFetchMock.mock.calls.map((call) => String(call[0]));
+    expect(calledUrls.some((url) => url.includes("/api/exceptions"))).toBe(true);
+    expect(calledUrls.some((url) => url.includes("/api/jobs/status-counts"))).toBe(true);
   });
 
   it("defaults associates to My Workspace, not Company Command", () => {

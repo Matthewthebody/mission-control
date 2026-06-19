@@ -47,6 +47,7 @@ import {
   getDashboard,
   getProductionReporting,
   getJobDetail,
+  getJobStatusCounts,
   listAlertCenter,
   listDashboardWidgetPreferences,
   listJobs,
@@ -930,6 +931,26 @@ router.get("/", validateQuery(listQuerySchema), async (req, res, next) => {
     try {
       const jobs = await listJobs(client, auth, req.query as any);
       return res.json({ jobs });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Accurate, uncapped job-status counts for Company Command headline cards. Reuses
+// dashboardQuerySchema (optional department_type) and the same router-level auth +
+// service-level read-scope as the jobs list.
+router.get("/status-counts", validateQuery(dashboardQuerySchema), async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const client = await connectGuardedClient();
+    try {
+      const counts = await getJobStatusCounts(client, auth, {
+        department_type: (req.query.department_type as any) ?? null
+      });
+      return res.json({ counts });
     } finally {
       client.release();
     }
