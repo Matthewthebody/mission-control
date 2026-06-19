@@ -23364,3 +23364,7 @@ html[data-theme="light"] .help-tooltip__bubble {
 .staffing-lifecycle-panel__reminder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.78rem; }
 .staffing-lifecycle-panel__remind { padding: 2px 10px; font-size: 0.78rem; }
 .staffing-lifecycle-panel__reminder-error { color: #c0392b; }
+
+/* Direct cross-link from the Staff Assignment Board to Capacity Planning. */
+.staff-board__capacity-link { display: inline-block; margin-top: 2px; font-size: 0.82rem; color: #5ca2e5; text-decoration: none; }
+.staff-board__capacity-link:hover, .staff-board__capacity-link:focus-visible { text-decoration: underline; }

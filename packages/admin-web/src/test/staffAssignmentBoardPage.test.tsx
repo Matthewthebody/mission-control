@@ -156,4 +156,12 @@ describe("StaffAssignmentBoard", () => {
       window.location.hash = "";
     }
   });
+
+  it("offers a direct Capacity Planning link", async () => {
+    getStaffingDashboardMock.mockResolvedValue(dashboard);
+    getShootStaffingSnapshotMock.mockImplementation(() => new Promise(() => {}));
+    render(<StaffAssignmentBoard token="token" currentUser={buildUser()} socket={null} />);
+    const link = await screen.findByRole("link", { name: /Capacity Planning/ });
+    expect(link).toHaveAttribute("href", "#operations/staffing/capacity?view=week");
+  });
 });

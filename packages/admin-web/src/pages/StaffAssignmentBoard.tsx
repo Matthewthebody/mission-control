@@ -220,6 +220,9 @@ export function StaffAssignmentBoard({ token, currentUser, socket }: Props) {
         <div>
           <div className="eyebrow">Staffing</div>
           <h2>Staff Assignment Board</h2>
+          <a className="staff-board__capacity-link" href="#operations/staffing/capacity?view=week">
+            Capacity Planning →
+          </a>
         </div>
         <div className="staff-board__date-nav" role="group" aria-label="Choose date">
           <button type="button" className="secondary-button" onClick={() => setAnchorDate((current) => shiftDate(current, -1))} aria-label="Previous day">
