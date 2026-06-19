@@ -431,6 +431,7 @@ export type EmployeeStaffingAssignment = {
   responded_at: string | null;
   decline_reason: string | null; // the employee's OWN decline reason only
   carried_forward: boolean;
+  requires_renewed_acknowledgment: boolean; // pending now, but a prior version was acknowledged
   can_acknowledge: boolean;
   can_decline: boolean;
   schedule_link: string;
@@ -456,6 +457,7 @@ type EmployeeAssignmentRow = {
   responded_at: string | null;
   decline_reason: string | null;
   carried_forward_from_recipient_id: string | null;
+  had_prior_acknowledgment: boolean;
 };
 
 const EMPLOYEE_ASSIGNMENT_COLUMNS = `
@@ -477,7 +479,15 @@ const EMPLOYEE_ASSIGNMENT_COLUMNS = `
   r.acknowledgment_due_at::text AS acknowledgment_due_at,
   r.responded_at::text AS responded_at,
   r.decline_reason,
-  r.carried_forward_from_recipient_id::text AS carried_forward_from_recipient_id
+  r.carried_forward_from_recipient_id::text AS carried_forward_from_recipient_id,
+  EXISTS (
+    SELECT 1 FROM staffing_plan_recipient prior
+    WHERE prior.tenant_id = r.tenant_id
+      AND prior.shoot_id = r.shoot_id
+      AND prior.employee_user_id = r.employee_user_id
+      AND prior.superseded_at IS NOT NULL
+      AND prior.response_status = 'acknowledged'
+  ) AS had_prior_acknowledgment
 `;
 
 function employeeAcknowledgmentState(row: EmployeeAssignmentRow, now: Date): EmployeeStaffingAssignmentState {
@@ -515,6 +525,7 @@ function buildEmployeeAssignment(row: EmployeeAssignmentRow, now: Date): Employe
     responded_at: row.responded_at,
     decline_reason: row.decline_reason,
     carried_forward: Boolean(row.carried_forward_from_recipient_id),
+    requires_renewed_acknowledgment: row.response_status === "pending" && Boolean(row.had_prior_acknowledgment),
     can_acknowledge: actionable && row.response_status === "pending",
     can_decline: actionable && (row.response_status === "pending" || row.response_status === "acknowledged"),
     schedule_link: `#my-work?focus_shoot=${row.shoot_id}`

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Socket } from "socket.io-client";
 import { EmployeeShiftDetailPanel } from "../components/EmployeeShiftDetailPanel";
+import { EmployeeStaffingConfirmations } from "../components/EmployeeStaffingConfirmations";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
 import {
   fetchEmployeeMyWork,
@@ -185,6 +186,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
       {notice ? <div className="success-banner">{notice}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
+
+      <EmployeeStaffingConfirmations token={token} />
 
       <section className="panel employee-day-command">
         <div>
