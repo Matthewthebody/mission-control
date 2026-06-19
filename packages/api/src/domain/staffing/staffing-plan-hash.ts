@@ -25,6 +25,11 @@ import { createHash } from "node:crypto";
 // Bump when the normalization algorithm above changes. Stored as hash_version on the plan + recipient rows.
 export const STAFFING_PLAN_HASH_VERSION = 1;
 
+// Bump when the stored plan_snapshot / assignment_snapshot JSON FORMAT changes (independent of the
+// digest algorithm). Stored as snapshot_schema_version so a future format change selects the right
+// reader rather than making historical snapshots look changed.
+export const STAFFING_PLAN_SNAPSHOT_SCHEMA_VERSION = 1;
+
 export type RecipientAssignmentInput = {
   /** Canonical slot / requirement identity (preferred over any display label). */
   requirementId?: string | null;
@@ -34,6 +39,8 @@ export type RecipientAssignmentInput = {
   endsAt?: string | null;
   /** Call / setup time (shoot arrival) presented to the employee. */
   callTime?: string | null;
+  /** Source work_shift instance id — retained in the immutable snapshot for traceability, EXCLUDED from the hash. */
+  sourceShiftId?: string | null;
 };
 
 export type RecipientPackageInput = {
@@ -133,6 +140,42 @@ function sha256(value: string): string {
 
 export function computeRecipientHash(input: RecipientPackageInput): string {
   return sha256(JSON.stringify(normalizeRecipientPackage(input)));
+}
+
+export type RecipientSnapshotAssignment = NormalizedRecipientAssignment & {
+  /** Traceability only — the source work_shift row id. NOT part of recipient_hash. */
+  source_shift_id: string | null;
+};
+
+export type RecipientSnapshot = {
+  snapshot_schema_version: number;
+  employee_user_id: string;
+  shoot_date: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  assignments: RecipientSnapshotAssignment[];
+};
+
+/**
+ * The immutable per-recipient snapshot stored on the recipient row: the same material as the hash,
+ * plus source_shift_id for traceability and the snapshot schema version. Treated as a sorted
+ * multiset — identical material assignments remain distinct entries (never deduplicated).
+ */
+export function buildRecipientSnapshot(input: RecipientPackageInput): RecipientSnapshot {
+  const assignments = input.assignments
+    .map((assignment) => ({
+      ...normalizeAssignment(assignment),
+      source_shift_id: normalizeText(assignment.sourceShiftId)
+    }))
+    .sort((a, b) => compareAssignments(a, b) || (a.source_shift_id ?? "").localeCompare(b.source_shift_id ?? ""));
+  return {
+    snapshot_schema_version: STAFFING_PLAN_SNAPSHOT_SCHEMA_VERSION,
+    employee_user_id: input.employeeUserId,
+    shoot_date: normalizeText(input.shootDate),
+    location_name: normalizeText(input.locationName),
+    location_address: normalizeText(input.locationAddress),
+    assignments
+  };
 }
 
 export function normalizePlan(input: PlanInput): NormalizedPlan {

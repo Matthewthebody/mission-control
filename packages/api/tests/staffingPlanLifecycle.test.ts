@@ -12,9 +12,12 @@ import {
 } from "../src/services/staffingPlanLifecycle.js";
 import { listSchedulingUrgentWatchCandidates } from "../src/services/scheduleStaffing.js";
 import {
+  DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY,
   isAcknowledgmentOverdue,
+  isPastPublicationGrace,
   isPendingNotAcknowledged,
-  isWithinEscalationWindow
+  isWithinEscalationWindow,
+  publicationGraceBoundary
 } from "../src/domain/staffing/staffing-acknowledgment-policy.js";
 
 // Phase 2, Slice 2 — versioned staffing publish + per-recipient acknowledgment lifecycle.
@@ -597,9 +600,10 @@ describe("acknowledgment deadline policy", () => {
 
     const rec = recipientFor(await recipients(shoot.id), seniorId);
     expect(rec.response_status).toBe("pending"); // visible immediately
-    // Shoot is ~18 days out (outside the 72h window) and the deadline is in the future.
+    // Past grace, shoot ~18 days out (outside the 72h window), deadline in the future -> not urgent.
     const notUrgent = isPendingNotAcknowledged({
       responseStatus: rec.response_status,
+      publishedAt: new Date(Date.now() - 24 * 3600 * 1000),
       dueAt: rec.acknowledgment_due_at,
       shootStartAt: new Date(Date.now() + 18 * 24 * 3600 * 1000),
       now: new Date()
@@ -614,6 +618,7 @@ describe("acknowledgment deadline policy", () => {
     expect(
       isPendingNotAcknowledged({
         responseStatus: "pending",
+        publishedAt: new Date(now.getTime() - 3 * 24 * 3600 * 1000), // past grace
         dueAt: pastDue,
         shootStartAt: new Date(now.getTime() + 10 * 24 * 3600 * 1000),
         now
@@ -628,6 +633,7 @@ describe("acknowledgment deadline policy", () => {
     expect(
       isPendingNotAcknowledged({
         responseStatus: "pending",
+        publishedAt: new Date(now.getTime() - 3600 * 1000), // past the 15-min grace
         dueAt: new Date(now.getTime() + 10 * 24 * 3600 * 1000), // deadline far off
         shootStartAt: shootSoon, // but the shoot is within 72h
         now
@@ -648,6 +654,7 @@ describe("acknowledgment deadline policy", () => {
     expect(
       isPendingNotAcknowledged({
         responseStatus: overdue.response_status,
+        publishedAt: new Date(Date.now() - 24 * 3600 * 1000),
         dueAt: overdue.acknowledgment_due_at,
         shootStartAt: new Date(Date.now() + 19 * 24 * 3600 * 1000),
         now: new Date()
@@ -661,6 +668,7 @@ describe("acknowledgment deadline policy", () => {
     expect(
       isPendingNotAcknowledged({
         responseStatus: acked.response_status,
+        publishedAt: new Date(Date.now() - 24 * 3600 * 1000),
         dueAt: acked.acknowledgment_due_at,
         shootStartAt: new Date(Date.now() + 19 * 24 * 3600 * 1000),
         now: new Date()
@@ -807,11 +815,11 @@ describe("guardrails: raw-vs-accepted, version scoping, notes, publish sync, ato
     expect(row).toBeTruthy();
     // Readiness becomes at risk...
     expect(row.missing_lead).toBe(true);
-    expect(row.lead_ready).toBe(false);
+    expect(row.lead_readiness_met).toBe(false);
     expect(row.replacement_required).toBe(true);
     // ...but raw assignment truth + the declined employee name stay visible (NOT "nobody assigned").
     expect(row.assigned_staff_count).toBe(2);
-    expect(row.accepted_staff_count).toBe(1);
+    expect(row.readiness_coverage_count).toBe(1);
     expect(row.declined_staff_count).toBe(1);
     expect(row.lead_assigned).toBe(true);
     expect(row.lead_name).toBeTruthy();
@@ -933,5 +941,228 @@ describe("guardrails: raw-vs-accepted, version scoping, notes, publish sync, ato
     expect((await versions(shoot.id)).length).toBe(0);
     expect((await recipients(shoot.id, { currentOnly: false })).length).toBe(0);
     expect(await publishEventCount(shoot.id)).toBe(0);
+  });
+});
+
+describe("guardrails round 2: snapshot schema, multiset identity, grace, notifications, RLS", () => {
+  it("28. (#2a) recreating the same material commitment with a new shift id produces no new recipient hash", async () => {
+    const date = localDateString(34);
+    const shoot = await makeShoot(date, "Stable Identity");
+    const first = await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    const before = recipientFor(await recipients(shoot.id), seniorId);
+
+    // Cancel the shift and re-create an identical-material one (new row id only).
+    await pool.query("UPDATE work_shift SET status = 'cancelled', cancelled_at = now() WHERE id = $1", [first.id]);
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    const result = await recordPublish(shoot.id);
+
+    expect(result.status).toBe("unchanged"); // identical material -> no new version
+    const after = recipientFor(await recipients(shoot.id), seniorId);
+    expect(after.recipient_hash).toBe(before.recipient_hash);
+  });
+
+  it("29. (#2b) moving the employee to a different material assignment changes the recipient hash", async () => {
+    const date = localDateString(36);
+    const shoot = await makeShoot(date, "Material Identity");
+    await seedShift(shoot.id, seniorId, { date, lead: true, role: "photographer" });
+    await recordPublish(shoot.id);
+    const before = recipientFor(await recipients(shoot.id), seniorId);
+
+    await pool.query(
+      "UPDATE work_shift SET staffing_role = 'senior_photographer', updated_at = now() WHERE tenant_id = $1 AND shoot_id = $2 AND assigned_user_id = $3 AND cancelled_at IS NULL",
+      [tenantId, shoot.id, seniorId]
+    );
+    const result = await recordPublish(shoot.id);
+
+    expect(result.status).toBe("created"); // material change -> new version
+    const after = recipientFor(await recipients(shoot.id), seniorId);
+    expect(after.recipient_hash).not.toBe(before.recipient_hash);
+  });
+
+  it("30. (#2c/#2d) identical material assignments are a sorted multiset, not deduplicated", async () => {
+    const date = localDateString(35);
+    const shoot = await makeShoot(date, "Multiset Identity");
+    const first = await seedShift(shoot.id, seniorId, { date, lead: true });
+    // Clone the shift -> a second IDENTICAL-material assignment (only the row id differs).
+    await pool.query(
+      `INSERT INTO work_shift
+       SELECT (jsonb_populate_record(NULL::work_shift, (to_jsonb(ws) - 'id') || jsonb_build_object('id', gen_random_uuid()))).*
+       FROM work_shift ws WHERE ws.id = $1`,
+      [first.id]
+    );
+    await recordPublish(shoot.id);
+    const recTwo = recipientFor(await recipients(shoot.id), seniorId);
+    expect((recTwo.assignment_snapshot as any).assignments.length).toBe(2); // not deduplicated
+    const hashWithTwo = recTwo.recipient_hash;
+
+    // Remove one of the two identical assignments -> recipient + plan hash change -> new version.
+    await pool.query("UPDATE work_shift SET status = 'cancelled', cancelled_at = now() WHERE id = $1", [first.id]);
+    const result = await recordPublish(shoot.id);
+    expect(result.status).toBe("created");
+    const recOne = recipientFor(await recipients(shoot.id), seniorId);
+    expect((recOne.assignment_snapshot as any).assignments.length).toBe(1);
+    expect(recOne.recipient_hash).not.toBe(hashWithTwo);
+  });
+
+  it("31. the recipient snapshot retains source_shift_id + snapshot_schema_version for traceability", async () => {
+    const date = localDateString(37);
+    const shoot = await makeShoot(date, "Snapshot Trace");
+    const shift = await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+
+    const rows = await selectRows<{ snapshot_schema_version: number; assignment_snapshot: any }>(
+      "SELECT snapshot_schema_version, assignment_snapshot FROM staffing_plan_recipient WHERE tenant_id = $1 AND shoot_id = $2 AND superseded_at IS NULL",
+      [tenantId, shoot.id]
+    );
+    expect(rows[0].snapshot_schema_version).toBe(1);
+    expect(rows[0].assignment_snapshot.snapshot_schema_version).toBe(1);
+    expect(rows[0].assignment_snapshot.assignments[0].source_shift_id).toBe(shift.id);
+  });
+
+  it("32. (#6) grace-period boundaries are deterministic and capped at shoot start", () => {
+    const nowMs = new Date("2026-06-01T12:00:00.000Z").getTime();
+    const graceMs = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY.gracePeriodMinutes * 60 * 1000;
+    const publishedAt = new Date(nowMs);
+    const within72h = new Date(nowMs + 24 * 3600 * 1000); // shoot inside the escalation window
+    const farDue = new Date(nowMs + 10 * 24 * 3600 * 1000);
+    const base = { responseStatus: "pending", publishedAt, dueAt: farDue, shootStartAt: within72h } as const;
+
+    // 1ms before grace expiration -> not urgent (still awaiting).
+    expect(isPendingNotAcknowledged({ ...base, now: new Date(nowMs + graceMs - 1) })).toBe(false);
+    // exactly at grace expiration -> grace is over (inclusive) -> urgent inside 72h.
+    expect(isPendingNotAcknowledged({ ...base, now: new Date(nowMs + graceMs) })).toBe(true);
+    // 1ms after grace expiration -> urgent inside 72h.
+    expect(isPendingNotAcknowledged({ ...base, now: new Date(nowMs + graceMs + 1) })).toBe(true);
+    // newly published inside 72h -> visible pending but NOT urgent during grace.
+    expect(isPendingNotAcknowledged({ ...base, now: new Date(nowMs) })).toBe(false);
+    expect(isPastPublicationGrace(publishedAt, new Date(nowMs), within72h)).toBe(false);
+    // publication < grace before shoot start -> grace boundary is capped at the shoot start.
+    const shootSoon = new Date(nowMs + 5 * 60 * 1000); // 5 min out (< 15 min grace)
+    expect(publicationGraceBoundary(publishedAt, shootSoon)!.getTime()).toBe(shootSoon.getTime());
+    // explicit decline -> not a "pending not acknowledged" case (its risk is immediate via readiness).
+    expect(
+      isPendingNotAcknowledged({ responseStatus: "declined", publishedAt, dueAt: farDue, shootStartAt: within72h, now: new Date(nowMs + graceMs + 1) })
+    ).toBe(false);
+  });
+
+  it("33. (#7) the recipient_published marker is a lifecycle/outbox event, never a second delivery", async () => {
+    const date = localDateString(38);
+    const shoot = await makeShoot(date, "Notification Marker");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+
+    const markers = await selectRows<{ event_type: string }>(
+      "SELECT event_type FROM app_event WHERE tenant_id = $1 AND payload->>'shoot_id' = $2 AND event_type = 'staffing.plan.recipient_published'",
+      [tenantId, shoot.id]
+    );
+    expect(markers.length).toBe(1);
+    // The marker is NOT a notification.dispatch, so the worker projector never delivers a copy of it.
+    const dispatched = await selectRows<{ n: string }>(
+      "SELECT COUNT(*)::int AS n FROM app_event WHERE tenant_id = $1 AND event_type = 'notification.dispatch' AND payload->>'notification_type' = 'staffing.plan.recipient_published'",
+      [tenantId]
+    );
+    expect(Number(dispatched[0].n)).toBe(0);
+  });
+
+  it("34. (#7) the legacy aggregate publish notification fires once and is idempotent on unchanged republish", async () => {
+    const date = localDateString(16);
+    const shoot = await makeShoot(date, "Legacy Notification");
+    const snap = await request(app)
+      .get(`/api/schedule/shoots/${shoot.id}/staffing`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    const leadSlot = snap.body.slots.find((s: any) => s.satisfies_lead_coverage);
+    // Assign someone OTHER than the publishing actor so the legacy aggregate has a real recipient.
+    const leadOpt = leadSlot.option_groups
+      .flatMap((g: any) => g.options)
+      .find((o: any) => !o.disabled && o.user_id !== leadershipId);
+    await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/assign`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ slot_key: leadSlot.slot_key, assigned_user_id: leadOpt.user_id, override_conflict: Boolean(leadOpt.requires_override), approval_reason: "Test" });
+
+    const aggregateCount = async () =>
+      Number(
+        (
+          await selectRows<{ n: string }>(
+            "SELECT COUNT(*)::int AS n FROM app_event WHERE tenant_id = $1 AND event_type = 'notification.dispatch' AND payload->>'notification_type' = 'schedule.staffing.published' AND payload->>'shoot_id' = $2",
+            [tenantId, shoot.id]
+          )
+        )[0].n
+      );
+
+    await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/publish`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ override_warnings: true, approval_reason: "Test" });
+    const afterFirst = await aggregateCount();
+    expect(afterFirst).toBeGreaterThan(0); // delivered to the assigned recipient(s)
+
+    await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/publish`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ override_warnings: true, approval_reason: "Test" });
+    expect(await aggregateCount()).toBe(afterFirst); // unchanged republish -> no additional delivery
+  });
+
+  it("35. (#9) a rolled-back republish leaves the prior version's recipients un-superseded", async () => {
+    const date = localDateString(39);
+    const shoot = await makeShoot(date, "Rollback No Supersede");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id); // v1 commits
+    const v1Recipient = recipientFor(await recipients(shoot.id), seniorId);
+    expect(v1Recipient.superseded_at).toBeNull();
+
+    await bumpShiftTime(shoot.id, seniorId); // material change -> v2 would supersede v1
+    await expect(
+      withClientTransaction(tenantId, leadershipId, async (client) => {
+        await recordStaffingPlanPublication(client, leadAuth(), { shootId: shoot.id });
+        throw new Error("forced failure during v2");
+      })
+    ).rejects.toThrow("forced failure");
+
+    // The rolled-back v2 left no trace: still one version, v1 recipient still current.
+    expect((await versions(shoot.id)).length).toBe(1);
+    const after = recipientFor(await recipients(shoot.id), seniorId);
+    expect(after.id).toBe(v1Recipient.id);
+    expect(after.superseded_at).toBeNull();
+  });
+
+  it("36. (#10) the new tables enforce app-role access, forced RLS, tenant isolation, and the composite FK", async () => {
+    const date = localDateString(40);
+    const shoot = await makeShoot(date, "RLS Exercise");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+
+    // (a) the application role (pmc_app) can INSERT via the service transaction.
+    await recordPublish(shoot.id);
+    // (b) pmc_app can SELECT within its own tenant.
+    const inTenant = await withClientTransaction(tenantId, leadershipId, (c) =>
+      c.query("SELECT COUNT(*)::int AS n FROM staffing_plan_version WHERE shoot_id = $1", [shoot.id])
+    );
+    expect(Number(inTenant.rows[0].n)).toBeGreaterThan(0);
+    // (c) forced RLS + cross-tenant denial: a different tenant context sees nothing.
+    const crossTenant = await withClientTransaction(randomUUID(), leadershipId, (c) =>
+      c.query("SELECT COUNT(*)::int AS n FROM staffing_plan_version WHERE shoot_id = $1", [shoot.id])
+    );
+    expect(Number(crossTenant.rows[0].n)).toBe(0);
+    // (d) pmc_app can UPDATE a recipient response within its tenant.
+    const rec = recipientFor(await recipients(shoot.id), seniorId);
+    await withClientTransaction(tenantId, leadershipId, (c) =>
+      c.query("UPDATE staffing_plan_recipient SET updated_at = now() WHERE id = $1", [rec.id])
+    );
+    // (e) the composite tenant-safe FK rejects a recipient whose tenant != its version's tenant.
+    const otherTenant = await selectRows<{ id: string }>("SELECT id FROM tenant WHERE id <> $1 LIMIT 1", [tenantId]);
+    if (otherTenant.length) {
+      const version = await selectRows<{ id: string }>(
+        "SELECT id FROM staffing_plan_version WHERE shoot_id = $1 LIMIT 1",
+        [shoot.id]
+      );
+      await expect(
+        pool.query(
+          "INSERT INTO staffing_plan_recipient (tenant_id, staffing_plan_version_id, shoot_id, employee_user_id, recipient_hash) VALUES ($1, $2, $3, $4, 'fk-test')",
+          [otherTenant[0].id, version[0].id, shoot.id, seniorId]
+        )
+      ).rejects.toThrow();
+    }
   });
 });

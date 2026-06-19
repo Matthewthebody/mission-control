@@ -53,18 +53,39 @@ export function computeAcknowledgmentDueAt(
   return new Date(dueMs);
 }
 
-/** The post-publication grace period has elapsed (so "awaiting" actually counts). */
+/**
+ * The effective publication grace boundary: publishedAt + gracePeriod, but NEVER later than the
+ * shoot start. A publication less than gracePeriod before the shoot therefore has its grace capped
+ * at the shoot start (grace never extends beyond the shoot).
+ */
+export function publicationGraceBoundary(
+  publishedAt: TimeInput,
+  shootStartAt: TimeInput,
+  policy: StaffingAcknowledgmentPolicy = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY
+): Date | null {
+  const publishedMs = toEpochMs(publishedAt);
+  if (publishedMs === null) {
+    return null;
+  }
+  const base = publishedMs + policy.gracePeriodMinutes * MS_PER_MINUTE;
+  const shootMs = toEpochMs(shootStartAt);
+  const boundaryMs = shootMs !== null && shootMs < base ? shootMs : base;
+  return new Date(boundaryMs);
+}
+
+/** Current time has reached the effective grace boundary, so urgency may begin to apply. */
 export function isPastPublicationGrace(
-  publishedAt: Date | string | number,
+  publishedAt: TimeInput,
   now: Date | string | number,
+  shootStartAt: TimeInput = null,
   policy: StaffingAcknowledgmentPolicy = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY
 ): boolean {
-  const publishedMs = toEpochMs(publishedAt);
+  const boundary = publicationGraceBoundary(publishedAt, shootStartAt, policy);
   const nowMs = toEpochMs(now);
-  if (publishedMs === null || nowMs === null) {
+  if (boundary === null || nowMs === null) {
     return true;
   }
-  return nowMs - publishedMs >= policy.gracePeriodMinutes * MS_PER_MINUTE;
+  return nowMs >= boundary.getTime();
 }
 
 /** The acknowledgment deadline has passed. */
@@ -99,13 +120,19 @@ export function isWithinEscalationWindow(
 export function isPendingNotAcknowledged(
   args: {
     responseStatus: string;
+    publishedAt: TimeInput;
     dueAt: TimeInput;
     shootStartAt: TimeInput;
     now: Date | string | number;
   },
   policy: StaffingAcknowledgmentPolicy = DEFAULT_STAFFING_ACKNOWLEDGMENT_POLICY
 ): boolean {
+  // Only a pending assignment can be "not acknowledged" (declined is a separate, immediate risk).
   if (args.responseStatus !== "pending") {
+    return false;
+  }
+  // During the post-publication grace period it is "Awaiting Acknowledgment" — visible, not urgent.
+  if (!isPastPublicationGrace(args.publishedAt, args.now, args.shootStartAt, policy)) {
     return false;
   }
   return (

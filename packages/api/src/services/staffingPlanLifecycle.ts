@@ -5,11 +5,12 @@ import {
   computeAcknowledgmentDueAt
 } from "../domain/staffing/staffing-acknowledgment-policy.js";
 import {
+  buildRecipientSnapshot,
   computePlanHash,
   computeRecipientHash,
   normalizePlan,
-  normalizeRecipientPackage,
   STAFFING_PLAN_HASH_VERSION,
+  STAFFING_PLAN_SNAPSHOT_SCHEMA_VERSION,
   type RecipientPackageInput
 } from "../domain/staffing/staffing-plan-hash.js";
 import { createAppEvent } from "./outbox.js";
@@ -28,6 +29,7 @@ type RequestMeta = {
 };
 
 type ShiftPlanRow = {
+  source_shift_id: string;
   assigned_user_id: string;
   staffing_role: string | null;
   satisfies_lead_coverage: boolean | null;
@@ -118,6 +120,7 @@ async function loadShootStaffingPlanInputs(
   const shiftResult = await client.query<ShiftPlanRow>(
     `
       SELECT
+        ws.id::text AS source_shift_id,
         ws.assigned_user_id::text AS assigned_user_id,
         ws.staffing_role::text AS staffing_role,
         ws.satisfies_lead_coverage,
@@ -145,7 +148,8 @@ async function loadShootStaffingPlanInputs(
       satisfiesLeadCoverage: row.satisfies_lead_coverage,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
-      callTime
+      callTime,
+      sourceShiftId: row.source_shift_id
     };
     if (existing) {
       existing.assignments.push(assignment);
@@ -237,8 +241,9 @@ export async function recordStaffingPlanPublication(
   const versionResult = await client.query<{ id: string; published_at: string }>(
     `
       INSERT INTO staffing_plan_version (
-        tenant_id, shoot_id, version, plan_hash, hash_version, published_by_user_id, plan_snapshot
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+        tenant_id, shoot_id, version, plan_hash, hash_version, snapshot_schema_version,
+        published_by_user_id, plan_snapshot
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
       RETURNING id, published_at::text AS published_at
     `,
     [
@@ -247,6 +252,7 @@ export async function recordStaffingPlanPublication(
       nextVersion,
       planHash,
       STAFFING_PLAN_HASH_VERSION,
+      STAFFING_PLAN_SNAPSHOT_SCHEMA_VERSION,
       auth.id,
       JSON.stringify(
         normalizePlan({ shootId: input.shootId, shootDate: plan.shootDate, recipients: plan.recipients })
@@ -306,9 +312,10 @@ export async function recordStaffingPlanPublication(
       `
         INSERT INTO staffing_plan_recipient (
           tenant_id, staffing_plan_version_id, shoot_id, employee_user_id, recipient_hash,
-          hash_version, assignment_snapshot, response_status, acknowledgment_due_at, responded_at,
-          responded_by_user_id, decline_reason, carried_forward_from_recipient_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
+          hash_version, snapshot_schema_version, assignment_snapshot, response_status,
+          acknowledgment_due_at, responded_at, responded_by_user_id, decline_reason,
+          carried_forward_from_recipient_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)
         RETURNING id
       `,
       [
@@ -318,7 +325,8 @@ export async function recordStaffingPlanPublication(
         pkg.employeeUserId,
         recipientHash,
         STAFFING_PLAN_HASH_VERSION,
-        JSON.stringify(normalizeRecipientPackage(pkg)),
+        STAFFING_PLAN_SNAPSHOT_SCHEMA_VERSION,
+        JSON.stringify(buildRecipientSnapshot(pkg)),
         responseStatus,
         dueAt,
         respondedAt,

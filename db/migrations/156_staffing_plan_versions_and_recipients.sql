@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS staffing_plan_version (
   shoot_id uuid NOT NULL REFERENCES shoot(id) ON DELETE CASCADE,
   version integer NOT NULL,
   plan_hash text NOT NULL,
-  -- Normalization-algorithm version for plan_hash. Lets a future hashing change avoid
-  -- making historical plans appear changed merely because the algorithm changed.
-  hash_version integer NOT NULL DEFAULT 1,
+  -- hash_version: normalization-algorithm version for plan_hash (digest compatibility).
+  -- snapshot_schema_version: interpretation version for the immutable plan_snapshot JSON.
+  -- Hash equality is meaningful only when hash_version matches; a future hash or snapshot upgrade
+  -- bumps the relevant version so historical plans are read under their own rules rather than
+  -- appearing newly changed.
+  hash_version integer NOT NULL DEFAULT 1 CHECK (hash_version > 0),
+  snapshot_schema_version integer NOT NULL DEFAULT 1 CHECK (snapshot_schema_version > 0),
   published_by_user_id uuid REFERENCES app_user(id) ON DELETE SET NULL,
   published_at timestamptz NOT NULL DEFAULT now(),
   plan_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -35,8 +39,10 @@ CREATE TABLE IF NOT EXISTS staffing_plan_recipient (
   shoot_id uuid NOT NULL REFERENCES shoot(id) ON DELETE CASCADE,
   employee_user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   recipient_hash text NOT NULL,
-  -- Normalization-algorithm version for recipient_hash (see staffing_plan_version.hash_version).
-  hash_version integer NOT NULL DEFAULT 1,
+  -- See staffing_plan_version.hash_version / snapshot_schema_version. hash_version governs
+  -- recipient_hash equality; snapshot_schema_version governs assignment_snapshot interpretation.
+  hash_version integer NOT NULL DEFAULT 1 CHECK (hash_version > 0),
+  snapshot_schema_version integer NOT NULL DEFAULT 1 CHECK (snapshot_schema_version > 0),
   assignment_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
   response_status text NOT NULL DEFAULT 'pending',
   acknowledgment_due_at timestamptz,
