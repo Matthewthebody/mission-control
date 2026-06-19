@@ -1,103 +1,125 @@
-# Staffing Publish + Acknowledgment Lifecycle — Slice 2 design
+# Staffing Publish + Acknowledgment Lifecycle — Slice 2 design (locked)
 
-**Date:** 2026-06-18 · Branch `feature/work-spine-foundation-v1` · HEAD `8492da4`
-**Builds on:** `docs/staffing-lifecycle-trace.md` (Phase 2 Step 1). This is the design to review **before** any migration.
+**Date:** 2026-06-18 · Branch `feature/work-spine-foundation-v1`
+**Builds on:** `docs/staffing-lifecycle-trace.md` (Phase 2 Step 1). This is the locked design to implement; decisions below are final for Slice 2.
 
-**Principle:** extend the existing canonical models. **No parallel staffing-plan store** — `work_shift` and `shoot_staffing_requirement` remain the assignment/requirement source of truth; we add a per-shoot *published version* ledger and a *per-recipient acknowledgment* table, and reuse the existing outbox for notifications. The content-hash re-ack mechanism is cloned from the proven `shift_note_acknowledgement` pattern (migration 024).
+**Principle:** extend the existing canonical models. **No parallel staffing-plan store** — `work_shift` and `shoot_staffing_requirement` stay the assignment/requirement source of truth; we add a per-shoot *published version* ledger and a *per-recipient state* table, and reuse the existing outbox + audit. The content-hash re-ack mechanism is cloned from `shift_note_acknowledgement` (migration 024).
 
 ---
 
-## 1. Current canonical tables + services (no change to these)
-- `work_shift` (`007`): the assignment record — `status` (draft|published|cancelled|completed), `assigned_user_id`, `satisfies_lead_coverage`, `published_at`, `published_by_user_id`, `cancelled_at`, `reassignment_history` jsonb.
-- `shoot_staffing_requirement` (`061`): per-shoot role/slot requirements.
-- `shoot`: `planned_staff_count`, `required_lead_count`, `minimum_staff_count`, times, date, location.
-- Services: `scheduleStaffing.ts` (assign 2023, publish 2556, remove 2361, snapshot 1325), `scheduling.ts` (`publishShift` 1472, `createShift` 1199), `opsNotifications.ts` (`queueNotificationDispatch` 891), `outbox.ts` (`createAppEvent` dedupe), `urgentWatch.ts` (reconcile).
-- Prior art: `shift_note_acknowledgement` (`024`) — `note_snapshot_hash` content hash; ack matches only while the hash matches; content change ⇒ re-prompt. **This is the template.**
+## 1. `not_acknowledged` — precise definition (LOCKED)
+`not_acknowledged` = the employee has not acknowledged the **current** published assignment **by the centralized acknowledgment-policy deadline**. A freshly published, still-pending assignment is **not** urgent merely because its status starts as pending.
 
-## 2. Proposed additive schema (one migration, all additive)
-- **`staffing_plan_version`** — the per-shoot published-version ledger (append-only):
-  `id, tenant_id, shoot_id, version int, plan_hash text, published_at timestamptz, published_by_user_id, recipients jsonb`.
-  `UNIQUE (tenant_id, shoot_id, version)`. `recipients` = the immutable snapshot of the published assignments: `[{ work_shift_id, employee_user_id, slot_key, staffing_role, satisfies_lead_coverage, starts_at, ends_at }]`.
-- **`staffing_assignment_acknowledgement`** — per-recipient ack/decline:
-  `id, tenant_id, shoot_id, plan_version int, work_shift_id, employee_user_id, status (acknowledged|declined), actor_user_id, created_at timestamptz, decline_reason text null, plan_hash text`.
-  `UNIQUE (tenant_id, shoot_id, plan_version, employee_user_id)` (one record per employee per version; ack→decline updates in place).
-- No columns added to `work_shift` are required for versioning (the version lives in the ledger); optionally a denormalized `current_plan_version` could be cached on `shoot` later, but is **not** needed for correctness in this slice.
+Three separate concepts — never conflated:
+- **staffing coverage** — a person is assigned and published.
+- **employee confirmation** — the current recipient package is acknowledged.
+- **operational readiness** — coverage **and** confirmation satisfy current policy.
+A shoot can be fully staffed yet at risk because a required employee has not confirmed.
 
-## 3. Plan-version ownership + recipient identity
-- **Ownership:** the **shoot** owns the plan version — a monotonically increasing integer per shoot (`max(version)` for the shoot = current). A published version is an immutable row in `staffing_plan_version` carrying the recipient snapshot and `plan_hash`.
-- **Recipient identity:** each published assignment's `assigned_user_id` (the employee on a `work_shift` in the version's `recipients`). Acks are keyed by `(shoot, plan_version, employee_user_id)`.
+Behavior:
+- Publishing **immediately** shows **Awaiting Acknowledgment** in manager + employee views (not urgent).
+- Pending becomes a **Needs Attention / urgent-watch** issue when `acknowledgment_due_at` has passed **or** the shoot enters the configured **72-hour escalation window** while still pending.
+- An explicit **decline** is **immediate** staffing risk.
+- An overdue pending assignment rises in severity as the shoot approaches (existing severity conventions).
+- The issue resolves/supersedes when the current assignment is acknowledged, removed, canceled, reassigned, or replaced by a newer version.
+- **Centralized, configurable policy** for due times + any short publication grace period — one policy module (e.g. `domain/staffing/acknowledgmentPolicy.ts`), **not** timing constants scattered through routes/workers/selectors/UI.
 
-## 4. Acknowledgment / decline records
-Each ack/decline references: tenant · shoot · published `plan_version` · `employee_user_id` · `work_shift_id` (the slot/assignment) · `status` · `actor_user_id` · `created_at` · `decline_reason` (when declined) · `plan_hash` (content identity). **An acknowledgment of version N is stored against N and never satisfies N+1** (the current-version check looks for an ack at `max(version)`).
+## 2. Shoot-level version + recipient-level hash (LOCKED)
+- One **monotonically increasing, immutable** staffing-plan **version per shoot**. The global **`plan_hash`** determines whether a **new published version** exists.
+- A deterministic **`recipient_hash`** per employee's *complete* assignment package for that shoot/version. The **`recipient_hash`** determines whether **that employee must acknowledge again**.
 
-## 5. Lifecycle states (derived, not new enums)
-| State | Derivation |
-|---|---|
-| Draft | `work_shift` draft, no `staffing_plan_version` ≥ the current draft content |
-| Published / Awaiting Acknowledgment | current version published, recipient has no ack at `max(version)` |
-| Acknowledged | recipient has `status='acknowledged'` at `max(version)` |
-| Partially Acknowledged | multi-recipient version, some (not all) acked at `max(version)` |
-| Declined | recipient `status='declined'` at `max(version)` |
-| Changed Since Acknowledgment | recipient acked version N, current = N+1 (their ack is historical; they're Awaiting N+1) |
-| Reassigned / Removed | existing `reassignment_history` jsonb + `cancelled` (unchanged) |
-| Canceled | `work_shift.status='cancelled'` (unchanged) |
+When version **N+1** is published:
+- changed or newly added recipients → **pending**.
+- unchanged acknowledged recipients → **explicitly carried forward** (status stays `acknowledged`, with provenance).
+- unchanged pending recipients → remain **pending**, **without** another initial-publish notification.
+- unchanged declined recipients → remain **declined** unless their package materially changes.
+- removed recipients → **canceled/superseded** for the current plan.
+- all historical recipient records remain **immutable + queryable**.
 
-## 6. Material-change rules — version increment + ack invalidation
-`plan_hash` = SHA-256 over the **sorted material fields** of the published assignments:
-`[{ slot_key, employee_user_id, staffing_role, satisfies_lead_coverage, starts_at, ends_at, shoot_date, location_key, material_instructions }]`.
+**Do not** use `carried_forward` as a response status. Use:
+- **`response_status`**: `pending | acknowledged | declined | canceled` (superseded represented via `superseded_at`).
+- **`carried_forward_from_recipient_id`**: nullable provenance pointer.
+So the current version can read `acknowledged` while proving the ack carried forward from an earlier identical recipient package.
 
-| Change | New version on publish? | Invalidates prior ack? |
-|---|---|---|
-| Employee reassignment | **Yes** | Yes |
-| Role / slot change | **Yes** | Yes |
-| Start / end time change | **Yes** | Yes |
-| Shoot date change | **Yes** | Yes |
-| Meaningful location change | **Yes** | Yes |
-| Employee added or removed | **Yes** | Yes (added → new Awaiting; removed → no longer pending) |
-| Assignment cancellation | **Yes** | Yes |
-| Material assignment instructions | **Yes** | Yes |
-| Non-material internal notes / metadata | **No** | No |
-| Harmless reads | **No** | No |
+## 3. Schema (LOCKED, additive — one migration)
 
-The hash is computed **only** over material fields, so a non-material edit yields the same hash ⇒ no new version ⇒ acks stand. A material edit changes the hash ⇒ publishing creates version N+1 ⇒ recipients are Awaiting N+1 (prior N acks remain in history but don't satisfy N+1). **Versions never increment on reads or unrelated metadata.**
+### `staffing_plan_version` (append-only, immutable once published)
+`id, tenant_id, shoot_id, version int, plan_hash text, published_by_user_id, published_at timestamptz, created_at timestamptz, plan_snapshot jsonb` (immutable normalized plan metadata).
+- `UNIQUE (tenant_id, shoot_id, version)`.
+- Published versions immutable (no UPDATE of `version`/`plan_hash`/`plan_snapshot`).
+- Indexes: `(tenant_id, shoot_id, version DESC)` for current/latest lookup.
 
-## 7. Publishing behavior
-On `publish`:
-1. Compute `plan_hash` from the shoot's current assignments (material fields).
-2. If a current version exists with the **same** `plan_hash` → **safe no-op** (documented republish rule: no new version, no new notifications; return the current published state). This makes double-click/repeat-publish-of-unchanged safe.
-3. Else create version `N+1` in `staffing_plan_version` with the recipient snapshot, flip draft slots → `published` (existing `publishShift`), record actor + time.
-4. Mark each recipient **Awaiting Acknowledgment** for `N+1` (they have no ack at N+1).
-5. Queue **one** notification per recipient via the outbox, `requiresAcknowledgement = true`, dedupe key `staffing-publish:<shoot>:<N+1>:<employee>` (stable per version+recipient).
+### `staffing_plan_recipient` (recipient-**state** table, not ack-only)
+`id, tenant_id, staffing_plan_version_id (FK), employee_user_id, recipient_hash text, assignment_snapshot jsonb (immutable), response_status (pending|acknowledged|declined|canceled), acknowledgment_due_at timestamptz, responded_at timestamptz null, responded_by_user_id null, decline_reason text null, carried_forward_from_recipient_id uuid null, superseded_at timestamptz null, created_at timestamptz, updated_at timestamptz` (updated only on permitted response-state changes).
+- `UNIQUE (staffing_plan_version_id, employee_user_id)`.
+- Tenant consistency enforced (recipient.tenant_id = version.tenant_id, e.g. composite FK or trigger/check).
+- Employee response routes may mutate **only the employee's own current** recipient record.
+- **One recipient package per employee per shoot** — if an employee has multiple roles/shifts on the same shoot, the normalized `assignment_snapshot` includes all of them so the employee acknowledges **one** current commitment.
+- All response transitions go through the existing audit/event infrastructure.
 
-## 8. Acknowledgment + decline behavior (employee-scoped)
-- New employee routes (mirroring `routes/employee.ts` ack pattern): `POST /api/employee/staffing/:shootId/acknowledge` and `.../decline`. Guarded so an employee may act **only on their own current published assignment** (their `assigned_user_id` appears in `max(version).recipients`); they cannot assign/publish/override/edit requirements.
-- **Acknowledge:** references the current `max(version)`; records actor + timestamp; **idempotent** (UNIQUE constraint, ON CONFLICT update); updates the manager view immediately.
-- **Decline:** requires a `decline_reason` where policy requires; references current version; records reason; **reactivates the staffing issue** (urgent-watch) for that coverage; preserves the declined assignment + history; never grants config edit rights.
-- A **removed** employee's outstanding request is no longer pending — they are absent from `N+1.recipients`, so they don't count as Awaiting for the current plan.
+## 4. Material-change rules (LOCKED) — what is hashed
+Include (in `plan_hash` and/or `recipient_hash` as applicable): assigned employee, assignment/slot identity, role, shoot date, start/setup/end times, meaningful location, employee-facing instructions, assignment added/removed/canceled/restored.
+Exclude: reads, UI state, display names when canonical IDs exist, internal-only notes, harmless metadata, **unrelated employees from another employee's `recipient_hash`**.
+Normalize **arrays in stable order** and **timestamps/timezones (America/Chicago) before hashing**. Never rely on arbitrary JSON property order. (Helper: `domain/staffing/planHash.ts` with `normalizePlan` / `normalizeRecipientPackage` → stable JSON → SHA-256.)
 
-## 9. Notification idempotency
-Reuse `app_event` partial-unique `dedupe_key` (`003:146`) + `createAppEvent ON CONFLICT DO NOTHING`. Replace the trace's coarse count-keyed dedupe with `staffing-publish:<shoot>:<version>:<employee>`:
-- double-click / request retry / worker retry → same key → **no duplicate**.
-- a new version → new key → **one** new notification per recipient.
-- resolve/cancel → mark the pending `ops_notification` resolved (the existing acknowledge/resolve path), making reminders obsolete.
-- email/SMS/push remain stubs → kept hidden/clearly-unavailable (no change; in-app + queue are real).
+## 5. Draft vs published (LOCKED)
+After publication, canonical staffing edits are **draft changes** and must never mutate the immutable version employees acknowledged. The manager UI must be able to show: the **latest published version**, **draft changes since publication**, **republish required**, **which employees will require renewed acknowledgment** (recipient_hash changed), and **which acknowledgments carry forward** (recipient_hash unchanged). *(UI is sub-slice 3; this slice exposes the read model the UI needs.)*
 
-## 10. Urgent-watch integration
-Coverage-based candidates (`listSchedulingUrgentWatchCandidates`, counts **published** coverage) are unchanged. The resolve-after-fill loop: understaffed → reconcile (active) → assign lead (draft) → reconcile (**still active**) → publish → reconcile (**resolved**). A **decline** drops published coverage for that slot → reconcile reactivates the staffing issue. A material change that requires renewed acknowledgment keeps coverage satisfied (still published), so the coverage-watch stays resolved; surfacing an *Awaiting-Ack* operational signal is **policy-dependent** — if required, a dedicated `unacknowledged_assignment` watch type can be added, but is out of this slice's coverage rule unless a test proves the current rule wrong.
+## 6. Publish transaction + idempotency (LOCKED)
+`publish` runs atomically:
+1. **Lock** the shoot / publication boundary (`SELECT … FOR UPDATE` on the shoot row).
+2. Load current canonical staffing + the latest published version.
+3. **Normalize** the plan + per-recipient packages.
+4. Compute deterministic `plan_hash` + each `recipient_hash`.
+5. If `plan_hash` unchanged vs the latest version → **idempotent no-op**, return the existing version.
+6. Else create **exactly one** next version.
+7. Insert **all** current recipient records.
+8. **Carry forward** unchanged response states explicitly (`carried_forward_from_recipient_id` + preserved `response_status`/`responded_at`).
+9. Mark changed/new recipients **pending** with `acknowledgment_due_at` from the policy.
+10. Create notification-outbox records **only** for recipients who actually need a new notification (new/changed-and-pending), dedupe key **`staffing-publish:<shoot-id>:<version>:<employee-id>:<recipient-hash>`**.
+11. **Commit atomically.**
 
-## 11. Audit / history
-- `staffing_plan_version` is append-only → full publish history (every version, actor, time, recipient snapshot).
-- `staffing_assignment_acknowledgement` retains every ack/decline per version → full ack history (prior-version acks preserved).
-- One `audit_events` entry per publish and per ack/decline (actor, old/new). `reassignment_history` jsonb continues for assignment changes.
+Concurrent publishes / double-clicks / request retries / worker retries must **not** create duplicate versions, recipients, or notifications (the shoot lock + `UNIQUE(tenant,shoot,version)` + `UNIQUE(version,employee)` + `app_event` dedupe guarantee this). **Republishing an unchanged plan is not a reminder mechanism** — a separate **Resend Reminder** action will have its own policy + dedupe/event identity (later sub-slice).
 
-## 12. Permissions
-- Publish/assign/reassign/override → `schedule.publish` / `schedule.manage` (owner, leadership, director_admin, dept-scoped client-success). Department scope via `canManageShootDepartment`.
-- Employee ack/decline → a new employee-scoped guard: actor is the assignment's `assigned_user_id` for the **current** version, on a `schedule.read`-class permission; **cannot** publish/assign/reassign/override/edit requirements.
-- Deep links cannot bypass — every mutation hits a guarded route (the hash router carries no authority).
+## 7. Decline → canonical readiness (LOCKED)
+A declined assignment must **not** continue satisfying accepted operational readiness just because its `work_shift` is still `published`. **Audit + update the canonical readiness/candidate calculation** (the `getStaffingDashboardOverview` coverage SQL and `listSchedulingUrgentWatchCandidates`) so a **current declined recipient is excluded from accepted staffing readiness** (one authoritative state). Do **not** "fix" this by only inserting an urgent-watch row while the coverage SQL still reports the shoot covered.
+Decline must: require a reason; retain assignment + response history; update the manager view immediately; make the current plan visibly at risk; activate/reactivate the correct staffing issue; prevent the declined commitment from being treated as confirmed coverage; never let the employee change staffing configuration.
 
-## 13. Implementation sub-slices (bounded commits)
-1. **Additive schema + services** — the two tables + `recordStaffingPlanVersion` / `getCurrentStaffingPlan` / `plan_hash` helpers; publish writes the version; snapshot exposes version + per-recipient ack state. Migration tests.
-2. **Publish / version behavior** — material-change hash, safe-no-op republish, `requiresAcknowledgement`, per-recipient dedupe key. Publish/idempotency tests + the changed-after-ack (v1→v2) test.
-3. **Employee acknowledgment / decline UI + routes** — employee-scoped ack/decline; manager view shows Awaiting/Acknowledged/Declined/Partially. RBAC tests.
-4. **Urgent-watch + notification integration** — decline reactivates the issue; the resolve-after-fill domain test; notification idempotency (double-click/retry).
-5. **Verification** — full admin-web + worker + API suites, browser smoke (publish v1 → ack → change → publish v2 → prior ack historical → ack v2).
+## 8. Permissions
+- Publish/assign/reassign/override → `schedule.publish` / `schedule.manage` (owner, leadership, director_admin, dept-scoped client-success via `canManageShootDepartment`).
+- Employee ack/decline → employee-scoped guard: actor = the recipient's `employee_user_id` for the **current** version; `schedule.read`-class; **cannot** publish/assign/reassign/override/edit requirements.
+- Deep links cannot bypass — every mutation hits a guarded route.
+
+## 9. Audit / history
+`staffing_plan_version` append-only (full publish history); `staffing_plan_recipient` retains every recipient state per version (prior acks preserved); one `audit_events` entry per publish + per response transition; `reassignment_history` jsonb continues.
+
+## 10. Tests required with the schema/services sub-slice (LOCKED — 22)
+1. First publish → version 1 + one recipient package per employee.
+2. Multi-assignment employee → one recipient package.
+3. Repeat unchanged publish → returns version 1.
+4. Unchanged publish → no duplicate recipient rows or notifications.
+5. Changing one employee → version 2.
+6. The changed employee → pending.
+7. Unchanged acknowledged employee → carried forward explicitly.
+8. The prior acknowledgment remains historical.
+9. Unchanged pending employee → remains pending, no second initial notification.
+10. An unrelated employee's change does not force all to re-acknowledge.
+11. Material date/time/location/instruction change → renewed ack for affected employees.
+12. Internal-only notes → no new version.
+13. Concurrent publishes → no duplicate version numbers.
+14. Pending visible immediately but not urgent before policy thresholds.
+15. Passing the due time → `not_acknowledged` activates.
+16. Entering the 72h window while pending → activates.
+17. Acknowledgment resolves the current not-acknowledged issue.
+18. Decline → plan immediately operationally at risk.
+19. A declined published shift no longer satisfies accepted readiness.
+20. Reassignment + newer version supersede old pending issues + reminders.
+21. Employee routes reject actions against another employee's recipient record.
+22. Employees cannot publish, assign, override, or edit staffing requirements.
+
+## 11. Implementation sub-slices (bounded commits)
+1. **Additive schema + services** (this sub-slice) — migration (2 tables), `planHash`/`recipientHash` normalization, `acknowledgmentPolicy`, publish-writes-version + recipient state + carry-forward, decline→readiness in the coverage/candidate calc, the 22 tests above. *(No UI.)*
+2. **Publish / version read model** surfaced to the manager snapshot (latest version, draft-since, republish-required, who-re-acks, who-carries-forward).
+3. **Employee acknowledgment / decline UI + routes** + RBAC.
+4. **Urgent-watch + notification integration** (due/72h activation, decline reactivation, resolve-after-fill domain test, Resend Reminder, idempotency).
+5. **Verification** — full suites + browser smoke (publish v1 → ack → change → publish v2 → prior ack historical → ack v2).
