@@ -4,23 +4,36 @@ import { createHash } from "node:crypto";
 // - plan_hash (per shoot): determines whether a new published VERSION exists.
 // - recipient_hash (per employee): determines whether THAT employee must re-acknowledge.
 //
-// Only MATERIAL fields are hashed; arrays are normalized to a stable order; timestamps are
-// collapsed to a single canonical instant so source-offset / property-order differences never
-// produce a spurious re-acknowledgment. Excluded: display labels, internal-only notes, reads,
-// UI state, and any other employee's assignments. See docs/staffing-publish-ack-lifecycle-design.md §4.
+// Normalization contract (its version is stored as hash_version alongside the hash; bump on change):
+//   - Hash version: STAFFING_PLAN_HASH_VERSION below, persisted on the version + recipient rows so a
+//     future algorithm change does NOT make historical plans look changed merely because the
+//     algorithm changed. Comparisons only treat hashes as equal when hash_version also matches.
+//   - Stable sort: each employee's assignments sort by (requirement_id, starts_at, role, ends_at);
+//     plan recipients sort by employee id. JSON keys are emitted in a fixed literal order.
+//   - Timestamp normalization: every timestamp collapses to one canonical UTC instant (toISOString);
+//     unparseable values are kept verbatim; date-only values (shoot_date) are kept as-is.
+//   - Null/empty normalization: blank / whitespace-only strings normalize to null.
+//   - Canonical IDs: requirement_id (the slot) is hashed; the internal work_shift instance id and
+//     display names are NOT — a re-created shift with identical material is the same commitment.
+//   - Excluded fields: work_shift.notes / free-text instructions (employee-facing pre-service notes
+//     already carry their own content-hash acknowledgment via shift_note_acknowledgement; folding
+//     them in here would double the re-ack triggers and risk hashing internal note usage — a
+//     dedicated employee-facing assignment-instructions field can be added and hashed later),
+//     display labels, reads, UI state, lifecycle/publish status, and any other employee's assignments.
+// See docs/staffing-publish-ack-lifecycle-design.md §4.
+
+// Bump when the normalization algorithm above changes. Stored as hash_version on the plan + recipient rows.
+export const STAFFING_PLAN_HASH_VERSION = 1;
 
 export type RecipientAssignmentInput = {
   /** Canonical slot / requirement identity (preferred over any display label). */
   requirementId?: string | null;
-  shiftId?: string | null;
   staffingRole?: string | null;
   satisfiesLeadCoverage?: boolean | null;
   startsAt?: string | null;
   endsAt?: string | null;
   /** Call / setup time (shoot arrival) presented to the employee. */
   callTime?: string | null;
-  /** Employee-facing instructions (NOT internal-only notes). */
-  instructions?: string | null;
 };
 
 export type RecipientPackageInput = {
@@ -33,13 +46,11 @@ export type RecipientPackageInput = {
 
 export type NormalizedRecipientAssignment = {
   requirement_id: string | null;
-  shift_id: string | null;
   staffing_role: string | null;
   satisfies_lead_coverage: boolean;
   starts_at: string | null;
   ends_at: string | null;
   call_time: string | null;
-  instructions: string | null;
 };
 
 export type NormalizedRecipientPackage = {
@@ -88,13 +99,11 @@ export function normalizeInstant(value: string | null | undefined): string | nul
 function normalizeAssignment(input: RecipientAssignmentInput): NormalizedRecipientAssignment {
   return {
     requirement_id: normalizeText(input.requirementId),
-    shift_id: normalizeText(input.shiftId),
     staffing_role: normalizeText(input.staffingRole),
     satisfies_lead_coverage: Boolean(input.satisfiesLeadCoverage),
     starts_at: normalizeInstant(input.startsAt),
     ends_at: normalizeInstant(input.endsAt),
-    call_time: normalizeInstant(input.callTime),
-    instructions: normalizeText(input.instructions)
+    call_time: normalizeInstant(input.callTime)
   };
 }
 
@@ -103,7 +112,7 @@ function compareAssignments(a: NormalizedRecipientAssignment, b: NormalizedRecip
     (a.requirement_id ?? "").localeCompare(b.requirement_id ?? "") ||
     (a.starts_at ?? "").localeCompare(b.starts_at ?? "") ||
     (a.staffing_role ?? "").localeCompare(b.staffing_role ?? "") ||
-    (a.shift_id ?? "").localeCompare(b.shift_id ?? "")
+    (a.ends_at ?? "").localeCompare(b.ends_at ?? "")
   );
 }
 

@@ -370,6 +370,13 @@ describe("staffing plan versioning + recipient packages", () => {
     const recs = await recipients(shoot.id);
     expect(recs.length).toBe(distinctAssigned.length);
     expect(recs.every((r) => r.response_status === "pending")).toBe(true);
+
+    // The first publish also synchronizes canonical shift publication state.
+    const publishedShifts = await selectRows<{ n: string }>(
+      "SELECT COUNT(*)::int AS n FROM work_shift WHERE tenant_id = $1 AND shoot_id = $2 AND status = 'published'",
+      [tenantId, shoot.id]
+    );
+    expect(Number(publishedShifts[0].n)).toBeGreaterThan(0);
   });
 
   it("2. an employee with multiple assignments receives one recipient package", async () => {
@@ -559,18 +566,25 @@ describe("staffing plan versioning + recipient packages", () => {
     expect((await versions(shoot.id)).length).toBe(1);
   });
 
-  it("13. concurrent publishes cannot create duplicate version numbers", async () => {
+  it("13. concurrent publishes: one version, one recipient + one notification per employee, no leaked unique violation", async () => {
     const date = localDateString(31);
     const shoot = await makeShoot(date, "Concurrent Publish");
     await seedShift(shoot.id, seniorId, { date, lead: true });
     await seedShift(shoot.id, officeId, { date, lead: false });
 
-    await Promise.allSettled([recordPublish(shoot.id), recordPublish(shoot.id)]);
+    const settled = await Promise.allSettled([recordPublish(shoot.id), recordPublish(shoot.id)]);
+    // Both callers get a coherent result; no unhandled unique-constraint failure leaks out.
+    expect(settled.every((r) => r.status === "fulfilled")).toBe(true);
+    const statuses = settled
+      .map((r) => (r as PromiseFulfilledResult<{ status: string }>).value.status)
+      .sort();
+    expect(statuses).toEqual(["created", "unchanged"]);
 
     const planVersions = await versions(shoot.id);
     expect(planVersions.length).toBe(1);
     expect(planVersions[0].version).toBe(1);
-    expect((await recipients(shoot.id)).length).toBe(2);
+    expect((await recipients(shoot.id)).length).toBe(2); // one recipient row per employee
+    expect(await publishEventCount(shoot.id)).toBe(2); // one initial notification per pending employee
   });
 });
 
@@ -771,5 +785,153 @@ describe("acknowledgment RBAC + ownership", () => {
       .set("Authorization", `Bearer ${photoToken}`)
       .send({ override_warnings: false });
     expect(publishAsPhoto.status).toBe(403);
+  });
+});
+
+describe("guardrails: raw-vs-accepted, version scoping, notes, publish sync, atomicity", () => {
+  it("23. (G1) a decline keeps raw assignment truth + the employee name visible while flipping readiness at-risk", async () => {
+    const date = localDateString(2);
+    const shoot = await makeShoot(date, "Raw vs Accepted");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+
+    const seniorRec = recipientFor(await recipients(shoot.id), seniorId);
+    await declineAs(seniorId, seniorRec.id, "Conflict that morning");
+
+    const dashboard = await request(app)
+      .get(`/api/schedule/staffing-dashboard?anchor_date=${localDateString(0)}`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(dashboard.status).toBe(200);
+    const row = dashboard.body.open_coverage.find((r: any) => r.shoot_id === shoot.id);
+    expect(row).toBeTruthy();
+    // Readiness becomes at risk...
+    expect(row.missing_lead).toBe(true);
+    expect(row.lead_ready).toBe(false);
+    expect(row.replacement_required).toBe(true);
+    // ...but raw assignment truth + the declined employee name stay visible (NOT "nobody assigned").
+    expect(row.assigned_staff_count).toBe(2);
+    expect(row.accepted_staff_count).toBe(1);
+    expect(row.declined_staff_count).toBe(1);
+    expect(row.lead_assigned).toBe(true);
+    expect(row.lead_name).toBeTruthy();
+    expect(row.declined_lead_name).toBe(row.lead_name);
+  });
+
+  it("24. (G2) a historical decline is version-scoped: a v2 replacement is not excluded and follows its own state", async () => {
+    const date = localDateString(3);
+    const shoot = await makeShoot(date, "Version Scoped Decline");
+    const seniorShift = await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id); // v1
+
+    const seniorRec = recipientFor(await recipients(shoot.id), seniorId);
+    await declineAs(seniorId, seniorRec.id, "Cannot attend"); // readiness at risk
+    expect((await candidatesForShoot(shoot.id)).some((c) => c.watch_type === "critical_role_gap")).toBe(true);
+
+    // Reassign: cancel senior, bring in admin as the replacement lead, republish (v2).
+    await pool.query("UPDATE work_shift SET status = 'cancelled', cancelled_at = now() WHERE id = $1 AND tenant_id = $2", [
+      seniorShift.id,
+      tenantId
+    ]);
+    await seedShift(shoot.id, adminId, { date, lead: true });
+    await recordPublish(shoot.id); // v2
+
+    // The historical v1 decline remains visible...
+    const all = await recipients(shoot.id, { currentOnly: false });
+    const priorSenior = all.find((r) => r.id === seniorRec.id);
+    expect(priorSenior!.response_status).toBe("declined");
+    expect(priorSenior!.superseded_at).not.toBeNull();
+
+    // ...but it does not mark v2 declined: the replacement lead follows its own pending state.
+    const current = await recipients(shoot.id);
+    const adminRec = current.find((r) => r.employee_user_id === adminId);
+    expect(adminRec).toBeTruthy();
+    expect(adminRec!.response_status).toBe("pending");
+    expect(current.some((r) => r.employee_user_id === seniorId)).toBe(false);
+
+    // Readiness recovers — the v1 decline does not permanently exclude the v2 replacement lead.
+    expect((await candidatesForShoot(shoot.id)).some((c) => c.watch_type === "critical_role_gap")).toBe(false);
+  });
+
+  it("25. (G3) changing internal work_shift.notes does not create a new version", async () => {
+    const date = localDateString(33);
+    const shoot = await makeShoot(date, "Notes Excluded");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+
+    await pool.query(
+      "UPDATE work_shift SET notes = $1, updated_at = now() WHERE tenant_id = $2 AND shoot_id = $3 AND assigned_user_id = $4 AND cancelled_at IS NULL",
+      ["Internal manager-only note change", tenantId, shoot.id, seniorId]
+    );
+    const second = await recordPublish(shoot.id);
+
+    expect(second.status).toBe("unchanged");
+    expect((await versions(shoot.id)).length).toBe(1);
+  });
+
+  it("26. (G5) an unchanged-plan republish still synchronizes canonical shift publication", async () => {
+    const date = localDateString(16);
+    const shoot = await makeShoot(date, "Publish Sync");
+
+    const snap = await request(app)
+      .get(`/api/schedule/shoots/${shoot.id}/staffing`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    const leadSlot = snap.body.slots.find((s: any) => s.satisfies_lead_coverage);
+    const leadOpt = leadSlot.option_groups.flatMap((g: any) => g.options).find((o: any) => !o.disabled);
+    await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/assign`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ slot_key: leadSlot.slot_key, assigned_user_id: leadOpt.user_id, override_conflict: Boolean(leadOpt.requires_override), approval_reason: "Test" });
+
+    const pub1 = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/publish`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ override_warnings: true, approval_reason: "Test" });
+    expect(pub1.status).toBe(200);
+    expect((await versions(shoot.id)).length).toBe(1);
+
+    // Non-material edit: revert the published shift(s) to draft — the material plan hash is unchanged.
+    await pool.query("UPDATE work_shift SET status = 'draft' WHERE tenant_id = $1 AND shoot_id = $2 AND status = 'published'", [
+      tenantId,
+      shoot.id
+    ]);
+    const draftBefore = await selectRows<{ n: string }>(
+      "SELECT COUNT(*)::int AS n FROM work_shift WHERE tenant_id = $1 AND shoot_id = $2 AND status = 'draft' AND cancelled_at IS NULL",
+      [tenantId, shoot.id]
+    );
+    expect(Number(draftBefore[0].n)).toBeGreaterThan(0);
+
+    // Republish: no new version (unchanged plan) BUT the draft is re-published (not "nothing to publish").
+    const pub2 = await request(app)
+      .post(`/api/schedule/shoots/${shoot.id}/staffing/publish`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ override_warnings: true, approval_reason: "Test" });
+    expect(pub2.status).toBe(200);
+    expect((await versions(shoot.id)).length).toBe(1);
+    const draftAfter = await selectRows<{ n: string }>(
+      "SELECT COUNT(*)::int AS n FROM work_shift WHERE tenant_id = $1 AND shoot_id = $2 AND status = 'draft' AND cancelled_at IS NULL",
+      [tenantId, shoot.id]
+    );
+    expect(Number(draftAfter[0].n)).toBe(0);
+  });
+
+  it("27. (G6) a failure after recipient + outbox creation rolls back the whole transaction atomically", async () => {
+    const date = localDateString(17);
+    const shoot = await makeShoot(date, "Atomic Rollback");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+
+    await expect(
+      withClientTransaction(tenantId, leadershipId, async (client) => {
+        await recordStaffingPlanPublication(client, leadAuth(), { shootId: shoot.id });
+        throw new Error("forced failure after recipient/outbox creation");
+      })
+    ).rejects.toThrow("forced failure");
+
+    // Nothing partial survives the rollback.
+    expect((await versions(shoot.id)).length).toBe(0);
+    expect((await recipients(shoot.id, { currentOnly: false })).length).toBe(0);
+    expect(await publishEventCount(shoot.id)).toBe(0);
   });
 });

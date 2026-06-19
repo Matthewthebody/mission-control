@@ -9,6 +9,7 @@ import {
   computeRecipientHash,
   normalizePlan,
   normalizeRecipientPackage,
+  STAFFING_PLAN_HASH_VERSION,
   type RecipientPackageInput
 } from "../domain/staffing/staffing-plan-hash.js";
 import { createAppEvent } from "./outbox.js";
@@ -27,14 +28,12 @@ type RequestMeta = {
 };
 
 type ShiftPlanRow = {
-  shift_id: string;
   assigned_user_id: string;
   staffing_role: string | null;
   satisfies_lead_coverage: boolean | null;
   starts_at: string | null;
   ends_at: string | null;
   requirement_id: string | null;
-  notes: string | null;
 };
 
 type ShootPlanRow = {
@@ -67,6 +66,7 @@ type PriorRecipientRow = {
   id: string;
   employee_user_id: string;
   recipient_hash: string;
+  hash_version: number;
   response_status: string;
   acknowledgment_due_at: Date | null;
   responded_at: Date | null;
@@ -110,17 +110,20 @@ async function loadShootStaffingPlanInputs(
     start_time: null
   };
 
+  // NOTE: work_shift.notes is intentionally NOT loaded into the recipient hash. It is surfaced to
+  // employees as pre-service highlights that already carry their own content-hash acknowledgment
+  // (shift_note_acknowledgement); hashing it here would create a second, overlapping re-ack trigger
+  // and risk re-acknowledging internal note usage. A dedicated employee-facing assignment-instructions
+  // field can be added and hashed in a later slice.
   const shiftResult = await client.query<ShiftPlanRow>(
     `
       SELECT
-        ws.id::text AS shift_id,
         ws.assigned_user_id::text AS assigned_user_id,
         ws.staffing_role::text AS staffing_role,
         ws.satisfies_lead_coverage,
         ws.starts_at::text AS starts_at,
         ws.ends_at::text AS ends_at,
-        ws.staffing_requirement_id::text AS requirement_id,
-        ws.notes
+        ws.staffing_requirement_id::text AS requirement_id
       FROM work_shift ws
       WHERE ws.tenant_id = $1
         AND ws.shoot_id = $2
@@ -138,13 +141,11 @@ async function loadShootStaffingPlanInputs(
     const existing = byEmployee.get(row.assigned_user_id);
     const assignment = {
       requirementId: row.requirement_id,
-      shiftId: row.shift_id,
       staffingRole: row.staffing_role,
       satisfiesLeadCoverage: row.satisfies_lead_coverage,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
-      callTime,
-      instructions: row.notes
+      callTime
     };
     if (existing) {
       existing.assignments.push(assignment);
@@ -172,10 +173,10 @@ async function loadLatestStaffingPlanVersion(
   client: PoolClient,
   tenantId: string,
   shootId: string
-): Promise<{ id: string; version: number; plan_hash: string } | null> {
-  const { rows } = await client.query<{ id: string; version: number; plan_hash: string }>(
+): Promise<{ id: string; version: number; plan_hash: string; hash_version: number } | null> {
+  const { rows } = await client.query<{ id: string; version: number; plan_hash: string; hash_version: number }>(
     `
-      SELECT id, version, plan_hash
+      SELECT id, version, plan_hash, hash_version
       FROM staffing_plan_version
       WHERE tenant_id = $1 AND shoot_id = $2
       ORDER BY version DESC
@@ -216,9 +217,10 @@ export async function recordStaffingPlanPublication(
     recipients: plan.recipients
   });
 
-  // 5. Idempotent no-op when the plan hash is unchanged vs the latest version.
+  // 5. Idempotent no-op when the plan hash AND the hash algorithm version are unchanged vs the
+  // latest version. (A future hash_version bump intentionally falls through to a new version.)
   const latest = await loadLatestStaffingPlanVersion(client, auth.tenantId, input.shootId);
-  if (latest && latest.plan_hash === planHash) {
+  if (latest && latest.plan_hash === planHash && latest.hash_version === STAFFING_PLAN_HASH_VERSION) {
     return {
       status: "unchanged",
       versionId: latest.id,
@@ -235,8 +237,8 @@ export async function recordStaffingPlanPublication(
   const versionResult = await client.query<{ id: string; published_at: string }>(
     `
       INSERT INTO staffing_plan_version (
-        tenant_id, shoot_id, version, plan_hash, published_by_user_id, plan_snapshot
-      ) VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+        tenant_id, shoot_id, version, plan_hash, hash_version, published_by_user_id, plan_snapshot
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING id, published_at::text AS published_at
     `,
     [
@@ -244,6 +246,7 @@ export async function recordStaffingPlanPublication(
       input.shootId,
       nextVersion,
       planHash,
+      STAFFING_PLAN_HASH_VERSION,
       auth.id,
       JSON.stringify(
         normalizePlan({ shootId: input.shootId, shootDate: plan.shootDate, recipients: plan.recipients })
@@ -262,6 +265,7 @@ export async function recordStaffingPlanPublication(
               id,
               employee_user_id::text AS employee_user_id,
               recipient_hash,
+              hash_version,
               response_status,
               acknowledgment_due_at,
               responded_at,
@@ -286,7 +290,10 @@ export async function recordStaffingPlanPublication(
   for (const pkg of plan.recipients) {
     const recipientHash = computeRecipientHash(pkg);
     const prior = priorByEmployee.get(pkg.employeeUserId);
-    const carriedForward = Boolean(prior && prior.recipient_hash === recipientHash);
+    // Carry forward only when the recipient package AND the hash algorithm version both match.
+    const carriedForward = Boolean(
+      prior && prior.recipient_hash === recipientHash && prior.hash_version === STAFFING_PLAN_HASH_VERSION
+    );
 
     const responseStatus = carriedForward ? prior!.response_status : "pending";
     const dueAt = carriedForward ? prior!.acknowledgment_due_at : defaultDueAt;
@@ -299,9 +306,9 @@ export async function recordStaffingPlanPublication(
       `
         INSERT INTO staffing_plan_recipient (
           tenant_id, staffing_plan_version_id, shoot_id, employee_user_id, recipient_hash,
-          assignment_snapshot, response_status, acknowledgment_due_at, responded_at,
+          hash_version, assignment_snapshot, response_status, acknowledgment_due_at, responded_at,
           responded_by_user_id, decline_reason, carried_forward_from_recipient_id
-        ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
         RETURNING id
       `,
       [
@@ -310,6 +317,7 @@ export async function recordStaffingPlanPublication(
         input.shootId,
         pkg.employeeUserId,
         recipientHash,
+        STAFFING_PLAN_HASH_VERSION,
         JSON.stringify(normalizeRecipientPackage(pkg)),
         responseStatus,
         dueAt,

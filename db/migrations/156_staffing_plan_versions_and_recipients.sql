@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS staffing_plan_version (
   shoot_id uuid NOT NULL REFERENCES shoot(id) ON DELETE CASCADE,
   version integer NOT NULL,
   plan_hash text NOT NULL,
+  -- Normalization-algorithm version for plan_hash. Lets a future hashing change avoid
+  -- making historical plans appear changed merely because the algorithm changed.
+  hash_version integer NOT NULL DEFAULT 1,
   published_by_user_id uuid REFERENCES app_user(id) ON DELETE SET NULL,
   published_at timestamptz NOT NULL DEFAULT now(),
   plan_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -32,6 +35,8 @@ CREATE TABLE IF NOT EXISTS staffing_plan_recipient (
   shoot_id uuid NOT NULL REFERENCES shoot(id) ON DELETE CASCADE,
   employee_user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   recipient_hash text NOT NULL,
+  -- Normalization-algorithm version for recipient_hash (see staffing_plan_version.hash_version).
+  hash_version integer NOT NULL DEFAULT 1,
   assignment_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
   response_status text NOT NULL DEFAULT 'pending',
   acknowledgment_due_at timestamptz,
@@ -62,6 +67,11 @@ CREATE INDEX IF NOT EXISTS staffing_plan_recipient_employee_idx
 -- backs the readiness/candidate "is this employee currently declined?" lookups.
 CREATE INDEX IF NOT EXISTS staffing_plan_recipient_current_idx
   ON staffing_plan_recipient (tenant_id, shoot_id, superseded_at, response_status);
+
+-- Partial index for the pending-acknowledgment sweep (current pending recipients by deadline).
+CREATE INDEX IF NOT EXISTS staffing_plan_recipient_pending_due_idx
+  ON staffing_plan_recipient (tenant_id, shoot_id, acknowledgment_due_at)
+  WHERE response_status = 'pending' AND superseded_at IS NULL;
 
 DO $$
 BEGIN
