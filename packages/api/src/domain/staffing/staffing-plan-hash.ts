@@ -13,8 +13,10 @@ import { createHash } from "node:crypto";
 //   - Timestamp normalization: every timestamp collapses to one canonical UTC instant (toISOString);
 //     unparseable values are kept verbatim; date-only values (shoot_date) are kept as-is.
 //   - Null/empty normalization: blank / whitespace-only strings normalize to null.
-//   - Canonical IDs: requirement_id (the slot) is hashed; the internal work_shift instance id and
-//     display names are NOT — a re-created shift with identical material is the same commitment.
+//   - Canonical IDs: requirement_id (the slot) and location_id (the venue) are hashed; the internal
+//     work_shift instance id and display names — including location_name / location_address when a
+//     canonical location_id exists — are NOT. A cosmetic location rename is the same commitment; a
+//     different location_id (or, absent a canonical id, a changed normalized location name) is material.
 //   - Excluded fields: work_shift.notes / free-text instructions (employee-facing pre-service notes
 //     already carry their own content-hash acknowledgment via shift_note_acknowledgement; folding
 //     them in here would double the re-ack triggers and risk hashing internal note usage — a
@@ -46,7 +48,11 @@ export type RecipientAssignmentInput = {
 export type RecipientPackageInput = {
   employeeUserId: string;
   shootDate?: string | null;
+  /** Canonical venue id — hashed when present (a cosmetic name change then does not re-ack). */
+  locationId?: string | null;
+  /** Display name — hashed ONLY as a fallback when no canonical locationId exists; otherwise snapshot-only. */
   locationName?: string | null;
+  /** Display/trace address — snapshot only, never hashed (derived from the canonical location). */
   locationAddress?: string | null;
   assignments: RecipientAssignmentInput[];
 };
@@ -63,8 +69,8 @@ export type NormalizedRecipientAssignment = {
 export type NormalizedRecipientPackage = {
   employee_user_id: string;
   shoot_date: string | null;
-  location_name: string | null;
-  location_address: string | null;
+  /** Canonical location_id when available, else the normalized display name. Address is NOT hashed. */
+  location: string | null;
   assignments: NormalizedRecipientAssignment[];
 };
 
@@ -128,8 +134,8 @@ export function normalizeRecipientPackage(input: RecipientPackageInput): Normali
   return {
     employee_user_id: input.employeeUserId,
     shoot_date: normalizeText(input.shootDate),
-    location_name: normalizeText(input.locationName),
-    location_address: normalizeText(input.locationAddress),
+    // Prefer the canonical venue id; only fall back to the display name when no id exists.
+    location: normalizeText(input.locationId) ?? normalizeText(input.locationName),
     assignments
   };
 }
@@ -151,6 +157,7 @@ export type RecipientSnapshot = {
   snapshot_schema_version: number;
   employee_user_id: string;
   shoot_date: string | null;
+  location_id: string | null;
   location_name: string | null;
   location_address: string | null;
   assignments: RecipientSnapshotAssignment[];
@@ -172,6 +179,7 @@ export function buildRecipientSnapshot(input: RecipientPackageInput): RecipientS
     snapshot_schema_version: STAFFING_PLAN_SNAPSHOT_SCHEMA_VERSION,
     employee_user_id: input.employeeUserId,
     shoot_date: normalizeText(input.shootDate),
+    location_id: normalizeText(input.locationId),
     location_name: normalizeText(input.locationName),
     location_address: normalizeText(input.locationAddress),
     assignments

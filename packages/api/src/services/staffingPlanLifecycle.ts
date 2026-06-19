@@ -2,7 +2,9 @@ import type { PoolClient } from "pg";
 import { ApiError } from "../errors/apiError.js";
 import type { AuthUser } from "../types/auth.js";
 import {
-  computeAcknowledgmentDueAt
+  computeAcknowledgmentDueAt,
+  evaluateAcknowledgmentUrgency,
+  isAcknowledgmentOverdue
 } from "../domain/staffing/staffing-acknowledgment-policy.js";
 import {
   buildRecipientSnapshot,
@@ -40,6 +42,7 @@ type ShiftPlanRow = {
 
 type ShootPlanRow = {
   shoot_date: string | null;
+  location_id: string | null;
   location_name: string | null;
   location_address: string | null;
   arrival_time: string | null;
@@ -48,6 +51,7 @@ type ShootPlanRow = {
 
 type ShootStaffingPlanInputs = {
   shootDate: string | null;
+  locationId: string | null;
   locationName: string | null;
   locationAddress: string | null;
   shootStartAt: string | null;
@@ -95,6 +99,7 @@ async function loadShootStaffingPlanInputs(
     `
       SELECT
         shoot_date::text AS shoot_date,
+        location_id::text AS location_id,
         location_name,
         location_address,
         arrival_time::text AS arrival_time,
@@ -106,6 +111,7 @@ async function loadShootStaffingPlanInputs(
   );
   const shoot = shootResult.rows[0] ?? {
     shoot_date: null,
+    location_id: null,
     location_name: null,
     location_address: null,
     arrival_time: null,
@@ -157,6 +163,7 @@ async function loadShootStaffingPlanInputs(
       byEmployee.set(row.assigned_user_id, {
         employeeUserId: row.assigned_user_id,
         shootDate: shoot.shoot_date,
+        locationId: shoot.location_id,
         locationName: shoot.location_name,
         locationAddress: shoot.location_address,
         assignments: [assignment]
@@ -166,6 +173,7 @@ async function loadShootStaffingPlanInputs(
 
   return {
     shootDate: shoot.shoot_date,
+    locationId: shoot.location_id,
     locationName: shoot.location_name,
     locationAddress: shoot.location_address,
     shootStartAt: callTime,
@@ -532,4 +540,331 @@ export async function listCurrentStaffingPlanRecipients(
     [tenantId, shootId]
   );
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Manager staffing-plan lifecycle read model (Slice 2 sub-slice 2)
+// ---------------------------------------------------------------------------
+// A canonical, derived view over staffing_plan_version + staffing_plan_recipient + the current
+// canonical work_shift draft. The draft-vs-published comparison reuses the SAME normalization/hash
+// functions as publish (computePlanHash / computeRecipientHash) — no second comparison algorithm.
+// Historical (superseded) rows never contaminate current status; all current fields derive from the
+// latest published version. work_shift.notes is never exposed here (governed by shift_note_ack).
+
+export type StaffingPlanLifecycleRecipientView = {
+  recipient_id: string | null; // null for a draft-only (newly added) employee not yet published
+  employee_user_id: string;
+  employee_name: string | null;
+  version: number | null;
+  response_status: string; // pending | acknowledged | declined | canceled | draft (newly added)
+  acknowledgment_due_at: string | null;
+  responded_at: string | null;
+  decline_reason: string | null; // permission-gated; null when the viewer lacks permission
+  carried_forward_from_recipient_id: string | null;
+  recipient_hash: string | null;
+  hash_version: number | null;
+  lead_coverage: boolean;
+  assignments: unknown[]; // normalized roles/slots/times from assignment_snapshot (NO work_shift.notes)
+  coverage_eligible: boolean; // assigned and not declined/canceled
+  overdue: boolean;
+  draft_change: "unchanged" | "changed" | "newly_added" | "removed" | "declined";
+  requires_renewed_acknowledgment: boolean;
+  can_carry_forward: boolean;
+};
+
+export type StaffingPlanLifecycleView = {
+  has_published_version: boolean;
+  latest_version: number | null;
+  published_at: string | null;
+  published_by_user_id: string | null;
+  hash_version: number | null;
+  snapshot_schema_version: number | null;
+  has_draft_changes: boolean;
+  republish_required: boolean;
+  draft_comparison: "no_published_plan" | "unchanged_since_publish" | "draft_changes_exist";
+  assigned_staff_count: number; // raw current canonical (draft) distinct employees
+  published_recipient_count: number;
+  coverage_eligible_staff_count: number;
+  pending_acknowledgment_count: number;
+  acknowledged_staff_count: number;
+  declined_staff_count: number;
+  superseded_recipient_count: number;
+  lead_assignment_count: number;
+  coverage_eligible_lead_count: number;
+  acknowledged_lead_count: number;
+  next_acknowledgment_due_at: string | null;
+  overdue_acknowledgment_count: number;
+  needs_acknowledgment_count: number;
+  acknowledgment_risk_state: "none" | "awaiting" | "needs_attention" | "overdue";
+  coverage_state: "complete" | "incomplete";
+  operational_readiness_status: "ready" | "awaiting_acknowledgment" | "confirmation_overdue" | "at_risk";
+  recipients: StaffingPlanLifecycleRecipientView[];
+};
+
+type SnapshotAssignment = { satisfies_lead_coverage?: boolean };
+
+function snapshotHasLead(snapshot: { assignments?: SnapshotAssignment[] } | null | undefined): boolean {
+  return (snapshot?.assignments ?? []).some((assignment) => Boolean(assignment.satisfies_lead_coverage));
+}
+
+export async function getStaffingPlanLifecycleView(
+  client: PoolClient,
+  auth: AuthUser,
+  shootId: string,
+  opts: { canViewDeclineReasons?: boolean; now?: Date } = {}
+): Promise<StaffingPlanLifecycleView> {
+  const now = opts.now ?? new Date();
+  const canViewDeclineReasons = opts.canViewDeclineReasons ?? false;
+
+  const shootRow =
+    (
+      await client.query<{
+        planned_staff_count: number | string | null;
+        required_lead_count: number | string | null;
+        arrival_time: string | null;
+        start_time: string | null;
+      }>(
+        `SELECT planned_staff_count, required_lead_count, arrival_time::text AS arrival_time, start_time::text AS start_time
+         FROM shoot WHERE id = $1 AND tenant_id = $2`,
+        [shootId, auth.tenantId]
+      )
+    ).rows[0] ?? { planned_staff_count: 0, required_lead_count: 0, arrival_time: null, start_time: null };
+  const plannedStaffCount = Math.max(Number(shootRow.planned_staff_count ?? 0), 0);
+  const requiredLeadCount = Math.max(Number(shootRow.required_lead_count ?? 0), 1);
+  const shootStartAt = shootRow.arrival_time ?? shootRow.start_time;
+
+  // Latest published version (the current committed plan).
+  const versionRow =
+    (
+      await client.query<{
+        id: string;
+        version: number;
+        plan_hash: string;
+        hash_version: number;
+        snapshot_schema_version: number;
+        published_at: string;
+        published_by_user_id: string | null;
+      }>(
+        `SELECT id, version, plan_hash, hash_version, snapshot_schema_version,
+                published_at::text AS published_at, published_by_user_id::text AS published_by_user_id
+         FROM staffing_plan_version
+         WHERE tenant_id = $1 AND shoot_id = $2
+         ORDER BY version DESC LIMIT 1`,
+        [auth.tenantId, shootId]
+      )
+    ).rows[0] ?? null;
+
+  // Current canonical (draft) plan — same normalization/hash used at publish time.
+  const draft = await loadShootStaffingPlanInputs(client, auth.tenantId, shootId);
+  const draftPlanHash = computePlanHash({ shootId, shootDate: draft.shootDate, recipients: draft.recipients });
+  const draftHashByEmployee = new Map(draft.recipients.map((pkg) => [pkg.employeeUserId, computeRecipientHash(pkg)]));
+
+  // Published current recipients (with employee display names).
+  const publishedRecipients = versionRow
+    ? (
+        await client.query<{
+          id: string;
+          employee_user_id: string;
+          employee_name: string | null;
+          recipient_hash: string;
+          hash_version: number;
+          response_status: string;
+          acknowledgment_due_at: string | null;
+          responded_at: string | null;
+          decline_reason: string | null;
+          carried_forward_from_recipient_id: string | null;
+          assignment_snapshot: { assignments?: SnapshotAssignment[] };
+        }>(
+          `SELECT r.id, r.employee_user_id::text AS employee_user_id, u.full_name AS employee_name,
+                  r.recipient_hash, r.hash_version, r.response_status,
+                  r.acknowledgment_due_at::text AS acknowledgment_due_at, r.responded_at::text AS responded_at,
+                  r.decline_reason, r.carried_forward_from_recipient_id::text AS carried_forward_from_recipient_id,
+                  r.assignment_snapshot
+           FROM staffing_plan_recipient r
+           LEFT JOIN app_user u ON u.id = r.employee_user_id
+           WHERE r.tenant_id = $1 AND r.staffing_plan_version_id = $2
+           ORDER BY u.full_name NULLS LAST, r.employee_user_id`,
+          [auth.tenantId, versionRow.id]
+        )
+      ).rows
+    : [];
+
+  const supersededCount = Number(
+    (
+      await client.query<{ n: string }>(
+        `SELECT COUNT(*)::int AS n FROM staffing_plan_recipient
+         WHERE tenant_id = $1 AND shoot_id = $2 AND superseded_at IS NOT NULL`,
+        [auth.tenantId, shootId]
+      )
+    ).rows[0]?.n ?? 0
+  );
+
+  const publishedEmployeeIds = new Set(publishedRecipients.map((row) => row.employee_user_id));
+  const newDraftEmployeeIds = draft.recipients
+    .map((pkg) => pkg.employeeUserId)
+    .filter((employeeId) => !publishedEmployeeIds.has(employeeId));
+  const newNameById = new Map<string, string | null>();
+  if (newDraftEmployeeIds.length) {
+    const names = await client.query<{ id: string; full_name: string | null }>(
+      "SELECT id::text AS id, full_name FROM app_user WHERE id = ANY($1::uuid[])",
+      [newDraftEmployeeIds]
+    );
+    for (const row of names.rows) {
+      newNameById.set(row.id, row.full_name);
+    }
+  }
+
+  let needsAcknowledgmentCount = 0;
+  const recipients: StaffingPlanLifecycleRecipientView[] = [];
+  for (const row of publishedRecipients) {
+    const draftHash = draftHashByEmployee.get(row.employee_user_id);
+    const declined = row.response_status === "declined";
+    const canceled = row.response_status === "canceled";
+    // "needs acknowledgment attention" = pending, past grace, and overdue OR inside the escalation
+    // window. "overdue" is the stricter deadline-passed subset.
+    const urgency = evaluateAcknowledgmentUrgency({
+      responseStatus: row.response_status,
+      publishedAt: versionRow?.published_at ?? null,
+      dueAt: row.acknowledgment_due_at,
+      shootStartAt,
+      now
+    });
+    if (urgency.urgent) {
+      needsAcknowledgmentCount += 1;
+    }
+    const overdue = urgency.urgent && isAcknowledgmentOverdue(row.acknowledgment_due_at, now);
+    let draftChange: StaffingPlanLifecycleRecipientView["draft_change"];
+    if (declined) {
+      draftChange = "declined";
+    } else if (draftHash === undefined) {
+      draftChange = "removed";
+    } else if (draftHash === row.recipient_hash) {
+      draftChange = "unchanged";
+    } else {
+      draftChange = "changed";
+    }
+    recipients.push({
+      recipient_id: row.id,
+      employee_user_id: row.employee_user_id,
+      employee_name: row.employee_name,
+      version: versionRow?.version ?? null,
+      response_status: row.response_status,
+      acknowledgment_due_at: row.acknowledgment_due_at,
+      responded_at: row.responded_at,
+      decline_reason: canViewDeclineReasons ? row.decline_reason : null,
+      carried_forward_from_recipient_id: row.carried_forward_from_recipient_id,
+      recipient_hash: row.recipient_hash,
+      hash_version: row.hash_version,
+      lead_coverage: snapshotHasLead(row.assignment_snapshot),
+      assignments: row.assignment_snapshot.assignments ?? [],
+      coverage_eligible: !declined && !canceled,
+      overdue,
+      draft_change: draftChange,
+      requires_renewed_acknowledgment: draftChange === "changed" || draftChange === "removed",
+      can_carry_forward: draftChange === "unchanged" || draftChange === "declined"
+    });
+  }
+  // Draft-only (newly added) employees assigned in the canonical draft but not in the published version.
+  for (const pkg of draft.recipients) {
+    if (publishedEmployeeIds.has(pkg.employeeUserId)) {
+      continue;
+    }
+    const snapshot = buildRecipientSnapshot(pkg);
+    recipients.push({
+      recipient_id: null,
+      employee_user_id: pkg.employeeUserId,
+      employee_name: newNameById.get(pkg.employeeUserId) ?? null,
+      version: null,
+      response_status: "draft",
+      acknowledgment_due_at: null,
+      responded_at: null,
+      decline_reason: null,
+      carried_forward_from_recipient_id: null,
+      recipient_hash: draftHashByEmployee.get(pkg.employeeUserId) ?? null,
+      hash_version: STAFFING_PLAN_HASH_VERSION,
+      lead_coverage: pkg.assignments.some((assignment) => Boolean(assignment.satisfiesLeadCoverage)),
+      assignments: snapshot.assignments,
+      coverage_eligible: true,
+      overdue: false,
+      draft_change: "newly_added",
+      requires_renewed_acknowledgment: true,
+      can_carry_forward: false
+    });
+  }
+
+  // Counts derive from the published current recipients (the committed plan); assigned is raw canonical.
+  const pending = publishedRecipients.filter((row) => row.response_status === "pending");
+  const acknowledged = publishedRecipients.filter((row) => row.response_status === "acknowledged");
+  const declinedRecipients = publishedRecipients.filter((row) => row.response_status === "declined");
+  const coverageEligible = publishedRecipients.filter(
+    (row) => row.response_status !== "declined" && row.response_status !== "canceled"
+  );
+  const leadRecipients = publishedRecipients.filter((row) => snapshotHasLead(row.assignment_snapshot));
+  const coverageEligibleLeads = leadRecipients.filter(
+    (row) => row.response_status !== "declined" && row.response_status !== "canceled"
+  );
+  const acknowledgedLeads = leadRecipients.filter((row) => row.response_status === "acknowledged");
+  const overdueCount = recipients.filter((recipient) => recipient.overdue).length;
+  const nextDue =
+    pending
+      .map((row) => row.acknowledgment_due_at)
+      .filter((value): value is string => Boolean(value))
+      .sort()[0] ?? null;
+
+  const coverageEligibleStaffCount = coverageEligible.length;
+  const coverageEligibleLeadCount = coverageEligibleLeads.length;
+  const declinedStaffCount = declinedRecipients.length;
+  const missingLead = coverageEligibleLeadCount < requiredLeadCount;
+  const underStaffed = plannedStaffCount > coverageEligibleStaffCount;
+  const replacementRequired = declinedStaffCount > 0;
+  const coverageComplete = !missingLead && !underStaffed && !replacementRequired;
+  const pendingCount = pending.length;
+
+  const hasPublishedVersion = Boolean(versionRow);
+  const hasDraftChanges = hasPublishedVersion
+    ? draftPlanHash !== versionRow!.plan_hash || versionRow!.hash_version !== STAFFING_PLAN_HASH_VERSION
+    : draft.recipients.length > 0;
+  const draftComparison: StaffingPlanLifecycleView["draft_comparison"] = !hasPublishedVersion
+    ? "no_published_plan"
+    : hasDraftChanges
+      ? "draft_changes_exist"
+      : "unchanged_since_publish";
+
+  const operationalReadinessStatus: StaffingPlanLifecycleView["operational_readiness_status"] = !coverageComplete
+    ? "at_risk"
+    : overdueCount > 0
+      ? "confirmation_overdue"
+      : pendingCount > 0
+        ? "awaiting_acknowledgment"
+        : "ready";
+
+  return {
+    has_published_version: hasPublishedVersion,
+    latest_version: versionRow?.version ?? null,
+    published_at: versionRow?.published_at ?? null,
+    published_by_user_id: versionRow?.published_by_user_id ?? null,
+    hash_version: versionRow?.hash_version ?? null,
+    snapshot_schema_version: versionRow?.snapshot_schema_version ?? null,
+    has_draft_changes: hasDraftChanges,
+    republish_required: hasPublishedVersion && hasDraftChanges,
+    draft_comparison: draftComparison,
+    assigned_staff_count: draft.recipients.length,
+    published_recipient_count: publishedRecipients.length,
+    coverage_eligible_staff_count: coverageEligibleStaffCount,
+    pending_acknowledgment_count: pendingCount,
+    acknowledged_staff_count: acknowledged.length,
+    declined_staff_count: declinedStaffCount,
+    superseded_recipient_count: supersededCount,
+    lead_assignment_count: leadRecipients.length,
+    coverage_eligible_lead_count: coverageEligibleLeadCount,
+    acknowledged_lead_count: acknowledgedLeads.length,
+    next_acknowledgment_due_at: nextDue,
+    overdue_acknowledgment_count: overdueCount,
+    needs_acknowledgment_count: needsAcknowledgmentCount,
+    acknowledgment_risk_state:
+      overdueCount > 0 ? "overdue" : needsAcknowledgmentCount > 0 ? "needs_attention" : pendingCount > 0 ? "awaiting" : "none",
+    coverage_state: coverageComplete ? "complete" : "incomplete",
+    operational_readiness_status: operationalReadinessStatus,
+    recipients
+  };
 }

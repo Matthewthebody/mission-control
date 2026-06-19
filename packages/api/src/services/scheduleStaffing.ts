@@ -38,7 +38,11 @@ import {
 } from "./outlookCalendarSync.js";
 import { queueNotificationDispatch } from "./opsNotifications.js";
 import { queueStaffAssignmentConflictDetectedAlert } from "./operationalAlerting.js";
-import { recordStaffingPlanPublication } from "./staffingPlanLifecycle.js";
+import {
+  getStaffingPlanLifecycleView,
+  recordStaffingPlanPublication,
+  type StaffingPlanLifecycleView
+} from "./staffingPlanLifecycle.js";
 import {
   consumeApprovedOperationalApproval,
   ensureOperationalApprovalRequest,
@@ -274,6 +278,7 @@ type StaffingSnapshot = {
   requirements: StaffingRequirementResponse[];
   slots: StaffingSlotResponse[];
   approval_summary: OperationalApprovalSourceSummary;
+  staffing_lifecycle: StaffingPlanLifecycleView;
 };
 
 export type StaffingMutationResult =
@@ -1751,6 +1756,12 @@ async function buildStaffingSnapshot(client: PoolClient, auth: AuthUser, shootId
     sourceEntityId: shootId
   });
 
+  // Manager staffing-plan lifecycle read model (versions, recipient response state, draft-vs-published).
+  // Decline reasons are gated to managers who can manage the shoot's department.
+  const staffingLifecycle = await getStaffingPlanLifecycleView(client, auth, shootId, {
+    canViewDeclineReasons: canManageShootDepartment(auth, shoot.department as DepartmentCode)
+  });
+
   return {
     shoot: {
       id: shoot.id,
@@ -1822,7 +1833,8 @@ async function buildStaffingSnapshot(client: PoolClient, auth: AuthUser, shootId
       };
     }),
     slots: slotResponses,
-    approval_summary: approvalSummary
+    approval_summary: approvalSummary,
+    staffing_lifecycle: staffingLifecycle
   };
 }
 

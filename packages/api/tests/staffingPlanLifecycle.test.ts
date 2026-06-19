@@ -8,6 +8,7 @@ import type { AuthUser } from "../src/types/auth.js";
 import {
   acknowledgeStaffingPlanRecipient,
   declineStaffingPlanRecipient,
+  getStaffingPlanLifecycleView,
   recordStaffingPlanPublication
 } from "../src/services/staffingPlanLifecycle.js";
 import { listSchedulingUrgentWatchCandidates } from "../src/services/scheduleStaffing.js";
@@ -1235,5 +1236,269 @@ describe("guardrails round 3: coverage-eligible naming + nullable publishedAt", 
       .set("Authorization", `Bearer ${leadershipToken}`);
     const row2 = dashboard2.body.open_coverage.find((r: any) => r.shoot_id === shoot.id);
     expect(!row2 || row2.operational_readiness_status === "ready").toBe(true);
+  });
+});
+
+async function lifecycleView(shootId: string, opts: { canViewDeclineReasons?: boolean } = {}) {
+  return withClientTransaction(tenantId, leadershipId, (client) =>
+    getStaffingPlanLifecycleView(client, leadAuth(), shootId, {
+      canViewDeclineReasons: opts.canViewDeclineReasons ?? true
+    })
+  );
+}
+
+function viewRecipient(view: { recipients: any[] }, userId: string) {
+  return view.recipients.find((recipient) => recipient.employee_user_id === userId);
+}
+
+describe("manager staffing-plan read model", () => {
+  it("39. (#1/#6) a shoot with no published plan shows an honest draft-only state with raw assigned intact", async () => {
+    const date = localDateString(41);
+    const shoot = await makeShoot(date, "Draft Only");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    // No recordPublish -> no staffing_plan_version yet.
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.has_published_version).toBe(false);
+    expect(view.latest_version).toBeNull();
+    expect(view.draft_comparison).toBe("no_published_plan");
+    expect(view.assigned_staff_count).toBe(2); // raw canonical draft
+    expect(view.published_recipient_count).toBe(0);
+    expect(view.recipients.every((r) => r.draft_change === "newly_added")).toBe(true);
+  });
+
+  it("40. (#2) the first publish reports version 1 and one recipient per employee", async () => {
+    const date = localDateString(42);
+    const shoot = await makeShoot(date, "First Publish");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.has_published_version).toBe(true);
+    expect(view.latest_version).toBe(1);
+    expect(view.published_recipient_count).toBe(2);
+    expect(view.draft_comparison).toBe("unchanged_since_publish");
+    expect(view.republish_required).toBe(false);
+  });
+
+  it("41. (#3-#9) pending/acknowledged/declined states, raw vs coverage-eligible, lead visibility after decline", async () => {
+    const date = localDateString(43);
+    const shoot = await makeShoot(date, "Recipient States");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+
+    // Pending immediately after publish.
+    let view = await lifecycleView(shoot.id);
+    expect(viewRecipient(view, seniorId).response_status).toBe("pending"); // Awaiting Acknowledgment
+    expect(view.pending_acknowledgment_count).toBe(2);
+
+    // Acknowledge office.
+    await ackAs(officeId, recipientFor(await recipients(shoot.id), officeId).id);
+    view = await lifecycleView(shoot.id);
+    expect(viewRecipient(view, officeId).response_status).toBe("acknowledged");
+    expect(view.acknowledged_staff_count).toBe(1);
+
+    // Decline the lead (senior).
+    await declineAs(seniorId, recipientFor(await recipients(shoot.id), seniorId).id, "Double-booked");
+    view = await lifecycleView(shoot.id);
+    const declinedLead = viewRecipient(view, seniorId);
+    expect(declinedLead.response_status).toBe("declined"); // still visible
+    expect(declinedLead.lead_coverage).toBe(true); // lead assignment remains visible
+    expect(declinedLead.coverage_eligible).toBe(false);
+    expect(view.assigned_staff_count).toBe(2); // raw assigned intact after decline
+    expect(view.coverage_eligible_staff_count).toBe(1); // decreased
+    expect(view.lead_assignment_count).toBe(1); // lead still assigned (raw)
+    expect(view.coverage_eligible_lead_count).toBe(0); // lead coverage incomplete after lead decline
+    expect(view.coverage_state).toBe("incomplete");
+    expect(view.operational_readiness_status).toBe("at_risk");
+    expect(view.declined_staff_count).toBe(1);
+  });
+
+  it("42. (#10/#13) a material draft change reports republish required + the changed recipient needs renewed ack", async () => {
+    const date = localDateString(44);
+    const shoot = await makeShoot(date, "Material Draft Change");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+    await bumpShiftTime(shoot.id, officeId); // material change to office, not yet republished
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.has_draft_changes).toBe(true);
+    expect(view.republish_required).toBe(true);
+    expect(view.draft_comparison).toBe("draft_changes_exist");
+    expect(viewRecipient(view, officeId).draft_change).toBe("changed");
+    expect(viewRecipient(view, officeId).requires_renewed_acknowledgment).toBe(true);
+  });
+
+  it("43. (#11) a non-material (display title) change does not report republish required", async () => {
+    const date = localDateString(45);
+    const shoot = await makeShoot(date, "Non Material Draft");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    await pool.query("UPDATE shoot SET title = $1, updated_at = now() WHERE id = $2 AND tenant_id = $3", [
+      "Renamed Title",
+      shoot.id,
+      tenantId
+    ]);
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.has_draft_changes).toBe(false);
+    expect(view.republish_required).toBe(false);
+    expect(view.draft_comparison).toBe("unchanged_since_publish");
+  });
+
+  it("44. (#12) an unchanged acknowledged recipient is eligible to carry forward while another recipient changes", async () => {
+    const date = localDateString(46);
+    const shoot = await makeShoot(date, "Carry Forward Eligible");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+    await ackAs(seniorId, recipientFor(await recipients(shoot.id), seniorId).id);
+    await bumpShiftTime(shoot.id, officeId); // change office only
+
+    const view = await lifecycleView(shoot.id);
+    const senior = viewRecipient(view, seniorId);
+    expect(senior.response_status).toBe("acknowledged");
+    expect(senior.draft_change).toBe("unchanged");
+    expect(senior.can_carry_forward).toBe(true);
+    expect(senior.requires_renewed_acknowledgment).toBe(false);
+    expect(viewRecipient(view, officeId).requires_renewed_acknowledgment).toBe(true);
+  });
+
+  it("45. (#14) after republishing a changed package the recipient is pending again (old ack does not satisfy it)", async () => {
+    const date = localDateString(47);
+    const shoot = await makeShoot(date, "Changed Republish");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    await ackAs(seniorId, recipientFor(await recipients(shoot.id), seniorId).id);
+    await bumpShiftTime(shoot.id, seniorId);
+    await recordPublish(shoot.id); // version 2
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.latest_version).toBe(2);
+    expect(viewRecipient(view, seniorId).response_status).toBe("pending");
+  });
+
+  it("46. (#15) current-version status ignores a historical superseded decline", async () => {
+    const date = localDateString(48);
+    const shoot = await makeShoot(date, "Superseded Decline");
+    const seniorShift = await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id); // v1
+    await declineAs(seniorId, recipientFor(await recipients(shoot.id), seniorId).id, "Cannot attend");
+
+    // Reassign senior -> admin, republish (v2).
+    await pool.query("UPDATE work_shift SET status = 'cancelled', cancelled_at = now() WHERE id = $1", [seniorShift.id]);
+    await seedShift(shoot.id, adminId, { date, lead: true });
+    await recordPublish(shoot.id); // v2
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.latest_version).toBe(2);
+    // The v1 decline is historical (superseded) and does not appear as a current declined recipient.
+    expect(view.recipients.some((r) => r.employee_user_id === seniorId)).toBe(false);
+    expect(view.declined_staff_count).toBe(0);
+    expect(view.superseded_recipient_count).toBeGreaterThan(0);
+    expect(viewRecipient(view, adminId).response_status).toBe("pending");
+  });
+
+  it("47. (#16-#18) overdue flags + next due time follow the grace/escalation policy", async () => {
+    const date = localDateString(1); // shoot tomorrow (inside escalation window)
+    const shoot = await makeShoot(date, "Overdue Flags");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await seedShift(shoot.id, officeId, { date, lead: false });
+    await recordPublish(shoot.id);
+
+    // Freshly published: pending but within grace -> not overdue.
+    let view = await lifecycleView(shoot.id);
+    expect(view.recipients.every((r) => r.overdue === false)).toBe(true);
+    expect(view.overdue_acknowledgment_count).toBe(0);
+    expect(view.next_acknowledgment_due_at).not.toBeNull();
+
+    // Move publication past the grace window and force senior's deadline into the past -> overdue.
+    await pool.query("UPDATE staffing_plan_version SET published_at = now() - interval '1 hour' WHERE tenant_id = $1 AND shoot_id = $2", [
+      tenantId,
+      shoot.id
+    ]);
+    await pool.query("UPDATE staffing_plan_recipient SET acknowledgment_due_at = now() - interval '1 hour' WHERE id = $1", [
+      recipientFor(await recipients(shoot.id), seniorId).id
+    ]);
+    view = await lifecycleView(shoot.id);
+    expect(viewRecipient(view, seniorId).overdue).toBe(true);
+    expect(view.overdue_acknowledgment_count).toBe(1);
+    expect(view.acknowledgment_risk_state).toBe("overdue");
+  });
+
+  it("48. (#19) a cosmetic location-name change is not a material draft difference", async () => {
+    const date = localDateString(49);
+    const shoot = await makeShoot(date, "Cosmetic Location");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    await pool.query("UPDATE shoot SET location_name = $1, updated_at = now() WHERE id = $2", [
+      "White Bear Lake HS (Main Gym)",
+      shoot.id
+    ]);
+
+    const second = await recordPublish(shoot.id);
+    expect(second.status).toBe("unchanged"); // same canonical location_id -> no new version
+    const view = await lifecycleView(shoot.id);
+    expect(view.republish_required).toBe(false);
+  });
+
+  it("49. (#20) a material canonical location change creates a new recipient hash / draft difference", async () => {
+    const date = localDateString(50);
+    const shoot = await makeShoot(date, "Material Location");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    const before = recipientFor(await recipients(shoot.id), seniorId).recipient_hash;
+
+    const alt = await selectRows<{ id: string }>("SELECT id::text AS id FROM shoot_location WHERE id <> $1 LIMIT 1", [
+      schoolLocationId
+    ]);
+    expect(alt.length).toBeGreaterThan(0); // seed has more than one venue
+    await pool.query("UPDATE shoot SET location_id = $1, updated_at = now() WHERE id = $2 AND tenant_id = $3", [
+      alt[0].id,
+      shoot.id,
+      tenantId
+    ]);
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.republish_required).toBe(true);
+    expect(viewRecipient(view, seniorId).draft_change).toBe("changed");
+    const second = await recordPublish(shoot.id);
+    expect(second.status).toBe("created");
+    expect(recipientFor(await recipients(shoot.id), seniorId).recipient_hash).not.toBe(before);
+  });
+
+  it("50. (#21/#22) internal shift notes never affect the comparison and are never exposed by the read model", async () => {
+    const date = localDateString(51);
+    const shoot = await makeShoot(date, "Notes Hidden");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    await pool.query(
+      "UPDATE work_shift SET notes = $1, updated_at = now() WHERE tenant_id = $2 AND shoot_id = $3 AND assigned_user_id = $4 AND cancelled_at IS NULL",
+      ["Internal manager-only note", tenantId, shoot.id, seniorId]
+    );
+
+    const view = await lifecycleView(shoot.id);
+    expect(view.republish_required).toBe(false); // notes excluded from the comparison
+    // The read model never exposes work_shift.notes through any recipient assignment.
+    const serialized = JSON.stringify(view.recipients);
+    expect(serialized).not.toContain("Internal manager-only note");
+    expect(serialized).not.toContain("\"notes\"");
+  });
+
+  it("51. (#23) decline reasons are permission-gated in the read model", async () => {
+    const date = localDateString(52);
+    const shoot = await makeShoot(date, "Decline Reason Gate");
+    await seedShift(shoot.id, seniorId, { date, lead: true });
+    await recordPublish(shoot.id);
+    await declineAs(seniorId, recipientFor(await recipients(shoot.id), seniorId).id, "Family commitment");
+
+    const permitted = await lifecycleView(shoot.id, { canViewDeclineReasons: true });
+    expect(viewRecipient(permitted, seniorId).decline_reason).toBe("Family commitment");
+    const gated = await lifecycleView(shoot.id, { canViewDeclineReasons: false });
+    expect(viewRecipient(gated, seniorId).decline_reason).toBeNull();
   });
 });
