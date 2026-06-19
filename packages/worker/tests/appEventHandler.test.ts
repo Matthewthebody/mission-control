@@ -535,3 +535,69 @@ describe("app event realtime wiring", () => {
     });
   });
 });
+
+describe("per-recipient staffing publication delivery", () => {
+  const publishedEvent = {
+    tenant_id: "tenant-1",
+    aggregate_id: "recipient-1",
+    event_type: "staffing.plan.recipient_published",
+    payload: {
+      shoot_id: "shoot-1",
+      version: 2,
+      employee_user_id: "emp-1",
+      recipient_hash: "hash-abc",
+      response_status: "pending",
+      acknowledgment_due_at: "2027-06-07T12:00:00.000Z"
+    }
+  };
+
+  function findInsert(query: ReturnType<typeof vi.fn>) {
+    return query.mock.calls.find((call) => /INSERT INTO app_event/.test(String(call[0])));
+  }
+
+  it("queues exactly one notification.dispatch for a current pending recipient, deep-linked to My Work", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ recipient_hash: "hash-abc", response_status: "pending" }] }) // currency
+      .mockResolvedValueOnce({ rows: [{ shoot_code: "WBL-01", title: "Picture Day", shoot_date: "2027-06-07", role: "lead_photographer" }] }) // context
+      .mockResolvedValueOnce({ rows: [] }); // insert
+
+    await handleAppEvent({ query } as never, publishedEvent);
+
+    const insert = findInsert(query);
+    expect(insert).toBeTruthy();
+    const params = insert![1] as unknown[];
+    expect(String(insert![0])).toMatch(/ON CONFLICT.*DO NOTHING/s); // idempotent insert
+    expect(params[0]).toBe("tenant-1");
+    const dispatch = JSON.parse(String(params[2]));
+    expect(dispatch.recipient_user_id).toBe("emp-1");
+    expect(dispatch.notification_type).toBe("schedule.staffing.published");
+    expect(dispatch.deep_link).toBe("#my-work?focus_shoot=shoot-1");
+    expect(dispatch.channels).toEqual(["in_app", "push"]); // honest channels only
+    expect(dispatch.body).toMatch(/WBL-01/);
+    expect(dispatch.body).toMatch(/Lead Photographer/);
+    expect(dispatch.body).toMatch(/acknowledge/i);
+    // Dedupe identity = tenant + shoot + version + employee + recipient hash + purpose.
+    expect(params[3]).toBe("staffing-recipient-publish:shoot-1:2:emp-1:hash-abc");
+    expect(dispatch.metadata.purpose).toBe("staffing_publication");
+  });
+
+  it("does not notify when a newer version superseded the package (hash mismatch)", async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [{ recipient_hash: "hash-NEWER", response_status: "pending" }] });
+    await handleAppEvent({ query } as never, publishedEvent);
+    expect(findInsert(query)).toBeUndefined();
+    expect(query).toHaveBeenCalledTimes(1); // stops at the currency check
+  });
+
+  it("does not notify an already-acknowledged recipient", async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [{ recipient_hash: "hash-abc", response_status: "acknowledged" }] });
+    await handleAppEvent({ query } as never, publishedEvent);
+    expect(findInsert(query)).toBeUndefined();
+  });
+
+  it("does not notify when there is no current recipient (superseded/removed)", async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [] });
+    await handleAppEvent({ query } as never, publishedEvent);
+    expect(findInsert(query)).toBeUndefined();
+  });
+});

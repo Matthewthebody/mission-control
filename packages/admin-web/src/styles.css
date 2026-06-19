@@ -23356,3 +23356,6 @@ html[data-theme="light"] .help-tooltip__bubble {
   .capacity__dayrow-btn { grid-template-columns: 1fr; }
   .capacity__dayrow-status { justify-content: flex-start; }
 }
+
+/* Deep-link focus highlight for an employee's staffing package (from a publication notification). */
+.notification-card--focus { outline: 2px solid #5ca2e5; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(92,162,229,0.18); transition: box-shadow 0.3s ease; }

@@ -2750,25 +2750,12 @@ export async function publishShootStaffing(
     });
   }
 
-  // Aggregate "staffing published" employee notification — preserved as the temporary delivery
-  // bridge, but ONLY fired when a NEW version was created. An unchanged republish must never
-  // re-deliver, and the legacy count-keyed dedupe is not republish-stable (publishing flips
-  // draft->published, shifting the counts). recordStaffingPlanPublication also writes the precise
-  // per-recipient version+hash marker; per-recipient delivery that REPLACES this coarse aggregate
-  // (notifying only new/changed recipients, not all assigned) is sub-slice 4.
-  if (planPublication.status === "created") {
-    await sendStaffingNotification(client, auth, {
-      recipientUserIds: snapshot.slots.flatMap((slot) => (slot.assigned_user_id ? [slot.assigned_user_id] : [])),
-      notificationType: "schedule.staffing.published",
-      title: "Assignment published",
-      body: `${snapshot.shoot.shoot_code} staffing is now published on your schedule.`,
-      shootId: input.shootId,
-      priority: protectedPublishEvaluation.windowEvaluation.insideProtectedWindow ? "high" : "normal",
-      metadata: {
-        dedupe: `staffing-publish:${input.shootId}:${planPublication.version}`
-      }
-    });
-  }
+  // Per-recipient publication delivery REPLACES the former aggregate "all assigned" notice. The aggregate
+  // path is removed so it can never co-deliver. recordStaffingPlanPublication (above) emits a precise
+  // `staffing.plan.recipient_published` lifecycle event for each new/materially-changed recipient (never for
+  // carried-forward/unchanged or acknowledged ones); the worker consumes it and queues exactly one employee
+  // notification per recipient, deep-linked to their own My Work assignment. See
+  // packages/worker/src/handlers/appEventHandler.ts (handleStaffingRecipientPublished).
   await markOperationalApprovalExecuted(
     client,
     auth,

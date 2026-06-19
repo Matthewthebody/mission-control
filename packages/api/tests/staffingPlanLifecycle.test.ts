@@ -1067,14 +1067,13 @@ describe("guardrails round 2: snapshot schema, multiset identity, grace, notific
     expect(Number(dispatched[0].n)).toBe(0);
   });
 
-  it("34. (#7) the legacy aggregate publish notification fires once and is idempotent on unchanged republish", async () => {
+  it("34. (#7) publication emits per-recipient markers and NO legacy aggregate; unchanged republish is idempotent", async () => {
     const date = localDateString(16);
-    const shoot = await makeShoot(date, "Legacy Notification");
+    const shoot = await makeShoot(date, "Per-Recipient Cutover");
     const snap = await request(app)
       .get(`/api/schedule/shoots/${shoot.id}/staffing`)
       .set("Authorization", `Bearer ${leadershipToken}`);
     const leadSlot = snap.body.slots.find((s: any) => s.satisfies_lead_coverage);
-    // Assign someone OTHER than the publishing actor so the legacy aggregate has a real recipient.
     const leadOpt = leadSlot.option_groups
       .flatMap((g: any) => g.options)
       .find((o: any) => !o.disabled && o.user_id !== leadershipId);
@@ -1083,6 +1082,8 @@ describe("guardrails round 2: snapshot schema, multiset identity, grace, notific
       .set("Authorization", `Bearer ${leadershipToken}`)
       .send({ slot_key: leadSlot.slot_key, assigned_user_id: leadOpt.user_id, override_conflict: Boolean(leadOpt.requires_override), approval_reason: "Test" });
 
+    // The aggregate "all assigned" publication notification has been REMOVED — the publish transaction must
+    // never synchronously emit a schedule.staffing.published dispatch. Delivery is per-recipient (worker-driven).
     const aggregateCount = async () =>
       Number(
         (
@@ -1092,19 +1093,30 @@ describe("guardrails round 2: snapshot schema, multiset identity, grace, notific
           )
         )[0].n
       );
+    const markerCount = async () =>
+      Number(
+        (
+          await selectRows<{ n: string }>(
+            "SELECT COUNT(*)::int AS n FROM app_event WHERE tenant_id = $1 AND event_type = 'staffing.plan.recipient_published' AND payload->>'shoot_id' = $2",
+            [tenantId, shoot.id]
+          )
+        )[0].n
+      );
 
     await request(app)
       .post(`/api/schedule/shoots/${shoot.id}/staffing/publish`)
       .set("Authorization", `Bearer ${leadershipToken}`)
       .send({ override_warnings: true, approval_reason: "Test" });
-    const afterFirst = await aggregateCount();
-    expect(afterFirst).toBeGreaterThan(0); // delivered to the assigned recipient(s)
+    expect(await aggregateCount()).toBe(0); // legacy aggregate removed — no synchronous aggregate delivery
+    const afterFirstMarkers = await markerCount();
+    expect(afterFirstMarkers).toBeGreaterThan(0); // precise per-recipient lifecycle markers were emitted
 
     await request(app)
       .post(`/api/schedule/shoots/${shoot.id}/staffing/publish`)
       .set("Authorization", `Bearer ${leadershipToken}`)
       .send({ override_warnings: true, approval_reason: "Test" });
-    expect(await aggregateCount()).toBe(afterFirst); // unchanged republish -> no additional delivery
+    expect(await aggregateCount()).toBe(0); // still no aggregate
+    expect(await markerCount()).toBe(afterFirstMarkers); // carried-forward unchanged -> no new markers (idempotent)
   });
 
   it("35. (#9) a rolled-back republish leaves the prior version's recipients un-superseded", async () => {

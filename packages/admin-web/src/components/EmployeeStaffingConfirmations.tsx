@@ -28,11 +28,18 @@ function formatWindow(assignment: EmployeeStaffingAssignment): string {
   return formatDateTime(start);
 }
 
-export function EmployeeStaffingConfirmations({ token }: { token: string }) {
+export function EmployeeStaffingConfirmations({
+  token,
+  focusShootId
+}: {
+  token: string;
+  focusShootId?: string | null;
+}) {
   const [assignments, setAssignments] = useState<EmployeeStaffingAssignment[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [focusedShootId, setFocusedShootId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [declineTarget, setDeclineTarget] = useState<EmployeeStaffingAssignment | null>(null);
   const [declineReason, setDeclineReason] = useState("");
@@ -61,6 +68,20 @@ export function EmployeeStaffingConfirmations({ token }: { token: string }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Deep-link focus: a publication notification links to #my-work?focus_shoot=<id>. Once assignments load,
+  // scroll the matching package into view and highlight it transiently. Pure presentation — never alters state.
+  useEffect(() => {
+    if (!focusShootId || !assignments) return;
+    if (!assignments.some((item) => item.shoot_id === focusShootId)) return;
+    const element = document.querySelector(`[data-shoot-id="${CSS.escape(focusShootId)}"]`);
+    if (element && typeof element.scrollIntoView === "function") {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setFocusedShootId(focusShootId);
+    const timer = window.setTimeout(() => setFocusedShootId(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [focusShootId, assignments]);
 
   function mergeAssignment(updated: EmployeeStaffingAssignment) {
     // Bump the sequence so any in-flight GET can't restore the prior state over an authoritative mutation.
@@ -168,7 +189,10 @@ export function EmployeeStaffingConfirmations({ token }: { token: string }) {
         {sorted.map((assignment) => (
           <li
             key={assignment.recipient_id}
-            className={`notification-card notification-card--${assignmentStatusTone(assignment)}`}
+            data-shoot-id={assignment.shoot_id}
+            className={`notification-card notification-card--${assignmentStatusTone(assignment)}${
+              assignment.shoot_id === focusedShootId ? " notification-card--focus" : ""
+            }`}
             data-testid={`assignment-${assignment.recipient_id}`}
           >
             <strong>{assignment.shoot_title}</strong>

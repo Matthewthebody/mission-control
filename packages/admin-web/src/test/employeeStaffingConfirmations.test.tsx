@@ -63,6 +63,19 @@ describe("EmployeeStaffingConfirmations", () => {
     );
   });
 
+  it("focuses and highlights the package linked from a publication notification", async () => {
+    fetchMock.mockResolvedValue({
+      assignments: [
+        assignment({ recipient_id: "rA", shoot_id: "shootA", shoot_title: "Alpha Day" }),
+        assignment({ recipient_id: "rB", shoot_id: "shootB", shoot_title: "Beta Day" })
+      ]
+    });
+    render(<EmployeeStaffingConfirmations token="t" focusShootId="shootB" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(document.querySelector('[data-shoot-id="shootB"]')).toHaveClass("notification-card--focus"));
+    expect(document.querySelector('[data-shoot-id="shootA"]')).not.toHaveClass("notification-card--focus");
+  });
+
   it("renders a pending package and acknowledges by merging the response (no reload)", async () => {
     fetchMock.mockResolvedValue({ assignments: [assignment({})] });
     ackMock.mockResolvedValue({

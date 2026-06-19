@@ -63,8 +63,16 @@ function launchpadTargetId(section: ActiveLaunchpadSection) {
   }
 }
 
+function readFocusShootFromHash(): string | null {
+  const hash = typeof window === "undefined" ? "" : window.location.hash;
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex === -1) return null;
+  return new URLSearchParams(hash.slice(queryIndex + 1)).get("focus_shoot");
+}
+
 export function MyWork({ token, currentUser, socket }: Props) {
   const [anchorDate, setAnchorDate] = useState(getLocalDateString());
+  const [focusShootId, setFocusShootId] = useState<string | null>(() => readFocusShootFromHash());
   const [payload, setPayload] = useState<EmployeeMyWorkResponse | null>(null);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedEventDetail, setSelectedEventDetail] = useState<EmployeeEventDetailResponse | null>(null);
@@ -73,6 +81,11 @@ export function MyWork({ token, currentUser, socket }: Props) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    const onHashChange = () => setFocusShootId(readFocusShootFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
   const scheduleStats = useMemo(() => buildScheduleWeekStats(payload), [payload]);
   const scheduleWeekDays = useMemo(() => buildScheduleWeekDays(payload), [payload]);
   const liveWorkflowSteps = payload?.live_workflow_steps ?? [];
@@ -187,7 +200,7 @@ export function MyWork({ token, currentUser, socket }: Props) {
       {notice ? <div className="success-banner">{notice}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <EmployeeStaffingConfirmations token={token} />
+      <EmployeeStaffingConfirmations token={token} focusShootId={focusShootId} />
 
       <section className="panel employee-day-command">
         <div>
