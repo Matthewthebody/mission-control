@@ -27,7 +27,10 @@ export const URGENT_WINDOW_CATEGORIES: UrgentWindowCategory[] = [
 export const URGENT_WINDOW_CATEGORY_LABELS: Record<UrgentWindowCategory, string> = {
   staffing: "Staffing",
   attendance: "Attendance",
-  jobs_workflow: "Jobs / Workflow",
+  // Honest label: this category is fed by scheduling/shoot, workflow-task, and
+  // approval records — not canonical jobs (0 of its rows point at #jobs). The
+  // internal key stays `jobs_workflow` so destinations/filters are unchanged.
+  jobs_workflow: "Operational Work / Workflow",
   production: "Production / Delivery",
   client_success: "Client Success",
   weather: "Weather"
