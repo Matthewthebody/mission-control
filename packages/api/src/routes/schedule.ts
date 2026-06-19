@@ -26,6 +26,8 @@ import {
   publishShootStaffing,
   removeShootStaffingAssignment
 } from "../services/scheduleStaffing.js";
+import { getStaffingCapacityPlan, type CapacityWindow } from "../services/staffingCapacity.js";
+import { STAFFING_CAPACITY_TIMEZONE } from "../domain/staffing/staffing-capacity.js";
 import { getRequestMeta } from "../utils/requestMeta.js";
 import { getLocalDateString } from "../utils/localDate.js";
 
@@ -39,6 +41,22 @@ const filtersSchema = z.object({
   employee_id: z.string().uuid().optional(),
   location_query: z.string().optional(),
   status: z.string().optional()
+});
+
+const capacityQuerySchema = z.object({
+  window: z.enum(["day", "week", "month"]).optional(),
+  anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  department: z
+    .enum(["executive", "operations", "schools", "sports", "office", "production", "customer_service", "unassigned"])
+    .optional(),
+  role: z
+    .enum(["lead_photographer", "senior_photographer", "photographer", "support", "check_in", "assistant", "producer", "custom"])
+    .optional(),
+  employee_id: z.string().uuid().optional(),
+  location: z.string().optional(),
+  status: z.enum(["draft", "published", "completed"]).optional(),
+  ack: z.enum(["pending", "acknowledged", "declined", "none"]).optional(),
+  warning: z.enum(["overlap", "availability", "any"]).optional()
 });
 
 const scheduleEventSchema = z.object({
@@ -309,6 +327,43 @@ router.get(
       const auth = (req as AuthenticatedRequest).auth;
       const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
         getStaffingDashboardOverview(client, auth, req.query.anchor_date ? String(req.query.anchor_date) : getLocalDateString())
+      );
+      return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.get(
+  "/capacity",
+  requireAuth,
+  requireAction("schedule.manage"),
+  validateQuery(capacityQuerySchema),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const query = req.query as Record<string, string | undefined>;
+      const window = (query.window as CapacityWindow | undefined) ?? "week";
+      const anchorDate =
+        query.anchor_date && /^\d{4}-\d{2}-\d{2}$/.test(query.anchor_date)
+          ? query.anchor_date
+          : getLocalDateString(new Date(), { timeZone: STAFFING_CAPACITY_TIMEZONE });
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        getStaffingCapacityPlan(client, auth, {
+          window,
+          anchorDate,
+          filters: {
+            department: query.department ?? null,
+            staffingRole: query.role ?? null,
+            employeeUserId: query.employee_id ?? null,
+            locationName: query.location ?? null,
+            assignmentState: (query.status as "draft" | "published" | "completed" | undefined) ?? null,
+            acknowledgmentState:
+              (query.ack as "pending" | "acknowledged" | "declined" | "none" | undefined) ?? null,
+            warningState: (query.warning as "overlap" | "availability" | "any" | undefined) ?? null
+          }
+        })
       );
       return res.json(payload);
     } catch (error) {
