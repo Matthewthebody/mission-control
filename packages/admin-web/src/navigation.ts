@@ -103,6 +103,7 @@ type RouteRender =
   | { kind: "global-search" }
   | { kind: "scheduling-workspace"; area?: "calendar" | "staffing" | "exceptions" | "outlook" }
   | { kind: "staff-assignment-board" }
+  | { kind: "staffing-capacity-planning" }
   | { kind: "schedule-workspace" }
   | { kind: "schools-hub" }
   | { kind: "sports-overview" }
@@ -444,6 +445,18 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: true,
     render: { kind: "staff-assignment-board" }
+  },
+  {
+    id: "operations-staffing-capacity",
+    label: "Capacity Planning",
+    sectionKey: "leadership",
+    description: "Scheduled staffing capacity by day, week, and month — dense team grid, overlap and availability signals, no payroll.",
+    canonicalHash: "#operations/staffing/capacity?view=week",
+    visibleTabs: ["calendar"],
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "staffing-capacity-planning" }
   },
   {
     id: "operations-attendance",
@@ -1863,6 +1876,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   ],
   leadership: [
     "operations-staffing",
+    "operations-staffing-capacity",
     "operations-attendance",
     "business-health-reports",
     "business-health-kpis",
@@ -2025,6 +2039,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "operations/schedule" || path === "schedule" || path === "calendar") {
     return resolveScheduleAlias(params, availableTabs, employeeOnlyMode);
+  }
+  if (path === "operations/staffing/capacity" || path === "schedule/capacity") {
+    return pickVisibleRoute("operations-staffing-capacity", availableTabs, employeeOnlyMode);
   }
   if (path === "operations/staffing") {
     return pickVisibleRoute("operations-staffing", availableTabs, employeeOnlyMode);

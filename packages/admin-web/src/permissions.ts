@@ -2101,6 +2101,11 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
       return canAccessOperatingSystemModule(user, "schedule");
     case "operations-staffing":
       return canAccessOperatingSystemModule(user, "scheduling") || hasCapability(user, "staffing.view");
+    case "operations-staffing-capacity": {
+      // Mirrors the capacity view's own gate (manager-level schedule scope), so the route and the page agree.
+      const capacityScope = getOperatingSystemScope(user, "schedule");
+      return capacityScope === "all" || capacityScope === "department";
+    }
     case "operations-attendance":
       return canAccessOperatingSystemModule(user, "operations") || hasCapability(user, "attendance.view");
     case "operations-status-board":

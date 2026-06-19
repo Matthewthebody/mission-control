@@ -998,8 +998,10 @@ describe("StudiosWorkspace", () => {
     expect(getRouteById("studios-readiness")?.showInSectionNav).toBe(false);
 
     expect(leadershipRouteIds[0]).toBe("operations-staffing");
-    expect(leadershipRouteIds[1]).toBe("operations-attendance");
+    expect(leadershipRouteIds[1]).toBe("operations-staffing-capacity");
+    expect(leadershipRouteIds[2]).toBe("operations-attendance");
     expect(getRouteById("operations-staffing")?.label).toBe("Staff Assignment Board");
+    expect(getRouteById("operations-staffing-capacity")?.label).toBe("Capacity Planning");
     expect(getRouteById("operations-attendance")?.canonicalHash).toBe("#employees/attendance");
   });
 

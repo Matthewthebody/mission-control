@@ -84,6 +84,9 @@ const LazySchedule = lazy(() =>
 const LazyStaffAssignmentBoard = lazy(() =>
   import("./pages/StaffAssignmentBoard").then((module) => ({ default: module.StaffAssignmentBoard }))
 );
+const LazyStaffingCapacityPlanning = lazy(() =>
+  import("./pages/StaffingCapacityPlanning").then((module) => ({ default: module.StaffingCapacityPlanning }))
+);
 const LazyConciergeSearchPage = lazy(() =>
   import("./pages/ConciergeSearchPage").then((module) => ({ default: module.ConciergeSearchPage }))
 );
@@ -1574,6 +1577,14 @@ function renderRouteContent({
       <LazyStaffAssignmentBoard token={token} currentUser={currentUser} socket={socket} />,
       "Loading staff assignment board",
       "Opening date-first staffing."
+    );
+  }
+
+  if (route.render.kind === "staffing-capacity-planning") {
+    return withRouteSuspense(
+      <LazyStaffingCapacityPlanning token={token} currentUser={currentUser} socket={socket} />,
+      "Loading capacity planning",
+      "Opening staffing capacity by day, week, and month."
     );
   }
 
