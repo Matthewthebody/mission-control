@@ -557,6 +557,13 @@ function WeekView({ plan, onOpenShoot }: { plan: StaffingCapacityPlan; onOpenSho
                       {formatHours(employee.raw_assigned_minutes)} assigned · {formatHours(employee.overlap_minutes)} overlapping
                     </span>
                   ) : null}
+                  {employee.suspicious_timing_count > 0 ? (
+                    <span className="capacity__badge capacity__badge--warning">
+                      <span aria-hidden="true">⚠ </span>
+                      {employee.suspicious_timing_count} suspicious timing
+                      <span className="capacity__sr-only"> — corrupt source interval clipped to the window</span>
+                    </span>
+                  ) : null}
                 </td>
                 <td>{employee.assignment_count}</td>
                 <td>{employee.shoot_count}</td>
@@ -662,6 +669,12 @@ function DayView({ plan, onOpenShoot }: { plan: StaffingCapacityPlan; onOpenShoo
                   Incomplete timing
                 </StatusBadge>
               ) : null}
+              {assignment.timing_quality === "suspicious" ? (
+                <StatusBadge tone="warning" icon="⚠" title={assignment.timing_warning_reason ?? undefined}>
+                  Suspicious timing ({formatHours(assignment.source_duration_minutes ?? 0)} source ·{" "}
+                  {formatHours(assignment.clipped_duration_minutes)} counted)
+                </StatusBadge>
+              ) : null}
             </span>
           </button>
         </li>
@@ -734,14 +747,16 @@ function AvailabilityBadge({ state }: { state: CapacityAvailabilityState }) {
 function StatusBadge({
   children,
   tone,
-  icon
+  icon,
+  title
 }: {
   children: ReactNode;
   tone: "ok" | "warning" | "danger" | "neutral" | "overlap";
   icon?: string;
+  title?: string;
 }) {
   return (
-    <span className={`capacity__badge capacity__badge--${tone}`}>
+    <span className={`capacity__badge capacity__badge--${tone}`} title={title}>
       {icon ? <span aria-hidden="true">{icon} </span> : null}
       {children}
     </span>

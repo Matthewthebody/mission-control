@@ -4,6 +4,7 @@ import type { AuthUser } from "../types/auth.js";
 import { getOperatingSystemScope } from "./operatingSystemAccess.js";
 import { getLocalDayBounds } from "../utils/localDate.js";
 import { loadAvailabilityWindowsForUsersOnDate, type AvailabilityWindow } from "./availabilityRequests.js";
+import { config } from "../config.js";
 import {
   STAFFING_CAPACITY_TIMEZONE,
   parseCapacityInterval,
@@ -14,7 +15,10 @@ import {
   operatingDate,
   weekStartDate,
   addOperatingDays,
-  type CapacityInterval
+  clipInterval,
+  classifyTimingQuality,
+  type CapacityInterval,
+  type TimingQuality
 } from "../domain/staffing/staffing-capacity.js";
 
 // Canonical read model for SCHEDULED staffing capacity (work_shift intervals), not payroll/actual hours.
@@ -72,9 +76,13 @@ export type CapacityAssignmentView = {
   staffing_role: string | null;
   satisfies_lead_coverage: boolean;
   operating_date: string | null;
-  starts_at: string | null;
-  ends_at: string | null;
-  duration_minutes: number | null;
+  starts_at: string | null; // canonical, never clipped — for display + drilldown
+  ends_at: string | null; // canonical, never clipped — for display + drilldown
+  duration_minutes: number | null; // canonical (source) shift length, for display
+  source_duration_minutes: number | null; // full canonical interval length (null if incomplete)
+  clipped_duration_minutes: number; // portion intersecting the requested window — what counts toward totals
+  timing_quality: TimingQuality; // valid | incomplete | suspicious
+  timing_warning_reason: string | null; // human-readable reason when not valid
   shift_status: string;
   response_status: string | null;
   lifecycle_state: CapacityLifecycleState;
@@ -139,6 +147,7 @@ export type CapacityEmployeeView = {
   schedule_conflict_count: number;
   availability_warning_count: number;
   incomplete_timing_count: number;
+  suspicious_timing_count: number;
   pending_assignment_count: number;
   declined_assignment_count: number;
   overtime_day_flag_count: number;
@@ -182,6 +191,7 @@ export type StaffingCapacityPlan = {
     employees_with_overlap: number;
     employees_with_availability_warning: number;
     incomplete_timing_count: number;
+    suspicious_timing_count: number;
   };
   employees: CapacityEmployeeView[];
 };
@@ -318,15 +328,6 @@ function computeWindowRange(window: CapacityWindow, anchorDate: string): WindowR
   };
 }
 
-function clipInterval(interval: CapacityInterval, startMs: number, endMs: number): CapacityInterval | null {
-  const start = Math.max(interval.startMs, startMs);
-  const end = Math.min(interval.endMs, endMs);
-  if (end <= start) {
-    return null;
-  }
-  return { startMs: start, endMs: end };
-}
-
 /** Set of shift ids that overlap at least one other shift of the same employee. */
 function computeOverlappingShiftIds(items: Array<{ shiftId: string; interval: CapacityInterval }>): Set<string> {
   const sorted = [...items].sort((a, b) => a.interval.startMs - b.interval.startMs);
@@ -420,6 +421,7 @@ function assemblePlan(
       acc.assignment_count += employee.assignment_count;
       acc.shoot_count += employee.shoot_count;
       acc.incomplete_timing_count += employee.incomplete_timing_count;
+      acc.suspicious_timing_count += employee.suspicious_timing_count;
       if (employee.schedule_conflict_count > 0) {
         acc.employees_with_overlap += 1;
       }
@@ -442,7 +444,8 @@ function assemblePlan(
       shoot_count: 0,
       employees_with_overlap: 0,
       employees_with_availability_warning: 0,
-      incomplete_timing_count: 0
+      incomplete_timing_count: 0,
+      suspicious_timing_count: 0
     }
   );
 
@@ -498,6 +501,7 @@ function buildZeroEmployeeView(
     schedule_conflict_count: 0,
     availability_warning_count: 0,
     incomplete_timing_count: 0,
+    suspicious_timing_count: 0,
     pending_assignment_count: 0,
     declined_assignment_count: 0,
     overtime_day_flag_count: 0,
@@ -713,11 +717,22 @@ export async function getStaffingCapacityPlan(
     endMs: chicagoDayBoundsMs(bucket.week_end).endMs
   }));
 
+  const windowBounds = { startMs: windowStartMs, endMs: windowEndMs };
+  const suspiciousThresholdMinutes = config.CAPACITY_SUSPICIOUS_SHIFT_MINUTES;
   const employeeMap = new Map<string, CapacityEmployeeView>();
   for (const [employeeUserId, records] of recordsByEmployee) {
     employeeMap.set(
       employeeUserId,
-      buildEmployeeView(employeeUserId, records, range, dayBoundsByDate, weekBoundsList, availabilityByUserDate)
+      buildEmployeeView(
+        employeeUserId,
+        records,
+        range,
+        dayBoundsByDate,
+        weekBoundsList,
+        availabilityByUserDate,
+        windowBounds,
+        suspiciousThresholdMinutes
+      )
     );
   }
 
@@ -785,9 +800,18 @@ function buildEmployeeView(
   range: WindowRange,
   dayBoundsByDate: Map<string, DateBounds>,
   weekBoundsList: Array<{ bucket: { week_start: string; week_end: string }; startMs: number; endMs: number }>,
-  availabilityByUserDate: Map<string, AvailabilityWindow[]>
+  availabilityByUserDate: Map<string, AvailabilityWindow[]>,
+  windowBounds: DateBounds,
+  suspiciousThresholdMinutes: number
 ): CapacityEmployeeView {
   const first = records[0];
+  // Every total is computed from intervals CLIPPED to the requested window, so an out-of-window or corrupt
+  // (multi-year) shift can only ever contribute the portion that intersects the window. Canonical starts_at/
+  // ends_at are preserved unchanged on the assignment detail.
+  const windowClippedById = new Map<string, CapacityInterval | null>();
+  for (const record of records) {
+    windowClippedById.set(record.shift_id, record.interval ? clipInterval(record.interval, windowBounds.startMs, windowBounds.endMs) : null);
+  }
   const validIntervals: CapacityInterval[] = [];
   const validWithId: Array<{ shiftId: string; interval: CapacityInterval }> = [];
   const roleSet = new Set<string>();
@@ -800,6 +824,7 @@ function buildEmployeeView(
   let pendingMinutes = 0;
   let declinedMinutes = 0;
   let incompleteTimingCount = 0;
+  let suspiciousTimingCount = 0;
   let unavailableCount = 0;
   let availabilityWarningSoftCount = 0;
   let pendingAssignmentCount = 0;
@@ -816,10 +841,19 @@ function buildEmployeeView(
       incompleteTimingCount += 1;
       continue;
     }
-    validIntervals.push(record.interval);
-    validWithId.push({ shiftId: record.shift_id, interval: record.interval });
+    if (classifyTimingQuality(record.interval, suspiciousThresholdMinutes) === "suspicious") {
+      suspiciousTimingCount += 1;
+    }
+    // Minutes are counted from the WINDOW-CLIPPED interval only. A shift entirely outside the window clips to
+    // null and contributes zero; one that straddles the boundary contributes only the overlapping portion.
+    const clipped = windowClippedById.get(record.shift_id) ?? null;
+    if (!clipped) {
+      continue;
+    }
+    validIntervals.push(clipped);
+    validWithId.push({ shiftId: record.shift_id, interval: clipped });
 
-    const minutes = durationMinutes(record.interval);
+    const minutes = durationMinutes(clipped);
     const { published, lifecycle, coverageEligible } = classifyShift(record.status, record.response_status);
     rawAssigned += minutes;
     if (published) {
@@ -860,6 +894,16 @@ function buildEmployeeView(
         availabilityWarningSoftCount += 1;
       }
     }
+    const sourceDuration = record.interval ? durationMinutes(record.interval) : null;
+    const clippedInterval = windowClippedById.get(record.shift_id) ?? null;
+    const clippedDuration = clippedInterval ? durationMinutes(clippedInterval) : 0;
+    const timingQuality = classifyTimingQuality(record.interval, suspiciousThresholdMinutes);
+    const timingWarningReason =
+      timingQuality === "incomplete"
+        ? "Missing or invalid start/end time — excluded from totals, no duration invented."
+        : timingQuality === "suspicious"
+          ? `Source interval is ${Math.round((sourceDuration ?? 0) / 60)}h, beyond the ${Math.round(suspiciousThresholdMinutes / 60)}h plausibility limit; likely corrupt — only the in-window portion is counted.`
+          : null;
     return {
       shift_id: record.shift_id,
       shoot_id: record.shoot_id,
@@ -873,7 +917,11 @@ function buildEmployeeView(
       operating_date: opDate,
       starts_at: record.starts_at,
       ends_at: record.ends_at,
-      duration_minutes: record.interval ? durationMinutes(record.interval) : null,
+      duration_minutes: sourceDuration,
+      source_duration_minutes: sourceDuration,
+      clipped_duration_minutes: clippedDuration,
+      timing_quality: timingQuality,
+      timing_warning_reason: timingWarningReason,
       shift_status: record.status,
       response_status: record.response_status,
       lifecycle_state: lifecycle,
@@ -1020,6 +1068,7 @@ function buildEmployeeView(
     schedule_conflict_count: scheduleConflictCount,
     availability_warning_count: availabilityWarningCount,
     incomplete_timing_count: incompleteTimingCount,
+    suspicious_timing_count: suspiciousTimingCount,
     pending_assignment_count: pendingAssignmentCount,
     declined_assignment_count: declinedAssignmentCount,
     overtime_day_flag_count: overtimeDayFlagCount,

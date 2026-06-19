@@ -832,3 +832,83 @@ describe("staffing capacity read model — query behavior on a realistic fixture
     expect(plan.includes_zero_assignment_employees).toBe(true);
   });
 });
+
+describe("staffing capacity read model — interval clipping + data quality", () => {
+  const WEEK_MINUTES = 7 * 24 * 60;
+
+  async function spareSchoolsUser(): Promise<{ id: string; name: string | null }> {
+    const row = (
+      await pool.query<{ id: string; full_name: string | null }>(
+        `SELECT id::text AS id, full_name FROM app_user
+         WHERE tenant_id = $1 AND is_active = true AND department = 'schools'
+           AND id NOT IN ($2::uuid, $3::uuid)
+         ORDER BY id DESC LIMIT 1`,
+        [tenantId, photoId, seniorId]
+      )
+    ).rows[0];
+    return { id: row.id, name: row.full_name };
+  }
+
+  async function insertRawShift(userId: string, startsAt: string, endsAt: string): Promise<string> {
+    const row = (
+      await pool.query<{ id: string }>(
+        `INSERT INTO work_shift
+           (tenant_id, assigned_user_id, shift_kind, status, department, title, starts_at, ends_at, location_name, staffing_role)
+         VALUES ($1, $2, 'shoot', 'published', 'schools', 'Raw', $3::timestamptz, $4::timestamptz, 'Raw Site', 'photographer')
+         RETURNING id::text AS id`,
+        [tenantId, userId, startsAt, endsAt]
+      )
+    ).rows[0];
+    return row.id;
+  }
+
+  it("34. a corrupt multi-year shift is clipped to the window and flagged suspicious, not multi-year", async () => {
+    const date = "2027-06-07";
+    const user = await spareSchoolsUser();
+    // A 6-year interval — the exact class of corrupt/legacy row that polluted totals during the browser smoke.
+    const shiftId = await insertRawShift(user.id, "2025-01-01T00:00:00Z", "2031-01-01T00:00:00Z");
+    try {
+      const employee = empOf(await week(capAuth({}), date), user.id)!;
+      // Totals are bounded to the week — never the multi-year source duration.
+      expect(employee.unique_scheduled_minutes).toBe(WEEK_MINUTES);
+      expect(employee.raw_assigned_minutes).toBe(WEEK_MINUTES);
+      expect(employee.suspicious_timing_count).toBe(1);
+
+      const assignment = employee.assignments.find((a) => a.shift_id === shiftId)!;
+      expect(assignment.timing_quality).toBe("suspicious");
+      expect(assignment.source_duration_minutes!).toBeGreaterThan(2_000_000); // the real (corrupt) length
+      expect(assignment.clipped_duration_minutes).toBe(WEEK_MINUTES); // what actually counts
+      expect(assignment.timing_warning_reason).toMatch(/plausibility limit/);
+      // Canonical start/end are preserved for display + drilldown (not mutated/truncated).
+      expect(assignment.starts_at).toMatch(/^2025-01-01/);
+      expect(assignment.ends_at).toMatch(/^2031-01-01/);
+
+      // Day/week rollups reconcile to the same clipped total and never exceed the week's minutes.
+      const dayTotal = employee.days.reduce((sum, d) => sum + d.scheduled_minutes, 0);
+      expect(dayTotal).toBe(WEEK_MINUTES);
+      expect(employee.weeks[0].scheduled_minutes).toBe(WEEK_MINUTES);
+    } finally {
+      await pool.query("DELETE FROM work_shift WHERE id = $1", [shiftId]);
+    }
+  });
+
+  it("35. a shift straddling the Monday boundary contributes only its in-window portion", async () => {
+    const date = "2027-06-07"; // week Mon 2027-06-07 .. Sun 2027-06-13 (Chicago)
+    const user = await spareSchoolsUser();
+    // 22:00 CDT Sun 2027-06-06 (03:00Z Mon) → 13:00 CDT Mon 2027-06-07 (18:00Z Mon). Only the Monday portion
+    // (00:00–13:00 CDT = 13h) is inside the week; the Sunday-before tail is outside and must not count.
+    const shiftId = await insertRawShift(user.id, "2027-06-07T03:00:00Z", "2027-06-07T18:00:00Z");
+    try {
+      const employee = empOf(await week(capAuth({}), date), user.id)!;
+      // Window starts Mon 00:00 CDT = 05:00Z; clipped = 05:00Z..18:00Z = 13h.
+      expect(employee.unique_scheduled_minutes).toBe(13 * 60);
+      const assignment = employee.assignments.find((a) => a.shift_id === shiftId)!;
+      expect(assignment.timing_quality).toBe("valid");
+      expect(assignment.source_duration_minutes).toBe(15 * 60); // full 03:00Z..18:00Z = 15h
+      expect(assignment.clipped_duration_minutes).toBe(13 * 60); // only the in-window 13h counts
+      expect(assignment.starts_at).toMatch(/^2027-06-07[ T]03:00/); // canonical retained (pg ::text uses a space)
+    } finally {
+      await pool.query("DELETE FROM work_shift WHERE id = $1", [shiftId]);
+    }
+  });
+});

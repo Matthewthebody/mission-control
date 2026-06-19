@@ -2,6 +2,7 @@ import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { resolveApiRepoPath } from "./utils/repoPaths.js";
+import { DEFAULT_SUSPICIOUS_SHIFT_MINUTES } from "./domain/staffing/staffing-capacity.js";
 
 // The repo root .env is the documented source of truth for local development.
 // A legacy parent-folder .env can still supply missing values, but it should not override repo-local settings.
@@ -257,6 +258,8 @@ const configSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
   API_PUBLIC_URL: z.string().default("http://localhost:4000"),
   ADMIN_WEB_URL: z.string().default("http://localhost:5173"),
+  // A single work_shift longer than this many minutes is treated as suspicious/corrupt (flagged, still clipped).
+  CAPACITY_SUSPICIOUS_SHIFT_MINUTES: z.coerce.number().int().positive().default(DEFAULT_SUSPICIOUS_SHIFT_MINUTES),
   AUTH_SESSION_HOURS: z.coerce.number().default(8),
   AUTH_ELEVATED_MINUTES: z.coerce.number().default(10),
   AUTH_PRIVILEGED_MODE_MINUTES: z.coerce.number().default(15),

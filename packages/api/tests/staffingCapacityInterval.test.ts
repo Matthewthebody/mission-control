@@ -11,6 +11,9 @@ import {
   splitMinutesByOperatingDate,
   weekStartDate,
   addOperatingDays,
+  clipInterval,
+  classifyTimingQuality,
+  DEFAULT_SUSPICIOUS_SHIFT_MINUTES,
   type CapacityInterval
 } from "../src/domain/staffing/staffing-capacity.js";
 
@@ -127,5 +130,66 @@ describe("staffing capacity interval math", () => {
     expect(addOperatingDays("2027-06-30", 1)).toBe("2027-07-01");
     expect(addOperatingDays("2027-01-31", 1)).toBe("2027-02-01");
     expect(addOperatingDays("2027-03-15", -1)).toBe("2027-03-14"); // across the DST date, calendar-stable
+  });
+});
+
+describe("staffing capacity interval clipping + timing quality", () => {
+  // A Chicago week window 2027-06-07 (Mon 00:00 CDT = 05:00Z) .. 2027-06-14 (next Mon 00:00 CDT = 05:00Z).
+  const winStart = new Date("2027-06-07T05:00:00Z").getTime();
+  const winEnd = new Date("2027-06-14T05:00:00Z").getTime();
+  const WEEK_MINUTES = 7 * 24 * 60;
+
+  it("10. an interval fully inside the window is unchanged", () => {
+    const inside = interval("2027-06-09T14:00:00Z", "2027-06-09T17:00:00Z");
+    const clipped = clipInterval(inside, winStart, winEnd)!;
+    expect(clipped.startMs).toBe(inside.startMs);
+    expect(clipped.endMs).toBe(inside.endMs);
+    expect(durationMinutes(clipped)).toBe(180);
+  });
+
+  it("11. an interval beginning before the window is clipped to the Monday start boundary", () => {
+    const straddleStart = interval("2027-06-05T12:00:00Z", "2027-06-07T17:00:00Z"); // starts Fri before, ends Mon
+    const clipped = clipInterval(straddleStart, winStart, winEnd)!;
+    expect(clipped.startMs).toBe(winStart); // clamped to the window start
+    expect(clipped.endMs).toBe(straddleStart.endMs);
+  });
+
+  it("12. an interval ending after the window is clipped to the end-exclusive Sunday boundary", () => {
+    const straddleEnd = interval("2027-06-13T20:00:00Z", "2027-06-20T12:00:00Z"); // Sun into next week
+    const clipped = clipInterval(straddleEnd, winStart, winEnd)!;
+    expect(clipped.startMs).toBe(straddleEnd.startMs);
+    expect(clipped.endMs).toBe(winEnd); // clamped to the end-exclusive boundary
+  });
+
+  it("13. an interval spanning the entire week cannot exceed the week's possible minutes", () => {
+    const spanWeek = interval("2027-06-01T00:00:00Z", "2027-06-30T00:00:00Z");
+    const clipped = clipInterval(spanWeek, winStart, winEnd)!;
+    expect(durationMinutes(clipped)).toBe(WEEK_MINUTES);
+  });
+
+  it("14. a multi-year interval clips to the window and never produces a multi-year total", () => {
+    const multiYear = interval("2025-01-01T00:00:00Z", "2031-01-01T00:00:00Z");
+    expect(durationMinutes(multiYear)).toBeGreaterThan(2_000_000); // source is millions of minutes
+    const clipped = clipInterval(multiYear, winStart, winEnd)!;
+    expect(durationMinutes(clipped)).toBe(WEEK_MINUTES); // bounded to one week
+    expect(uniqueScheduledMinutes([clipped])).toBe(WEEK_MINUTES);
+  });
+
+  it("15. an interval entirely outside the window does not intersect (null, contributes zero)", () => {
+    const before = interval("2027-05-01T00:00:00Z", "2027-05-02T00:00:00Z");
+    const after = interval("2027-07-01T00:00:00Z", "2027-07-02T00:00:00Z");
+    expect(clipInterval(before, winStart, winEnd)).toBeNull();
+    expect(clipInterval(after, winStart, winEnd)).toBeNull();
+  });
+
+  it("16. timing quality: valid, incomplete (no interval), and suspicious (over the threshold)", () => {
+    const normal = interval("2027-06-09T14:00:00Z", "2027-06-09T17:00:00Z");
+    const multiYear = interval("2025-01-01T00:00:00Z", "2031-01-01T00:00:00Z");
+    expect(classifyTimingQuality(normal, DEFAULT_SUSPICIOUS_SHIFT_MINUTES)).toBe("valid");
+    expect(classifyTimingQuality(null, DEFAULT_SUSPICIOUS_SHIFT_MINUTES)).toBe("incomplete");
+    expect(classifyTimingQuality(multiYear, DEFAULT_SUSPICIOUS_SHIFT_MINUTES)).toBe("suspicious");
+    // Exactly at the threshold is still valid; one minute over is suspicious.
+    const exactly = interval("2027-06-09T00:00:00Z", "2027-06-10T00:00:00Z"); // 24h == default threshold
+    expect(classifyTimingQuality(exactly, DEFAULT_SUSPICIOUS_SHIFT_MINUTES)).toBe("valid");
   });
 });

@@ -58,6 +58,7 @@ function emp(over: Partial<CapacityEmployeeView> & { employee_user_id: string })
     schedule_conflict_count: 0,
     availability_warning_count: 0,
     incomplete_timing_count: 0,
+    suspicious_timing_count: 0,
     pending_assignment_count: 0,
     declined_assignment_count: 0,
     overtime_day_flag_count: 0,
@@ -85,6 +86,10 @@ function assignment(over: Partial<CapacityAssignmentView> & { shift_id: string }
     starts_at: "2027-06-07T14:00:00.000Z",
     ends_at: "2027-06-07T17:00:00.000Z",
     duration_minutes: 180,
+    source_duration_minutes: 180,
+    clipped_duration_minutes: 180,
+    timing_quality: "valid",
+    timing_warning_reason: null,
     shift_status: "published",
     response_status: "pending",
     lifecycle_state: "pending",
@@ -129,7 +134,8 @@ function plan(view: CapacityView, employees: CapacityEmployeeView[], over: Parti
       shoot_count: 0,
       employees_with_overlap: 0,
       employees_with_availability_warning: 0,
-      incomplete_timing_count: 0
+      incomplete_timing_count: 0,
+      suspicious_timing_count: 0
     },
     employees,
     ...over
@@ -474,5 +480,32 @@ describe("Staffing Capacity Planning view", () => {
     expect(dayButton).toHaveAttribute("aria-pressed", "true");
     // The assignment is an actionable button (focusable / keyboard-operable):
     expect(within(list).getByRole("button", { name: /Open staffing for/ })).toBeInTheDocument();
+  });
+
+  it("19. a suspicious (corrupt-duration) assignment is surfaced, not silently dropped", async () => {
+    respondByView({
+      day: () =>
+        plan("day", [
+          emp({
+            employee_user_id: "Ada",
+            suspicious_timing_count: 1,
+            assignments: [
+              assignment({
+                shift_id: "s1",
+                timing_quality: "suspicious",
+                source_duration_minutes: 2358191,
+                clipped_duration_minutes: 10080,
+                timing_warning_reason: "Source interval is 39303h, beyond the 24h plausibility limit; likely corrupt — only the in-window portion is counted."
+              })
+            ]
+          })
+        ])
+    });
+    window.location.hash = "#operations/staffing/capacity?view=day&date=2027-06-07";
+    renderBoard();
+    const list = await screen.findByRole("list", { name: "Assignments" });
+    expect(within(list).getByText(/Suspicious timing/)).toBeInTheDocument();
+    // The corrupt source duration is visible alongside the bounded counted amount — nothing disappears.
+    expect(within(list).getByText(/counted/)).toBeInTheDocument();
   });
 });

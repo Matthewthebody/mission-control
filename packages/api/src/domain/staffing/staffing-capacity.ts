@@ -128,3 +128,45 @@ export function addOperatingDays(operatingDateStr: string, days: number): string
   date.setUTCDate(date.getUTCDate() + days);
   return formatUtcDate(date);
 }
+
+/**
+ * Intersect an interval with a [windowStartMs, windowEndMs) window. Returns the clipped portion, or null if
+ * the interval does not intersect the window. Used to bound every capacity total to the requested window so a
+ * corrupt/legacy multi-year work_shift can never contribute more than the window's own minutes. The canonical
+ * starts_at/ends_at are never mutated — only the *counted* portion is clipped.
+ */
+export function clipInterval(
+  interval: CapacityInterval,
+  windowStartMs: number,
+  windowEndMs: number
+): CapacityInterval | null {
+  const start = Math.max(interval.startMs, windowStartMs);
+  const end = Math.min(interval.endMs, windowEndMs);
+  if (end <= start) {
+    return null;
+  }
+  return { startMs: start, endMs: end };
+}
+
+/**
+ * Centralized default plausibility limit for a single staffing shift. A single work_shift longer than this is
+ * almost certainly corrupt/legacy data, not a real assignment, so it is flagged "suspicious" (and still clipped
+ * to the window for totals). Overridable via config (CAPACITY_SUSPICIOUS_SHIFT_MINUTES).
+ */
+export const DEFAULT_SUSPICIOUS_SHIFT_MINUTES = 24 * 60; // 24h
+
+export type TimingQuality = "valid" | "incomplete" | "suspicious";
+
+/** Classify the data quality of a shift's *source* interval. Clipping is independent of this classification. */
+export function classifyTimingQuality(
+  sourceInterval: CapacityInterval | null,
+  suspiciousThresholdMinutes: number
+): TimingQuality {
+  if (!sourceInterval) {
+    return "incomplete";
+  }
+  if (durationMinutes(sourceInterval) > suspiciousThresholdMinutes) {
+    return "suspicious";
+  }
+  return "valid";
+}

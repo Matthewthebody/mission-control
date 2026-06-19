@@ -16,6 +16,8 @@ export type CapacityLifecycleState = "draft" | "published" | "pending" | "acknow
 
 export type CapacityCalendarSource = "calendar_not_connected" | "calendar_unavailable";
 
+export type CapacityTimingQuality = "valid" | "incomplete" | "suspicious";
+
 export type CapacityAssignmentView = {
   shift_id: string;
   shoot_id: string | null;
@@ -30,6 +32,10 @@ export type CapacityAssignmentView = {
   starts_at: string | null;
   ends_at: string | null;
   duration_minutes: number | null;
+  source_duration_minutes: number | null;
+  clipped_duration_minutes: number;
+  timing_quality: CapacityTimingQuality;
+  timing_warning_reason: string | null;
   shift_status: string;
   response_status: string | null;
   lifecycle_state: CapacityLifecycleState;
@@ -94,6 +100,7 @@ export type CapacityEmployeeView = {
   schedule_conflict_count: number;
   availability_warning_count: number;
   incomplete_timing_count: number;
+  suspicious_timing_count: number;
   pending_assignment_count: number;
   declined_assignment_count: number;
   overtime_day_flag_count: number;
@@ -137,6 +144,7 @@ export type StaffingCapacityPlan = {
     employees_with_overlap: number;
     employees_with_availability_warning: number;
     incomplete_timing_count: number;
+    suspicious_timing_count: number;
   };
   employees: CapacityEmployeeView[];
 };
