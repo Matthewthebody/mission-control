@@ -1,0 +1,141 @@
+import request from "supertest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../src/app.js";
+import { pool } from "../src/db/pool.js";
+import { devLogin } from "./helpers.js";
+import { backfillContactIdentities, createCanonicalContact, linkContactToOrganization, getContactRelationships } from "../src/services/canonicalContacts.js";
+
+// Phase 4 Slice 2 — reusable canonical Contact identity. A `contact` identity (migration
+// 161) is the reusable person; org-bound `organization_contact` rows reference it via
+// contact_id with per-org roles. Verifies cross-org reuse with distinct roles, the
+// one-to-one backfill (dry-run + idempotent apply, never merging on name/email), RBAC,
+// and tenant isolation. organization_contact.organization_id stays NOT NULL throughout.
+
+const app = createApp();
+const stamp = Date.now();
+let manageToken = "";
+let photographerToken = "";
+let tenantId = "";
+let adminUserId = "";
+let districtId = "";
+let schoolId = "";
+let crossOrgId = "";
+const createdContactIds: string[] = [];
+
+function post(path: string, body: Record<string, unknown>, token = manageToken) {
+  return request(app).post(`/api/organizations${path}`).set("Authorization", `Bearer ${token}`).send(body);
+}
+// The shared dev DB intermittently returns a transient 500 on the first guarded write of
+// a run (observed across phases); retry idempotent creates a couple times.
+async function postRetry(path: string, body: Record<string, unknown>, token = manageToken) {
+  let res = await post(path, body, token);
+  for (let i = 0; i < 3 && res.status >= 500; i += 1) res = await post(path, body, token);
+  return res;
+}
+function get(path: string, token = manageToken) {
+  return request(app).get(`/api/organizations${path}`).set("Authorization", `Bearer ${token}`);
+}
+async function makeOrg(tenant: string, label: string) {
+  return (
+    await pool.query(
+      `INSERT INTO organization (tenant_id, canonical_name, normalized_canonical_name, display_name, account_type, active_status)
+       VALUES ($1,$2,$2,$2,'schools_underclass_portraits','active') RETURNING id::text`,
+      [tenant, label]
+    )
+  ).rows[0].id;
+}
+
+beforeAll(async () => {
+  manageToken = (await devLogin(app, "schools-office@example.com")).body.token;
+  photographerToken = (await devLogin(app, "photo@example.com")).body.token;
+  tenantId = (await request(app).get("/auth/me").set("Authorization", `Bearer ${manageToken}`)).body.user.tenantId;
+  adminUserId = (await pool.query(`SELECT id::text FROM app_user WHERE email='schools-office@example.com'`)).rows[0].id;
+  districtId = await makeOrg(tenantId, `cc district ${stamp}`);
+  schoolId = await makeOrg(tenantId, `cc school ${stamp}`);
+  const otherTenant = (await pool.query(`SELECT id::text FROM tenant WHERE id <> $1 ORDER BY name LIMIT 1`, [tenantId])).rows[0].id;
+  crossOrgId = await makeOrg(otherTenant, `cc xtenant ${stamp}`);
+});
+
+afterAll(async () => {
+  const orgs = [districtId, schoolId, crossOrgId].filter(Boolean);
+  await pool.query(`DELETE FROM organization_contact_relationship WHERE organization_id = ANY($1::uuid[])`, [orgs]);
+  await pool.query(`DELETE FROM organization_contact WHERE organization_id = ANY($1::uuid[])`, [orgs]);
+  if (createdContactIds.length) await pool.query(`DELETE FROM contact WHERE id = ANY($1::uuid[])`, [createdContactIds]);
+  await pool.query(`DELETE FROM organization WHERE id = ANY($1::uuid[])`, [orgs]);
+});
+
+describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
+  it("(1/4/5) one canonical Contact links to a District and a School with different roles", async () => {
+    // Exercise the service directly in a rolled-back tx (the route path is covered by the
+    // dry-run / RBAC / cross-tenant tests; this isolates the cross-org reuse logic).
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const contact = await createCanonicalContact(client, auth, { first_name: "Sam", last_name: "Rivera", email: "sam@shared.example.com" });
+      await linkContactToOrganization(client, auth, contact.id, districtId, { client_roles: ["district_contact"], is_primary: true });
+      await linkContactToOrganization(client, auth, contact.id, schoolId, { client_roles: ["picture_day_contact"] });
+      const rel = (await getContactRelationships(client, auth, contact.id))!;
+      const roleStr = (r: any) => (Array.isArray(r.client_roles) ? r.client_roles.join(",") : String(r.client_roles ?? ""));
+      const byOrg = new Map(rel.relationships.map((r: any) => [r.organization_id, roleStr(r)]));
+      expect(byOrg.get(districtId)).toContain("district_contact");
+      expect(byOrg.get(schoolId)).toContain("picture_day_contact"); // same person, distinct roles per org
+      expect(rel.relationships.length).toBe(2);
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(20) backfill dry-run writes nothing", async () => {
+    const before = (await pool.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1`, [tenantId])).rows[0].n;
+    const res = await post("/contact-identities/backfill", {});
+    expect(res.status).toBe(200);
+    expect(res.body.dry_run).toBe(true);
+    expect(res.body).toHaveProperty("one_to_one");
+    const after = (await pool.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1`, [tenantId])).rows[0].n;
+    expect(after).toBe(before);
+  });
+
+  it("(2/3/8/9/21) backfill apply is one-to-one, idempotent, never merges shared email, skips identity-less rows (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // two distinct people that happen to SHARE a school inbox + one row with no identity
+      const a = (await client.query(`INSERT INTO organization_contact (tenant_id, organization_id, first_name, last_name, full_name, normalized_full_name, email, active_status) VALUES ($1,$2,'Alex','Stone','Alex Stone','alex stone','office@shared.example.com','active') RETURNING id::text`, [tenantId, districtId])).rows[0].id;
+      const b = (await client.query(`INSERT INTO organization_contact (tenant_id, organization_id, first_name, last_name, full_name, normalized_full_name, email, active_status) VALUES ($1,$2,'Blair','Stone','Blair Stone','blair stone','office@shared.example.com','active') RETURNING id::text`, [tenantId, schoolId])).rows[0].id;
+      const invalid = (await client.query(`INSERT INTO organization_contact (tenant_id, organization_id, first_name, last_name, full_name, normalized_full_name, email, active_status) VALUES ($1,$2,'','','','',NULL,'active') RETURNING id::text`, [tenantId, districtId])).rows[0].id;
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const dry = await backfillContactIdentities(client, auth, { dryRun: true });
+      expect(dry.applied).toBe(0);
+      expect(dry.possible_duplicate).toBeGreaterThanOrEqual(0);
+      const applied = await backfillContactIdentities(client, auth, { dryRun: false });
+      expect(applied.applied).toBe(dry.one_to_one);
+      // a and b each get their OWN identity (shared email NOT merged)
+      const aId = (await client.query(`SELECT contact_id::text FROM organization_contact WHERE id=$1`, [a])).rows[0].contact_id;
+      const bId = (await client.query(`SELECT contact_id::text FROM organization_contact WHERE id=$1`, [b])).rows[0].contact_id;
+      expect(aId).not.toBeNull();
+      expect(bId).not.toBeNull();
+      expect(aId).not.toBe(bId);
+      // the identity-less row stays unlinked (Review Required)
+      expect((await client.query(`SELECT contact_id FROM organization_contact WHERE id=$1`, [invalid])).rows[0].contact_id).toBeNull();
+      // idempotent: a second apply links nothing new
+      const again = await backfillContactIdentities(client, auth, { dryRun: false });
+      expect(again.applied).toBe(0);
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(17) RBAC: a non-manager cannot create a canonical contact", async () => {
+    expect((await post("/contact-identities", { first_name: "No", last_name: "Access" }, photographerToken)).status).toBe(403);
+  });
+
+  it("(17) cross-tenant: cannot link a contact to another tenant's organization", async () => {
+    const created = await post("/contact-identities", { first_name: "Cross", last_name: "Tenant" });
+    const contactId = created.body.contact.id;
+    createdContactIds.push(contactId);
+    expect((await post(`/contact-identities/${contactId}/links`, { organization_id: crossOrgId, relationship_role: "general" })).status).toBe(404);
+  });
+});

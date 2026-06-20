@@ -52,6 +52,12 @@ import {
   updateSchoolServiceTerm
 } from "../services/schoolServiceTerm.js";
 import {
+  createCanonicalContact,
+  linkContactToOrganization,
+  getContactRelationships,
+  backfillContactIdentities
+} from "../services/canonicalContacts.js";
+import {
   createDirectoryCommunicationLog,
   createDirectoryRelationshipFollowUp,
   createDirectoryRelationshipMemory,
@@ -1360,6 +1366,69 @@ const updateServiceTermSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, "Provide at least one field to update");
 const rolloverServiceTermSchema = z.object({ new_period_label: z.string().trim().min(1).max(120) });
+
+// ── Reusable canonical Contact identities (Phase 4 Slice 2) ──────────────────
+const createContactIdentitySchema = z.object({
+  first_name: z.string().trim().max(120).optional().nullable(),
+  last_name: z.string().trim().max(120).optional().nullable(),
+  full_name: z.string().trim().max(240).optional().nullable(),
+  display_name: z.string().trim().max(240).optional().nullable(),
+  email: z.string().trim().max(180).optional().nullable(),
+  phone: z.string().trim().max(40).optional().nullable(),
+  preferred_contact_method: z.string().trim().max(80).optional().nullable()
+});
+const linkContactSchema = z.object({
+  organization_id: z.string().uuid(),
+  relationship_role: z.string().trim().max(80).optional(),
+  client_roles: z.array(z.string().trim().max(80)).max(20).optional(),
+  is_primary: z.boolean().optional()
+});
+
+router.post("/contact-identities", requireCanonicalDirectoryManageAccess, validateBody(createContactIdentitySchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const contact = await withClientTransaction(auth.tenantId, auth.id, (client) => createCanonicalContact(client, auth, req.body));
+    return res.status(201).json({ contact });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/contact-identities/:contactId/links", requireCanonicalDirectoryManageAccess, validateBody(linkContactSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      linkContactToOrganization(client, auth, String(req.params.contactId), req.body.organization_id, { relationship_role: req.body.relationship_role, client_roles: req.body.client_roles, is_primary: req.body.is_primary })
+    );
+    return res.status(201).json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/contact-identities/:contactId/relationships", requireCanonicalDirectoryReadAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const payload = await withClientTransaction(auth.tenantId, auth.id, (client) => getContactRelationships(client, auth, String(req.params.contactId)));
+    if (!payload) return res.status(404).json({ error: "Contact not found" });
+    return res.json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Identity backfill: dry-run by default; ?apply=true creates one identity per unlinked
+// org contact (one-to-one, never merges). Admin-gated for apply.
+router.post("/contact-identities/backfill", requireCanonicalDirectoryManageAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const apply = String(req.query.apply ?? "") === "true";
+    const report = await withClientTransaction(auth.tenantId, auth.id, (client) => backfillContactIdentities(client, auth, { dryRun: !apply }));
+    return res.json(report);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get("/:id/service-terms", requireCanonicalDirectoryReadAccess, async (req, res, next) => {
   try {
