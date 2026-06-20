@@ -501,6 +501,26 @@ export async function updateSchoolServiceTermRecord(token: string, termId: strin
   });
 }
 
+// ── Phase 4 Slice 3/6 — canonical organization brand (real columns, not notes) ───
+export type OrganizationBrandInput = {
+  brand_primary_color?: string | null;
+  brand_secondary_color?: string | null;
+  mascot?: string | null;
+  brand_status?: "known" | "unknown" | "not_available" | "not_applicable" | null;
+  website?: string | null;
+  logo_url?: string | null;
+  logo_status?: "current" | "outdated" | "pending_review" | "unavailable" | null;
+  logo_note?: string | null;
+  logo_source?: string | null;
+};
+
+export async function updateOrganizationBrandRecord(token: string, organizationId: string, input: OrganizationBrandInput) {
+  return apiFetch<OrganizationDetail>(`/api/organizations/${organizationId}/brand`, token, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function listDirectoryContacts(
   token: string,
   filters: {

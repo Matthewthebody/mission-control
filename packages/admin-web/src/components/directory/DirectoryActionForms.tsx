@@ -59,6 +59,11 @@ export type OrganizationPrimaryContactDraft = {
 
 export type OrganizationEditorSubmitContext = {
   primaryContact: OrganizationPrimaryContactDraft | null;
+  // Phase 4 Slice 6 — canonical brand patch + optional first service term, applied by the
+  // caller after the organization is created/updated (brand → PATCH /:id/brand; term →
+  // POST /:id/service-terms). Both null when the operator left them blank.
+  brand: OrganizationBrandDraft | null;
+  initialServiceTerm: OrganizationInitialServiceTermDraft | null;
 };
 
 type ContactEditorFormProps = FormProps & {
@@ -136,7 +141,6 @@ export function OrganizationEditorForm({
   const [primaryContactEmail, setPrimaryContactEmail] = useState("");
   const [primaryContactPhone, setPrimaryContactPhone] = useState("");
   const [preferredContactMethod, setPreferredContactMethod] = useState("");
-  const [logoLastUpdated, setLogoLastUpdated] = useState("");
   const [logoStatus, setLogoStatus] = useState("");
   const [logoNotes, setLogoNotes] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
@@ -150,9 +154,16 @@ export function OrganizationEditorForm({
   const [parentDistrictName, setParentDistrictName] = useState<string | null>(initialParentDistrictName ?? null);
   const [teamNotes, setTeamNotes] = useState(initialValue?.notes ?? "");
   const [operationsNotes, setOperationsNotes] = useState("");
+  // Phase 4 Slice 6 — optional first service term, offered only when creating a school account.
+  const [initialTermLabel, setInitialTermLabel] = useState("");
+  const [initialTermType, setInitialTermType] = useState<"school_year" | "season" | "custom">("school_year");
+  const [initialTermStart, setInitialTermStart] = useState("");
+  const [initialTermEnd, setInitialTermEnd] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const ownerSelectOptions = ownerOptions.length ? ownerOptions.map((owner) => owner.full_name) : FALLBACK_INTERNAL_OWNERS;
+  const isCreateMode = !initialValue;
+  const offerInitialTerm = isCreateMode && entityKind === "account" && accountType.startsWith("schools");
 
   async function handleLogoSelected(file: File | null) {
     if (!file || !onUploadLogo) {
@@ -204,16 +215,22 @@ export function OrganizationEditorForm({
           notes: buildOrganizationNotes({
             relationshipStatus,
             internalOwner,
-            logoLastUpdated,
-            logoStatus,
-            logoNotes,
-            primaryColor,
-            secondaryColor,
-            mascot,
             teamNotes,
             operationsNotes
           })
-        }, { primaryContact });
+        }, {
+          primaryContact,
+          brand: buildOrganizationBrandDraft({ primaryColor, secondaryColor, mascot, logoStatus, logoNotes }),
+          initialServiceTerm:
+            offerInitialTerm && initialTermLabel.trim()
+              ? {
+                  period_type: initialTermType,
+                  period_label: initialTermLabel.trim(),
+                  start_date: initialTermStart || null,
+                  end_date: initialTermEnd || null
+                }
+              : null
+        });
       }}
     >
       <fieldset className="directory-form__section">
@@ -297,10 +314,6 @@ export function OrganizationEditorForm({
               />
               {uploadingLogo ? <span className="muted">Uploading logo...</span> : null}
             </div>
-          </label>
-          <label className="directory-field">
-            <span>Logo Last Updated</span>
-            <input type="date" value={logoLastUpdated} onChange={(event) => setLogoLastUpdated(event.target.value)} />
           </label>
           <label className="directory-field">
             <span>Logo Status</span>
@@ -402,6 +415,36 @@ export function OrganizationEditorForm({
           </label>
         </div>
       </fieldset>
+
+      {offerInitialTerm ? (
+        <fieldset className="directory-form__section">
+          <legend>First Service Term</legend>
+          <p className="muted">Optionally start the school-year/season service record now. You can roll it over each year later.</p>
+          <div className="directory-form__grid">
+            <label className="directory-field">
+              <span>Term Type</span>
+              <select aria-label="Initial term type" value={initialTermType} onChange={(event) => setInitialTermType(event.target.value as "school_year" | "season" | "custom")}>
+                <option value="school_year">School Year</option>
+                <option value="season">Season</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label className="directory-field">
+              <span>Period Label</span>
+              <input aria-label="Initial term label" value={initialTermLabel} placeholder="2026–2027" onChange={(event) => setInitialTermLabel(event.target.value)} />
+            </label>
+            <label className="directory-field">
+              <span>Start Date</span>
+              <input type="date" aria-label="Initial term start date" value={initialTermStart} onChange={(event) => setInitialTermStart(event.target.value)} />
+            </label>
+            <label className="directory-field">
+              <span>End Date</span>
+              <input type="date" aria-label="Initial term end date" value={initialTermEnd} onChange={(event) => setInitialTermEnd(event.target.value)} />
+            </label>
+          </div>
+        </fieldset>
+      ) : null}
+
       {uploadError ? <p className="directory-form__error">{uploadError}</p> : null}
       {error ? <p className="directory-form__error">{error}</p> : null}
       <div className="directory-form__actions">
@@ -419,12 +462,6 @@ export function OrganizationEditorForm({
 function buildOrganizationNotes(input: {
   relationshipStatus: string;
   internalOwner: string;
-  logoLastUpdated: string;
-  logoStatus: string;
-  logoNotes: string;
-  primaryColor: string;
-  secondaryColor: string;
-  mascot: string;
   teamNotes: string;
   operationsNotes: string;
 }) {
@@ -432,17 +469,13 @@ function buildOrganizationNotes(input: {
   if (input.teamNotes.trim()) {
     sections.push(input.teamNotes.trim());
   }
-  // Phase 4 Slice 1: Website and Main Phone are now canonical columns — no longer
-  // packed into notes. (Brand color/mascot/logo move to canonical fields in Slice 3.)
+  // Phase 4: Website / Main Phone are canonical columns (Slice 1) and brand
+  // (colors / mascot / logo status / logo notes / logo date) is canonical brand truth
+  // (Slice 3/6) written through PATCH /:id/brand — neither is packed into notes anymore.
+  // Only operational, non-structured context (status, owner, operations notes) stays here.
   const details = [
     ["Status", input.relationshipStatus],
     ["Internal Owner", input.internalOwner],
-    ["Logo Last Updated", input.logoLastUpdated],
-    ["Logo Status", input.logoStatus],
-    ["Logo Notes", input.logoNotes],
-    ["Primary Color", input.primaryColor],
-    ["Secondary Color", input.secondaryColor],
-    ["Mascot", input.mascot],
     ["Operations Notes", input.operationsNotes]
   ]
     .map(([label, value]) => [label, value.trim()] as const)
@@ -452,6 +485,57 @@ function buildOrganizationNotes(input: {
   }
   return sections.length ? sections.join("\n\n") : null;
 }
+
+// Map the human logo-status select to the canonical logo_status enum (Slice 3 columns).
+const LOGO_STATUS_TO_CANONICAL: Record<string, "current" | "outdated" | "pending_review" | "unavailable"> = {
+  Current: "current",
+  "Needs New Logo": "outdated",
+  "Needs Review": "pending_review",
+  "Missing Logo": "unavailable"
+};
+
+export type OrganizationBrandDraft = {
+  brand_primary_color: string | null;
+  brand_secondary_color: string | null;
+  mascot: string | null;
+  brand_status: "known" | "unknown" | "not_available" | "not_applicable" | null;
+  logo_status: "current" | "outdated" | "pending_review" | "unavailable" | null;
+  logo_note: string | null;
+};
+
+// Build a canonical brand patch from the form's brand inputs; returns null when nothing
+// brand-related was entered (so we never fire an empty brand PATCH).
+function buildOrganizationBrandDraft(input: {
+  primaryColor: string;
+  secondaryColor: string;
+  mascot: string;
+  logoStatus: string;
+  logoNotes: string;
+}): OrganizationBrandDraft | null {
+  const primary = input.primaryColor.trim();
+  const secondary = input.secondaryColor.trim();
+  const mascot = input.mascot.trim();
+  const logoNote = input.logoNotes.trim();
+  const logoStatus = LOGO_STATUS_TO_CANONICAL[input.logoStatus] ?? null;
+  if (!primary && !secondary && !mascot && !logoNote && !logoStatus) {
+    return null;
+  }
+  return {
+    brand_primary_color: primary || null,
+    brand_secondary_color: secondary || null,
+    mascot: mascot || null,
+    brand_status: primary || secondary || mascot ? "known" : null,
+    logo_status: logoStatus,
+    logo_note: logoNote || null
+  };
+}
+
+export type OrganizationInitialServiceTermDraft = {
+  period_type: "school_year" | "season" | "custom";
+  period_label: string;
+  start_date: string | null;
+  end_date: string | null;
+};
 
 export function ContactEditorForm({
   initialValue,

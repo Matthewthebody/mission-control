@@ -1905,7 +1905,6 @@ describe("organizations workflow surface", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pat.morgan@example.com" } });
     fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "651-555-0199" } });
     fireEvent.change(screen.getByLabelText("Preferred Contact Method"), { target: { value: "Email" } });
-    fireEvent.change(screen.getByLabelText("Logo Last Updated"), { target: { value: "2026-03-12" } });
     fireEvent.change(screen.getByLabelText("Logo Status"), { target: { value: "Needs Review" } });
     fireEvent.change(screen.getByLabelText("Logo Notes"), { target: { value: "Use athletic logo, not district seal." } });
     fireEvent.change(screen.getByLabelText("Primary Color"), { target: { value: "Navy" } });
@@ -1924,7 +1923,18 @@ describe("organizations workflow surface", () => {
 
     const [input, context] = onSubmit.mock.calls[0] as [
       OrganizationCreateInput,
-      { primaryContact: { name: string; title: string; email: string; phone: string; preferredContactMethod: string } | null }
+      {
+        primaryContact: { name: string; title: string; email: string; phone: string; preferredContactMethod: string } | null;
+        brand: {
+          brand_primary_color: string | null;
+          brand_secondary_color: string | null;
+          mascot: string | null;
+          brand_status: string | null;
+          logo_status: string | null;
+          logo_note: string | null;
+        } | null;
+        initialServiceTerm: unknown;
+      }
     ];
     expect(input.canonical_name).toBe("North Shore High School");
     expect(input.display_name).toBe("North Shore");
@@ -1935,9 +1945,6 @@ describe("organizations workflow surface", () => {
     expect(notes).toContain("Directory Details:");
     expect(notes).toContain("Status: Returning Client");
     expect(notes).toContain("Internal Owner: Jessica");
-    expect(notes).toContain("Logo Last Updated: 2026-03-12");
-    expect(notes).toContain("Logo Status: Needs Review");
-    expect(notes).toContain("Logo Notes: Use athletic logo, not district seal.");
     // Phase 4 Slice 1: Website / Main Phone / hierarchy are canonical fields now, not notes tokens.
     expect(input.website).toBe("https://northshore.example.com");
     expect(input.main_phone).toBe("651-555-0100");
@@ -1945,10 +1952,22 @@ describe("organizations workflow surface", () => {
     expect(input.parent_organization_id).toBeNull();
     expect(notes).not.toContain("Website:");
     expect(notes).not.toContain("Main Phone:");
-    expect(notes).toContain("Primary Color: Navy");
-    expect(notes).toContain("Secondary Color: Gold");
-    expect(notes).toContain("Mascot: Bears");
+    // Phase 4 Slice 6: brand (colors / mascot / logo status+notes) is canonical brand truth,
+    // delivered via the submit context's brand patch — never packed into notes anymore.
+    expect(notes).not.toContain("Primary Color");
+    expect(notes).not.toContain("Secondary Color");
+    expect(notes).not.toContain("Mascot");
+    expect(notes).not.toContain("Logo Status");
+    expect(notes).not.toContain("Logo Notes");
     expect(notes).toContain("Operations Notes: Use Door 3 for equipment load-in.");
+    expect(context.brand).toEqual({
+      brand_primary_color: "Navy",
+      brand_secondary_color: "Gold",
+      mascot: "Bears",
+      brand_status: "known",
+      logo_status: "pending_review",
+      logo_note: "Use athletic logo, not district seal."
+    });
     expect(context.primaryContact).toEqual({
       name: "Pat Morgan",
       title: "Activities Director",
@@ -1956,6 +1975,32 @@ describe("organizations workflow surface", () => {
       phone: "651-555-0199",
       preferredContactMethod: "Email"
     });
+  });
+
+  it("offers a first service term for a new school account and passes it in the submit context", async () => {
+    const onSubmit = vi.fn();
+    render(<OrganizationEditorForm submitLabel="Create organization" onCancel={() => undefined} onSubmit={onSubmit} />);
+
+    // Account type defaults to a school type and entity kind defaults to account → section visible.
+    fireEvent.change(screen.getByLabelText("Organization Name"), { target: { value: "Eastview High" } });
+    fireEvent.change(screen.getByLabelText("Initial term label"), { target: { value: "2026-2027" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create organization" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const [, context] = onSubmit.mock.calls[0] as [unknown, { initialServiceTerm: unknown }];
+    expect(context.initialServiceTerm).toEqual({
+      period_type: "school_year",
+      period_label: "2026-2027",
+      start_date: null,
+      end_date: null
+    });
+  });
+
+  it("hides the first service term section for a District (parent organization)", async () => {
+    render(<OrganizationEditorForm submitLabel="Create organization" onCancel={() => undefined} onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText("Initial term label")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Entity Kind"), { target: { value: "parent_organization" } });
+    expect(screen.queryByLabelText("Initial term label")).not.toBeInTheDocument();
   });
 
   it("creates a new contact from a drawer instead of a permanent page form", async () => {
@@ -2218,7 +2263,6 @@ describe("organizations workflow surface", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Phone")).toBeInTheDocument();
     expect(screen.getByLabelText("Preferred Contact Method")).toBeInTheDocument();
-    expect(screen.getByLabelText("Logo Last Updated")).toBeInTheDocument();
     expect(screen.getByLabelText("Logo Status")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Current" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Needs New Logo" })).toBeInTheDocument();

@@ -41,6 +41,7 @@ import {
   createOrganizationRecord,
   createSchoolNoteRecord,
   createSchoolRuleRecord,
+  createSchoolServiceTermRecord,
   createOrganizationTouchpointRecord,
   detachContactFromLocationRecord,
   getContactRelationshipContinuity,
@@ -63,6 +64,7 @@ import {
   updateSchoolContactCategoriesRecord,
   updateSchoolProfileRecord,
   updateSchoolRuleRecord,
+  updateOrganizationBrandRecord,
   updateOrganizationContactRecord,
   updateOrganizationLocationRecord,
   updateOrganizationRecord,
@@ -931,10 +933,19 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
   if (drawerState.type === "create-organization") {
     return <OrganizationEditorForm token={token} ownerOptions={ownerOptions} submitLabel="Create organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, null, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput, context) => runAction(async () => {
       const response = await createOrganizationRecord(token, input);
+      const newOrganizationId = response.organization.id;
+      // Phase 4 Slice 6 — brand goes to canonical columns (not notes); an optional first
+      // service term seeds the school-year/season record. Applied after the org exists.
+      if (context.brand) {
+        await updateOrganizationBrandRecord(token, newOrganizationId, context.brand);
+      }
+      if (context.initialServiceTerm) {
+        await createSchoolServiceTermRecord(token, newOrganizationId, context.initialServiceTerm);
+      }
       const primaryContact = context.primaryContact;
       if (primaryContact?.name) {
         const { firstName, lastName } = splitContactName(primaryContact.name);
-        await createOrganizationContactRecord(token, response.organization.id, {
+        await createOrganizationContactRecord(token, newOrganizationId, {
           first_name: firstName,
           last_name: lastName,
           title: primaryContact.title || null,
@@ -945,7 +956,7 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
           notes: primaryContact.preferredContactMethod ? `Preferred contact method: ${primaryContact.preferredContactMethod}` : null
         });
       }
-      await refreshAll(response.organization.id);
+      await refreshAll(newOrganizationId);
       pushRoute({ view: "organizations", organizationId: response.organization.id, contactId: null, locationId: null, tab: "profile" });
     }, true)} />;
   }
@@ -963,7 +974,7 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
     );
   }
   if (!organizationId || !detail) return <div className="drawer-empty">Choose an organization to continue.</div>;
-  if (drawerState.type === "edit-organization") return <OrganizationEditorForm token={token} initialParentDistrictName={detail.organization.parent_organization_name ?? null} ownerOptions={ownerOptions} initialValue={{ canonical_name: detail.organization.canonical_name, display_name: detail.organization.display_name, logo_url: detail.organization.logo_url, account_type: detail.organization.account_type, active_status: detail.organization.active_status, aliases: detail.organization.aliases, notes: detail.organization.notes, website: detail.organization.website ?? null, main_phone: detail.organization.main_phone ?? null, client_entity_kind: detail.organization.client_entity_kind ?? "account", client_organization_type: detail.organization.client_organization_type ?? null, parent_organization_id: detail.organization.parent_organization_id ?? null }} submitLabel="Save organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, organizationId, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput) => runAction(async () => { await updateOrganizationRecord(token, organizationId, input); await refreshAll(organizationId); }, true)} />;
+  if (drawerState.type === "edit-organization") return <OrganizationEditorForm token={token} initialParentDistrictName={detail.organization.parent_organization_name ?? null} ownerOptions={ownerOptions} initialValue={{ canonical_name: detail.organization.canonical_name, display_name: detail.organization.display_name, logo_url: detail.organization.logo_url, account_type: detail.organization.account_type, active_status: detail.organization.active_status, aliases: detail.organization.aliases, notes: detail.organization.notes, website: detail.organization.website ?? null, main_phone: detail.organization.main_phone ?? null, client_entity_kind: detail.organization.client_entity_kind ?? "account", client_organization_type: detail.organization.client_organization_type ?? null, parent_organization_id: detail.organization.parent_organization_id ?? null }} submitLabel="Save organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, organizationId, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput, context) => runAction(async () => { await updateOrganizationRecord(token, organizationId, input); if (context.brand) { await updateOrganizationBrandRecord(token, organizationId, context.brand); } await refreshAll(organizationId); }, true)} />;
   if (drawerState.type === "edit-school-profile") return <SchoolProfileForm initialValue={detail.school_profile ?? null} ownerOptions={ownerOptions} locations={detail.locations} submitLabel="Save school profile" submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input) => runAction(async () => { await updateSchoolProfileRecord(token, organizationId, input); await refreshWorkspace(organizationId); }, true)} />;
   if (drawerState.type === "edit-school-contact-categories") return <SchoolContactCategoriesForm contact={drawerState.contact} submitLabel="Save school roles" submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input) => runAction(async () => { await updateSchoolContactCategoriesRecord(token, organizationId, drawerState.contact.id, input); await refreshWorkspace(organizationId); }, true)} />;
   if (drawerState.type === "create-school-rule") return <SchoolRuleForm submitLabel="Create school rule" submitting={actionBusy} error={drawerError} onCancel={closeDrawer} onSubmit={(input) => runAction(async () => { await createSchoolRuleRecord(token, organizationId, input as Parameters<typeof createSchoolRuleRecord>[2]); await refreshWorkspace(organizationId); }, true)} />;
