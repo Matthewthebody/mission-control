@@ -87,6 +87,18 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     }
   });
 
+  it("(HTTP) the relationships route returns client_roles as a real JSON array (not a pg array string)", async () => {
+    const cid = (await pool.query(`INSERT INTO contact (tenant_id, first_name, last_name, full_name, normalized_full_name) VALUES ($1,'Http','Contact','Http Contact','http contact') RETURNING id::text`, [tenantId])).rows[0].id;
+    createdContactIds.push(cid);
+    const oc = (await pool.query(`INSERT INTO organization_contact (tenant_id, organization_id, contact_id, first_name, last_name, full_name, normalized_full_name, active_status) VALUES ($1,$2,$3,'Http','Contact','Http Contact','http contact','active') RETURNING id::text`, [tenantId, districtId, cid])).rows[0].id;
+    await pool.query(`INSERT INTO organization_contact_relationship (tenant_id, organization_id, contact_id, relationship_role, client_roles, is_current) VALUES ($1,$2,$3,'general',ARRAY['district_contact']::client_contact_role[],true)`, [tenantId, districtId, oc]);
+    const res = await get(`/contact-identities/${cid}/relationships`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.relationships[0].client_roles)).toBe(true);
+    expect(res.body.relationships[0].client_roles).toContain("district_contact");
+    expect(res.body.relationships[0].organization_contact_id).toBeTruthy(); // stable id for unlink
+  });
+
   it("(20) backfill dry-run writes nothing", async () => {
     const before = (await pool.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1`, [tenantId])).rows[0].n;
     const res = await post("/contact-identities/backfill", {});

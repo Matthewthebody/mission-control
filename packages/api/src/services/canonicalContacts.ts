@@ -110,7 +110,8 @@ export async function getContactRelationships(client: PoolClient, auth: AuthUser
   const identity = await loadContact(client, auth.tenantId, contactId);
   if (!identity) return null;
   const { rows } = await client.query(
-    `SELECT oc.organization_id::text, o.display_name AS organization_name, ocr.relationship_role, ocr.client_roles, ocr.is_primary
+    `SELECT oc.organization_id::text, o.display_name AS organization_name, oc.id::text AS organization_contact_id,
+            ocr.relationship_role, COALESCE(ocr.client_roles, '{}')::text[] AS client_roles, ocr.is_primary
        FROM organization_contact oc
        JOIN organization o ON o.tenant_id = oc.tenant_id AND o.id = oc.organization_id
        LEFT JOIN organization_contact_relationship ocr ON ocr.tenant_id = oc.tenant_id AND ocr.contact_id = oc.id AND ocr.is_current = true
