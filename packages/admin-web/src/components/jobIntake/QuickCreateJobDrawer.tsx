@@ -33,8 +33,9 @@ import {
   publishCentralJobDraft,
   updateCentralJobDraft
 } from "../../services/centralJobIntakeApi";
-import { getOrganizationDetail, listDirectoryOwnerOptions, listOrganizations } from "../../services/organizationApi";
-import type { DirectoryOwnerOption, OrganizationDetail, OrganizationSummary, SessionUser } from "../../types";
+import { getOrganizationDetail, listDirectoryOwnerOptions, listOrganizations, listSchoolServiceTerms } from "../../services/organizationApi";
+import type { DirectoryOwnerOption, OrganizationDetail, OrganizationSummary, SchoolServiceTermRecord, SessionUser } from "../../types";
+import { JobIntakeCanonicalContext } from "./JobIntakeCanonicalContext";
 import {
   buildIntakePayload,
   buildFormStateFromDraftResponse,
@@ -76,6 +77,9 @@ export function QuickCreateJobDrawer({
   const [organizationResults, setOrganizationResults] = useState<OrganizationSummary[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationSummary | null>(null);
   const [organizationDetail, setOrganizationDetail] = useState<OrganizationDetail | null>(null);
+  // Phase 4 Slice F — canonical current service term for the selected school account.
+  const [currentServiceTerm, setCurrentServiceTerm] = useState<SchoolServiceTermRecord | null>(null);
+  const [loadingServiceTerm, setLoadingServiceTerm] = useState(false);
   const [duplicateResult, setDuplicateResult] = useState<CentralJobDuplicateResult | null>(null);
   const [readiness, setReadiness] = useState<CentralJobReadinessEvaluation | null>(null);
   const [publishValidation, setPublishValidation] = useState<CentralJobValidationResult | null>(null);
@@ -120,6 +124,7 @@ export function QuickCreateJobDrawer({
     setOrganizationResults([]);
     setSelectedOrganization(null);
     setOrganizationDetail(null);
+    setCurrentServiceTerm(null);
     setDuplicateResult(null);
     setReadiness(null);
     setPublishValidation(null);
@@ -227,9 +232,11 @@ export function QuickCreateJobDrawer({
           }
           setSelectedOrganization(detail.organization);
           setOrganizationDetail(detail);
+          void loadCurrentServiceTerm(detail.organization);
         } else {
           setSelectedOrganization(null);
           setOrganizationDetail(null);
+          setCurrentServiceTerm(null);
         }
         await runDuplicatePreview(response.job.id);
         if (!cancelled) {
@@ -297,9 +304,27 @@ export function QuickCreateJobDrawer({
   const productionIssueCount = countFieldErrors(fieldErrors, ["staffing_estimate"]);
   const notesIssueCount = countFieldErrors(fieldErrors, ["internal_notes"]);
 
+  async function loadCurrentServiceTerm(organization: OrganizationSummary) {
+    // Only school accounts carry school-year/season service terms.
+    if (!organization.account_type.startsWith("schools") || organization.client_entity_kind === "parent_organization") {
+      setCurrentServiceTerm(null);
+      return;
+    }
+    setLoadingServiceTerm(true);
+    try {
+      const response = await listSchoolServiceTerms(token, organization.id);
+      setCurrentServiceTerm(response.service_terms.find((term) => term.status === "current") ?? null);
+    } catch {
+      setCurrentServiceTerm(null);
+    } finally {
+      setLoadingServiceTerm(false);
+    }
+  }
+
   async function handleOrganizationSelect(organization: OrganizationSummary) {
     setSelectedOrganization(organization);
     setOrganizationDetail(null);
+    setCurrentServiceTerm(null);
     setOrganizationSearch(organization.display_name);
     setLocationSearch("");
     setContactSearch("");
@@ -327,6 +352,7 @@ export function QuickCreateJobDrawer({
         getCentralJobOrganizationDefaults(token, organization.id, form.department)
       ]);
       setOrganizationDetail(detail);
+      void loadCurrentServiceTerm(organization);
       setForm((current) => ({
         ...current,
         account_owner_user_id: defaults.account_owner_user_id ?? current.account_owner_user_id,
@@ -610,6 +636,11 @@ export function QuickCreateJobDrawer({
                   ]}
                 />
               </div>
+              <JobIntakeCanonicalContext
+                organizationDetail={organizationDetail}
+                currentServiceTerm={currentServiceTerm}
+                loadingServiceTerm={loadingServiceTerm}
+              />
             </div>
           </section>
 
