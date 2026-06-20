@@ -56,6 +56,7 @@ import {
   type ClientEntityKind,
   type ClientOrganizationType
 } from "./organizationHierarchy.js";
+import { normalizeWebsite } from "./organizationBrand.js";
 import { buildGoogleMapsLink } from "./maps.js";
 import { getOrganizationResourceLibrary } from "./resourceLibrary.js";
 import { getOrganizationSalesPipelineView } from "./salesPipeline.js";
@@ -1434,7 +1435,7 @@ export async function createOrganization(
       parentId,
       entityKind,
       input.client_organization_type ?? null,
-      normalizeOptionalText(input.website),
+      normalizeWebsite(input.website),
       normalizeOptionalText(input.main_phone),
       auth.id
     ]
@@ -1843,7 +1844,7 @@ export async function updateOrganization(
     patch.parent_organization_id !== undefined ? ((patch.parent_organization_id ?? "").trim() || null) : current.parent_organization_id;
   const clientOrganizationType =
     patch.client_organization_type !== undefined ? (patch.client_organization_type ?? null) : current.client_organization_type;
-  const website = patch.website !== undefined ? normalizeOptionalText(patch.website) : current.website;
+  const website = patch.website !== undefined ? normalizeWebsite(patch.website) : current.website;
   const mainPhone = patch.main_phone !== undefined ? normalizeOptionalText(patch.main_phone) : current.main_phone;
   if (entityKind === "parent_organization" && parentId) {
     throw new ApiError(400, "A District (parent organization) cannot itself have a parent.");

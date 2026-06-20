@@ -57,6 +57,7 @@ import {
   getContactRelationships,
   backfillContactIdentities
 } from "../services/canonicalContacts.js";
+import { updateOrganizationBrand, getLogoHistory, restoreOrganizationLogo } from "../services/organizationBrand.js";
 import {
   createDirectoryCommunicationLog,
   createDirectoryRelationshipFollowUp,
@@ -1366,6 +1367,51 @@ const updateServiceTermSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, "Provide at least one field to update");
 const rolloverServiceTermSchema = z.object({ new_period_label: z.string().trim().min(1).max(120) });
+
+// ── Organization brand / logo history (Phase 4 Slice 3) ──────────────────────
+const brandPatchSchema = z
+  .object({
+    brand_primary_color: z.string().trim().max(60).optional().nullable(),
+    brand_secondary_color: z.string().trim().max(60).optional().nullable(),
+    mascot: z.string().trim().max(120).optional().nullable(),
+    brand_status: z.enum(["known", "unknown", "not_available", "not_applicable"]).optional().nullable(),
+    website: z.string().trim().max(500).optional().nullable(),
+    logo_url: z.string().trim().max(1000).optional().nullable(),
+    logo_status: z.enum(["current", "outdated", "pending_review", "unavailable"]).optional().nullable(),
+    logo_note: z.string().trim().max(2000).optional().nullable(),
+    logo_source: z.string().trim().max(60).optional().nullable()
+  })
+  .refine((v) => Object.keys(v).length > 0, "Provide at least one brand field");
+
+router.patch("/:id/brand", requireCanonicalDirectoryManageAccess, validateBody(brandPatchSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const payload = await withClientTransaction(auth.tenantId, auth.id, (client) => updateOrganizationBrand(client, auth, String(req.params.id), req.body));
+    return res.json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/:id/logo-history", requireCanonicalDirectoryReadAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const payload = await withClientTransaction(auth.tenantId, auth.id, (client) => getLogoHistory(client, auth, String(req.params.id)));
+    return res.json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/:id/logo-restore", requireCanonicalDirectoryManageAccess, validateBody(z.object({ history_id: z.string().uuid() })), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const payload = await withClientTransaction(auth.tenantId, auth.id, (client) => restoreOrganizationLogo(client, auth, String(req.params.id), req.body.history_id));
+    return res.json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // ── Reusable canonical Contact identities (Phase 4 Slice 2) ──────────────────
 const createContactIdentitySchema = z.object({
