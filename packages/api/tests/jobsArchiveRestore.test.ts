@@ -12,7 +12,10 @@ import { resolveRestoreTarget } from "../src/services/jobTruth/jobsLifecycle.js"
 let app: Express;
 let dbPool: Pool;
 let token = "";
+let photoToken = "";
 let tenantId = "";
+let otherTenantId = "";
+let crossTenantJobId = "";
 
 async function login(email: string) {
   return (await request(app).post("/auth/dev-login").send({ email })).body.token as string;
@@ -35,10 +38,20 @@ beforeAll(async () => {
   app = createApp();
   dbPool = pool;
   token = await login("leadership@example.com");
+  photoToken = await login("photo@example.com");
   tenantId = (await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`)).body.user.tenantId;
+  // A second, different tenant for cross-tenant isolation (the dev DB has several).
+  otherTenantId = (await dbPool.query(`SELECT id::text FROM tenant WHERE id <> $1 ORDER BY name LIMIT 1`, [tenantId])).rows[0].id;
+  crossTenantJobId = (
+    await dbPool.query(
+      `INSERT INTO jobs (tenant_id, department_type, title, job_status, data_origin) VALUES ($1,'sports','cross-tenant fixture','confirmed','test_fixture') RETURNING id::text`,
+      [otherTenantId]
+    )
+  ).rows[0].id;
 });
 afterAll(async () => {
   await dbPool.query(`DELETE FROM jobs WHERE tenant_id=$1 AND data_origin='test_fixture'`, [tenantId]);
+  await dbPool.query(`DELETE FROM jobs WHERE id=$1`, [crossTenantJobId]);
 });
 
 describe("archive/restore lifecycle preservation", () => {
@@ -92,6 +105,55 @@ describe("archive/restore lifecycle preservation", () => {
     const row = await jobRow(id);
     expect(row.archived_at).toBeNull();
     expect(row.job_status).toBe("confirmed"); // unchanged
+  });
+
+  it("(8a) in_progress → archive → restore returns to in_progress", async () => {
+    const id = await makeJob({ job_status: "in_progress" });
+    await archive(id);
+    await restore(id);
+    expect((await jobRow(id)).job_status).toBe("in_progress");
+  });
+
+  it("(8b) completed (execution_complete) → archive → restore returns to completed", async () => {
+    const id = await makeJob({ job_status: "execution_complete" });
+    await archive(id);
+    await restore(id);
+    expect((await jobRow(id)).job_status).toBe("execution_complete"); // terminal + no open work => faithful restore
+  });
+
+  it("(8c) repeated archive/restore is idempotent and preserves every audit event even as the snapshot is overwritten", async () => {
+    const id = await makeJob({ job_status: "confirmed" });
+    await archive(id); await restore(id); // cycle 1
+    await archive(id); await restore(id); // cycle 2
+    const row = await jobRow(id);
+    expect(row.job_status).toBe("confirmed"); // still restored to the prior status
+    expect(row.pre_archive_state).toBeNull(); // latest snapshot consumed/overwritten
+    const archived = (await dbPool.query(`SELECT count(*)::int n FROM activity_log_entries WHERE job_id=$1 AND event_type='job_archived'`, [id])).rows[0].n;
+    const restored = (await dbPool.query(`SELECT count(*)::int n FROM activity_log_entries WHERE job_id=$1 AND event_type='job_restored'`, [id])).rows[0].n;
+    expect(archived).toBe(2); // both cycles' audit events survive
+    expect(restored).toBe(2);
+  });
+
+  it("(8d) a non-manager is denied archive and restore", async () => {
+    const id = await makeJob({ job_status: "confirmed" });
+    expect((await request(app).post(`/api/jobs/${id}/archive`).set("Authorization", `Bearer ${photoToken}`).send({ reason: "x" })).status).toBe(403);
+    await archive(id); // archive it as a manager so restore has something to act on
+    expect((await request(app).post(`/api/jobs/${id}/restore`).set("Authorization", `Bearer ${photoToken}`).send({})).status).toBe(403);
+  });
+
+  it("(8e) archive/restore are tenant-isolated — another tenant's Job is not found", async () => {
+    expect((await archive(crossTenantJobId)).status).toBe(404);
+    expect((await restore(crossTenantJobId)).status).toBe(404);
+    // and it was never touched
+    expect((await dbPool.query(`SELECT archived_at FROM jobs WHERE id=$1`, [crossTenantJobId])).rows[0].archived_at).toBeNull();
+  });
+
+  it("(8f) a direct link to an archived Job remains readable (quick view by id)", async () => {
+    const id = await makeJob({ job_status: "confirmed" });
+    await archive(id);
+    const res = await request(app).get(`/api/jobs/quick-view/${id}`).set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.row.id).toBe(id);
   });
 
   it("(7) resolveRestoreTarget: restores a consistent prior, flags every contradiction", () => {
