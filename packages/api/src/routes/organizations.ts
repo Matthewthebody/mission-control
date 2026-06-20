@@ -277,6 +277,22 @@ const contactListQuerySchema = listQuerySchema.extend({
   my_contacts_only: z.enum(["true", "false"]).optional()
 });
 
+const clientEntityKindSchema = z.enum(["account", "parent_organization"]);
+const clientOrganizationTypeSchema = z.enum([
+  "school_district",
+  "elementary_school",
+  "middle_school",
+  "high_school",
+  "school",
+  "league",
+  "sports_association",
+  "company",
+  "nonprofit",
+  "studio_client",
+  "corporate_client",
+  "other"
+]);
+
 const createOrganizationSchema = z.object({
   canonical_name: z.string().trim().min(2).max(180),
   display_name: z.string().trim().min(2).max(180).optional().nullable(),
@@ -284,7 +300,14 @@ const createOrganizationSchema = z.object({
   account_type: accountTypeSchema,
   active_status: activeStatusSchema.optional(),
   aliases: z.array(z.string().trim().min(2).max(160)).max(12).optional(),
-  notes: z.string().trim().max(4000).optional().nullable()
+  notes: z.string().trim().max(4000).optional().nullable(),
+  // Phase 4 canonical hierarchy + client fields. website is stored as entered here;
+  // full website normalization arrives in the brand slice.
+  parent_organization_id: z.string().uuid().optional().nullable(),
+  client_entity_kind: clientEntityKindSchema.optional().nullable(),
+  client_organization_type: clientOrganizationTypeSchema.optional().nullable(),
+  website: z.string().trim().max(500).optional().nullable(),
+  main_phone: z.string().trim().max(40).optional().nullable()
 });
 
 const createContactSchema = z.object({
@@ -857,7 +880,12 @@ router.post("/", requireCanonicalDirectoryManageAccess, validateBody(createOrgan
           account_type: req.body.account_type,
           active_status: req.body.active_status,
           aliases: req.body.aliases ?? [],
-          notes: req.body.notes ?? null
+          notes: req.body.notes ?? null,
+          parent_organization_id: req.body.parent_organization_id ?? null,
+          client_entity_kind: req.body.client_entity_kind ?? null,
+          client_organization_type: req.body.client_organization_type ?? null,
+          website: req.body.website ?? null,
+          main_phone: req.body.main_phone ?? null
         },
         getRequestMeta(req)
       )
@@ -939,7 +967,12 @@ router.patch("/:id", requireCanonicalDirectoryManageAccess, validateBody(updateO
           account_type: req.body.account_type,
           active_status: req.body.active_status,
           aliases: req.body.aliases,
-          notes: req.body.notes
+          notes: req.body.notes,
+          parent_organization_id: req.body.parent_organization_id,
+          client_entity_kind: req.body.client_entity_kind,
+          client_organization_type: req.body.client_organization_type,
+          website: req.body.website,
+          main_phone: req.body.main_phone
         },
         getRequestMeta(req)
       )

@@ -50,6 +50,12 @@ import type {
 } from "../types/organizations.js";
 import { getOrganizationAgreementsView } from "./agreements.js";
 import { createAuditLog } from "./audit.js";
+import {
+  validateOrganizationParent,
+  parseLegacyOrganizationNotes,
+  type ClientEntityKind,
+  type ClientOrganizationType
+} from "./organizationHierarchy.js";
 import { buildGoogleMapsLink } from "./maps.js";
 import { getOrganizationResourceLibrary } from "./resourceLibrary.js";
 import { getOrganizationSalesPipelineView } from "./salesPipeline.js";
@@ -61,6 +67,13 @@ type OrganizationListRow = {
   display_name: string;
   account_type: OrganizationAccountType;
   active_status: DirectoryActiveStatus;
+  parent_organization_id?: string | null;
+  parent_organization_name?: string | null;
+  client_entity_kind?: ClientEntityKind | null;
+  client_organization_type?: ClientOrganizationType | null;
+  website?: string | null;
+  main_phone?: string | null;
+  child_organization_count?: string | number | null;
   aliases: unknown;
   notes: string | null;
   contact_count: string | number;
@@ -330,6 +343,12 @@ type CreateOrganizationInput = {
   active_status?: DirectoryActiveStatus;
   aliases?: string[];
   notes?: string | null;
+  // Phase 4 canonical hierarchy + client fields (migration 144 columns).
+  parent_organization_id?: string | null;
+  client_entity_kind?: ClientEntityKind | null;
+  client_organization_type?: ClientOrganizationType | null;
+  website?: string | null;
+  main_phone?: string | null;
 };
 
 type UpdateOrganizationInput = {
@@ -340,6 +359,11 @@ type UpdateOrganizationInput = {
   active_status?: DirectoryActiveStatus;
   aliases?: string[];
   notes?: string | null;
+  parent_organization_id?: string | null;
+  client_entity_kind?: ClientEntityKind | null;
+  client_organization_type?: ClientOrganizationType | null;
+  website?: string | null;
+  main_phone?: string | null;
 };
 
 type UpdateSchoolProfileInput = {
@@ -1270,10 +1294,13 @@ export async function getOrganizationDetail(
     salesPipelineAlerts: salesPipelineView.alerts
   });
 
+  const childOrganizations = await loadChildOrganizations(client, auth.tenantId, organizationId);
+
   return {
     organization,
     contacts,
     locations,
+    child_organizations: childOrganizations,
     school_profile: schoolProfile,
     school_rules: schoolRules,
     school_activity: schoolActivity,
@@ -1355,6 +1382,24 @@ export async function createOrganization(
     );
   }
 
+  // Canonical hierarchy (Phase 4). A District is a top-level parent_organization;
+  // a School is an account whose parent_organization_id references its District.
+  // Backward-compatible: the parent-District requirement is enforced only when the
+  // caller opts into the canonical account flow (client_entity_kind explicitly set);
+  // legacy callers that omit it keep creating records as before (column default 'account').
+  const explicitKind = input.client_entity_kind ?? null;
+  const entityKind: ClientEntityKind = explicitKind ?? "account";
+  const parentId = (input.parent_organization_id ?? "").trim() || null;
+  if (entityKind === "parent_organization" && parentId) {
+    throw new ApiError(400, "A District (parent organization) cannot itself have a parent.");
+  }
+  if (explicitKind === "account" && isSchoolOrganizationAccountType(input.account_type) && !parentId) {
+    throw new ApiError(400, "A School requires a canonical parent District.");
+  }
+  if (parentId) {
+    await validateOrganizationParent(client, auth.tenantId, parentId, null);
+  }
+
   const { rows } = await client.query<{ id: string }>(
     `
       INSERT INTO organization (
@@ -1366,10 +1411,15 @@ export async function createOrganization(
         account_type,
         active_status,
         notes,
+        parent_organization_id,
+        client_entity_kind,
+        client_organization_type,
+        website,
+        main_phone,
         created_by_user_id,
         updated_by_user_id
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)
       RETURNING id
     `,
     [
@@ -1381,6 +1431,11 @@ export async function createOrganization(
       input.account_type,
       input.active_status ?? "active",
       normalizeOptionalText(input.notes),
+      parentId,
+      entityKind,
+      input.client_organization_type ?? null,
+      normalizeOptionalText(input.website),
+      normalizeOptionalText(input.main_phone),
       auth.id
     ]
   );
@@ -1726,6 +1781,11 @@ export async function updateOrganization(
     account_type: OrganizationAccountType;
     active_status: DirectoryActiveStatus;
     notes: string | null;
+    parent_organization_id: string | null;
+    client_entity_kind: ClientEntityKind | null;
+    client_organization_type: ClientOrganizationType | null;
+    website: string | null;
+    main_phone: string | null;
     aliases: unknown;
   }>(
     `
@@ -1737,6 +1797,11 @@ export async function updateOrganization(
         o.account_type,
         o.active_status,
         o.notes,
+        o.parent_organization_id::text AS parent_organization_id,
+        o.client_entity_kind::text AS client_entity_kind,
+        o.client_organization_type::text AS client_organization_type,
+        o.website,
+        o.main_phone,
         COALESCE(
           (
             SELECT json_agg(alias ORDER BY alias)
@@ -1771,6 +1836,27 @@ export async function updateOrganization(
   const aliases = patch.aliases !== undefined ? dedupeAliasValues(patch.aliases) : toStringArray(current.aliases);
   const normalizedCanonicalName = normalizeDirectoryText(canonicalName);
 
+  // Canonical hierarchy + client fields (Phase 4). Resolve patch over current, then
+  // validate the hierarchy (self/cycle/type) before writing.
+  const entityKind: ClientEntityKind = patch.client_entity_kind ?? current.client_entity_kind ?? "account";
+  const parentId =
+    patch.parent_organization_id !== undefined ? ((patch.parent_organization_id ?? "").trim() || null) : current.parent_organization_id;
+  const clientOrganizationType =
+    patch.client_organization_type !== undefined ? (patch.client_organization_type ?? null) : current.client_organization_type;
+  const website = patch.website !== undefined ? normalizeOptionalText(patch.website) : current.website;
+  const mainPhone = patch.main_phone !== undefined ? normalizeOptionalText(patch.main_phone) : current.main_phone;
+  if (entityKind === "parent_organization" && parentId) {
+    throw new ApiError(400, "A District (parent organization) cannot itself have a parent.");
+  }
+  // Backward-compatible: don't force a parent onto a legacy parentless School during an
+  // unrelated edit, but never allow removing the District from a School that has one.
+  if (isSchoolOrganizationAccountType(accountType) && entityKind === "account" && !parentId && current.parent_organization_id) {
+    throw new ApiError(400, "A School cannot have its parent District removed.");
+  }
+  if (parentId) {
+    await validateOrganizationParent(client, auth.tenantId, parentId, organizationId);
+  }
+
   const duplicate = await findConflictingOrganization(client, auth.tenantId, normalizedCanonicalName, aliases, organizationId);
   if (duplicate) {
       throw new ApiError(409, `An organization with a matching name or alias already exists: ${duplicate.display_name}`);
@@ -1787,12 +1873,17 @@ export async function updateOrganization(
         account_type = $7,
         active_status = $8,
         notes = $9,
+        parent_organization_id = $11,
+        client_entity_kind = $12,
+        client_organization_type = $13,
+        website = $14,
+        main_phone = $15,
         updated_by_user_id = $10,
         updated_at = now()
       WHERE tenant_id = $1
         AND id = $2
     `,
-    [auth.tenantId, organizationId, canonicalName, normalizedCanonicalName, displayName, logoUrl, accountType, activeStatus, notes, auth.id]
+    [auth.tenantId, organizationId, canonicalName, normalizedCanonicalName, displayName, logoUrl, accountType, activeStatus, notes, auth.id, parentId, entityKind, clientOrganizationType, website, mainPhone]
   );
 
   if (patch.aliases !== undefined) {
@@ -3427,6 +3518,12 @@ async function loadOrganizationSummary(client: PoolClient, tenantId: string, org
         o.display_name,
         o.account_type,
         o.active_status,
+        o.parent_organization_id::text AS parent_organization_id,
+        parent.display_name AS parent_organization_name,
+        o.client_entity_kind::text AS client_entity_kind,
+        o.client_organization_type::text AS client_organization_type,
+        o.website,
+        o.main_phone,
         COALESCE(
           (
             SELECT json_agg(alias ORDER BY alias)
@@ -3453,9 +3550,18 @@ async function loadOrganizationSummary(client: PoolClient, tenantId: string, org
           WHERE sl.tenant_id = o.tenant_id
             AND sl.organization_id = o.id
         ) AS location_count,
+        (
+          SELECT count(*)::text
+          FROM organization child
+          WHERE child.tenant_id = o.tenant_id
+            AND child.parent_organization_id = o.id
+        ) AS child_organization_count,
         o.created_at::text,
         o.updated_at::text
       FROM organization o
+      LEFT JOIN organization parent
+        ON parent.tenant_id = o.tenant_id
+       AND parent.id = o.parent_organization_id
       WHERE o.tenant_id = $1
         AND o.id = $2
       LIMIT 1
@@ -3463,6 +3569,24 @@ async function loadOrganizationSummary(client: PoolClient, tenantId: string, org
     [tenantId, organizationId]
   );
   return rows[0] ? mapOrganizationSummary(rows[0]) : null;
+}
+
+// The District's child Schools (id + display) and, for a School, the deterministic
+// list is empty. Bounded, deterministic. Used by getOrganizationDetail.
+async function loadChildOrganizations(
+  client: PoolClient,
+  tenantId: string,
+  organizationId: string
+): Promise<Array<{ id: string; display_name: string; account_type: OrganizationAccountType; active_status: DirectoryActiveStatus }>> {
+  const { rows } = await client.query<{ id: string; display_name: string; account_type: OrganizationAccountType; active_status: DirectoryActiveStatus }>(
+    `SELECT id::text, display_name, account_type, active_status
+       FROM organization
+       WHERE tenant_id = $1 AND parent_organization_id = $2
+       ORDER BY lower(display_name)
+       LIMIT 500`,
+    [tenantId, organizationId]
+  );
+  return rows;
 }
 
 async function loadSchoolProfile(client: PoolClient, tenantId: string, organizationId: string): Promise<SchoolProfileRecord | null> {
@@ -4486,6 +4610,9 @@ function assertSchoolFoundationAccessForOrganization(auth: AuthUser, accountType
 }
 
 function mapOrganizationSummary(row: OrganizationListRow): OrganizationSummary {
+  // Canonical columns are authoritative; fall back to legacy notes-packed values on
+  // read only when the canonical column is null (no writes regenerate note tokens).
+  const legacy = parseLegacyOrganizationNotes(row.notes);
   return {
     id: row.id,
     canonical_name: row.canonical_name,
@@ -4493,6 +4620,13 @@ function mapOrganizationSummary(row: OrganizationListRow): OrganizationSummary {
     display_name: row.display_name,
     account_type: row.account_type,
     active_status: row.active_status,
+    parent_organization_id: row.parent_organization_id ?? null,
+    parent_organization_name: row.parent_organization_name ?? null,
+    client_entity_kind: row.client_entity_kind ?? null,
+    client_organization_type: row.client_organization_type ?? null,
+    website: row.website ?? legacy.website,
+    main_phone: row.main_phone ?? legacy.main_phone,
+    child_organization_count: Number(row.child_organization_count ?? 0),
     aliases: toStringArray(row.aliases),
     notes: row.notes,
     contact_count: Number(row.contact_count ?? 0),

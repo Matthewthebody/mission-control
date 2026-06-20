@@ -1938,7 +1938,13 @@ describe("organizations workflow surface", () => {
     expect(notes).toContain("Logo Last Updated: 2026-03-12");
     expect(notes).toContain("Logo Status: Needs Review");
     expect(notes).toContain("Logo Notes: Use athletic logo, not district seal.");
-    expect(notes).toContain("Website: https://northshore.example.com");
+    // Phase 4 Slice 1: Website / Main Phone / hierarchy are canonical fields now, not notes tokens.
+    expect(input.website).toBe("https://northshore.example.com");
+    expect(input.main_phone).toBe("651-555-0100");
+    expect(input.client_entity_kind).toBe("account");
+    expect(input.parent_organization_id).toBeNull();
+    expect(notes).not.toContain("Website:");
+    expect(notes).not.toContain("Main Phone:");
     expect(notes).toContain("Primary Color: Navy");
     expect(notes).toContain("Secondary Color: Gold");
     expect(notes).toContain("Mascot: Bears");

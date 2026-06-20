@@ -1252,6 +1252,14 @@ export type OrganizationSummary = {
   display_name: string;
   account_type: OrganizationAccountType;
   active_status: DirectoryActiveStatus;
+  // Phase 4 canonical hierarchy + client fields.
+  parent_organization_id?: string | null;
+  parent_organization_name?: string | null;
+  client_entity_kind?: "account" | "parent_organization" | null;
+  client_organization_type?: string | null;
+  website?: string | null;
+  main_phone?: string | null;
+  child_organization_count?: number;
   aliases: string[];
   notes: string | null;
   contact_count: number;

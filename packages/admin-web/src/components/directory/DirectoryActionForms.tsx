@@ -38,6 +38,7 @@ type FormProps = {
 type OrganizationEditorFormProps = FormProps & {
   initialValue?: Partial<OrganizationCreateInput>;
   ownerOptions?: DirectoryOwnerOption[];
+  districtOptions?: Array<{ id: string; display_name: string }>;
   submitLabel: string;
   onUploadLogo?: (file: File) => Promise<string>;
   onSubmit: (input: OrganizationCreateInput, context: OrganizationEditorSubmitContext) => Promise<void> | void;
@@ -109,6 +110,7 @@ const CONTACT_METHOD_OPTIONS = ["", "Email", "Phone", "Text", "No preference"];
 export function OrganizationEditorForm({
   initialValue,
   ownerOptions = [],
+  districtOptions = [],
   submitLabel,
   onUploadLogo,
   onSubmit,
@@ -133,8 +135,11 @@ export function OrganizationEditorForm({
   const [primaryColor, setPrimaryColor] = useState("");
   const [secondaryColor, setSecondaryColor] = useState("");
   const [mascot, setMascot] = useState("");
-  const [website, setWebsite] = useState("");
-  const [mainPhone, setMainPhone] = useState("");
+  const [website, setWebsite] = useState(initialValue?.website ?? "");
+  const [mainPhone, setMainPhone] = useState(initialValue?.main_phone ?? "");
+  // Phase 4 canonical hierarchy fields.
+  const [entityKind, setEntityKind] = useState<"account" | "parent_organization">(initialValue?.client_entity_kind ?? "account");
+  const [parentDistrictId, setParentDistrictId] = useState(initialValue?.parent_organization_id ?? "");
   const [teamNotes, setTeamNotes] = useState(initialValue?.notes ?? "");
   const [operationsNotes, setOperationsNotes] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -183,6 +188,11 @@ export function OrganizationEditorForm({
           account_type: accountType,
           active_status: relationshipStatus === "Inactive" ? "inactive" : "active",
           aliases: initialValue?.aliases ?? [],
+          // Phase 4: Website / Main Phone / hierarchy are canonical fields, not notes.
+          website: website.trim() || null,
+          main_phone: mainPhone.trim() || null,
+          client_entity_kind: entityKind,
+          parent_organization_id: entityKind === "parent_organization" ? null : parentDistrictId.trim() || null,
           notes: buildOrganizationNotes({
             relationshipStatus,
             internalOwner,
@@ -192,8 +202,6 @@ export function OrganizationEditorForm({
             primaryColor,
             secondaryColor,
             mascot,
-            website,
-            mainPhone,
             teamNotes,
             operationsNotes
           })
@@ -221,6 +229,30 @@ export function OrganizationEditorForm({
               ))}
             </select>
           </label>
+          <label className="directory-field">
+            <span>Entity Kind</span>
+            <select
+              aria-label="Entity Kind"
+              value={entityKind}
+              onChange={(event) => setEntityKind(event.target.value as "account" | "parent_organization")}
+            >
+              <option value="account">School / Account</option>
+              <option value="parent_organization">District (parent organization)</option>
+            </select>
+          </label>
+          {entityKind === "account" ? (
+            <label className="directory-field">
+              <span>Parent District</span>
+              <select aria-label="Parent District" value={parentDistrictId} onChange={(event) => setParentDistrictId(event.target.value)}>
+                <option value="">— None —</option>
+                {districtOptions.map((district) => (
+                  <option key={district.id} value={district.id}>
+                    {district.display_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className="directory-field">
             <span>Status</span>
             <select value={relationshipStatus} onChange={(event) => setRelationshipStatus(event.target.value)}>
@@ -373,8 +405,6 @@ function buildOrganizationNotes(input: {
   primaryColor: string;
   secondaryColor: string;
   mascot: string;
-  website: string;
-  mainPhone: string;
   teamNotes: string;
   operationsNotes: string;
 }) {
@@ -382,14 +412,14 @@ function buildOrganizationNotes(input: {
   if (input.teamNotes.trim()) {
     sections.push(input.teamNotes.trim());
   }
+  // Phase 4 Slice 1: Website and Main Phone are now canonical columns — no longer
+  // packed into notes. (Brand color/mascot/logo move to canonical fields in Slice 3.)
   const details = [
     ["Status", input.relationshipStatus],
     ["Internal Owner", input.internalOwner],
     ["Logo Last Updated", input.logoLastUpdated],
     ["Logo Status", input.logoStatus],
     ["Logo Notes", input.logoNotes],
-    ["Website", input.website],
-    ["Main Phone", input.mainPhone],
     ["Primary Color", input.primaryColor],
     ["Secondary Color", input.secondaryColor],
     ["Mascot", input.mascot],

@@ -60,6 +60,12 @@ export type OrganizationCreateInput = {
   active_status?: DirectoryActiveStatus;
   aliases?: string[];
   notes?: string | null;
+  // Phase 4 canonical hierarchy + client fields.
+  parent_organization_id?: string | null;
+  client_entity_kind?: "account" | "parent_organization" | null;
+  client_organization_type?: string | null;
+  website?: string | null;
+  main_phone?: string | null;
 };
 
 export type OrganizationContactCreateInput = {

@@ -174,6 +174,15 @@ export type DirectoryImportColumnKey =
   | "end_date"
   | "current_flag";
 
+export type OrganizationClientEntityKind = "account" | "parent_organization";
+
+export interface OrganizationChildSummary {
+  id: string;
+  display_name: string;
+  account_type: OrganizationAccountType;
+  active_status: DirectoryActiveStatus;
+}
+
 export interface OrganizationSummary {
   id: string;
   canonical_name: string;
@@ -181,6 +190,14 @@ export interface OrganizationSummary {
   display_name: string;
   account_type: OrganizationAccountType;
   active_status: DirectoryActiveStatus;
+  // Phase 4 canonical hierarchy + client fields.
+  parent_organization_id?: string | null;
+  parent_organization_name?: string | null;
+  client_entity_kind?: OrganizationClientEntityKind | null;
+  client_organization_type?: string | null;
+  website?: string | null;
+  main_phone?: string | null;
+  child_organization_count?: number;
   primary_location_id?: string | null;
   primary_contact_id?: string | null;
   account_owner_user_id?: string | null;
@@ -779,6 +796,8 @@ export interface OrganizationDetail {
   organization: OrganizationSummary;
   contacts: OrganizationContactRecord[];
   locations: OrganizationLocationRecord[];
+  // Phase 4: a District's child Schools (empty for a School/account).
+  child_organizations: OrganizationChildSummary[];
   school_profile?: SchoolProfileRecord | null;
   school_rules?: SchoolRuleRecord[];
   school_activity?: SchoolActivityLogRecord[];
