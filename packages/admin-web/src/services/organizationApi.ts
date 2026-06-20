@@ -49,6 +49,9 @@ import type {
   OrganizationDetail,
   OrganizationOperationsHub,
   OrganizationListResponse,
+  SchoolServiceTermListResponse,
+  SchoolServiceTermPeriodType,
+  SchoolServiceTermRecord,
   ShootDirectoryContactLinkResponse
 } from "../types";
 
@@ -432,6 +435,59 @@ export async function getOrganizationDetail(token: string, organizationId: strin
 
 export async function getOrganizationOperationsHub(token: string, organizationId: string) {
   return apiFetch<OrganizationOperationsHub>(`/api/organizations/${organizationId}/operations-hub`, token);
+}
+
+// ── Phase 4 Slice 4 — school-year / season service terms ─────────────────────
+export type ServiceTermCreateInput = {
+  period_type?: SchoolServiceTermPeriodType;
+  period_label: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  internal_owner_user_id?: string | null;
+  service_config?: Record<string, unknown>;
+  notes?: string | null;
+};
+
+export type ServiceTermUpdateInput = {
+  start_date?: string | null;
+  end_date?: string | null;
+  internal_owner_user_id?: string | null;
+  service_config?: Record<string, unknown>;
+  notes?: string | null;
+  // Setting confirm=true marks an inherited (rolled-over) draft reviewed/confirmed.
+  confirm?: boolean;
+};
+
+export async function listSchoolServiceTerms(token: string, organizationId: string) {
+  return apiFetch<SchoolServiceTermListResponse>(`/api/organizations/${organizationId}/service-terms`, token);
+}
+
+export async function createSchoolServiceTermRecord(token: string, organizationId: string, input: ServiceTermCreateInput) {
+  return apiFetch<{ service_term: SchoolServiceTermRecord }>(`/api/organizations/${organizationId}/service-terms`, token, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function rolloverSchoolServiceTermRecord(token: string, termId: string, newPeriodLabel: string) {
+  return apiFetch<{ service_term: SchoolServiceTermRecord }>(`/api/organizations/service-terms/${termId}/rollover`, token, {
+    method: "POST",
+    body: JSON.stringify({ new_period_label: newPeriodLabel })
+  });
+}
+
+export async function activateSchoolServiceTermRecord(token: string, termId: string) {
+  return apiFetch<{ service_term: SchoolServiceTermRecord }>(`/api/organizations/service-terms/${termId}/activate`, token, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export async function updateSchoolServiceTermRecord(token: string, termId: string, input: ServiceTermUpdateInput) {
+  return apiFetch<{ service_term: SchoolServiceTermRecord }>(`/api/organizations/service-terms/${termId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
 }
 
 export async function listDirectoryContacts(

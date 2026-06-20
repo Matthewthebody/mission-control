@@ -45,6 +45,7 @@ import {
 import { DirectoryAvatar } from "./DirectoryAvatar";
 import { DirectoryRelationshipMap, type DirectoryRelationshipMapEdge, type DirectoryRelationshipMapNode } from "./DirectoryRelationshipMap";
 import { SchoolDetailPanel } from "./SchoolDetailPanel";
+import { ServiceTermsPanel } from "./ServiceTermsPanel";
 import { CommunicationHistoryPanel } from "../CommunicationHistoryPanel";
 import { PreCallContextPanel } from "../PreCallContextPanel";
 import { RecordResourcesPanel } from "../RecordResourcesPanel";
@@ -640,19 +641,27 @@ export function DirectoryWorkspace({
           ) : (
             <>
               {isSchoolOrganization ? (
-                <SchoolDetailPanel
-                  detail={detail}
-                  canManageSchoolFoundation={canManageSchoolFoundation}
-                  actionBusy={actionBusy}
-                  selectedContactId={selectedContactId}
-                  onSelectContact={onSelectContact}
-                  onEditContact={onEditContact}
-                  onEditSchoolProfile={onEditSchoolProfile}
-                  onEditSchoolContactCategories={onEditSchoolContactCategories}
-                  onCreateSchoolRule={onCreateSchoolRule}
-                  onEditSchoolRule={onEditSchoolRule}
-                  onCreateSchoolNote={onCreateSchoolNote}
-                />
+                <>
+                  <SchoolDetailPanel
+                    detail={detail}
+                    canManageSchoolFoundation={canManageSchoolFoundation}
+                    actionBusy={actionBusy}
+                    selectedContactId={selectedContactId}
+                    onSelectContact={onSelectContact}
+                    onEditContact={onEditContact}
+                    onEditSchoolProfile={onEditSchoolProfile}
+                    onEditSchoolContactCategories={onEditSchoolContactCategories}
+                    onCreateSchoolRule={onCreateSchoolRule}
+                    onEditSchoolRule={onEditSchoolRule}
+                    onCreateSchoolNote={onCreateSchoolNote}
+                  />
+                  <ServiceTermsPanel
+                    token={token}
+                    organizationId={detail.organization.id}
+                    organizationName={detail.organization.display_name}
+                    canManage={canManageSchoolFoundation}
+                  />
+                </>
               ) : (
                 <>
                   <article className="request-card">

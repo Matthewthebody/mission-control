@@ -23420,3 +23420,20 @@ html[data-theme="light"] .help-tooltip__bubble {
 .jobs-drawer__actions { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #1a2530; }
 .jobs-drawer__actions button { padding: 6px 14px; border-radius: 8px; border: 1px solid #2b3a4f; background: #111b27; color: #e7eef6; cursor: pointer; }
 .jobs-drawer__primary { background: #14283c !important; border-color: #5ca2e5 !important; }
+
+/* Phase 4 Slice 4B — school-year / season service terms panel */
+.service-terms-panel { margin-top: 18px; }
+.service-term-group { display: flex; flex-direction: column; gap: 10px; }
+.service-term-group + .service-term-group { margin-top: 16px; }
+.service-term-group__label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.service-term-card { border-left: 3px solid var(--border-strong); }
+.service-term-card--current { border-left-color: var(--success); }
+.service-term-card--draft { border-left-color: var(--warm-accent); }
+.service-term-card--history { opacity: 0.86; }
+.service-term-status--current { color: #d9f5e8; border-color: rgba(47, 122, 93, 0.45); background: var(--success-soft); }
+.service-term-status--draft { color: #f6e6c8; border-color: rgba(211, 165, 106, 0.42); background: var(--warm-accent-soft); }
+.service-term-inherited { font-style: italic; }
+.service-term-inline-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
+.service-term-inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
+.service-term-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+@media (max-width: 640px) { .service-term-form-grid { grid-template-columns: 1fr; } }

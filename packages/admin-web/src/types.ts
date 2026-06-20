@@ -2239,6 +2239,36 @@ export type ResourceLibraryView = {
   recurring_location_intelligence: ResourceLibraryRecurringLocationIntelligence | null;
 };
 
+// Phase 4 Slice 4 — school-year / season service terms (canonical time-bound service layer).
+export type SchoolServiceTermPeriodType = "school_year" | "season" | "custom";
+export type SchoolServiceTermStatus = "draft" | "current" | "closed";
+export type SchoolServiceTermConfirmationState = "unconfirmed" | "confirmed";
+
+export type SchoolServiceTermRecord = {
+  id: string;
+  organization_id: string;
+  period_type: SchoolServiceTermPeriodType;
+  period_label: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: SchoolServiceTermStatus;
+  confirmation_state: SchoolServiceTermConfirmationState;
+  internal_owner_user_id: string | null;
+  source: string;
+  service_config: Record<string, unknown>;
+  copied_from_term_id: string | null;
+  inherited_field_keys: string[];
+  confirmed_by_user_id: string | null;
+  confirmed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SchoolServiceTermListResponse = {
+  service_terms: SchoolServiceTermRecord[];
+};
+
 export type OrganizationDetail = {
   organization: OrganizationSummary;
   contacts: OrganizationContact[];
