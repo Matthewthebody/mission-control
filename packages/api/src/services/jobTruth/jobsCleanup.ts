@@ -92,18 +92,34 @@ function readableDepartments(auth: AuthUser): JobDepartmentType[] {
   return ALL_DEPARTMENTS.filter((d) => hasReadScope(auth, d) != null);
 }
 
+export const JOB_DEMO_CURATION_ARCHIVE_REASON = "demo_curation_excess";
+
+export type JobCurationSnapshot = {
+  job_id: string;
+  job_status: string;
+  production_status: string;
+  readiness_status: string;
+  risk_status: string;
+  staffing_status: string;
+};
+
 export type JobsCleanupApplyReport = {
   applied: true;
+  batch_id: string;
+  archive_reason: string;
   archived_excess_demo: number;
   kept_curated_demo: number;
   hard_purged: 0; // archival-only executor — it contains no DELETE and can never purge
+  exported_candidates: JobCurationSnapshot[]; // the IDs + lifecycle snapshots, for the audit artifact
 };
 
-// Archival-only apply (Phase 3C.1, user-authorized). Archives the demo Jobs that are NOT
-// in the curated set, through the audited, REVERSIBLE archive columns (records
+// Archival-only apply (Phase 3C.1, user-authorized demo curation). Archives the demo Jobs
+// NOT in the curated set, through the audited, REVERSIBLE archive columns (records
 // pre_archive_state so restore returns the prior status). It is structurally incapable of
 // hard deletion — there is no DELETE here; a hard purge remains a separate, separately-
-// authorized step. Admin-gated, idempotent (already-archived rows are skipped). Marking
+// authorized step. Admin-gated, idempotent (already-archived rows skipped). Before
+// archiving it EXPORTS the candidate IDs + lifecycle snapshots and stamps every row with
+// one batch id (in pre_archive_state) for traceability + rollback. Marking
 // (data_origin='seed_demo') must already be applied or run in the same transaction.
 export async function applyJobsCleanupArchival(client: PoolClient, auth: AuthUser): Promise<JobsCleanupApplyReport> {
   if (!hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin"])) {
@@ -111,19 +127,39 @@ export async function applyJobsCleanupArchival(client: PoolClient, auth: AuthUse
   }
   const curated = await getCuratedDemoJobIds(client, auth.tenantId);
   const curatedArr = [...curated];
+  const batchId = (await client.query<{ id: string }>(`SELECT gen_random_uuid()::text AS id`)).rows[0].id;
+  const candidateWhere = `tenant_id = $1 AND data_origin = 'seed_demo' AND archived_at IS NULL AND NOT (id = ANY($2::uuid[]))`;
+
+  // Export the candidate IDs + lifecycle snapshots BEFORE archiving (the audit artifact).
+  const exported = (
+    await client.query<JobCurationSnapshot>(
+      `SELECT id::text AS job_id, job_status::text AS job_status, production_status::text AS production_status,
+              readiness_status::text AS readiness_status, risk_status::text AS risk_status, staffing_status::text AS staffing_status
+         FROM jobs WHERE ${candidateWhere}`,
+      [auth.tenantId, curatedArr]
+    )
+  ).rows;
+
   const res = await client.query(
-    `UPDATE jobs SET archived_at = now(), archived_by_user_id = $2,
-            archive_reason = 'Phase 3C.1: excess demo archived (reversible)',
+    `UPDATE jobs SET archived_at = now(), archived_by_user_id = $3,
+            archive_reason = '${JOB_DEMO_CURATION_ARCHIVE_REASON}',
             pre_archive_state = jsonb_build_object(
               'job_status', job_status::text, 'production_status', production_status::text,
               'readiness_status', readiness_status::text, 'risk_status', risk_status::text,
-              'staffing_status', staffing_status::text),
+              'staffing_status', staffing_status::text, 'demo_curation_batch_id', $4::text),
             job_status = 'archived', updated_at = now()
-       WHERE tenant_id = $1 AND data_origin = 'seed_demo'
-         AND archived_at IS NULL AND NOT (id = ANY($3::uuid[]))`,
-    [auth.tenantId, auth.id, curatedArr]
+       WHERE ${candidateWhere}`,
+    [auth.tenantId, curatedArr, auth.id, batchId]
   );
-  return { applied: true, archived_excess_demo: res.rowCount ?? 0, kept_curated_demo: curatedArr.length, hard_purged: 0 };
+  return {
+    applied: true,
+    batch_id: batchId,
+    archive_reason: JOB_DEMO_CURATION_ARCHIVE_REASON,
+    archived_excess_demo: res.rowCount ?? 0,
+    kept_curated_demo: curatedArr.length,
+    hard_purged: 0,
+    exported_candidates: exported
+  };
 }
 
 export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Promise<JobsPurgeDryRunReport> {

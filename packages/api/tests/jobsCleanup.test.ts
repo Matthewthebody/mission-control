@@ -156,12 +156,17 @@ describe("applyJobsCleanupArchival — archival-only executor", () => {
       expect(after).toBe(before); // never deletes a row
       expect(report.hard_purged).toBe(0);
       expect(report.archived_excess_demo).toBeGreaterThan(0);
-      // marked scenario is curated → kept visible; plain demo → archived with a reversible snapshot
+      expect(report.archive_reason).toBe("demo_curation_excess"); // the specified reason
+      expect(report.batch_id).toMatch(/[0-9a-f-]{36}/); // one batch id
+      expect(report.exported_candidates.length).toBe(report.archived_excess_demo); // IDs + snapshots exported
+      // marked scenario is curated → kept visible; plain demo → archived with a reversible snapshot + batch trace
       expect((await client.query(`SELECT archived_at FROM jobs WHERE id=$1`, [marked])).rows[0].archived_at).toBeNull();
-      const pl = (await client.query(`SELECT archived_at, job_status::text AS s, pre_archive_state->>'job_status' AS pj FROM jobs WHERE id=$1`, [plain])).rows[0];
+      const pl = (await client.query(`SELECT archived_at, job_status::text AS s, archive_reason, pre_archive_state->>'job_status' AS pj, pre_archive_state->>'demo_curation_batch_id' AS batch FROM jobs WHERE id=$1`, [plain])).rows[0];
       expect(pl.archived_at).not.toBeNull();
       expect(pl.s).toBe("archived");
+      expect(pl.archive_reason).toBe("demo_curation_excess");
       expect(pl.pj).not.toBeNull(); // prior status snapshotted → restore can reverse it
+      expect(pl.batch).toBe(report.batch_id); // traceable to the batch
       await client.query("ROLLBACK");
     } finally {
       client.release();
