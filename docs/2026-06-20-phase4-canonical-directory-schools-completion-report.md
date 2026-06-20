@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-20
 **Branch:** `feature/work-spine-foundation-v1` · from Phase 4 audit HEAD `9e0289d`
-**Status:** **Slice 1 implemented, tested, committed (`67dbaac`).** Slices 2–9 are scoped below for continuation. No Monday import, no role dashboards, no Job↔Shoot link change, no hard deletion, no second Schools database — confirmed. `stash@{0}` untouched; nothing pushed.
+**Status:** **Slice 1 (`67dbaac`, full) and Slice 4 backend (`a4dc9a0`) implemented, tested, committed** — the audit's two highest-value items (canonical hierarchy + the missing school-year/season service layer). Slices 2, 3, 5–9 are scoped below for continuation. No Monday import, no role dashboards, no Job↔Shoot link change, no hard deletion, no second Schools database — confirmed. `stash@{0}` untouched; nothing pushed.
 
 This report is deliberately honest about what is done versus what remains. Slice 1 — the audit's recommended first bounded commit — is complete to the full standard (additive, backward-compatible, reversible, tested). Slices 2–9 each carry real migrations, backfills, UI rebuilds, a reconciliation framework, job-intake integration, and a 30-step browser pass; they are a multi-session program and are mapped precisely here so the next session resumes without re-discovery.
 
@@ -29,7 +29,19 @@ This report is deliberately honest about what is done versus what remains. Slice
 
 **Known limitations:** the parent-District selector consumes a `districtOptions` prop (the searchable wiring + full District/School *detail* rendering are Slice 5–6); a bare-mount standalone form test hit a jsdom state-flush quirk, so the form's canonical-field behavior is verified through the proven page test.
 
-## 3. Slices 2–9 — continuation map (not yet implemented)
+## 2b. Slice 4 — School-year/season service truth — DONE (backend) (`a4dc9a0`)
+
+**The audit's #1 gap, closed at the model + API layer.** Purely additive, RLS-forced, reversible (`DROP TABLE`); no existing reader affected; `account_service` (the permanent catalog) unchanged.
+
+- **Migration 160** `school_service_term`: tenant-safe FKs, RLS forced via `app.current_tenant_id()`, `gen_random_uuid()` PK. `period_type` (school_year|season|custom) + `period_label`; `status` (draft|current|closed) with a **partial unique index guaranteeing at most one `current`** per (org, period_type); `confirmation_state`; `service_config jsonb`; rollover provenance (`copied_from_term_id`, `inherited_field_keys`, `confirmed_by/at`); CHECK constraints; `UNIQUE (tenant, org, period_type, period_label)`. Applied via the migrate runner (additive — verified on the live dev DB; structurally clean-DB safe, no data dependencies).
+- **`services/schoolServiceTerm.ts`**: create / list / getCurrent / setCurrent (activating a newer term **closes** the prior current — history preserved, never deleted) / **rollover** (copies a prior term into an **unconfirmed draft** with `inherited_field_keys` + `copied_from_term_id` — inherited values never silently become confirmed current truth) / update (confirm + change). School-foundation manage RBAC; audited.
+- **Routes** (organizations router): `GET/POST /:id/service-terms`, `POST /service-terms/:termId/rollover`, `/activate`, `PATCH /service-terms/:termId`.
+- **Tests** `schoolServiceTerm.test.ts` (9): create school-year + season; explicit current selection with the prior preserved as historical (one current enforced); rollover → unconfirmed draft with inherited markers; confirm + change a copied value without touching the source year; duplicate 409; static org data unaffected; RBAC 403; tenant isolation 404.
+
+**Reversal:** revert `a4dc9a0` and `DROP TABLE school_service_term` (additive, no data migrated).
+**Remaining for full Slice 4:** the Organization-detail term view + rollover UI (lands with the detail/create rebuild, Slices 5–6).
+
+## 3. Slices 2, 3, 5–9 — continuation map (not yet implemented)
 
 Each is its own bounded commit with tests + (where data moves) a dry-run and a stop-for-review gate, mirroring the Phase 3C/3C.1 discipline. Concrete targets from the audit (`docs/phase4-directory-schools-canonical-audit.md`):
 
@@ -37,7 +49,7 @@ Each is its own bounded commit with tests + (where data moves) a dry-run and a s
 
 **Slice 3 — Canonical brand + logo history + website normalization** (`feat: normalize organization brand and logo history`). Additive migration: `brand_primary_color`, `brand_secondary_color`, `mascot`, `brand_status` columns + an `organization_logo_history` table (or reuse the Resource Library). A website-normalization helper (accept `example.org` / `www…` / `https://…`, reject unsafe protocols). A dry-run legacy-notes parser for brand tokens (deterministic extraction only; never strips notes). Explicit known/unknown/not-available/not-applicable states. Tests: normalization cases, logo history + restore, brand states, dry-run extraction, no notes destruction.
 
-**Slice 4 — School-year/season service truth** (`feat: add school year and season service profiles`) — **the audit's #1 gap; purely additive, lowest risk, highest architectural value.** New `school_service_term` keyed `(tenant_id, organization_id, school_year[/season])` (RLS-forced, tenant-safe FKs) carrying the per-year scope currently duplicated on every job (`id_cards_required`, `yearbook_required`, `composite_required`, `roster_source`, `submission_deadline`, …). Rollover: copy-prior-into-draft with inherited-not-confirmed flags + confirm/change + closed-history preservation; explicit current-term status (not "newest row"). Keep `account_service` as the permanent catalog. Tests: create term, historical preservation, current selection, copy + inherited markers, reconfirmation, no overwrite across years, RLS.
+**Slice 4 — School-year/season service truth — DONE (backend), `a4dc9a0`.** See §2b. Remaining: the org-detail term UI + rollover UI (lands with Slices 5–6).
 
 **Slice 5 — Canonical Directory navigation + full Organization detail** (`feat: add canonical district and school organization detail`). Full-page Organization route (Back-preserving, deep-linkable, permission-safe); District detail (child-school list, service-term overview, addresses/locations, contacts) and School detail (parent District, approved Locations + room/area notes, contextual contacts + roles, current/next term, Jobs/Shoots via canonical relation, Location Intelligence, comms, evals). Reads canonical sources only; no copying onto Organization. Bounded sections, no N+1, a11y. Tests: navigation, full route, child/parent rendering, honest unavailable sections, loading/empty/error/denied, performance.
 
@@ -51,8 +63,18 @@ Each is its own bounded commit with tests + (where data moves) a dry-run and a s
 
 ## 4. Recommended next action
 
-Resume at **Slice 4** (purely additive, highest architectural value, zero backward-compat risk) or continue in order at **Slice 2** (largest/riskiest — gate the NOT-NULL relaxation behind a dry-run). Either way, keep each slice a bounded, tested, reversible commit with a review gate before any backfill.
+Resume at **Slice 3** (brand + logo history + website normalization — additive, continues the "no structured values in notes" cleanup) or **Slice 7** (reconciliation — read-only dry-run first, maximally safe; links the legacy free-text `school_profile.district_name` to canonical `parent_organization_id`). Defer **Slice 2** (contact reuse) until its NOT-NULL relaxation can be gated behind a dry-run + review. The UI-heavy detail/create rebuilds (Slices 5–6) + the 30-step browser pass are best done in a focused session with the preview launcher available.
 
 ## 5. Test + build state (this session)
 
-`organizationHierarchy` 16/16 · `organizationsPage` 30/30 · `organizationsDirectory` 16/16 · `clientCommandCenter` 2/2 · `schoolsHub` 9/9 · api `tsc` clean · web `tsc` clean. Migration head 159 applied. Pre-existing baseline (untouched): the 3 `timeClockMileagePhase5` assertions; admin-web parallel-run flakiness (serial is green).
+`organizationHierarchy` 16/16 · `schoolServiceTerm` 9/9 · `organizationsPage` 30/30 · `organizationsDirectory` 16/16 · `clientCommandCenter` 2/2 · `schoolsHub` 9/9 · api `tsc` clean · web `tsc` clean. **Migration head 160 applied** (additive, RLS-forced). Pre-existing baseline (untouched): the 3 `timeClockMileagePhase5` assertions; admin-web parallel-run flakiness (serial is green).
+
+## 6. Commit ledger (this session)
+
+| Commit | Subject |
+|---|---|
+| `67dbaac` | feat: write canonical organization hierarchy in directory (Slice 1, full) |
+| `a4dc9a0` | feat: add school year and season service profiles (Slice 4 backend) |
+| _this_ | docs: report (updated for Slice 4) |
+
+All additive + reversible. No migration destroyed history. No hard deletion. No Monday import. No Job↔Shoot link change. No second Schools DB. `stash@{0}` untouched. Nothing pushed.
