@@ -29,13 +29,13 @@ beforeAll(async () => {
 });
 
 describe("Jobs data hygiene + deep-link closure", () => {
-  it("(C1) the summary===page invariant survives the Show Demo Data toggle for every available metric", async () => {
-    const base = (await get("/api/jobs/index?limit=1&show_demo=true")).body;
+  it("(C1) the summary===page invariant survives the demo_view=all state for every available metric", async () => {
+    const base = (await get("/api/jobs/index?limit=1&demo_view=all")).body;
     const available = base.summary.metrics.filter((m: any) => m.available);
     expect(available.length).toBeGreaterThan(0);
     for (const metric of available) {
-      const filtered = (await get(`/api/jobs/index?limit=1&show_demo=true&metric=${metric.key}`)).body;
-      expect(filtered.page.total).toBe(metric.count); // rows and counts move together under the toggle
+      const filtered = (await get(`/api/jobs/index?limit=1&demo_view=all&metric=${metric.key}`)).body;
+      expect(filtered.page.total).toBe(metric.count); // rows and counts move together under the demo state
     }
   });
 

@@ -334,10 +334,10 @@ describe("GET /api/jobs/index — attention provenance, scale", () => {
   });
 });
 
-// Phase 3C.1 — "Show Demo Data" toggle. A seed_demo Job is hidden from the default
-// operating view and revealed by show_demo, with summary counts and rows moving
-// together (the invariant survives the toggle).
-describe("GET /api/jobs/index — show_demo", () => {
+// Phase 3C.1 — explicit demo states. A seed_demo Job is hidden from the default
+// operating view and revealed by demo_view=all, with summary counts and rows moving
+// together (the invariant survives the demo state).
+describe("GET /api/jobs/index — demo_view", () => {
   let demoJobId = "";
   beforeAll(async () => {
     demoJobId = (
@@ -358,8 +358,8 @@ describe("GET /api/jobs/index — show_demo", () => {
     expect(body.summary.total).toBe(0);
   });
 
-  it("reveals seed_demo when show_demo=true, with counts matching rows", async () => {
-    const body = (await index("search=showdemofixture-unique&show_demo=true")).body;
+  it("reveals seed_demo when demo_view=all, with counts matching rows", async () => {
+    const body = (await index("search=showdemofixture-unique&demo_view=all")).body;
     expect(body.rows.some((r: any) => r.id === demoJobId)).toBe(true);
     expect(body.summary.total).toBe(1);
     expect(body.page.total).toBe(body.summary.total); // rows and summary move together

@@ -118,28 +118,28 @@ describe("JobsIndexPage", () => {
     expect(window.location.hash).toContain("lifecycle_scope=archived");
   });
 
-  it("(3C.1) Show demo data is URL-backed and forwarded to the index query", async () => {
-    getJobsIndexMock.mockResolvedValue(response());
-    render(<JobsIndexPage token="t" currentUser={user()} />);
-    await screen.findByRole("heading", { name: "Jobs" });
-    fireEvent.click(screen.getByLabelText("Show demo data"));
-    expect(window.location.hash).toContain("show_demo=true");
-    await waitFor(() => expect(getJobsIndexMock.mock.calls.at(-1)?.[1]).toMatchObject({ show_demo: "true" }));
-  });
-
-  it("(3C.1) a demo tenant defaults Show Demo Data ON; an operational tenant does not", async () => {
+  it("(3C.1) the demo state selector is URL-backed and forwarded to the index query", async () => {
     getJobsIndexMock.mockResolvedValue(response({ tenant_is_demo: true }));
     render(<JobsIndexPage token="t" currentUser={user()} />);
     await screen.findByRole("heading", { name: "Jobs" });
-    await waitFor(() => expect(window.location.hash).toContain("show_demo=true")); // auto-enabled once
-    expect((screen.getByLabelText("Show demo data") as HTMLInputElement).checked).toBe(true);
+    fireEvent.change(screen.getByLabelText("Demo data view"), { target: { value: "archived" } });
+    expect(window.location.hash).toContain("demo_view=archived");
+    await waitFor(() => expect(getJobsIndexMock.mock.calls.at(-1)?.[1]).toMatchObject({ demo_view: "archived" }));
+  });
+
+  it("(3C.1) a demo tenant defaults to Curated Demo (not zero, not all); an operational tenant shows no demo selector", async () => {
+    getJobsIndexMock.mockResolvedValue(response({ tenant_is_demo: true }));
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    await screen.findByRole("heading", { name: "Jobs" });
+    await waitFor(() => expect(window.location.hash).toContain("demo_view=curated")); // defaulted once
+    expect((screen.getByLabelText("Demo data view") as HTMLSelectElement).value).toBe("curated");
     cleanup();
     window.location.hash = "#jobs";
     getJobsIndexMock.mockResolvedValue(response({ tenant_is_demo: false }));
     render(<JobsIndexPage token="t" currentUser={user()} />);
     await screen.findByRole("heading", { name: "Jobs" });
-    expect(window.location.hash).not.toContain("show_demo"); // operational tenant: not auto-enabled
-    expect((screen.getByLabelText("Show demo data") as HTMLInputElement).checked).toBe(false);
+    expect(window.location.hash).not.toContain("demo_view"); // operational tenant: no demo default
+    expect(screen.queryByLabelText("Demo data view")).toBeNull(); // and no demo selector
   });
 
   it("(36/37/38) unlinked jobs show no fabricated Shoot state; linked show labeled data; workflow is independent", async () => {

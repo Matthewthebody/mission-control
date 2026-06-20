@@ -228,7 +228,7 @@ const jobsIndexQuerySchema = z
     lifecycle_scope: z
       .enum(["active", "needs_attention", "upcoming", "waiting", "recently_completed", "completed", "archived", "canceled", "demo_test", "review_required", "all"])
       .optional(),
-    show_demo: z.enum(["true", "false", "1", "0"]).optional(),
+    demo_view: z.enum(["curated", "archived", "all"]).optional(),
     metric: z.string().trim().max(60).optional(),
     sort: z.enum(["date", "created", "updated", "name", "status"]).optional(),
     direction: z.enum(["asc", "desc"]).optional(),

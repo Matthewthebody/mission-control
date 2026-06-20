@@ -4,7 +4,7 @@ import type { AuthUser } from "../../types/auth.js";
 import type { JobDepartmentType } from "../../domain/jobTruth/index.js";
 import { hasReadScope } from "./jobService.js";
 import { JOBS_RECENT_COMPLETION_DAYS } from "./jobsLifecycle.js";
-import { tenantIsDemo } from "./jobsProvenance.js";
+import { tenantIsDemo, getCuratedDemoJobIds } from "./jobsProvenance.js";
 
 // ── Canonical Jobs index read model (Phase 3B) ───────────────────────────────
 // ONE predicate layer shared by the returned rows AND every summary count, so
@@ -132,7 +132,7 @@ export type JobIndexFilters = {
   shoot_link_status?: string | null; // linked | unlinked
   workflow_link_status?: string | null; // linked | unlinked
   lifecycle_scope?: string | null; // active(default)|needs_attention|upcoming|waiting|recently_completed|completed|archived|canceled|demo_test|review_required|all
-  show_demo?: boolean | string | null; // include seed_demo/test_fixture in the active/needs_attention default views (default off)
+  demo_view?: string | null; // curated | archived | all — explicit demo states (absent = operational, demo hidden)
   metric?: string | null; // one of JOB_INDEX_METRICS (available) keys
   sort?: string | null; // date | created | updated | name | status
   direction?: string | null; // asc | desc
@@ -153,10 +153,14 @@ function readableDepartments(auth: AuthUser, requested: string | null): JobDepar
 
 // Build the base WHERE (everything EXCEPT the metric selector — the summary is
 // computed over this base so summary[X] equals the row total when metric=X is added).
-function buildBase(auth: AuthUser, filters: JobIndexFilters) {
+function buildBase(auth: AuthUser, filters: JobIndexFilters, curatedIds: string[]) {
   const departments = readableDepartments(auth, filters.department_type ?? null);
   const params: unknown[] = [auth.tenantId, departments];
   const where: string[] = ["f.tenant_id = $1", "f.department_type::text = ANY($2::text[])"];
+  const push = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
 
   // Lifecycle scope (default operating view = active). The default excludes
   // archived, canceled, demo/test-fixture-marked, and historical-completed (outside
@@ -169,52 +173,59 @@ function buildBase(auth: AuthUser, filters: JobIndexFilters) {
   const HISTORICAL = `(${COMPLETE} AND COALESCE(f.completed_at, f.updated_at) < now() - interval '${JOBS_RECENT_COMPLETION_DAYS} days')`;
   const RECENT = `(${COMPLETE} AND COALESCE(f.completed_at, f.updated_at) >= now() - interval '${JOBS_RECENT_COMPLETION_DAYS} days')`;
   const ATTENTION = "(f.readiness_status IN ('at_risk','off_track') OR f.risk_status IN ('high','critical') OR f.blocker_count>0 OR f.open_watch_flag_count>0 OR f.account_owner_user_id IS NULL)";
-  // "Show Demo Data" (default off): the operating views hide seed/test-fixture Jobs.
-  // When enabled, demo Jobs are included so the curated demo set is visible. The same
-  // base predicate feeds rows AND summary counts, so the toggle moves both together.
-  const showDemo = filters.show_demo === true || filters.show_demo === "true" || filters.show_demo === "1";
-  const NOT_HIDDEN = `f.archived_at IS NULL AND NOT ${CANCELED}${showDemo ? "" : ` AND ${NOT_DEMO}`}`;
-  const scope = (filters.lifecycle_scope ?? "active").trim();
-  switch (scope) {
-    case "active":
-      where.push(`${NOT_HIDDEN} AND NOT ${HISTORICAL}`);
-      break;
-    case "needs_attention":
-      where.push(`${NOT_HIDDEN} AND NOT ${HISTORICAL} AND ${ATTENTION}`);
-      break;
-    case "upcoming":
-      where.push(`f.archived_at IS NULL AND NOT ${COMPLETE} AND NOT ${CANCELED} AND f.scheduled_start_at > now()`);
-      break;
-    case "waiting":
-      where.push("f.archived_at IS NULL AND f.job_status IN ('weather_hold','postponed')");
-      break;
-    case "recently_completed":
-      where.push(`f.archived_at IS NULL AND ${RECENT}`);
-      break;
-    case "completed":
-      where.push(`f.archived_at IS NULL AND ${COMPLETE}`);
-      break;
-    case "archived":
-      where.push("f.archived_at IS NOT NULL");
-      break;
-    case "canceled":
-      where.push(`f.archived_at IS NULL AND ${CANCELED}`);
-      break;
-    case "demo_test":
-      where.push(DEMO);
-      break;
-    case "review_required":
-      where.push(`f.archived_at IS NULL AND ${COMPLETE} AND (f.blocker_count>0 OR f.open_watch_flag_count>0)`);
-      break;
-    case "all":
-    default:
-      break;
+  // Operating views always HIDE demo/test-fixture Jobs. Demo Jobs are surfaced ONLY via
+  // an explicit, distinctly-labeled demo_view (not one overloaded boolean):
+  //   curated  → the deterministic curated demo set, active (the demo tenant default)
+  //   archived → the archived demo records (Show Archived Demo)
+  //   all      → every demo record, any lifecycle (Show All Demo — admin diagnostic)
+  // The same base predicate feeds rows AND summary counts, so a demo_view moves both.
+  const NOT_HIDDEN = `f.archived_at IS NULL AND NOT ${CANCELED} AND ${NOT_DEMO}`;
+  const demoView = (filters.demo_view ?? "").trim();
+  if (demoView === "curated") {
+    // Active curated demo only — restricted to the deterministic curated id set.
+    where.push(`f.archived_at IS NULL AND NOT ${CANCELED} AND NOT ${HISTORICAL} AND f.id = ANY(${push(curatedIds)}::uuid[])`);
+  } else if (demoView === "archived") {
+    where.push(`f.archived_at IS NOT NULL AND ${DEMO}`);
+  } else if (demoView === "all") {
+    where.push(DEMO);
+  } else {
+    const scope = (filters.lifecycle_scope ?? "active").trim();
+    switch (scope) {
+      case "active":
+        where.push(`${NOT_HIDDEN} AND NOT ${HISTORICAL}`);
+        break;
+      case "needs_attention":
+        where.push(`${NOT_HIDDEN} AND NOT ${HISTORICAL} AND ${ATTENTION}`);
+        break;
+      case "upcoming":
+        where.push(`f.archived_at IS NULL AND NOT ${COMPLETE} AND NOT ${CANCELED} AND f.scheduled_start_at > now()`);
+        break;
+      case "waiting":
+        where.push("f.archived_at IS NULL AND f.job_status IN ('weather_hold','postponed')");
+        break;
+      case "recently_completed":
+        where.push(`f.archived_at IS NULL AND ${RECENT}`);
+        break;
+      case "completed":
+        where.push(`f.archived_at IS NULL AND ${COMPLETE}`);
+        break;
+      case "archived":
+        where.push("f.archived_at IS NOT NULL");
+        break;
+      case "canceled":
+        where.push(`f.archived_at IS NULL AND ${CANCELED}`);
+        break;
+      case "demo_test":
+        where.push(DEMO);
+        break;
+      case "review_required":
+        where.push(`f.archived_at IS NULL AND ${COMPLETE} AND (f.blocker_count>0 OR f.open_watch_flag_count>0)`);
+        break;
+      case "all":
+      default:
+        break;
+    }
   }
-
-  const push = (value: unknown) => {
-    params.push(value);
-    return `$${params.length}`;
-  };
 
   const search = (filters.search ?? "").trim().toLowerCase();
   if (search) {
@@ -358,7 +369,11 @@ export type JobIndexResult = {
 };
 
 export async function getJobsCanonicalIndex(client: PoolClient, auth: AuthUser, filters: JobIndexFilters): Promise<JobIndexResult> {
-  const { where, params } = buildBase(auth, filters);
+  // The curated demo set is needed only for the curated demo_view; it is deterministic
+  // and independent of whether provenance has been applied (it reads marker/capability
+  // signals), so the curated view is stable before and after a cleanup apply.
+  const curatedIds = (filters.demo_view ?? "").trim() === "curated" ? [...(await getCuratedDemoJobIds(client, auth.tenantId))] : [];
+  const { where, params } = buildBase(auth, filters, curatedIds);
 
   // Resolve the active metric selector (a filterable predicate over the base).
   const metricKey = (filters.metric ?? "").trim() || null;

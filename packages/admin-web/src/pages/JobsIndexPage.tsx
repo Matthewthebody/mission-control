@@ -44,7 +44,15 @@ const SORTS: Array<{ value: string; label: string }> = [
 const DEPARTMENTS = ["", "schools", "sports", "corporate", "headshots", "other"];
 const PAGE_SIZE = 25;
 
-const FILTER_KEYS = ["lifecycle_scope", "search", "department_type", "metric", "sort", "direction", "job_status", "owner_user_id", "shoot_link_status", "workflow_link_status", "show_demo", "offset", "selected", "focus"] as const;
+const FILTER_KEYS = ["lifecycle_scope", "search", "department_type", "metric", "sort", "direction", "job_status", "owner_user_id", "shoot_link_status", "workflow_link_status", "demo_view", "offset", "selected", "focus"] as const;
+
+// Explicit demo states (not one overloaded boolean): the curated active demo, the
+// archived demo, or every demo record. A demo tenant defaults to the curated set.
+const DEMO_VIEWS = [
+  { value: "curated", label: "Curated Demo" },
+  { value: "archived", label: "Show Archived Demo" },
+  { value: "all", label: "Show All Demo" }
+];
 
 function readFilters(params: URLSearchParams): Record<string, string> {
   const out: Record<string, string> = {};
@@ -136,16 +144,16 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
   const drawerOutside = !selectedRow && Boolean(offPage?.row);
   const closeSelection = () => writeHash({ selected: null, focus: null });
 
-  // Demo tenants default the Show Demo Data toggle ON (so the curated demo is visible)
-  // the first time the view is opened without an explicit choice. The API default stays
-  // off; this is a one-time URL-backed default the user can override (?show_demo=false).
+  // A demo tenant defaults to the Curated Demo set the first time the view opens without
+  // an explicit choice — never to zero and never to all hundreds. The API default hides
+  // demo data; this is a one-time URL-backed default the user can change.
   useEffect(() => {
-    if (data?.tenant_is_demo && filters.show_demo == null) {
-      writeHash({ show_demo: "true" });
+    if (data?.tenant_is_demo && filters.demo_view == null && filters.lifecycle_scope == null) {
+      writeHash({ demo_view: "curated" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.tenant_is_demo, filters.show_demo]);
-  const showDemoChecked = filters.show_demo != null ? filters.show_demo === "true" : Boolean(data?.tenant_is_demo);
+  }, [data?.tenant_is_demo, filters.demo_view, filters.lifecycle_scope]);
+  const isDemoTenant = Boolean(data?.tenant_is_demo);
 
   return (
     <section className="panel jobs-index" aria-label="Jobs">
@@ -196,15 +204,22 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
               ))}
             </select>
           </label>
-          <label className="jobs-index__control jobs-index__control--check">
-            <input
-              type="checkbox"
-              aria-label="Show demo data"
-              checked={showDemoChecked}
-              onChange={(e) => writeHash({ show_demo: e.target.checked ? "true" : "false", offset: null })}
-            />
-            <span>Show demo data</span>
-          </label>
+          {isDemoTenant ? (
+            <label className="jobs-index__control">
+              <span>Demo</span>
+              <select
+                aria-label="Demo data view"
+                value={filters.demo_view ?? "curated"}
+                onChange={(e) => writeHash({ demo_view: e.target.value, lifecycle_scope: null, offset: null })}
+              >
+                {DEMO_VIEWS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
       </header>
 
