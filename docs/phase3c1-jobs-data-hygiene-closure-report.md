@@ -3,7 +3,7 @@
 **Date:** 2026-06-19
 **Branch:** `feature/work-spine-foundation-v1` · from Phase 3C closing HEAD `80373f3`
 **Tenant under test:** Demo Studio `223ee748-3dcd-4837-97a9-8eba7dbb11f2` (a dedicated demo tenant; ~350 Jobs, all synthetic)
-**Status:** Implementation complete through Commit 6. **Stopped at the purge approval gate — no provenance marking, archival, or hard deletion has been applied.**
+**Status:** Implementation complete through Commit 6; **Commit 7 (user-authorized) applied the reversible cleanup.** Provenance marking + reversible archival executed; **no hard deletion** (0 candidates). The demo tenant's Jobs page now shows **30 curated jobs** (Show Demo Data defaults on), with **326 archived (every one reversible)** and **0 deleted**.
 
 ---
 
@@ -16,9 +16,10 @@
 | 3 | `4cdebfa` | fix: preserve jobs lifecycle through archive restore |
 | 4 | `776209d` | fix: load off-page jobs into the quick view |
 | 5 | `b8d156e` | fix: complete canonical job detail actionability |
-| 6 | _this commit_ | test: close jobs data hygiene and deep-link verification |
+| 6 | `6333f5c` | test: close jobs data hygiene and deep-link verification |
+| 7 | _this commit_ | feat: apply jobs provenance marking and reversible demo archival (user-authorized) |
 
-Preserved (untouched): `11a470c`, `175dbf4`, `600b9ee`, `3ed6b9e`, `666ab80`, `5e45580`, `80373f3`. `stash@{0}` untouched. Nothing pushed (ahead of origin by 55).
+Preserved (untouched): `11a470c`, `175dbf4`, `600b9ee`, `3ed6b9e`, `666ab80`, `5e45580`, `80373f3`. `stash@{0}` untouched. Nothing pushed.
 
 ## 2. The answer: why the prior cleanup returned all keep / 0 purge
 
@@ -73,18 +74,15 @@ The quick view is the canonical, actionable detail surface. **Targeted fix appli
 
 The global `#jobs` route renders the canonical `JobsIndexPage`. Department routes (`#schools`/`#sports`) render `SharedJobsPage`, which is a full department **workspace**: department adapters (`getDepartmentJobAdapterUI`), department-specific columns, saved views, and job intake/creation, consuming the legacy `listSharedJobs` (`GET /api/jobs`). It **cannot** be replaced by `JobsIndexPage` + a locked `department_type` without porting those features (adapters, saved views, intake). **Migration is not safe now — documented as a blocker.** No second canonical Jobs store is created; the two surfaces keep distinct roles (global canonical triage vs. department workspace). Convergence would require porting the department adapters/saved-views/intake onto the canonical surface — out of scope for this phase.
 
-## 11. 🔒 Purge approval gate (Step 6) — STOPPED, awaiting explicit approval
+## 11. 🔒 Purge approval gate (Step 6) — APPROVED & APPLIED (archival only; 0 hard-purge)
 
-**Nothing has been applied.** No provenance marking, no archival, and no hard deletion have run against the live data. The proposed batch (for your approval):
+Matthew approved **apply marking + reversible archival**. **Commit 7** (`feat: apply jobs provenance marking and reversible demo archival`) adds the **archival-only** executor (`applyJobsCleanupArchival` + `POST /api/jobs/cleanup/apply`): in one transaction it (1) marks provably-demo Jobs `data_origin='seed_demo'`, then (2) archives the demo Jobs not in the curated set through the **reversible** archive columns (records `pre_archive_state` so restore returns the prior status). **It contains no DELETE — it is structurally incapable of hard deletion.** Admin-gated, idempotent.
 
-- **Mark** ~350 Jobs `data_origin='seed_demo'` (provenance backfill apply). Reversible (set back to NULL).
-- **Keep** 30 curated demo Jobs visible (with Show Demo Data on for the demo tenant).
-- **Archive** ~322 excess-demo Jobs — **reversible** (archive records prior state; restore returns it).
-- **Hard-purge: 0 candidates.** Every demo Job has a protected dependency, so there is nothing eligible for hard deletion. **No purge executor exists** — it remains a separately-approved, transactional, backed-up, batch-recorded step.
+**Applied live (Demo Studio):** marked **356** `seed_demo`, archived **326** excess-demo, kept **30** curated, **hard-purged 0**. Post-state: default operational view **0** (100% demo tenant) · **Show Demo Data view 30** (what the demo UI shows by default) · archived **326** (every one carries a `pre_archive_state` snapshot → fully reversible via the restore endpoint) · unmarked **0**. **No row was deleted.**
 
-**Backup plan for any future hard purge:** a dedicated, explicitly-authorized executor commit that (a) re-runs the dry-run, (b) takes a `pg_dump` of the candidate rows + children, (c) deletes in a single transaction with a recorded batch id, (d) is revertible from the dump. Not built in this phase.
+**Hard purge remains unbuilt and separately-authorized** — there are **0 candidates** (every demo Job has a protected dependency), so nothing is eligible regardless. Backup plan for any future hard purge: a dedicated, explicitly-authorized executor that (a) re-runs the dry-run, (b) `pg_dump`s the candidate rows + children, (c) deletes in one transaction with a recorded batch id, (d) is revertible from the dump.
 
-**Awaiting your decision:** apply the provenance marking and reversible archival now, or hold. No destructive action will be taken without your explicit go-ahead.
+**Reversal:** to undo, restore the archived Jobs (each returns to its snapshotted prior status) and set `data_origin` back to NULL.
 
 ## 12. Test results
 

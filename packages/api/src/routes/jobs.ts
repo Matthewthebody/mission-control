@@ -53,6 +53,7 @@ import {
   restoreJobLifecycle,
   reconcileJobsLifecycle,
   getJobsPurgeDryRun,
+  applyJobsCleanupArchival,
   backfillJobsProvenance,
   listAlertCenter,
   listDashboardWidgetPreferences,
@@ -1691,6 +1692,24 @@ router.post("/provenance/backfill", async (req, res, next) => {
     const auth = getAuth(req as unknown as AuthenticatedRequest);
     const apply = String(req.query.apply ?? "") === "true";
     const report = await withClientTransaction(auth.tenantId, auth.id, (client) => backfillJobsProvenance(client, auth, { dryRun: !apply }));
+    return res.json(report);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Cleanup APPLY (archival-only, admin-gated, user-authorized). In one transaction:
+// (1) mark provably-demo Jobs data_origin='seed_demo', then (2) archive the demo Jobs
+// not in the curated set — through the reversible archive path (restore returns the
+// prior status). Contains NO hard deletion; a purge remains a separate authorized step.
+router.post("/cleanup/apply", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const report = await withClientTransaction(auth.tenantId, auth.id, async (client) => {
+      const provenance = await backfillJobsProvenance(client, auth, { dryRun: false });
+      const archival = await applyJobsCleanupArchival(client, auth);
+      return { applied: true as const, provenance, archival };
+    });
     return res.json(report);
   } catch (error) {
     return next(error);

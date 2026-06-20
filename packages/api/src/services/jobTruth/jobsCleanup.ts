@@ -92,6 +92,40 @@ function readableDepartments(auth: AuthUser): JobDepartmentType[] {
   return ALL_DEPARTMENTS.filter((d) => hasReadScope(auth, d) != null);
 }
 
+export type JobsCleanupApplyReport = {
+  applied: true;
+  archived_excess_demo: number;
+  kept_curated_demo: number;
+  hard_purged: 0; // archival-only executor — it contains no DELETE and can never purge
+};
+
+// Archival-only apply (Phase 3C.1, user-authorized). Archives the demo Jobs that are NOT
+// in the curated set, through the audited, REVERSIBLE archive columns (records
+// pre_archive_state so restore returns the prior status). It is structurally incapable of
+// hard deletion — there is no DELETE here; a hard purge remains a separate, separately-
+// authorized step. Admin-gated, idempotent (already-archived rows are skipped). Marking
+// (data_origin='seed_demo') must already be applied or run in the same transaction.
+export async function applyJobsCleanupArchival(client: PoolClient, auth: AuthUser): Promise<JobsCleanupApplyReport> {
+  if (!hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin"])) {
+    throw new ApiError(403, "Jobs cleanup apply requires an administrative role");
+  }
+  const curated = await getCuratedDemoJobIds(client, auth.tenantId);
+  const curatedArr = [...curated];
+  const res = await client.query(
+    `UPDATE jobs SET archived_at = now(), archived_by_user_id = $2,
+            archive_reason = 'Phase 3C.1: excess demo archived (reversible)',
+            pre_archive_state = jsonb_build_object(
+              'job_status', job_status::text, 'production_status', production_status::text,
+              'readiness_status', readiness_status::text, 'risk_status', risk_status::text,
+              'staffing_status', staffing_status::text),
+            job_status = 'archived', updated_at = now()
+       WHERE tenant_id = $1 AND data_origin = 'seed_demo'
+         AND archived_at IS NULL AND NOT (id = ANY($3::uuid[]))`,
+    [auth.tenantId, auth.id, curatedArr]
+  );
+  return { applied: true, archived_excess_demo: res.rowCount ?? 0, kept_curated_demo: curatedArr.length, hard_purged: 0 };
+}
+
 export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Promise<JobsPurgeDryRunReport> {
   // Purge is the most destructive operation — even the dry-run is gated to an
   // administrative role (stronger than archive's manage access).

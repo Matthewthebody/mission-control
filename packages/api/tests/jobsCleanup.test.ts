@@ -2,6 +2,7 @@ import type { Express } from "express";
 import type { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { applyJobsCleanupArchival } from "../src/services/jobTruth/jobsCleanup.js";
 
 // Phase 3C Commit 3 — safe Jobs cleanup dry-run. Proves it writes NO data, is stable
 // on re-run, marks a synthetic dependency-free record purge-eligible, BLOCKS any
@@ -39,6 +40,7 @@ beforeAll(async () => {
   leadershipToken = await login("leadership@example.com");
   photographerToken = await login("photo@example.com");
   tenantId = (await request(app).get("/auth/me").set("Authorization", `Bearer ${leadershipToken}`)).body.user.tenantId;
+  ids.adminUser = (await dbPool.query(`SELECT id::text FROM app_user WHERE email='leadership@example.com'`)).rows[0].id;
 
   // Purge-eligible: synthetic, no organization, no child records.
   ids.purge = await makeJob({ job_status: "draft", organization_id: null });
@@ -136,5 +138,43 @@ describe("GET /api/jobs/cleanup/dry-run — Phase 3C.1 provenance + curated acti
     // The curated demo is hidden from the default view but visible with Show Demo Data.
     expect(report.projected_demo_view_total).toBeGreaterThanOrEqual(report.projected_default_view_total);
     expect(find(report, ids.purge).proposed_data_origin).toBe("test_fixture");
+  });
+});
+
+describe("applyJobsCleanupArchival — archival-only executor", () => {
+  it("archives non-curated demo, keeps curated, and NEVER deletes (rolled back)", async () => {
+    const client = await dbPool.connect();
+    try {
+      await client.query("BEGIN");
+      // A plain seed_demo Job (no capability → not curated) and a marked scenario (curated).
+      const plain = (await client.query(`INSERT INTO jobs (tenant_id,department_type,title,data_origin) VALUES ($1,'sports','apply-plain','seed_demo') RETURNING id::text`, [tenantId])).rows[0].id;
+      const marked = (await client.query(`INSERT INTO jobs (tenant_id,department_type,title,description_internal,data_origin) VALUES ($1,'sports','apply-marked','[mission_control_demo_v1] scenario','seed_demo') RETURNING id::text`, [tenantId])).rows[0].id;
+      const before = (await client.query(`SELECT count(*)::int n FROM jobs WHERE tenant_id=$1`, [tenantId])).rows[0].n;
+      const auth = { authorityTier: "leadership", tenantId, id: ids.adminUser } as any;
+      const report = await applyJobsCleanupArchival(client, auth);
+      const after = (await client.query(`SELECT count(*)::int n FROM jobs WHERE tenant_id=$1`, [tenantId])).rows[0].n;
+      expect(after).toBe(before); // never deletes a row
+      expect(report.hard_purged).toBe(0);
+      expect(report.archived_excess_demo).toBeGreaterThan(0);
+      // marked scenario is curated → kept visible; plain demo → archived with a reversible snapshot
+      expect((await client.query(`SELECT archived_at FROM jobs WHERE id=$1`, [marked])).rows[0].archived_at).toBeNull();
+      const pl = (await client.query(`SELECT archived_at, job_status::text AS s, pre_archive_state->>'job_status' AS pj FROM jobs WHERE id=$1`, [plain])).rows[0];
+      expect(pl.archived_at).not.toBeNull();
+      expect(pl.s).toBe("archived");
+      expect(pl.pj).not.toBeNull(); // prior status snapshotted → restore can reverse it
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("requires an administrative role", async () => {
+    const client = await dbPool.connect();
+    try {
+      const auth = { authorityTier: "standard_employee", tenantId, id: ids.adminUser } as any;
+      await expect(applyJobsCleanupArchival(client, auth)).rejects.toMatchObject({ status: 403 });
+    } finally {
+      client.release();
+    }
   });
 });
