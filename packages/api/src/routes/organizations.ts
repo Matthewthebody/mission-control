@@ -45,6 +45,13 @@ import {
   updateOrganizationLocation
 } from "../services/organizations.js";
 import {
+  listSchoolServiceTerms,
+  createSchoolServiceTerm,
+  rolloverSchoolServiceTerm,
+  setCurrentSchoolServiceTerm,
+  updateSchoolServiceTerm
+} from "../services/schoolServiceTerm.js";
+import {
   createDirectoryCommunicationLog,
   createDirectoryRelationshipFollowUp,
   createDirectoryRelationshipMemory,
@@ -1326,6 +1333,89 @@ router.post("/:id/school-notes", requireSchoolFoundationManageAccess, validateBo
       )
     );
     return res.status(201).json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ── School-year / season service terms (Phase 4 Slice 4) ─────────────────────
+const serviceTermPeriodTypeSchema = z.enum(["school_year", "season", "custom"]);
+const createServiceTermSchema = z.object({
+  period_type: serviceTermPeriodTypeSchema.optional(),
+  period_label: z.string().trim().min(1).max(120),
+  start_date: z.string().trim().max(40).optional().nullable(),
+  end_date: z.string().trim().max(40).optional().nullable(),
+  internal_owner_user_id: z.string().uuid().optional().nullable(),
+  service_config: z.record(z.string(), z.unknown()).optional(),
+  notes: z.string().trim().max(4000).optional().nullable()
+});
+const updateServiceTermSchema = z
+  .object({
+    start_date: z.string().trim().max(40).optional().nullable(),
+    end_date: z.string().trim().max(40).optional().nullable(),
+    internal_owner_user_id: z.string().uuid().optional().nullable(),
+    service_config: z.record(z.string(), z.unknown()).optional(),
+    notes: z.string().trim().max(4000).optional().nullable(),
+    confirm: z.boolean().optional()
+  })
+  .refine((value) => Object.keys(value).length > 0, "Provide at least one field to update");
+const rolloverServiceTermSchema = z.object({ new_period_label: z.string().trim().min(1).max(120) });
+
+router.get("/:id/service-terms", requireCanonicalDirectoryReadAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const terms = await withClientTransaction(auth.tenantId, auth.id, (client) => listSchoolServiceTerms(client, auth, String(req.params.id)));
+    return res.json({ service_terms: terms });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/:id/service-terms", requireSchoolFoundationManageAccess, validateBody(createServiceTermSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const term = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      createSchoolServiceTerm(client, auth, String(req.params.id), {
+        period_type: req.body.period_type,
+        period_label: req.body.period_label,
+        start_date: req.body.start_date ?? null,
+        end_date: req.body.end_date ?? null,
+        internal_owner_user_id: req.body.internal_owner_user_id ?? null,
+        service_config: req.body.service_config,
+        notes: req.body.notes ?? null
+      })
+    );
+    return res.status(201).json({ service_term: term });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/service-terms/:termId/rollover", requireSchoolFoundationManageAccess, validateBody(rolloverServiceTermSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const term = await withClientTransaction(auth.tenantId, auth.id, (client) => rolloverSchoolServiceTerm(client, auth, String(req.params.termId), req.body.new_period_label));
+    return res.status(201).json({ service_term: term });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/service-terms/:termId/activate", requireSchoolFoundationManageAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const term = await withClientTransaction(auth.tenantId, auth.id, (client) => setCurrentSchoolServiceTerm(client, auth, String(req.params.termId)));
+    return res.json({ service_term: term });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/service-terms/:termId", requireSchoolFoundationManageAccess, validateBody(updateServiceTermSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const term = await withClientTransaction(auth.tenantId, auth.id, (client) => updateSchoolServiceTerm(client, auth, String(req.params.termId), req.body));
+    return res.json({ service_term: term });
   } catch (error) {
     return next(error);
   }
