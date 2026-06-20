@@ -45,6 +45,7 @@ import type {
   DirectoryTouchpointPlan,
   DirectoryTouchpointPlanStatus,
   DirectoryTouchpointRecord,
+  CanonicalDistrictListResponse,
   OrganizationAccountType,
   OrganizationDetail,
   OrganizationOperationsHub,
@@ -431,6 +432,16 @@ export async function listOrganizations(
 
 export async function getOrganizationDetail(token: string, organizationId: string) {
   return apiFetch<OrganizationDetail>(`/api/organizations/${organizationId}`, token);
+}
+
+// Phase 4 Slice 5 — searchable canonical parent Districts for the Parent-District selector.
+export async function listCanonicalDistricts(token: string, search?: string) {
+  const params = new URLSearchParams();
+  if (search?.trim()) {
+    params.set("search", search.trim());
+  }
+  const query = params.toString();
+  return apiFetch<CanonicalDistrictListResponse>(`/api/organizations/districts${query ? `?${query}` : ""}`, token);
 }
 
 export async function getOrganizationOperationsHub(token: string, organizationId: string) {

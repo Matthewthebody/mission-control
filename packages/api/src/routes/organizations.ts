@@ -31,6 +31,7 @@ import {
   listDirectoryDuplicateReviews,
   listDirectoryContacts,
   listDirectoryLocations,
+  listCanonicalDistricts,
   listDirectoryOwnerOptions,
   listOrganizationTouchpoints,
   listOrganizations,
@@ -739,6 +740,19 @@ router.get("/internal-owners", requireCanonicalDirectoryManageAccess, async (req
     const auth = (req as AuthenticatedRequest).auth;
     const payload = await withClientTransaction(auth.tenantId, auth.id, (client) => listDirectoryOwnerOptions(client, auth));
     return res.json({ owners: payload });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Phase 4 Slice 5 — canonical parent Districts for the searchable Parent-District
+// selector. Registered before "/:id" so it is not captured by the detail route.
+router.get("/districts", async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const search = typeof req.query.search === "string" ? req.query.search : null;
+    const districts = await withClientTransaction(auth.tenantId, auth.id, (client) => listCanonicalDistricts(client, auth, search));
+    return res.json({ districts });
   } catch (error) {
     return next(error);
   }

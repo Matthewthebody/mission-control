@@ -23437,3 +23437,18 @@ html[data-theme="light"] .help-tooltip__bubble {
 .service-term-inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
 .service-term-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
 @media (max-width: 640px) { .service-term-form-grid { grid-template-columns: 1fr; } }
+
+/* Phase 4 Slice 5 — searchable Parent-District selector + District/School hierarchy */
+.parent-district-selector { display: flex; flex-direction: column; gap: 8px; }
+.parent-district-selector__current { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.parent-district-selector__value { font-weight: 600; }
+.parent-district-selector__panel { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-2); }
+.parent-district-selector__search { width: 100%; }
+.parent-district-selector__results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.parent-district-selector__option { display: flex; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: inherit; cursor: pointer; }
+.parent-district-selector__option:hover, .parent-district-selector__option:focus-visible { border-color: var(--border-strong); background: var(--surface-3, var(--surface-raised)); }
+.organization-hierarchy-card { margin-bottom: 14px; }
+.organization-hierarchy-children { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.directory-link-button { display: flex; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: inherit; cursor: pointer; }
+.directory-link-button:hover, .directory-link-button:focus-visible { border-color: var(--border-strong); }
+.organization-hierarchy-review { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed rgba(211, 165, 106, 0.5); border-radius: 10px; background: var(--warm-accent-soft); }

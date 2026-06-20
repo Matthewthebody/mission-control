@@ -200,4 +200,23 @@ describe("Phase 4 Slice 1 — canonical organization hierarchy", () => {
     expect(ccc.status).toBe(200);
     expect(ccc.body.parent_organization?.id ?? ccc.body.account?.parent_organization_id).toBe(district);
   });
+
+  it("(18) the districts endpoint returns only canonical Districts (with child counts), not School accounts", async () => {
+    const token = `ZZDistList${stamp}`;
+    const district = track(await createOrg(manageToken, { canonical_name: `${token} District`, account_type: SCHOOL, client_entity_kind: "parent_organization", client_organization_type: "school_district" }));
+    const school = track(await createOrg(manageToken, { canonical_name: `${token} School`, account_type: SCHOOL, client_entity_kind: "account", parent_organization_id: district }));
+    const res = await request(app).get(`/api/organizations/districts?search=${token}`).set("Authorization", `Bearer ${manageToken}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.districts)).toBe(true);
+    const found = res.body.districts.find((d: any) => d.id === district);
+    expect(found).toBeTruthy();
+    expect(found.child_organization_count).toBeGreaterThanOrEqual(1); // the linked School is counted
+    // the School account is NOT a District and must not appear in the selector list
+    expect(res.body.districts.some((d: any) => d.id === school)).toBe(false);
+  });
+
+  it("(19) the districts endpoint requires authentication", async () => {
+    const res = await request(app).get("/api/organizations/districts");
+    expect(res.status).toBe(401);
+  });
 });

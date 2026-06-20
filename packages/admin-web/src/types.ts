@@ -2269,10 +2269,32 @@ export type SchoolServiceTermListResponse = {
   service_terms: SchoolServiceTermRecord[];
 };
 
+// Phase 4 Slice 5 — canonical parent Districts for the searchable Parent-District selector.
+export type CanonicalDistrictOption = {
+  id: string;
+  display_name: string;
+  client_organization_type: string | null;
+  child_organization_count: number;
+};
+
+export type CanonicalDistrictListResponse = {
+  districts: CanonicalDistrictOption[];
+};
+
+// A District's child Schools (and any other child accounts), as returned on the detail.
+export type OrganizationChildSummary = {
+  id: string;
+  display_name: string;
+  account_type: OrganizationAccountType;
+  active_status: DirectoryActiveStatus;
+};
+
 export type OrganizationDetail = {
   organization: OrganizationSummary;
   contacts: OrganizationContact[];
   locations: OrganizationLocation[];
+  // Phase 4 Slice 5 — child accounts (Schools) that roll up to this organization (District).
+  child_organizations?: OrganizationChildSummary[];
   school_profile?: SchoolProfile | null;
   school_rules?: SchoolRule[];
   school_activity?: SchoolActivityLog[];

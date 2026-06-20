@@ -600,6 +600,57 @@ export async function listOrganizations(
   };
 }
 
+// Phase 4 Slice 5 — canonical parent Districts for the searchable Parent-District
+// selector. Returns only client_entity_kind='parent_organization' organizations
+// (the canonical Districts), name-searchable and capped, with their child count so
+// the picker can show how many Schools already roll up to each District.
+export type CanonicalDistrictOption = {
+  id: string;
+  display_name: string;
+  client_organization_type: string | null;
+  child_organization_count: number;
+};
+
+export async function listCanonicalDistricts(
+  client: PoolClient,
+  auth: AuthUser,
+  search?: string | null
+): Promise<CanonicalDistrictOption[]> {
+  const normalizedSearch = normalizeDirectoryText(search);
+  const fuzzySearch = normalizedSearch ? `%${normalizedSearch}%` : null;
+  const { rows } = await client.query<{ id: string; display_name: string; client_organization_type: string | null; child_organization_count: string | number | null }>(
+    `
+      SELECT
+        o.id::text,
+        o.display_name,
+        o.client_organization_type,
+        (
+          SELECT count(*)::int
+          FROM organization c
+          WHERE c.tenant_id = o.tenant_id
+            AND c.parent_organization_id = o.id
+        ) AS child_organization_count
+      FROM organization o
+      WHERE o.tenant_id = $1
+        AND o.client_entity_kind = 'parent_organization'
+        AND (
+          $2::text IS NULL
+          OR o.normalized_canonical_name LIKE $2
+          OR lower(regexp_replace(COALESCE(o.display_name, ''), '[^a-zA-Z0-9]+', ' ', 'g')) LIKE $2
+        )
+      ORDER BY lower(o.display_name)
+      LIMIT 50
+    `,
+    [auth.tenantId, fuzzySearch]
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    display_name: row.display_name,
+    client_organization_type: row.client_organization_type ?? null,
+    child_organization_count: Number(row.child_organization_count ?? 0)
+  }));
+}
+
 export async function listDirectoryContacts(
   client: PoolClient,
   auth: AuthUser,

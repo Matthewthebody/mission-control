@@ -28,6 +28,7 @@ import {
   TOUCHPOINT_CHANNEL_OPTIONS,
   buildShootLabel
 } from "./directoryOptions";
+import { ParentDistrictSelector } from "./ParentDistrictSelector";
 
 type FormProps = {
   onCancel: () => void;
@@ -38,6 +39,10 @@ type FormProps = {
 type OrganizationEditorFormProps = FormProps & {
   initialValue?: Partial<OrganizationCreateInput>;
   ownerOptions?: DirectoryOwnerOption[];
+  // Phase 4 Slice 5 — when a token is supplied the canonical searchable Parent-District
+  // selector is used; districtOptions remains a static fallback for callers without one.
+  token?: string;
+  initialParentDistrictName?: string | null;
   districtOptions?: Array<{ id: string; display_name: string }>;
   submitLabel: string;
   onUploadLogo?: (file: File) => Promise<string>;
@@ -110,6 +115,8 @@ const CONTACT_METHOD_OPTIONS = ["", "Email", "Phone", "Text", "No preference"];
 export function OrganizationEditorForm({
   initialValue,
   ownerOptions = [],
+  token,
+  initialParentDistrictName,
   districtOptions = [],
   submitLabel,
   onUploadLogo,
@@ -140,6 +147,7 @@ export function OrganizationEditorForm({
   // Phase 4 canonical hierarchy fields.
   const [entityKind, setEntityKind] = useState<"account" | "parent_organization">(initialValue?.client_entity_kind ?? "account");
   const [parentDistrictId, setParentDistrictId] = useState(initialValue?.parent_organization_id ?? "");
+  const [parentDistrictName, setParentDistrictName] = useState<string | null>(initialParentDistrictName ?? null);
   const [teamNotes, setTeamNotes] = useState(initialValue?.notes ?? "");
   const [operationsNotes, setOperationsNotes] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -243,14 +251,26 @@ export function OrganizationEditorForm({
           {entityKind === "account" ? (
             <label className="directory-field">
               <span>Parent District</span>
-              <select aria-label="Parent District" value={parentDistrictId} onChange={(event) => setParentDistrictId(event.target.value)}>
-                <option value="">— None —</option>
-                {districtOptions.map((district) => (
-                  <option key={district.id} value={district.id}>
-                    {district.display_name}
-                  </option>
-                ))}
-              </select>
+              {token ? (
+                <ParentDistrictSelector
+                  token={token}
+                  value={parentDistrictId}
+                  initialName={parentDistrictName}
+                  onChange={(districtId, districtName) => {
+                    setParentDistrictId(districtId);
+                    setParentDistrictName(districtName);
+                  }}
+                />
+              ) : (
+                <select aria-label="Parent District" value={parentDistrictId} onChange={(event) => setParentDistrictId(event.target.value)}>
+                  <option value="">— None —</option>
+                  {districtOptions.map((district) => (
+                    <option key={district.id} value={district.id}>
+                      {district.display_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
           ) : null}
           <label className="directory-field">

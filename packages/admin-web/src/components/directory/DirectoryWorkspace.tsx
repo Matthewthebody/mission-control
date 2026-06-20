@@ -46,6 +46,7 @@ import { DirectoryAvatar } from "./DirectoryAvatar";
 import { DirectoryRelationshipMap, type DirectoryRelationshipMapEdge, type DirectoryRelationshipMapNode } from "./DirectoryRelationshipMap";
 import { SchoolDetailPanel } from "./SchoolDetailPanel";
 import { ServiceTermsPanel } from "./ServiceTermsPanel";
+import { OrganizationHierarchyCard } from "./OrganizationHierarchyCard";
 import { CommunicationHistoryPanel } from "../CommunicationHistoryPanel";
 import { PreCallContextPanel } from "../PreCallContextPanel";
 import { RecordResourcesPanel } from "../RecordResourcesPanel";
@@ -640,6 +641,12 @@ export function DirectoryWorkspace({
             </>
           ) : (
             <>
+              {view === "organizations" &&
+              (detail.organization.client_entity_kind === "parent_organization" ||
+                isSchoolOrganization ||
+                detail.organization.parent_organization_id) ? (
+                <OrganizationHierarchyCard detail={detail} isSchoolAccount={isSchoolOrganization} onSelectOrganization={onSelectOrganization} />
+              ) : null}
               {isSchoolOrganization ? (
                 <>
                   <SchoolDetailPanel
