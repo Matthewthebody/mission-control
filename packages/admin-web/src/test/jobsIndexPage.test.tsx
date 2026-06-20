@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobIndexRow, JobsIndexResponse } from "../services/jobsApi";
 import type { SessionUser } from "../types";
 
 const getJobsIndexMock = vi.fn();
-vi.mock("../services/jobsApi", () => ({ getJobsIndex: (...a: unknown[]) => getJobsIndexMock(...a) }));
+const archiveSharedJobMock = vi.fn();
+const restoreSharedJobMock = vi.fn();
+vi.mock("../services/jobsApi", () => ({
+  getJobsIndex: (...a: unknown[]) => getJobsIndexMock(...a),
+  archiveSharedJob: (...a: unknown[]) => archiveSharedJobMock(...a),
+  restoreSharedJob: (...a: unknown[]) => restoreSharedJobMock(...a)
+}));
 
 import { JobsIndexPage } from "../pages/JobsIndexPage";
 
@@ -59,8 +65,18 @@ function response(over: Partial<JobsIndexResponse> = {}): JobsIndexResponse {
 beforeEach(() => {
   window.location.hash = "#jobs";
   getJobsIndexMock.mockReset();
+  archiveSharedJobMock.mockReset().mockResolvedValue({});
+  restoreSharedJobMock.mockReset().mockResolvedValue({});
 });
 afterEach(() => cleanup());
+
+function readOnlyUser(): SessionUser {
+  return { ...user(), authorityTier: "standard_employee", roles: ["office_employee"], permissions: ["dashboard.read", "job.read"] } as SessionUser;
+}
+async function openDrawer(jobName: RegExp) {
+  fireEvent.click(await screen.findByRole("button", { name: jobName }));
+  return screen.findByRole("dialog");
+}
 
 describe("JobsIndexPage", () => {
   it("(30) fetches the canonical index defaulting to the active lifecycle scope", async () => {
@@ -124,5 +140,72 @@ describe("JobsIndexPage", () => {
     getJobsIndexMock.mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
     render(<JobsIndexPage token="t" currentUser={user()} />);
     expect(await screen.findByText(/We couldn't load jobs/)).toBeInTheDocument();
+  });
+});
+
+describe("JobQuickViewDrawer", () => {
+  it("(41/43) opens an in-viewport drawer with the canonical Truth Snapshot", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    const drawer = await openDrawer(/Wayzata Soccer/);
+    expect(window.location.hash).toContain("selected=job-2");
+    expect(within(drawer).getByText("Organization")).toBeInTheDocument();
+    expect(within(drawer).getByText("Promised delivery")).toBeInTheDocument();
+    expect(within(drawer).getByText("Edina HS")).toBeInTheDocument();
+  });
+
+  it("(44/55) shows canonical attention reasons as text, not color alone", async () => {
+    getJobsIndexMock.mockResolvedValue(response({ rows: [row({ id: "job-9", title: "Behind Job", attention_reasons: ["blocked_no_owner", "late"] })] }));
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    const drawer = await openDrawer(/Behind Job/);
+    expect(within(drawer).getByText("Blocked No Owner")).toBeInTheDocument();
+    expect(within(drawer).getByText(/blocked and the Job has no owner/i)).toBeInTheDocument();
+  });
+
+  it("(46/47) workflow data shows without a Shoot link; unlinked Job shows the honest explanation", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    const drawer = await openDrawer(/Maple Grove/); // job-3: unlinked + workflow
+    expect(within(drawer).getByText(/3 workflow runs/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/No Shoot linked/)).toBeInTheDocument();
+  });
+
+  it("(48) a confirmed-linked Job shows occurrences with exact Open Schedule / Open Staffing", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    const drawer = await openDrawer(/Wayzata Soccer/); // job-2 linked, 2 shoots
+    expect(within(drawer).getByText(/2 confirmed linked Shoot/)).toBeInTheDocument();
+    expect(within(drawer).getAllByRole("button", { name: "Open Schedule" }).length).toBe(2);
+    expect(within(drawer).getAllByRole("button", { name: "Open Staffing" }).length).toBe(2);
+  });
+
+  it("(49/52) Archive calls the API and refreshes the index", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    const drawer = await openDrawer(/Wayzata Soccer/);
+    const callsBefore = getJobsIndexMock.mock.calls.length;
+    fireEvent.click(within(drawer).getByRole("button", { name: "Archive" }));
+    expect(archiveSharedJobMock).toHaveBeenCalledWith("t", "job-2", expect.any(String));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getJobsIndexMock.mock.calls.length).toBeGreaterThan(callsBefore); // index refetched
+  });
+
+  it("(50/53) a read-only user gets no Archive action, and Purge is never offered", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={readOnlyUser()} />);
+    const drawer = await openDrawer(/Wayzata Soccer/);
+    expect(within(drawer).queryByRole("button", { name: "Archive" })).toBeNull();
+    expect(within(drawer).queryByRole("button", { name: /purge/i })).toBeNull();
+    expect(within(drawer).getByRole("button", { name: "Open full detail" })).toBeInTheDocument();
+  });
+
+  it("(54) closes on Escape", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    await openDrawer(/Wayzata Soccer/);
+    expect(window.location.hash).toContain("selected=job-2");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(window.location.hash).not.toContain("selected="); // cleared synchronously
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

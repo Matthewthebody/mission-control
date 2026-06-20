@@ -594,8 +594,15 @@ export async function postponeSharedJob(token: string, jobId: string, input: Sha
   });
 }
 
-export async function archiveSharedJob(token: string, jobId: string) {
+export async function archiveSharedJob(token: string, jobId: string, reason?: string) {
   return apiFetch<SharedJobDetailResponse>(`${JOBS_BASE}/${jobId}/archive`, token, {
+    method: "POST",
+    body: JSON.stringify(reason ? { reason } : {})
+  });
+}
+
+export async function restoreSharedJob(token: string, jobId: string) {
+  return apiFetch<SharedJobDetailResponse>(`${JOBS_BASE}/${jobId}/restore`, token, {
     method: "POST",
     body: JSON.stringify({})
   });

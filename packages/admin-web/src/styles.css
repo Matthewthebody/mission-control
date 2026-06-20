@@ -23399,3 +23399,24 @@ html[data-theme="light"] .help-tooltip__bubble {
 .jobs-index__pager { display: flex; align-items: center; gap: 12px; padding-top: 8px; font-size: 0.8rem; color: #8aa0b8; }
 .jobs-index__pager button { padding: 4px 12px; border-radius: 8px; border: 1px solid #2b3a4f; background: #111b27; color: #e7eef6; cursor: pointer; }
 .jobs-index__pager button:disabled { opacity: 0.4; cursor: default; }
+
+/* Job quick-view drawer (Phase 3C). */
+.jobs-drawer__scrim { position: fixed; inset: 0; background: rgba(4, 9, 15, 0.5); display: flex; justify-content: flex-end; z-index: 60; }
+.jobs-drawer { width: min(440px, 92vw); height: 100%; overflow-y: auto; background: #0d1620; border-left: 1px solid #243349; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-shadow: -12px 0 32px rgba(0, 0, 0, 0.4); }
+.jobs-drawer__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.jobs-drawer__head strong { font-size: 1rem; }
+.jobs-drawer__close { background: none; border: 1px solid #2b3a4f; border-radius: 8px; color: #e7eef6; cursor: pointer; width: 30px; height: 30px; }
+.jobs-drawer__section { border-top: 1px solid #1a2530; padding-top: 10px; }
+.jobs-drawer__section h3 { margin: 0 0 6px; font-size: 0.8rem; color: #8aa0b8; text-transform: uppercase; letter-spacing: 0.04em; }
+.jobs-drawer__snapshot { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin: 0; }
+.jobs-drawer__snapshot dt { font-size: 0.68rem; color: #6f8398; }
+.jobs-drawer__snapshot dd { margin: 0; font-size: 0.86rem; }
+.jobs-drawer__reasons { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem; }
+.jobs-drawer__note { font-size: 0.76rem; color: #6f8398; margin: 6px 0 0; }
+.jobs-drawer__shoots { margin: 6px 0 0; padding-left: 16px; font-size: 0.82rem; display: flex; flex-direction: column; gap: 4px; }
+.jobs-drawer__link { background: none; border: none; color: #5ca2e5; cursor: pointer; padding: 0; font-size: inherit; }
+.jobs-drawer__link:hover, .jobs-drawer__link:focus-visible { text-decoration: underline; }
+.jobs-drawer__error { color: #e06b6b; font-size: 0.82rem; }
+.jobs-drawer__actions { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #1a2530; }
+.jobs-drawer__actions button { padding: 6px 14px; border-radius: 8px; border: 1px solid #2b3a4f; background: #111b27; color: #e7eef6; cursor: pointer; }
+.jobs-drawer__primary { background: #14283c !important; border-color: #5ca2e5 !important; }

@@ -1,8 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
 import { HelpTooltip } from "../components/HelpTooltip";
-import { getJobsIndex, type JobsIndexResponse, type JobIndexRow } from "../services/jobsApi";
+import { getJobsIndex, archiveSharedJob, restoreSharedJob, type JobsIndexResponse, type JobIndexRow } from "../services/jobsApi";
 import type { SessionUser } from "../types";
+
+const MANAGE_TIERS = ["super_admin", "leadership", "director_admin"];
+const MANAGE_PERMISSIONS = ["job.update", "job.publish", "schedule.manage", "staffing.manage"];
+function canManageJobs(user: SessionUser): boolean {
+  return MANAGE_TIERS.includes(user.authorityTier) || user.permissions.some((p) => MANAGE_PERMISSIONS.includes(p));
+}
+
+// Honest, one-line provenance for each canonical Job-native attention reason.
+const ATTENTION_REASON_COPY: Record<string, string> = {
+  late: "A client commitment date has passed.",
+  behind_promised_delivery: "Promised delivery is past due and production is not complete.",
+  blocked_no_owner: "Work is blocked and the Job has no owner.",
+  missing_required_details: "Required intake details are still incomplete."
+};
 
 // Phase 3C Commit 4 — the compact, canonical Jobs operating index. Consumes the
 // Phase 3B read model GET /api/jobs/index, so every enabled summary count equals the
@@ -30,7 +44,7 @@ const SORTS: Array<{ value: string; label: string }> = [
 const DEPARTMENTS = ["", "schools", "sports", "corporate", "headshots", "other"];
 const PAGE_SIZE = 25;
 
-const FILTER_KEYS = ["lifecycle_scope", "search", "department_type", "metric", "sort", "direction", "job_status", "owner_user_id", "shoot_link_status", "workflow_link_status", "offset", "selected"] as const;
+const FILTER_KEYS = ["lifecycle_scope", "search", "department_type", "metric", "sort", "direction", "job_status", "owner_user_id", "shoot_link_status", "workflow_link_status", "offset", "selected", "focus"] as const;
 
 function readFilters(params: URLSearchParams): Record<string, string> {
   const out: Record<string, string> = {};
@@ -50,11 +64,13 @@ function formatDate(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
 }
 
-export function JobsIndexPage({ token, currentUser: _currentUser }: { token: string; currentUser: SessionUser }) {
+export function JobsIndexPage({ token, currentUser }: { token: string; currentUser: SessionUser }) {
   const { params } = useHashRouteSnapshot();
   const filters = useMemo(() => readFilters(params), [params]);
   const [data, setData] = useState<JobsIndexResponse | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error" | "denied">("loading");
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const canManage = canManageJobs(currentUser);
 
   function writeHash(updates: Record<string, string | null>) {
     const next = { ...filters, ...updates };
@@ -83,8 +99,9 @@ export function JobsIndexPage({ token, currentUser: _currentUser }: { token: str
     return () => {
       cancelled = true;
     };
-  }, [token, filtersKey]);
+  }, [token, filtersKey, reloadNonce]);
 
+  const selectedRow = data?.rows.find((r) => r.id === filters.selected) ?? null;
   const activeMetric = filters.metric ?? null;
   const scope = filters.lifecycle_scope ?? "active";
   const offset = Number(filters.offset ?? 0);
@@ -214,7 +231,196 @@ export function JobsIndexPage({ token, currentUser: _currentUser }: { token: str
           </>
         )
       ) : null}
+
+      {selectedRow ? (
+        <JobQuickViewDrawer
+          row={selectedRow}
+          token={token}
+          canManage={canManage}
+          focusSection={filters.focus ?? null}
+          onClose={() => writeHash({ selected: null, focus: null })}
+          onMutated={() => setReloadNonce((n) => n + 1)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function navigate(hash: string) {
+  window.location.hash = hash;
+}
+
+// In-viewport quick-view drawer. Canonical Truth Snapshot first; never fabricates
+// Shoot-derived state for an unlinked Job; workflow/production capabilities are
+// independent of Shoot linkage. Purge is never offered here.
+function JobQuickViewDrawer({
+  row,
+  token,
+  canManage,
+  focusSection,
+  onClose,
+  onMutated
+}: {
+  row: JobIndexRow;
+  token: string;
+  canManage: boolean;
+  focusSection: string | null;
+  onClose: () => void;
+  onMutated: () => void;
+}) {
+  const closeRef = useState<HTMLButtonElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const isArchived = row.job_status === "archived";
+
+  useEffect(() => {
+    closeRef[0]?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id, closeRef[0]]);
+
+  useEffect(() => {
+    if (focusSection) document.getElementById(`jobs-drawer-section-${focusSection}`)?.scrollIntoView({ block: "nearest" });
+  }, [focusSection]);
+
+  async function runArchive() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await archiveSharedJob(token, row.id, "Archived from Jobs quick view");
+      onMutated();
+      onClose();
+    } catch {
+      setActionError("Couldn't archive this job.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function runRestore() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await restoreSharedJob(token, row.id);
+      onMutated();
+      onClose();
+    } catch {
+      setActionError("Couldn't restore this job.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const dueDate = row.production_deadline_at ?? row.client_deadline_at;
+  return (
+    <div className="jobs-drawer__scrim" onClick={onClose}>
+      <aside className="jobs-drawer" role="dialog" aria-modal="true" aria-label={`Job quick view: ${row.title}`} onClick={(e) => e.stopPropagation()}>
+        <header className="jobs-drawer__head">
+          <div>
+            <strong>{row.title}</strong>
+            {row.job_number ? <span className="jobs-index__job-number">{row.job_number}</span> : null}
+          </div>
+          <button type="button" ref={(el) => closeRef[1](el)} className="jobs-drawer__close" onClick={onClose} aria-label="Close quick view">
+            ✕
+          </button>
+        </header>
+
+        <section className="jobs-drawer__section" id="jobs-drawer-section-snapshot" aria-label="Truth snapshot">
+          <dl className="jobs-drawer__snapshot">
+            <div><dt>Organization</dt><dd>{row.organization_name ?? "—"}</dd></div>
+            <div><dt>Type</dt><dd>{humanize(row.job_category)}</dd></div>
+            <div><dt>Date</dt><dd>{formatDate(row.job_date)}</dd></div>
+            <div><dt>Department</dt><dd>{humanize(row.department_type)}</dd></div>
+            <div><dt>Owner</dt><dd>{row.owner_name ?? <span className="jobs-index__muted">Unowned</span>}</dd></div>
+            <div><dt>Status</dt><dd>{humanize(row.job_status)}</dd></div>
+            <div><dt>Production</dt><dd>{humanize(row.production_status)}</dd></div>
+            <div><dt>Readiness</dt><dd>{humanize(row.readiness_status)}</dd></div>
+            <div><dt>Risk</dt><dd>{humanize(row.risk_status)}</dd></div>
+            <div><dt>Blockers</dt><dd>{row.blocker_count}</dd></div>
+            <div><dt>Missing required</dt><dd>{row.incomplete_required_count}</dd></div>
+            <div><dt>Promised delivery</dt><dd>{formatDate(dueDate)}</dd></div>
+            <div><dt>Lifecycle</dt><dd>{isArchived ? "Archived" : humanize(row.job_status)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="jobs-drawer__section" id="jobs-drawer-section-attention" aria-label="Attention reasons">
+          <h3>Attention</h3>
+          {row.attention_reasons.length ? (
+            <ul className="jobs-drawer__reasons">
+              {row.attention_reasons.map((reason) => (
+                <li key={reason}>
+                  <strong>{humanize(reason)}</strong>
+                  <span> — {ATTENTION_REASON_COPY[reason] ?? "Canonical Job-native reason."}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="jobs-index__muted">No canonical attention reasons.</p>
+          )}
+          {row.shoot_link_status === "unlinked" ? (
+            <p className="jobs-drawer__note">Shoot-impact, acknowledgment, and schedule-conflict reasons are not shown for an unlinked Job.</p>
+          ) : null}
+        </section>
+
+        <section className="jobs-drawer__section" id="jobs-drawer-section-workflow" aria-label="Workflow">
+          <h3>Workflow</h3>
+          {row.workflow_data_available ? (
+            <p>
+              {row.workflow_run_count} workflow run{row.workflow_run_count === 1 ? "" : "s"}.{" "}
+              <button type="button" className="jobs-drawer__link" onClick={() => navigate("#project-tracking")}>Open workflow</button>
+            </p>
+          ) : (
+            <p className="jobs-index__muted">No workflow data.</p>
+          )}
+        </section>
+
+        <section className="jobs-drawer__section" id="jobs-drawer-section-production" aria-label="Production">
+          <h3>Production</h3>
+          {row.production_data_available ? (
+            <p>
+              {humanize(row.production_status)} · {row.production_item_count} item{row.production_item_count === 1 ? "" : "s"}.{" "}
+              <button type="button" className="jobs-drawer__link" onClick={() => navigate("#production")}>Open production</button>
+            </p>
+          ) : (
+            <p className="jobs-index__muted">No production data.</p>
+          )}
+        </section>
+
+        <section className="jobs-drawer__section" id="jobs-drawer-section-shoot" aria-label="Linked shoots">
+          <h3>Operational Shoot</h3>
+          {row.shoot_link_status === "linked" ? (
+            <div>
+              <p className="jobs-index__linked">{row.linked_shoot_count} confirmed linked Shoot{row.linked_shoot_count === 1 ? "" : "s"}.</p>
+              <ul className="jobs-drawer__shoots">
+                {row.linked_shoot_ids.map((sid) => (
+                  <li key={sid}>
+                    <code>{sid.slice(0, 8)}</code>{" "}
+                    <button type="button" className="jobs-drawer__link" onClick={() => navigate(`#scheduling?shoot=${sid}`)}>Open Schedule</button>{" "}
+                    <button type="button" className="jobs-drawer__link" onClick={() => navigate(`#operations/staffing?area=staffing&shoot=${sid}`)}>Open Staffing</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="jobs-index__muted">No Shoot linked — operational scheduling and staffing data are unavailable until a Shoot is linked.</p>
+          )}
+        </section>
+
+        {actionError ? <p className="jobs-drawer__error" role="alert">{actionError}</p> : null}
+        <footer className="jobs-drawer__actions">
+          <button type="button" className="jobs-drawer__primary" onClick={() => navigate(`#jobs/${row.id}`)}>Open full detail</button>
+          {canManage && !isArchived ? (
+            <button type="button" disabled={busy} onClick={runArchive}>Archive</button>
+          ) : null}
+          {canManage && isArchived ? (
+            <button type="button" disabled={busy} onClick={runRestore}>Restore</button>
+          ) : null}
+        </footer>
+      </aside>
+    </div>
   );
 }
 
