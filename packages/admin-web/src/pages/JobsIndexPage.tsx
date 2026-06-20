@@ -44,7 +44,7 @@ const SORTS: Array<{ value: string; label: string }> = [
 const DEPARTMENTS = ["", "schools", "sports", "corporate", "headshots", "other"];
 const PAGE_SIZE = 25;
 
-const FILTER_KEYS = ["lifecycle_scope", "search", "department_type", "metric", "sort", "direction", "job_status", "owner_user_id", "shoot_link_status", "workflow_link_status", "offset", "selected", "focus"] as const;
+const FILTER_KEYS = ["lifecycle_scope", "search", "department_type", "metric", "sort", "direction", "job_status", "owner_user_id", "shoot_link_status", "workflow_link_status", "show_demo", "offset", "selected", "focus"] as const;
 
 function readFilters(params: URLSearchParams): Record<string, string> {
   const out: Record<string, string> = {};
@@ -154,6 +154,15 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
                 </option>
               ))}
             </select>
+          </label>
+          <label className="jobs-index__control jobs-index__control--check">
+            <input
+              type="checkbox"
+              aria-label="Show demo data"
+              checked={filters.show_demo === "true"}
+              onChange={(e) => writeHash({ show_demo: e.target.checked ? "true" : null, offset: null })}
+            />
+            <span>Show demo data</span>
           </label>
         </div>
       </header>

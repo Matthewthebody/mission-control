@@ -224,9 +224,10 @@ async function insertJobFixture(
         estimated_staff_count,
         production_required,
         created_by_user_id,
-        updated_by_user_id
+        updated_by_user_id,
+        data_origin
       )
-      VALUES ($1,$2,'schools','photo_day',$3,$4,$5,$6,$6,$7,'execution_complete',$8,$9,'America/Chicago',2,true,$5,$5)
+      VALUES ($1,$2,'schools','photo_day',$3,$4,$5,$6,$6,$7,'execution_complete',$8,$9,'America/Chicago',2,true,$5,$5,'seed_demo')
       RETURNING id::text
     `,
     [

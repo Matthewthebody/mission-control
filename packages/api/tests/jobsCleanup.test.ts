@@ -48,6 +48,8 @@ beforeAll(async () => {
   // Old + a dependency: age must not override the dependency block.
   ids.oldDeps = await makeJob({ job_status: "draft", organization_id: null, created_at: new Date(Date.now() - 400 * 86400000), updated_at: new Date(Date.now() - 400 * 86400000) });
   await dbPool.query(`INSERT INTO job_readiness_items (tenant_id, job_id, section_key, label) VALUES ($1,$2,'general','dep')`, [tenantId, ids.oldDeps]);
+  // Curated demo: a synthetic record carrying a [marker] description is kept by the curated policy.
+  ids.curated = await makeJob({ job_status: "draft", organization_id: null, description_internal: "[mission_control_demo_v1] curated scenario fixture" });
 });
 
 afterAll(async () => {
@@ -106,5 +108,33 @@ describe("GET /api/jobs/cleanup/dry-run", () => {
 
   it("(11) requires an administrative role", async () => {
     expect((await dryRun(photographerToken)).status).toBe(403);
+  });
+});
+
+describe("GET /api/jobs/cleanup/dry-run — Phase 3C.1 provenance + curated actions", () => {
+  it("keeps a marked synthetic record as curated demo, not purge", async () => {
+    const report = (await dryRun(leadershipToken)).body;
+    const c = find(report, ids.curated);
+    expect(c.proposed_action).toBe("keep_curated_demo");
+    expect(c.is_curated_demo).toBe(true);
+    expect(report.hard_purge_candidates.some((x: any) => x.job_id === ids.curated)).toBe(false);
+  });
+
+  it("archives (not purges) a synthetic record with protected dependencies", async () => {
+    const report = (await dryRun(leadershipToken)).body;
+    const blocked = find(report, ids.blocked);
+    expect(blocked.proposed_action).toBe("archive_excess_demo");
+    expect(blocked.is_curated_demo).toBe(false);
+  });
+
+  it("reports proposed provenance and projected operating-view sizes", async () => {
+    const report = (await dryRun(leadershipToken)).body;
+    expect(report).toHaveProperty("tenant_is_demo");
+    expect(report).toHaveProperty("curated_demo_count");
+    expect(report).toHaveProperty("projected_default_view_total");
+    expect(report).toHaveProperty("projected_demo_view_total");
+    // The curated demo is hidden from the default view but visible with Show Demo Data.
+    expect(report.projected_demo_view_total).toBeGreaterThanOrEqual(report.projected_default_view_total);
+    expect(find(report, ids.purge).proposed_data_origin).toBe("test_fixture");
   });
 });

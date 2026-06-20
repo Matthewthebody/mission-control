@@ -114,6 +114,15 @@ describe("JobsIndexPage", () => {
     expect(window.location.hash).toContain("lifecycle_scope=archived");
   });
 
+  it("(3C.1) Show demo data is URL-backed and forwarded to the index query", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    await screen.findByRole("heading", { name: "Jobs" });
+    fireEvent.click(screen.getByLabelText("Show demo data"));
+    expect(window.location.hash).toContain("show_demo=true");
+    await waitFor(() => expect(getJobsIndexMock.mock.calls.at(-1)?.[1]).toMatchObject({ show_demo: "true" }));
+  });
+
   it("(36/37/38) unlinked jobs show no fabricated Shoot state; linked show labeled data; workflow is independent", async () => {
     getJobsIndexMock.mockResolvedValue(response());
     render(<JobsIndexPage token="t" currentUser={user()} />);

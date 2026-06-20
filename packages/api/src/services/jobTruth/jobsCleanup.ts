@@ -5,6 +5,7 @@ import type { JobDepartmentType } from "../../domain/jobTruth/index.js";
 import { hasReadScope } from "./jobService.js";
 import { hasAuthorityTier } from "../../authz/authority.js";
 import { classifyJobLifecycle, JOBS_RECENT_COMPLETION_DAYS } from "./jobsLifecycle.js";
+import { getCuratedDemoJobIds, tenantIsDemo } from "./jobsProvenance.js";
 
 // ── Jobs cleanup dry-run (Phase 3C, Commit 3) ────────────────────────────────
 // Read-only. Classifies every Job, counts its protected dependencies, and proposes
@@ -30,7 +31,14 @@ export const JOB_PURGE_BLOCKING_DEPENDENCIES = [
   "confirmed_shoot_links"
 ] as const;
 
-export type JobPurgeProposedAction = "keep_active" | "archive" | "manual_review" | "duplicate_review" | "purge";
+export type JobPurgeProposedAction =
+  | "keep_active" // keep operational
+  | "keep_curated_demo" // keep a representative demo Job
+  | "archive" // archive legitimate history (completed/canceled)
+  | "archive_excess_demo" // archive demo with protected dependencies (not purgeable)
+  | "manual_review"
+  | "duplicate_review"
+  | "purge"; // deterministic disposable demo/test with no protected dependencies
 
 export type JobPurgeCandidate = {
   tenant_id: string;
@@ -47,6 +55,12 @@ export type JobPurgeCandidate = {
   owner_user_id: string | null;
   last_meaningful_activity_at: string;
   data_origin: string | null;
+  // Provenance the backfill *would* assign (the dry-run is useful before the backfill
+  // is applied): seed_demo when provably demo, else the current data_origin.
+  proposed_data_origin: string | null;
+  is_curated_demo: boolean;
+  would_be_recreated_by_seed: boolean;
+  source_seed_or_fixture: string | null;
   related_record_counts: Record<string, number>;
   blocking_dependencies: string[];
   proposed_action: JobPurgeProposedAction;
@@ -59,8 +73,14 @@ export type JobPurgeCandidate = {
 export type JobsPurgeDryRunReport = {
   dry_run: true;
   generated_for_tenant: string;
+  tenant_is_demo: boolean;
   recent_completion_days: number;
   total_jobs: number;
+  curated_demo_count: number;
+  // Projected sizes of the operating view AFTER the proposed actions are applied:
+  // default (demo hidden) vs Show-Demo-Data (curated demo included).
+  projected_default_view_total: number;
+  projected_demo_view_total: number;
   totals_by_action: Record<JobPurgeProposedAction, number>;
   hard_purge_candidates: JobPurgeCandidate[];
   blocked_candidates: JobPurgeCandidate[];
@@ -79,18 +99,24 @@ export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Pr
     throw new ApiError(403, "Jobs cleanup requires an administrative role");
   }
   const departments = readableDepartments(auth);
+  const isDemoTenant = await tenantIsDemo(client, auth.tenantId);
   const base: JobsPurgeDryRunReport = {
     dry_run: true,
     generated_for_tenant: auth.tenantId,
+    tenant_is_demo: isDemoTenant,
     recent_completion_days: JOBS_RECENT_COMPLETION_DAYS,
     total_jobs: 0,
-    totals_by_action: { keep_active: 0, archive: 0, manual_review: 0, duplicate_review: 0, purge: 0 },
+    curated_demo_count: 0,
+    projected_default_view_total: 0,
+    projected_demo_view_total: 0,
+    totals_by_action: { keep_active: 0, keep_curated_demo: 0, archive: 0, archive_excess_demo: 0, manual_review: 0, duplicate_review: 0, purge: 0 },
     hard_purge_candidates: [],
     blocked_candidates: [],
     duplicate_groups: [],
     candidates: []
   };
   if (!departments.length) return base;
+  const curatedSet = await getCuratedDemoJobIds(client, auth.tenantId);
 
   const rows = (
     await client.query(
@@ -101,6 +127,9 @@ export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Pr
         j.job_status::text AS job_status, j.production_status::text AS production_status, j.readiness_status::text AS readiness_status,
         j.risk_status::text AS risk_status, j.staffing_status::text AS staffing_status, j.account_owner_user_id::text AS account_owner_user_id,
         j.archived_at::text AS archived_at, j.cancelled_at::text AS cancelled_at, j.completed_at::text AS completed_at, j.data_origin,
+        -- provenance signals (provable): a [marker] description prefix or a *-DEMO-* job number
+        (j.description_internal ~ '^\\[[a-z_0-9]+\\]' OR j.job_number LIKE '%-DEMO-%') AS provable_demo_signal,
+        substring(j.description_internal from '^\\[([a-z_0-9]+)\\]') AS demo_marker,
         (SELECT count(*) FROM job_readiness_items r WHERE r.tenant_id=j.tenant_id AND r.job_id=j.id AND r.is_blocker AND NOT r.is_complete)::int AS open_blocker_count,
         (SELECT count(*) FROM job_watch_flags w WHERE w.tenant_id=j.tenant_id AND w.job_id=j.id AND w.status IN ('open','acknowledged','snoozed'))::int AS open_watch_flag_count,
         GREATEST(j.updated_at, j.created_at,
@@ -144,7 +173,17 @@ export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Pr
       activity_log: r.dep_activity_log, job_days: r.dep_job_days, confirmed_shoot_links: r.dep_confirmed_shoot_links
     };
     const blocking = JOB_PURGE_BLOCKING_DEPENDENCIES.filter((d) => (related[d] ?? 0) > 0);
-    const isSynthetic = r.data_origin === "seed_demo" || r.data_origin === "test_fixture";
+    // Effective (proposed) provenance: the marked origin if present, else seed_demo when
+    // provably demo (per-Job signal, or a conclusively demo tenant). Never name-only.
+    const provableDemo = r.provable_demo_signal === true;
+    const effectiveOrigin: string | null = r.data_origin ?? (provableDemo || isDemoTenant ? "seed_demo" : null);
+    const isSynthetic = effectiveOrigin === "seed_demo" || effectiveOrigin === "test_fixture";
+    const isCurated = curatedSet.has(r.job_id);
+    const wouldBeRecreated = isSynthetic; // a seed re-run recreates the demo population
+    const sourceSeed: string | null =
+      r.demo_marker ??
+      (typeof r.job_number === "string" && r.job_number.includes("-DEMO-") ? r.job_number.split("-DEMO-")[0] : null) ??
+      (isSynthetic && isDemoTenant ? "seed-mission-control-demo" : null);
     const isOrphan = r.organization_id == null && blocking.length === 0;
 
     let action: JobPurgeProposedAction;
@@ -154,8 +193,12 @@ export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Pr
       action = "keep_active"; reason = "Already archived — retained."; confidence = "high";
     } else if (lifecycle === "review_required") {
       action = "manual_review"; reason = "Complete-looking but has open blockers/workflow/production."; confidence = "low";
+    } else if (isSynthetic && isCurated) {
+      action = "keep_curated_demo"; reason = "Representative demo record kept by the curated-demo policy."; confidence = "high";
     } else if (isSynthetic && blocking.length === 0) {
-      action = "purge"; reason = `Synthetic ${r.data_origin} record with no protected dependencies.`; confidence = "high";
+      action = "purge"; reason = `Disposable ${effectiveOrigin} record with no protected dependencies.`; confidence = "high";
+    } else if (isSynthetic) {
+      action = "archive_excess_demo"; reason = `Excess demo record with protected dependencies (${blocking.join(", ")}) — archive, do not purge.`; confidence = "high";
     } else if (isOrphan) {
       action = "manual_review"; reason = "Orphaned: no organization and no canonical child records."; confidence = "low";
     } else if (lifecycle === "historical_completed") {
@@ -166,13 +209,14 @@ export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Pr
       action = "keep_active"; reason = `Live operational record (${lifecycle}).`; confidence = "high";
     }
     const warnings: string[] = [];
-    if (isSynthetic && blocking.length > 0) warnings.push(`Synthetic record but blocked by dependencies: ${blocking.join(", ")}.`);
+    if (isSynthetic && !isCurated && blocking.length > 0) warnings.push(`Demo record retained by dependencies (archived, not purged): ${blocking.join(", ")}.`);
 
     return {
       tenant_id: r.tenant_id, job_id: r.job_id, job_number: r.job_number, title: r.title, organization_id: r.organization_id,
       created_at: r.created_at, scheduled_start_at: r.scheduled_start_at, lifecycle_status: lifecycle,
       production_status: r.production_status, readiness_status: r.readiness_status, risk_status: r.risk_status,
       owner_user_id: r.account_owner_user_id, last_meaningful_activity_at: r.last_meaningful_activity_at, data_origin: r.data_origin,
+      proposed_data_origin: effectiveOrigin, is_curated_demo: isCurated, would_be_recreated_by_seed: wouldBeRecreated, source_seed_or_fixture: sourceSeed,
       related_record_counts: related, blocking_dependencies: blocking, proposed_action: action, classification_reason: reason,
       confidence, warnings, survivor_job_id: null
     };
@@ -190,9 +234,20 @@ export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Pr
   const totals_by_action = { ...base.totals_by_action };
   for (const c of candidates) totals_by_action[c.proposed_action] += 1;
 
+  // Projected operating-view sizes after the proposed actions. A Job stays in the
+  // active view only if it is not archived and not slated for removal (purge/archive).
+  const REMOVED = new Set<JobPurgeProposedAction>(["purge", "archive", "archive_excess_demo"]);
+  const isDemo = (c: JobPurgeCandidate) => c.proposed_data_origin === "seed_demo" || c.proposed_data_origin === "test_fixture";
+  const inActiveBase = (c: JobPurgeCandidate) => c.lifecycle_status !== "archived" && !REMOVED.has(c.proposed_action);
+  const projected_default_view_total = candidates.filter((c) => inActiveBase(c) && !isDemo(c)).length;
+  const projected_demo_view_total = candidates.filter((c) => inActiveBase(c) && (!isDemo(c) || c.is_curated_demo)).length;
+
   return {
     ...base,
     total_jobs: candidates.length,
+    curated_demo_count: candidates.filter((c) => c.is_curated_demo).length,
+    projected_default_view_total,
+    projected_demo_view_total,
     totals_by_action,
     hard_purge_candidates: candidates.filter((c) => c.proposed_action === "purge"),
     blocked_candidates: candidates.filter((c) => c.warnings.length > 0),

@@ -52,6 +52,7 @@ import {
   restoreJobLifecycle,
   reconcileJobsLifecycle,
   getJobsPurgeDryRun,
+  backfillJobsProvenance,
   listAlertCenter,
   listDashboardWidgetPreferences,
   listJobs,
@@ -225,6 +226,7 @@ const jobsIndexQuerySchema = z
     lifecycle_scope: z
       .enum(["active", "needs_attention", "upcoming", "waiting", "recently_completed", "completed", "archived", "canceled", "demo_test", "review_required", "all"])
       .optional(),
+    show_demo: z.enum(["true", "false", "1", "0"]).optional(),
     metric: z.string().trim().max(60).optional(),
     sort: z.enum(["date", "created", "updated", "name", "status"]).optional(),
     direction: z.enum(["asc", "desc"]).optional(),
@@ -1654,6 +1656,21 @@ router.get("/cleanup/dry-run", async (req, res, next) => {
     } finally {
       client.release();
     }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Provenance backfill: mark currently-unmarked Jobs as seed_demo when provably demo
+// (a [marker] description / *-DEMO-* number, or a conclusively demo tenant). Defaults
+// to dry-run; ?apply=true performs the marking (admin-gated). Writes only data_origin;
+// never deletes, never creates Shoot links. Ambiguous Jobs in a real tenant stay NULL.
+router.post("/provenance/backfill", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const apply = String(req.query.apply ?? "") === "true";
+    const report = await withClientTransaction(auth.tenantId, auth.id, (client) => backfillJobsProvenance(client, auth, { dryRun: !apply }));
+    return res.json(report);
   } catch (error) {
     return next(error);
   }

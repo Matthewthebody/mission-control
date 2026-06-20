@@ -131,6 +131,7 @@ export type JobIndexFilters = {
   shoot_link_status?: string | null; // linked | unlinked
   workflow_link_status?: string | null; // linked | unlinked
   lifecycle_scope?: string | null; // active(default)|needs_attention|upcoming|waiting|recently_completed|completed|archived|canceled|demo_test|review_required|all
+  show_demo?: boolean | string | null; // include seed_demo/test_fixture in the active/needs_attention default views (default off)
   metric?: string | null; // one of JOB_INDEX_METRICS (available) keys
   sort?: string | null; // date | created | updated | name | status
   direction?: string | null; // asc | desc
@@ -167,7 +168,11 @@ function buildBase(auth: AuthUser, filters: JobIndexFilters) {
   const HISTORICAL = `(${COMPLETE} AND COALESCE(f.completed_at, f.updated_at) < now() - interval '${JOBS_RECENT_COMPLETION_DAYS} days')`;
   const RECENT = `(${COMPLETE} AND COALESCE(f.completed_at, f.updated_at) >= now() - interval '${JOBS_RECENT_COMPLETION_DAYS} days')`;
   const ATTENTION = "(f.readiness_status IN ('at_risk','off_track') OR f.risk_status IN ('high','critical') OR f.blocker_count>0 OR f.open_watch_flag_count>0 OR f.account_owner_user_id IS NULL)";
-  const NOT_HIDDEN = `f.archived_at IS NULL AND NOT ${CANCELED} AND ${NOT_DEMO}`;
+  // "Show Demo Data" (default off): the operating views hide seed/test-fixture Jobs.
+  // When enabled, demo Jobs are included so the curated demo set is visible. The same
+  // base predicate feeds rows AND summary counts, so the toggle moves both together.
+  const showDemo = filters.show_demo === true || filters.show_demo === "true" || filters.show_demo === "1";
+  const NOT_HIDDEN = `f.archived_at IS NULL AND NOT ${CANCELED}${showDemo ? "" : ` AND ${NOT_DEMO}`}`;
   const scope = (filters.lifecycle_scope ?? "active").trim();
   switch (scope) {
     case "active":

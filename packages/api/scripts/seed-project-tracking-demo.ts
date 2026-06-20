@@ -636,7 +636,8 @@ async function insertDemoJob(
         timezone,
         production_required,
         created_by_user_id,
-        updated_by_user_id
+        updated_by_user_id,
+        data_origin
       )
       VALUES (
         $1,
@@ -655,7 +656,8 @@ async function insertDemoJob(
         'America/Chicago',
         true,
         $4,
-        $4
+        $4,
+        'seed_demo'
       )
       RETURNING id::text
     `,

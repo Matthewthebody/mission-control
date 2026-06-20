@@ -686,9 +686,10 @@ async function upsertJob(
         timezone,
         production_required,
         created_by_user_id,
-        updated_by_user_id
+        updated_by_user_id,
+        data_origin
       )
-      VALUES ($1,$2,'schools','photo_day',$3,$4,$5,$6,$7,'confirmed','ready',now() + ($8 || ' days')::interval,now() + ($8 || ' days')::interval + interval '2 hours','America/Chicago',true,$9,$9)
+      VALUES ($1,$2,'schools','photo_day',$3,$4,$5,$6,$7,'confirmed','ready',now() + ($8 || ' days')::interval,now() + ($8 || ' days')::interval + interval '2 hours','America/Chicago',true,$9,$9,'seed_demo')
       ON CONFLICT (tenant_id, job_number) WHERE job_number IS NOT NULL
       DO UPDATE SET
         organization_id = EXCLUDED.organization_id,
@@ -699,6 +700,7 @@ async function upsertJob(
         scheduled_start_at = EXCLUDED.scheduled_start_at,
         scheduled_end_at = EXCLUDED.scheduled_end_at,
         updated_by_user_id = EXCLUDED.updated_by_user_id,
+        data_origin = 'seed_demo',
         updated_at = now()
       RETURNING id::text
     `,

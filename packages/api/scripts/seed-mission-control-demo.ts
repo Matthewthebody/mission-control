@@ -711,7 +711,8 @@ export async function seedSportsPeerQaDemoData() {
             estimated_subject_count,
             production_required,
             created_by_user_id,
-            updated_by_user_id
+            updated_by_user_id,
+            data_origin
           )
           VALUES (
             $1,$2,'sports'::job_department_type,$3::job_category_type,$4,$5,$6,$6,$7,
@@ -722,7 +723,8 @@ export async function seedSportsPeerQaDemoData() {
             240,
             true,
             $5,
-            $5
+            $5,
+            'seed_demo'
           )
           RETURNING id::text
         `,

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { Pool } from "pg";
 import request from "supertest";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Phase 3B — canonical Jobs index read model. Proves the central invariant
 // (summary[metric] === total returned when that metric filter is applied), honest
@@ -56,10 +56,14 @@ beforeAll(async () => {
       [tenantId]
     )
   ).rows[0].id;
+  // A controlled, genuinely unlinked + no-workflow + active Job with a unique title, so
+  // tests 11/15/16 find it by search (one row, no pagination/ordering fragility — a bare
+  // LIMIT 1 over shared data could otherwise pick a linked or off-page row).
   unlinkedNoWorkflowJobId = (
     await dbPool.query(
-      `SELECT j.id::text FROM jobs j WHERE j.tenant_id=$1 AND j.legacy_shoot_id IS NULL
-         AND NOT EXISTS(SELECT 1 FROM workflow_run wr WHERE wr.tenant_id=j.tenant_id AND wr.job_id=j.id) LIMIT 1`,
+      `INSERT INTO jobs (tenant_id, department_type, title, job_status, scheduled_start_at)
+       VALUES ($1,'sports','unlinked-noworkflow-fixture-3c1','ready_to_staff', now() + interval '3 days')
+       RETURNING id::text`,
       [tenantId]
     )
   ).rows[0].id;
@@ -70,6 +74,10 @@ beforeAll(async () => {
       [tenantId]
     )
   ).rows[0].id;
+});
+
+afterAll(async () => {
+  if (unlinkedNoWorkflowJobId) await dbPool.query(`DELETE FROM jobs WHERE id=$1`, [unlinkedNoWorkflowJobId]);
 });
 
 function rowById(rows: any[], id: string) {
@@ -228,7 +236,7 @@ describe("GET /api/jobs/index — confirmed links and capabilities", () => {
   });
 
   it("(11) an unlinked Job exposes no Shoot-derived staffing or schedule state", async () => {
-    const row = rowById((await index(`limit=100&shoot_link_status=unlinked`)).body.rows, unlinkedNoWorkflowJobId);
+    const row = rowById((await index(`search=unlinked-noworkflow-fixture-3c1`)).body.rows, unlinkedNoWorkflowJobId);
     expect(row.shoot_link_status).toBe("unlinked");
     expect(row.linked_shoot_count).toBe(0);
     expect(row.linked_shoot_ids).toEqual([]);
@@ -269,13 +277,13 @@ describe("GET /api/jobs/index — confirmed links and capabilities", () => {
   });
 
   it("(15) a Job without a workflow_run reports workflow unavailable honestly", async () => {
-    const row = rowById((await index(`workflow_link_status=unlinked&limit=100`)).body.rows, unlinkedNoWorkflowJobId);
+    const row = rowById((await index(`search=unlinked-noworkflow-fixture-3c1`)).body.rows, unlinkedNoWorkflowJobId);
     expect(row.workflow_data_available).toBe(false);
     expect(row.workflow_run_count).toBe(0);
   });
 
   it("(16) unrelated Shoot state does not contaminate a Job's link count", async () => {
-    const row = rowById((await index(`shoot_link_status=unlinked&limit=100`)).body.rows, unlinkedNoWorkflowJobId);
+    const row = rowById((await index(`search=unlinked-noworkflow-fixture-3c1`)).body.rows, unlinkedNoWorkflowJobId);
     // 2,300+ shoots exist; an unlinked job still counts exactly its own confirmed links (zero).
     expect(row.linked_shoot_count).toBe(0);
     expect(row.single_linked_shoot_id).toBeNull();
@@ -321,5 +329,37 @@ describe("GET /api/jobs/index — attention provenance, scale", () => {
     expect(body.page.total).toBeGreaterThan(100); // dataset larger than one page
     // Fixed query count (summary + rows + link projection), so it stays fast over 300 jobs.
     expect(elapsedMs).toBeLessThan(4000);
+  });
+});
+
+// Phase 3C.1 — "Show Demo Data" toggle. A seed_demo Job is hidden from the default
+// operating view and revealed by show_demo, with summary counts and rows moving
+// together (the invariant survives the toggle).
+describe("GET /api/jobs/index — show_demo", () => {
+  let demoJobId = "";
+  beforeAll(async () => {
+    demoJobId = (
+      await dbPool.query(
+        `INSERT INTO jobs (tenant_id, department_type, title, job_status, data_origin)
+         VALUES ($1,'sports','showdemofixture-unique','draft','seed_demo') RETURNING id::text`,
+        [tenantId]
+      )
+    ).rows[0].id;
+  });
+  afterAll(async () => {
+    await dbPool.query(`DELETE FROM jobs WHERE id=$1`, [demoJobId]);
+  });
+
+  it("hides seed_demo from the default active view", async () => {
+    const body = (await index("search=showdemofixture-unique")).body;
+    expect(body.rows.some((r: any) => r.id === demoJobId)).toBe(false);
+    expect(body.summary.total).toBe(0);
+  });
+
+  it("reveals seed_demo when show_demo=true, with counts matching rows", async () => {
+    const body = (await index("search=showdemofixture-unique&show_demo=true")).body;
+    expect(body.rows.some((r: any) => r.id === demoJobId)).toBe(true);
+    expect(body.summary.total).toBe(1);
+    expect(body.page.total).toBe(body.summary.total); // rows and summary move together
   });
 });
