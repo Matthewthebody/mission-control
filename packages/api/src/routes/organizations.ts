@@ -58,6 +58,7 @@ import {
   backfillContactIdentities
 } from "../services/canonicalContacts.js";
 import { updateOrganizationBrand, getLogoHistory, restoreOrganizationLogo } from "../services/organizationBrand.js";
+import { reconcileDistricts } from "../services/directoryReconciliation.js";
 import {
   createDirectoryCommunicationLog,
   createDirectoryRelationshipFollowUp,
@@ -1367,6 +1368,20 @@ const updateServiceTermSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, "Provide at least one field to update");
 const rolloverServiceTermSchema = z.object({ new_period_label: z.string().trim().min(1).max(120) });
+
+// ── Legacy directory reconciliation (Phase 4 Slice 7) ────────────────────────
+// Dry-run by default; ?apply=true links Schools to canonical Districts on deterministic
+// exact name match only (never overwrites a parent, never merges). Admin-gated for apply.
+router.post("/reconcile/districts", requireCanonicalDirectoryManageAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const apply = String(req.query.apply ?? "") === "true";
+    const report = await withClientTransaction(auth.tenantId, auth.id, (client) => reconcileDistricts(client, auth, { dryRun: !apply }));
+    return res.json(report);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // ── Organization brand / logo history (Phase 4 Slice 3) ──────────────────────
 const brandPatchSchema = z
