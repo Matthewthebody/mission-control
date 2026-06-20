@@ -508,16 +508,23 @@ describe("app auth bootstrap", () => {
       if (path === "/auth/session") {
         return { user: jobsUser };
       }
-      if (path === "/api/jobs") {
-        return { jobs: [] };
+      if (path.startsWith("/api/jobs/index")) {
+        return {
+          rows: [],
+          summary: { total: 0, metrics: [] },
+          page: { limit: 25, offset: 0, total: 0, returned: 0, has_more: false },
+          attention_reason_availability: { job_native: [], unavailable: [] },
+          applied_metric: null
+        };
       }
       throw new Error(`Unexpected app call: ${path}`);
     });
 
     render(<App />);
 
+    // The global Jobs route now renders the canonical Phase 3B/3C index.
     expect(await screen.findByRole("heading", { name: "Jobs" })).toBeInTheDocument();
-    expect(screen.getByText("Find active jobs, review missing info, and start new job intake.")).toBeInTheDocument();
+    expect(await screen.findByText("No jobs match this view.")).toBeInTheDocument();
     expect(screen.queryByText("Jobs Database")).not.toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Jobs" })).toHaveLength(1);
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();

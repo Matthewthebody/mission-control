@@ -122,6 +122,63 @@ export async function getSharedJobDetail(token: string, jobId: string) {
   return apiFetch<SharedJobDetailResponse>(`${JOBS_BASE}/${jobId}`, token);
 }
 
+// ── Canonical Jobs index (Phase 3B/3C) ───────────────────────────────────────
+export type JobIndexMetricSummary = { key: string; label: string; available: boolean; reason?: string; count: number | null };
+export type JobIndexRow = {
+  id: string;
+  job_number: string | null;
+  title: string;
+  event_name: string | null;
+  organization_id: string | null;
+  organization_name: string | null;
+  department_type: string;
+  job_category: string | null;
+  job_date: string | null;
+  account_owner_user_id: string | null;
+  owner_name: string | null;
+  job_status: string;
+  production_status: string;
+  readiness_status: string;
+  risk_status: string;
+  staffing_status: string;
+  client_deadline_at: string | null;
+  production_deadline_at: string | null;
+  blocker_count: number;
+  open_watch_flag_count: number;
+  incomplete_required_count: number;
+  workflow_run_count: number;
+  production_item_count: number;
+  linked_shoot_count: number;
+  shoot_data_available: boolean;
+  staffing_data_available: boolean;
+  schedule_data_available: boolean;
+  workflow_data_available: boolean;
+  production_data_available: boolean;
+  shoot_link_status: "linked" | "unlinked";
+  attention_reasons: string[];
+  linked_shoot_ids: string[];
+  link_sources: string[];
+  single_linked_shoot_id: string | null;
+  operational_data_available: boolean;
+  operational_link_explanation: string | null;
+};
+export type JobsIndexResponse = {
+  rows: JobIndexRow[];
+  summary: { total: number; metrics: JobIndexMetricSummary[] };
+  page: { limit: number; offset: number; total: number; returned: number; has_more: boolean };
+  attention_reason_availability: { job_native: string[]; unavailable: Array<{ reason: string; explanation: string }> };
+  applied_metric: string | null;
+};
+
+export async function getJobsIndex(token: string, query: Record<string, string | number | undefined | null> = {}): Promise<JobsIndexResponse> {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    if (v !== undefined && v !== null && `${v}` !== "") params.set(k, String(v));
+  }
+  const search = params.toString();
+  return apiFetch<JobsIndexResponse>(`${JOBS_BASE}/index${search ? `?${search}` : ""}`, token);
+}
+
 export type SharedJobStatusCounts = {
   total_active: number;
   behind: number;

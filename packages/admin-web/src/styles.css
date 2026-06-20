@@ -23368,3 +23368,34 @@ html[data-theme="light"] .help-tooltip__bubble {
 /* Direct cross-link from the Staff Assignment Board to Capacity Planning. */
 .staff-board__capacity-link { display: inline-block; margin-top: 2px; font-size: 0.82rem; color: #5ca2e5; text-decoration: none; }
 .staff-board__capacity-link:hover, .staff-board__capacity-link:focus-visible { text-decoration: underline; }
+
+/* Canonical Jobs index (Phase 3C). */
+.jobs-index { display: flex; flex-direction: column; gap: 12px; }
+.jobs-index__header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; justify-content: space-between; }
+.jobs-index__title { display: flex; align-items: center; gap: 6px; }
+.jobs-index__title h2 { margin: 0; font-size: 1.1rem; }
+.jobs-index__controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.jobs-index__search { min-width: 240px; padding: 6px 10px; border-radius: 8px; border: 1px solid #2b3a4f; background: #0f1722; color: inherit; }
+.jobs-index__control { display: flex; flex-direction: column; gap: 2px; font-size: 0.72rem; color: #8aa0b8; }
+.jobs-index__control select { padding: 5px 8px; border-radius: 8px; border: 1px solid #2b3a4f; background: #0f1722; color: #e7eef6; }
+.jobs-index__metrics { display: flex; flex-wrap: wrap; gap: 8px; }
+.jobs-index__metric { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 12px; border-radius: 10px; border: 1px solid #243349; background: #111b27; color: inherit; cursor: pointer; }
+.jobs-index__metric--active { border-color: #5ca2e5; background: #14283c; }
+.jobs-index__metric--disabled { cursor: not-allowed; opacity: 0.5; }
+.jobs-index__metric-count { font-size: 1.05rem; font-weight: 700; }
+.jobs-index__metric-label { font-size: 0.72rem; color: #8aa0b8; }
+.jobs-index__status { padding: 24px; text-align: center; color: #8aa0b8; }
+.jobs-index__table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.jobs-index__table th { text-align: left; padding: 6px 8px; color: #8aa0b8; font-weight: 600; border-bottom: 1px solid #243349; position: sticky; top: 0; background: #0c141d; }
+.jobs-index__table td { padding: 6px 8px; border-bottom: 1px solid #18222e; vertical-align: top; }
+.jobs-index__row--selected { background: #14283c; }
+.jobs-index__job-link { background: none; border: none; color: inherit; cursor: pointer; text-align: left; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.jobs-index__job-link:hover strong, .jobs-index__job-link:focus-visible strong { text-decoration: underline; }
+.jobs-index__job-number { font-size: 0.7rem; color: #6f8398; }
+.jobs-index__muted { color: #6f8398; }
+.jobs-index__linked { color: #4fc08d; }
+.jobs-index__reasons { color: #e0a64b; }
+.jobs-index__pill { font-size: 0.72rem; padding: 1px 7px; border-radius: 999px; background: #1c2a3a; }
+.jobs-index__pager { display: flex; align-items: center; gap: 12px; padding-top: 8px; font-size: 0.8rem; color: #8aa0b8; }
+.jobs-index__pager button { padding: 4px 12px; border-radius: 8px; border: 1px solid #2b3a4f; background: #111b27; color: #e7eef6; cursor: pointer; }
+.jobs-index__pager button:disabled { opacity: 0.4; cursor: default; }

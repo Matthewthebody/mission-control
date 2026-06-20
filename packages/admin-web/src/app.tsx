@@ -138,6 +138,9 @@ const LazySchoolsHub = lazy(() =>
 const LazySharedJobsPage = lazy(() =>
   import("./pages/SharedJobsPage").then((module) => ({ default: module.SharedJobsPage }))
 );
+const LazyJobsIndexPage = lazy(() =>
+  import("./pages/JobsIndexPage").then((module) => ({ default: module.JobsIndexPage }))
+);
 const LazySharedJobEditorPage = lazy(() =>
   import("./pages/SharedJobEditorPage").then((module) => ({ default: module.SharedJobEditorPage }))
 );
@@ -1367,6 +1370,11 @@ function renderRouteContent({
   }
 
   if (route.render.kind === "shared-jobs-list") {
+    // The global Jobs index uses the canonical Phase 3B/3C read model; department-
+    // scoped lists keep the legacy adapter shell until they migrate.
+    if (route.render.department == null) {
+      return withRouteSuspense(<LazyJobsIndexPage token={token} currentUser={currentUser} />, "Loading jobs", "Opening the canonical jobs index.");
+    }
     return withRouteSuspense(
       <LazySharedJobsPage
         token={token}
@@ -1374,7 +1382,7 @@ function renderRouteContent({
         departmentType={route.render.department}
         routeBase={route.render.routeBase}
       />,
-      route.render.department === "schools" ? "Loading school jobs" : route.render.department === "sports" ? "Loading sports jobs" : "Loading jobs",
+      route.render.department === "schools" ? "Loading school jobs" : "Loading sports jobs",
       "Opening the shared jobs list shell."
     );
   }
