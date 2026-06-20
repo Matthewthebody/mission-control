@@ -49,6 +49,9 @@ import {
   getJobDetail,
   getJobStatusCounts,
   getJobsCanonicalIndex,
+  archiveJobLifecycle,
+  restoreJobLifecycle,
+  reconcileJobsLifecycle,
   listAlertCenter,
   listDashboardWidgetPreferences,
   listJobs,
@@ -219,7 +222,9 @@ const jobsIndexQuerySchema = z
     date_window: z.enum(["today", "next-7", "next-14", "overdue", "all"]).optional(),
     shoot_link_status: z.enum(["linked", "unlinked"]).optional(),
     workflow_link_status: z.enum(["linked", "unlinked"]).optional(),
-    archived: z.enum(["active", "archived", "all"]).optional(),
+    lifecycle_scope: z
+      .enum(["active", "needs_attention", "upcoming", "waiting", "recently_completed", "completed", "archived", "canceled", "demo_test", "review_required", "all"])
+      .optional(),
     metric: z.string().trim().max(60).optional(),
     sort: z.enum(["date", "created", "updated", "name", "status"]).optional(),
     direction: z.enum(["asc", "desc"]).optional(),
@@ -1619,8 +1624,34 @@ router.post("/:jobId/postpone", validateBody(lifecycleSchema), async (req, res, 
 router.post("/:jobId/archive", async (req, res, next) => {
   try {
     const auth = getAuth(req as unknown as AuthenticatedRequest);
-    const detail = await withClientTransaction(auth.tenantId, auth.id, (client) => archiveJob(client, auth, singleParam(req.params.jobId)));
+    const reason = typeof req.body?.reason === "string" && req.body.reason.trim() ? req.body.reason.trim() : null;
+    const detail = await withClientTransaction(auth.tenantId, auth.id, (client) => archiveJobLifecycle(client, auth, singleParam(req.params.jobId), reason));
     return res.json(detail);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/:jobId/restore", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const detail = await withClientTransaction(auth.tenantId, auth.id, (client) => restoreJobLifecycle(client, auth, singleParam(req.params.jobId)));
+    return res.json(detail);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Lifecycle maintenance: classify Jobs and apply only deterministic safe state
+// (backfill completion, auto-archive completed/canceled with no open work outside the
+// recent window). Defaults to dry-run; ?apply=true performs the safe writes. Never
+// hard-deletes, never creates Shoot links.
+router.post("/lifecycle/reconcile", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const apply = String(req.query.apply ?? "") === "true";
+    const report = await withClientTransaction(auth.tenantId, auth.id, (client) => reconcileJobsLifecycle(client, auth, { dryRun: !apply }));
+    return res.json(report);
   } catch (error) {
     return next(error);
   }

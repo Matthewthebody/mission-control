@@ -1569,7 +1569,7 @@ function requireWriteAccess(auth: AuthUser, department: JobDepartmentType) {
   throw new ApiError(403, "Forbidden");
 }
 
-function requireManageAccess(auth: AuthUser, department: JobDepartmentType) {
+export function requireManageAccess(auth: AuthUser, department: JobDepartmentType) {
   if (
     canSharedPolicy(auth, "job.update", { departmentType: department }) ||
     canSharedPolicy(auth, "job.publish", { departmentType: department }) ||

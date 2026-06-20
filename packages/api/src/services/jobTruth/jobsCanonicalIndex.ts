@@ -3,6 +3,7 @@ import { ApiError } from "../../errors/apiError.js";
 import type { AuthUser } from "../../types/auth.js";
 import type { JobDepartmentType } from "../../domain/jobTruth/index.js";
 import { hasReadScope } from "./jobService.js";
+import { JOBS_RECENT_COMPLETION_DAYS } from "./jobsLifecycle.js";
 
 // ── Canonical Jobs index read model (Phase 3B) ───────────────────────────────
 // ONE predicate layer shared by the returned rows AND every summary count, so
@@ -129,7 +130,7 @@ export type JobIndexFilters = {
   date_window?: string | null; // today | next-7 | next-14 | overdue | all
   shoot_link_status?: string | null; // linked | unlinked
   workflow_link_status?: string | null; // linked | unlinked
-  archived?: string | null; // active | archived | all
+  lifecycle_scope?: string | null; // active(default)|needs_attention|upcoming|waiting|recently_completed|completed|archived|canceled|demo_test|review_required|all
   metric?: string | null; // one of JOB_INDEX_METRICS (available) keys
   sort?: string | null; // date | created | updated | name | status
   direction?: string | null; // asc | desc
@@ -155,9 +156,54 @@ function buildBase(auth: AuthUser, filters: JobIndexFilters) {
   const params: unknown[] = [auth.tenantId, departments];
   const where: string[] = ["f.tenant_id = $1", "f.department_type::text = ANY($2::text[])"];
 
-  const archived = (filters.archived ?? "active").trim();
-  if (archived === "active") where.push("f.archived_at IS NULL");
-  else if (archived === "archived") where.push("f.archived_at IS NOT NULL");
+  // Lifecycle scope (default operating view = active). The default excludes
+  // archived, canceled, demo/test-fixture-marked, and historical-completed (outside
+  // the recent-completion window), while keeping recently-completed work visible.
+  const COMPLETE = "(f.job_status='execution_complete' OR f.production_status IN ('delivered','complete') OR f.completed_at IS NOT NULL)";
+  const CANCELED = "(f.job_status='cancelled' OR f.cancelled_at IS NOT NULL)";
+  const DEMO = "(f.data_origin IN ('seed_demo','test_fixture'))";
+  // NULL-safe negation: a NULL data_origin is an ordinary (non-demo) record.
+  const NOT_DEMO = "(f.data_origin IS NULL OR f.data_origin NOT IN ('seed_demo','test_fixture'))";
+  const HISTORICAL = `(${COMPLETE} AND COALESCE(f.completed_at, f.updated_at) < now() - interval '${JOBS_RECENT_COMPLETION_DAYS} days')`;
+  const RECENT = `(${COMPLETE} AND COALESCE(f.completed_at, f.updated_at) >= now() - interval '${JOBS_RECENT_COMPLETION_DAYS} days')`;
+  const ATTENTION = "(f.readiness_status IN ('at_risk','off_track') OR f.risk_status IN ('high','critical') OR f.blocker_count>0 OR f.open_watch_flag_count>0 OR f.account_owner_user_id IS NULL)";
+  const NOT_HIDDEN = `f.archived_at IS NULL AND NOT ${CANCELED} AND ${NOT_DEMO}`;
+  const scope = (filters.lifecycle_scope ?? "active").trim();
+  switch (scope) {
+    case "active":
+      where.push(`${NOT_HIDDEN} AND NOT ${HISTORICAL}`);
+      break;
+    case "needs_attention":
+      where.push(`${NOT_HIDDEN} AND NOT ${HISTORICAL} AND ${ATTENTION}`);
+      break;
+    case "upcoming":
+      where.push(`f.archived_at IS NULL AND NOT ${COMPLETE} AND NOT ${CANCELED} AND f.scheduled_start_at > now()`);
+      break;
+    case "waiting":
+      where.push("f.archived_at IS NULL AND f.job_status IN ('weather_hold','postponed')");
+      break;
+    case "recently_completed":
+      where.push(`f.archived_at IS NULL AND ${RECENT}`);
+      break;
+    case "completed":
+      where.push(`f.archived_at IS NULL AND ${COMPLETE}`);
+      break;
+    case "archived":
+      where.push("f.archived_at IS NOT NULL");
+      break;
+    case "canceled":
+      where.push(`f.archived_at IS NULL AND ${CANCELED}`);
+      break;
+    case "demo_test":
+      where.push(DEMO);
+      break;
+    case "review_required":
+      where.push(`f.archived_at IS NULL AND ${COMPLETE} AND (f.blocker_count>0 OR f.open_watch_flag_count>0)`);
+      break;
+    case "all":
+    default:
+      break;
+  }
 
   const push = (value: unknown) => {
     params.push(value);
