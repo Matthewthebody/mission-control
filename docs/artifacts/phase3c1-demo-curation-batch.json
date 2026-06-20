@@ -1,0 +1,2636 @@
+{
+  "phase": "3C.1",
+  "operation": "demo_curation_excess",
+  "batch_id": "d00973be-c776-479f-8e36-efc4ba59295c",
+  "archive_reason": "demo_curation_excess",
+  "marked_seed_demo": 358,
+  "archived": 328,
+  "kept_curated": 30,
+  "hard_purged": 0,
+  "candidates": [
+    {
+      "job_id": "ac8ea7c4-4d9d-4f36-9939-01e723939252",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "84959778-04f8-4aab-ac5a-e0e3c79238d2",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a80b384d-61c1-4373-b510-b0ac918d61e7",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a8c75ec3-1eac-4e0b-9a1b-e4c27c4253f1",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "31ce3951-3302-4ca9-86aa-9b281eef834a",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b42a6caa-845a-46f8-9f3a-b05ac538ec40",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "22afd3f9-2ed1-45b5-b025-e133522781c2",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4f50d97a-bde7-43dd-add8-6f85747b700a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "43c32bb5-56de-421a-850e-6cc273f37481",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f4db9fd8-0e98-4bb9-aae9-e80102df3332",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f9d02975-8b21-4f63-9c06-b23828de9fae",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "96759a33-9218-4424-a9cf-96be1b4f5bf3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4e8bfe5b-5949-4fb1-b94f-66aeea0f5395",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0f209520-c7cb-4acd-aab5-3062947287c8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "274a88d3-18a8-423a-87c4-21fb31a353cd",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ee01dbc1-5704-4290-811e-f78d3dd6366a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "48bb169c-e7e9-4e00-b37d-9a277444eec4",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "323558e0-aa8a-4985-b8f8-10dec2a93eb4",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c67c1409-fdd6-46be-aee0-acb2503e3f79",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "123eb124-341f-4e72-925c-9a70357a91f3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8412fa40-8249-4f4b-89d5-0fb188302250",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ced7f0bb-c8d8-41af-bedb-29b120713c0b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5d4babcc-e8bb-40b8-a400-dc63eae577ac",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ec0adac1-972f-40d0-a889-ea885f07edc2",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "09d1927f-d057-4651-ad98-eb8770e67c9b",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "af98f3bd-3176-48a0-8ea5-3aac517105de",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "76545cbe-a2b0-4950-a5c5-bbc957da35b5",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "857ba477-f17a-4b70-b2e6-1918143f2a3c",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cb2b7223-15cf-4330-b33a-9b4d026928c0",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e8e566ca-be43-477c-bbef-dc50a8b6910a",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a4d6ba0d-907e-40da-aa3d-e4ab422635d8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8beb6ffe-eaec-4040-9142-f80bd5b32189",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8a6f7fb6-7329-4825-990f-b105703b8096",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6f6ac060-5c08-43fb-9db6-4f084a57fa3d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2a50166b-95e6-4b3f-8ba5-d618720016d6",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "47eeb279-897d-4d15-8d58-512bccfeee20",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f4be0e09-41a7-4dfd-987d-fd7145bc3e05",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "9f212630-8566-42bd-89e4-8426f465de9e",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "9355e75c-a92e-4278-a877-ea332eafa627",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3a6f7974-786d-4227-99ef-1c0d4ba45113",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1b6a46e0-8c9f-4480-905f-e0533dca6883",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "39f3c824-9176-4bb4-8db5-650ffa97438c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2de8476f-a142-43fb-b9c2-fc2a01859800",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ff1eab24-5d05-409d-8b7b-a9fc0d4fbdfe",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "52c69f96-35fe-44fe-a971-ffc94fd3ab84",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2845a808-9469-4056-b141-0ed5b46a8820",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "103bf0a2-c5d7-4f50-877b-2d2a02f0f922",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "87fa4dde-e9b4-4122-8477-2649cbb315a4",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cefafcf7-c252-4eab-ae62-6bb927e04166",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "986a84a2-d330-4ce6-9cd4-9f5248c98f4e",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "57a16a2a-8cbd-44b2-98bb-5aba8ea580ca",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "9bd60126-c048-46b0-b586-29cbbe526d6a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c8c61ab6-8171-43d8-93cd-b90bc762a4fe",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "35b24f36-77b6-46a6-98c1-ff82e4501718",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "36d33ef0-e344-474c-8710-b973e13a6871",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e01abacc-69fe-48d4-894d-1fb848171526",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3132e129-8b4a-44b4-bcd2-f8199e0b077d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e34b5b70-ce15-469f-86eb-64036722ba84",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1b533865-cd10-446c-b744-4a416c275e92",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ee0968f3-98e1-469d-a785-eb548f1e6c5a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0df7ad42-f752-4687-ba18-dfa0522b4103",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b34e624a-1a2a-4de5-b34d-faf852f1e298",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "fbd8d463-5551-49a5-95aa-2001a3553696",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "10a3716c-3f41-4184-9fab-4c0a3fab1fb8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3494ba72-4f52-4e48-b813-a851a406dd8f",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "139b2241-cc58-447a-a799-42234076bc8d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8b0391ab-155a-4ef6-9dd4-9753d82f9dd1",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b3af9c5d-941b-48f4-a6d1-9117edfb2ca3",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "11f3adbc-130e-469b-839a-53de4d7fa2e2",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "702ba200-2146-453d-970f-ee0f500a8543",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "753ac034-0ff2-46e5-b3ac-a5c3b6f49e9b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6c94e55c-515a-49c0-bbec-da0a10a0a10a",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0e20cc56-3d08-484c-99a9-5f7477587797",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2f0b4f60-a280-4ea5-8d82-cfc386fa2870",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "238867d3-8884-45ab-a53c-febdce403845",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cb7aaf98-d9c9-41e5-8d6c-c824e5be6dc7",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "26da1408-9cf8-4bac-be33-be189375019a",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "48ab6ac1-36c9-4503-b087-b5556322b152",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5d2896d4-d763-4b3f-8a74-aaab0413a1a8",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d9b5789c-5715-44c5-9787-3d425fbe11a2",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0db6bf9b-95e1-40f2-8500-5044198bd24e",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "81c3642f-5e66-46c8-9707-912bebf3b78a",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "74bb0938-200e-47da-84d3-a1d9d4aae610",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8afc5fae-9bb0-48ea-9ce2-9e79ae026819",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "db3423ff-b2b1-4ea1-9a3c-cda9a7e4db93",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8cfbab9d-4d9d-480e-8d64-558b99a69091",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5d45d95a-da7d-4230-8fa8-59d194a9ade0",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0efa2b3d-dd5d-489d-a10b-7e12ac3365d7",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "44e756fe-9a89-4ac2-a9e4-80567f711466",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "47c56911-7e70-49d5-8eaa-27f89f20d71f",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4214b8cf-0b5c-4702-a2c5-46adb0deb9d4",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4ad3a123-98d2-4f60-9d88-a63f69572e83",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2427afb0-3a96-4647-8574-0eec6c2bf654",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "13c94065-4cfa-4317-bf46-c6c7e9be89da",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d1fd4c0a-5551-4450-8ee7-56a3e5f532df",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "171aaf37-b1be-48fa-8496-014d42911a14",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "bb526530-e6cb-4cb3-a0cd-f28566b9adcf",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "35a7bd8b-420c-4cc5-aa3a-0879472b6f00",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "be0f377d-4d86-4f31-a301-72479be7b781",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f29365cb-b056-45f2-baab-e74045be6e93",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8cd34444-d4b2-4069-8708-5c5bfa24f8eb",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ffdbd5f4-65eb-4283-913c-63caa5f88f57",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a1944c4b-d9e8-462c-aabd-b947b60ed82c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ceff2cbd-1a27-4587-881d-537b2b2c03fa",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1e301abe-2e35-4d00-8116-2861098287f9",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "45ca42c5-2498-4fc2-9960-df0549db1343",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "74fa68b7-d411-4a1f-8476-1193bb8f0f82",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "31ab333b-f831-40ea-8182-54b8f3afbc22",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "7bd95ac5-4972-4d38-9dc1-87f0f4e4f743",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2f85e062-d69c-4d4b-ae4b-1932250101ab",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "791d1b2b-d5ae-4c1c-9834-83b5d32768f8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8bf76729-a40f-4d7f-bab6-edecedc9628a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c76f19b3-320b-4622-930e-8f30b10448ec",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d0feee1f-fc84-4f56-80a4-92d8547390c7",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "fedb20c6-a01b-46a6-b51c-47bd190e9458",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3205d233-21b7-46dc-bf9a-cf6a002aa47f",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "9e2e0cb5-6fa6-490b-90fd-26f88717970b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3682d7dc-c053-48d4-8129-c5740ab868d3",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ff3497ec-08d6-402a-b496-c1e081783d0a",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "b58c841e-dedf-4375-b905-4c440a8dd2c5",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "60c088e4-2a3a-4384-88e1-1fe93071d413",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "60b4656f-31e2-472c-813a-c11b90db39ff",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "7eba66a9-3fb1-464c-bc3e-a959c04e5be7",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4965458e-6e7a-4345-98b7-36f06e552485",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "90499040-a3e9-4009-b2d9-6663d89c22e2",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "dc56fc66-7192-4c10-8ec9-30df65e32441",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ab143927-c357-430c-a888-4dbe836f6543",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ed4d4a3f-13d6-4168-b8d0-a3b7a10f4476",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "774dcbbe-a186-4999-978f-885a71dc55d6",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "23993af3-cb55-4a69-880f-7559c1cb2466",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5aba2fe6-220f-4f52-b500-89328224a309",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b15ea0b9-8194-4f46-92c3-743dec62f16d",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8e814e0b-e93f-49a1-9fa8-5a3f23ba4894",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "36a8a1eb-4d13-4b25-a5e6-6b620aeb09ff",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4f04f88d-8cc4-4dc4-a248-eada261ddd9e",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "ec6be8e5-8f6a-487e-9208-26f0af504cbc",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cfc09306-e2e9-4a24-b243-7a24a2486449",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1858a134-0c33-44e3-97d8-be3726c6f70d",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "92ff6e90-6300-4ce1-a273-b06ad8a92664",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "86b11008-6dfa-4466-9b2b-13d9170afc07",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a63177a0-2e81-4375-a697-79118de24f32",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "79523bf8-1e85-4e5d-af6d-a424d30f673a",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3f159786-82ec-4dd7-b3fe-36fe41ec6dcd",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "50faf8fa-796b-4872-adcd-6e59317efa9d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "bdde6fe1-c02f-4437-a1ac-b686d918a480",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "49b312c7-98a5-4a02-a271-68fda6427040",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "43fd2d24-619b-47bc-ae8e-63562216a248",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6836998f-4bce-4f93-90ae-c4f0a6fa2246",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5329000c-85e0-4c78-8bdc-56f55e667944",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "16154694-ec59-4c80-bc9b-458bde35cb68",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "abfc06e3-af76-4e23-83cd-af3c82ecba68",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "18d1e26f-1293-4171-b92d-8244eed8213f",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5cbea6db-5f42-4321-b167-4c90eb0862e9",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c572d053-d0e4-490a-bc90-9962b9cba36b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "10a0e092-3c5e-4d0c-9ea3-8c67a8ae7485",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6f29e6dc-e218-4676-a57b-4a33bd40c4fa",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ac6c920c-af67-45e6-9b96-46ec6a7714fd",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "923e9162-b5b0-49b2-9bf3-ba6534a76df3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d5fc6a95-6bcd-4c21-9ccb-ca610c4728e2",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8a903e16-e18e-4eeb-be78-db7decf811b3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "601b28d6-bc16-42f2-868b-acf3ab05c30d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "9765b23f-4b96-4336-839c-f3ad4c9d3cdc",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "9d5a5290-d9e4-461e-bd38-5243ac726de6",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "98c15a42-a6de-447c-aa63-ff0674c2c47b",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "78426d68-bf0d-4c08-9786-0a886b15c3d3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e3b4ee33-5508-4004-89a6-760b4f0447f8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "95d5e1a7-f9ba-4403-a010-678e80acc1db",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "09d43351-ac9f-4e63-a71f-fecb0701776b",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2c8b2eaf-bdc9-443d-8be2-a885a06a1183",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "eebb9e48-e155-4afe-97a5-ce4005380647",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4bc55dc6-2632-41c8-9620-9ac2e3500735",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "41e63e9b-589d-47c2-bd8b-2a9c6682da0d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b96405ad-388b-4c59-8f9e-390bbbe742a9",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8a4e7b84-9489-42c2-b783-44d0c7a13a7c",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a815542e-87c7-4140-acb5-4d8e4bb1b5b0",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "fbd7d456-b45f-4015-a50d-8808204e297f",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "21ada6ae-e6fb-4270-b957-76a7f829cfe2",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "660261cc-8453-402f-81ee-7c4a35a4cf28",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5e69c0c5-7d11-43e2-a396-ea48f26a8203",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d908d22a-dac0-4bcc-a7c5-908f0c02eca9",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f6551563-c3da-4889-a0b5-6322fc8a87a8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6b7ff2bb-7801-4fc2-a671-1846040da157",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f0dd8ed7-dfa9-4999-8369-b1604561b4f7",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "147c262c-5190-461f-97c1-01cae92de464",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "27d72d94-8415-4821-8872-f88edf3f8994",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "df0aa2a5-57f4-41ec-abff-9f5536bfbadb",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "fe127781-7b66-417f-af3d-d1b84f111478",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "dd79974b-46a0-4882-95b7-eb714a2a8916",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8db94675-2603-4404-9ac3-35664b44a911",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "58f614c7-556f-45d4-91cf-a46d971b078f",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f57fe1ea-3d50-41cb-8d7b-f006b40884a7",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e737256f-6c96-482f-ba1d-70e1fce0d5fe",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "13cab712-1804-498b-9b62-11cbaddbed8d",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2509b039-c2a6-472a-860f-9b9ffaca5084",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a6bd0a82-eabe-48cf-a0ad-ebbd6cc9085a",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "55265da1-88ef-4910-ab9c-5666721fc5e2",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a85523b5-56b0-41cf-8985-c879ee552955",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "80117507-9952-425a-bf1a-a207ab736588",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "98cb49bf-005a-423a-8640-249156e2536f",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cf5ac8d2-714c-40b8-a07b-1e16f7f10ea9",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "7275e17a-f05d-4dd6-a98f-16badafc5154",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4a3684c2-daf2-4081-92f8-6a5b91341bc0",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "39a62156-bf74-4cd3-b3ef-41cdc443e608",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6a194c92-4253-47e6-aca6-86255f5e9094",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "96723afa-952d-4ec0-a68a-35cd8e4113de",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4014f8f9-8105-40ba-8115-662253adb396",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8ef75a90-6817-4912-afcb-c7e931e9a823",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "21aedf25-54c0-4bc8-b17c-80d84737e394",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "804c102a-ccc9-4980-b61f-6fbbe2b6c31f",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e543022e-5a92-49bf-9525-59e04472ffa8",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0de90bee-1104-4ce2-aefd-6cf208397c7c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2c9c2fad-cdf0-4c87-ba67-fd2ebeaa84f4",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a5b70ce2-59f0-45ec-bb0b-de51bf8253be",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a4c4f8a2-a718-4fb1-8291-b3e7cbfbf488",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "767e33a9-be93-4f9c-8a4b-cf551c76ce95",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f59eb526-32aa-4745-9861-58ff830533d6",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c977d8ad-57d5-49ba-bd83-cfcde519b598",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "eedbafbf-2219-4e99-93c8-e2437fbb9db6",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "19385d67-fc6b-4c8f-9709-c06394ed8626",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "13edee72-418d-42c6-b3eb-274d53a2b9c6",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "775f0b4a-4a89-45e8-99da-39e414e7bc95",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8c925b27-01bc-4bbd-a97e-b425eeee7845",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5af2c647-6c14-47cd-b2b5-d0a66eb55d63",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "497c5924-4800-4d5a-a184-4b621dd97cef",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f33abce2-4c44-4b7a-9057-684c292a5dec",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d0312122-54d5-4bbf-993b-8efe8f98b6ae",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3959160f-a4c0-4166-84e7-b650e247a477",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "212f9f94-8213-4b40-8a21-e8742bf968ac",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5d85218b-9c08-48c5-9b62-6d22118f5d07",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a26faae2-e64c-4e31-8f99-48c220aea27f",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "7e131024-e98e-40f1-b4b1-ffc5c4d591cd",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "db01bfbf-4afb-4d06-8fd8-48b85d57f15c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "fbbfdcb9-52f1-4149-8aaf-73bcded966cb",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d42a0b8f-c5b4-46f7-b0f3-69cb2c49fa57",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cc9e5007-6b7b-4de2-bbf9-f5a40ed8adeb",
+      "job_status": "ready_to_staff",
+      "production_status": "blocked",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f26edcf5-9c80-4190-881c-8b304bacc532",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f5b50631-01b6-46bf-ac58-ceff2cb582b3",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d762e61e-f188-49a9-a5c4-72ee673f6b14",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "630061ed-ef73-46c3-afef-07933ee47f39",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e50c9b60-422e-4ab5-991e-86e2649d8ba4",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e0bd93a7-58c0-4920-a587-fd4046c7d6f0",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ecfbd45b-39c8-42d6-b83e-3df0960b8690",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0f790cf1-0d9f-4195-b261-4ca6d5279b16",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b7ccf475-ee77-4ecd-90e4-12721eb87015",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "eea5a55f-9809-4f5a-a5cc-bf185a487915",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f17ff6cf-1c78-4c81-a97a-20ef6e9bd055",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8f74033d-84a8-420e-996c-d4a4839fca0f",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "da1a74db-806d-41af-a7dc-f7f2486dae5a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2108fcd8-8fdd-4dc4-8e5e-2e3bb489953c",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d1e5bb22-542c-4bc6-8e5b-c8beb6fdd23f",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0b44d85b-6d86-435d-a06c-7b6abfccc9eb",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c3af846d-60b1-4bc6-af3a-d6a9e8f308da",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "41cf44c4-16c8-4fe7-887f-dc8bca11d41d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a90e59aa-5d9c-4dad-b12e-4a1557bd97e4",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "219cb5ae-3eb8-4e09-953e-d02450bde0da",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "eddda70c-be6e-4a25-9208-a42c45098f79",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "9cb63a87-9912-4347-82e0-2a7d1de85804",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "205be466-4fa8-4b32-8198-00d25396e72c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "de67a7ed-9d1e-40e8-96e6-e968a326ca91",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "25db3761-9fa9-4575-97e6-6f9960ea9660",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "47bbfa6b-8f19-415c-937d-840cc218aef4",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "27951724-3f54-47cf-b6aa-2b78b7fbbd28",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5b5ae3d2-2f41-4c9e-88c6-f6b9e1a701ca",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3c7cef00-c901-4d53-9305-6c36bf8a8808",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cac9a12a-ccc2-4217-b321-ba9dbf93f451",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6c8f2ee6-be59-4326-a638-17830d1ee0d0",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "404a900f-3350-498b-8534-c9de97c4a081",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "823a8179-c784-4ed8-92e5-ab231dd7c7ac",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "84c60861-33cf-4397-93f7-4b79e2421c8b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6fa58e91-e74d-453c-99a6-4acae706df9c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f139ed40-30c6-4dca-bbe1-7dc953896263",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cdff75c3-1c6b-41a2-8b61-9316cbdbeaa1",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e6bd0056-db4e-40c1-a735-9e6ae14f8bf5",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8e528ff1-adfd-4e88-9234-30c2adec4b2d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4356ace7-9a57-4353-96a4-74c445ab68e3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0d2ca3fa-8f07-4072-8082-1ecf30b595c6",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ced4c688-f120-4080-a029-6592b24525f2",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1e6b5ffe-4304-407b-b245-f90b73fa2ff1",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d16fc764-33cf-4df3-9095-28b5b99aefce",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "39bb6c17-edeb-42d7-8d83-2f202b5b72b3",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "8c3c5970-293c-40a0-971f-de4a756ccba6",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "d2690821-9238-4741-9745-096fafc4726a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8d40cd99-9a15-4884-98fc-ef32de459a30",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "de78254a-c227-4546-83c4-942a3596df65",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "cd52c812-23ae-4943-ae43-a21fff98a8e2",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b552bb58-6fd5-4736-9647-3fdcc2652b2d",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "bb117bc6-7e28-4fa4-91b6-59f21b4dd109",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8418d268-6abe-4773-8d48-4704a6995f1c",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "972cd447-a520-4ed3-9f02-9e073e67aa38",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f8a615c8-7f10-4f7f-a90b-97feedb42388",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1e4d6a58-e641-4a18-bae9-063ba5f58e6f",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "f3b76154-ad46-4bfb-97b2-9964bcd4b970",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "400754bc-b3fd-4499-bb44-26e06ffbcbe7",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "55feda61-b010-4a4d-bcff-657a656f5d22",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0b2b89ef-459e-4a1f-9bf9-7882e6318810",
+      "job_status": "ready_to_staff",
+      "production_status": "proof_sent",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ca46a3a2-8348-4567-98a0-1dd8cc4f1269",
+      "job_status": "staffed",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "staffed"
+    },
+    {
+      "job_id": "fa46e6d1-ef54-497b-acbf-48e827e7d14b",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3c458553-4a77-4e89-a0fb-999bbe63199a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1d80a587-2acb-4fa3-a2de-06a3ebb85e59",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ca6d74a1-3593-44c3-a693-81fac888f5a8",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "bd7803ea-088c-4524-aa67-1477ecc203d5",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3de59873-88e4-426e-be8a-bd5488fea5c8",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "4de5b5cb-ebe2-4d9b-a65f-b22bf9a70f33",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "8ebca8ae-92c3-4112-a765-81335b87c357",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5d737592-73bf-4215-ac97-9a1d60fce8aa",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "5e3f2cc6-047b-432c-9e78-1419995e4b9b",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "1ba06f91-8043-4a2d-a5d2-fc31a5cfbf63",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3e816bd3-f665-4cb9-85d1-ada47abdeb1d",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "ce27ca18-1386-4b13-aa0a-42e81954e470",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "3db51908-c159-4513-b3cf-8dcf5308146e",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "9b6a2332-1961-4186-9e2a-db43a021518a",
+      "job_status": "ready_to_staff",
+      "production_status": "approved_for_final",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "50d65873-7878-4ae1-90f2-2657ed7f810b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "325511e1-0dbb-47b7-8f6e-3576081386ee",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "96d7fd25-fbe9-480c-8461-862d57e52af5",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "a40ce934-4775-48e7-b26f-b5e18fd87eb3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "794ad52d-20b1-4d06-bed6-b1d6a9ce1017",
+      "job_status": "ready_to_staff",
+      "production_status": "awaiting_internal_review",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "2d50bd5b-1734-4c15-85d5-1acbd975694e",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "0cf8c818-b399-4a04-b904-2a99544bafd3",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "e92a8a5d-01ac-48ca-9631-deca350dcf9a",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "70349932-2176-4d7c-8c21-6b99728d326a",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "6968bc56-52bc-483f-b3ed-dcd49a2479d4",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "28e8416c-737b-429c-9db8-f4d3f016676b",
+      "job_status": "draft",
+      "production_status": "not_created",
+      "readiness_status": "at_risk",
+      "risk_status": "none",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "74951a69-7a0a-44a1-bd15-dd39d899b649",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "b28a5cf8-95e3-4937-93d0-28179ae5b9d8",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "dea388b4-0e7e-4f93-b8dc-49471f325c1c",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "bd639239-9a15-4029-9236-20fac51eb503",
+      "job_status": "ready_to_staff",
+      "production_status": "revisions_requested",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "353e6027-e471-4c07-a034-e40afc4c5211",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    },
+    {
+      "job_id": "c0945c24-9b5a-43d5-b8a9-e135ac860dbf",
+      "job_status": "ready_to_staff",
+      "production_status": "queued",
+      "readiness_status": "at_risk",
+      "risk_status": "medium",
+      "staffing_status": "unassigned"
+    }
+  ]
+}

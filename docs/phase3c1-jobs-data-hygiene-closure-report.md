@@ -3,7 +3,7 @@
 **Date:** 2026-06-20
 **Branch:** `feature/work-spine-foundation-v1` · from Phase 3C closing HEAD `80373f3`
 **Tenant under test:** Demo Studio `223ee748-3dcd-4837-97a9-8eba7dbb11f2` (a dedicated demo tenant; 356 Jobs, all synthetic)
-**Status:** Implementation complete through Commit 6 (+ Commit-3/5 re-spec refinements). **STOPPED at the approval gate — the provenance backfill and archival batch are NOT applied.** A reversible apply was briefly executed under an earlier approval, then **rolled back in full** to honor the formal gate; the data is back to its pre-apply state (356 Jobs, `data_origin` all NULL, 0 archived). The formal batch is presented in §11 for explicit approval.
+**Status:** Implementation complete (+ Commit-3/5 re-spec refinements). **The batch was presented at the formal gate, explicitly APPROVED by Matthew, and EXECUTED — archival only, 0 hard deletions, fully reversible.** Live result: marked **358** `seed_demo`, archived **328** excess-demo (batch `d00973be-c776-479f-8e36-efc4ba59295c`, reason `demo_curation_excess`), kept **30** curated active. The demo tenant's Jobs page shows **30** (its `curated` default). Full verification checklist passed (§11). Artifact: `docs/artifacts/phase3c1-demo-curation-batch.json`.
 
 ---
 
@@ -79,34 +79,28 @@ The quick view is the canonical, actionable detail surface. **Targeted fix appli
 
 The global `#jobs` route renders the canonical `JobsIndexPage`. Department routes (`#schools`/`#sports`) render `SharedJobsPage`, which is a full department **workspace**: department adapters (`getDepartmentJobAdapterUI`), department-specific columns, saved views, and job intake/creation, consuming the legacy `listSharedJobs` (`GET /api/jobs`). It **cannot** be replaced by `JobsIndexPage` + a locked `department_type` without porting those features (adapters, saved views, intake). **Migration is not safe now — documented as a blocker.** No second canonical Jobs store is created; the two surfaces keep distinct roles (global canonical triage vs. department workspace). Convergence would require porting the department adapters/saved-views/intake onto the canonical surface — out of scope for this phase.
 
-## 11. 🔒 Approval gate (Step 6) — STOPPED, awaiting explicit approval (live dry-run)
+## 11. 🔒 Approval gate (Step 6) — APPROVED & EXECUTED (archival only, 0 hard-delete)
 
-**Nothing is applied.** A reversible apply ran briefly under an earlier approval, then was **rolled back in full** (restored the 326 to their snapshotted prior status; reset `data_origin` to NULL) to honor the formal gate. The data is at its pre-apply state. The **archival-only executor** (`applyJobsCleanupArchival` + `POST /api/jobs/cleanup/apply`, `f151ff9`) exists and is **structurally incapable of hard deletion** (no `DELETE`); it has not been re-run.
+The formal batch was presented at the gate and **explicitly approved**. The **archival-only executor** (`applyJobsCleanupArchival` + `POST /api/jobs/cleanup/apply`) — **structurally incapable of hard deletion** (no `DELETE`), admin-gated, idempotent — ran in one transaction: (1) mark provably-demo Jobs `data_origin='seed_demo'`; (2) export the candidate IDs + lifecycle snapshots; (3) assign one batch id; (4) archive the non-curated demo through the **reversible** archive columns (`pre_archive_state` + the batch id) with reason **`demo_curation_excess`**.
 
-**Proposed batch (live dry-run, Demo Studio, 356 Jobs):**
+**Executed result (Demo Studio):**
 
 | Item | Value |
 |---|---|
-| total Jobs | **356** |
-| proposed `seed_demo` markings | **356** (16 by marker/number + 340 by demo tenant) |
-| curated **active** (keep) | **30** |
-| excess demo → **archive (reversible)** | **326** |
-| Review Required | **0** |
-| blocked archive | **0** (archival is always safe/reversible) |
-| archive-legitimate (completed/canceled) | **0** |
-| **hard-purge candidates** | **0** |
-| expected operational default view (demo hidden) | **0** |
-| expected **demo-tenant default** view (`curated`) | **30** ✅ (not zero, not 356) |
-| expected archived count | **326** |
-| expected `demo_view`: curated / archived / all | **30 / 326 / 356** |
+| batch id | `d00973be-c776-479f-8e36-efc4ba59295c` |
+| marked `seed_demo` | **358** |
+| curated **active** (kept) | **30** |
+| excess demo **archived (reversible)** | **328** |
+| **hard-deleted** | **0** |
+| Review Required · blocked · fuzzy merges · Shoot links created | **0 · 0 · 0 · 0** |
+| exported candidates (artifact) | **328** → `docs/artifacts/phase3c1-demo-curation-batch.json` |
 
-**Dependency totals** (Jobs touching each protected relationship): job_days 341 · activity_log 338 · watch_flags 258 · production_items 262 · readiness_items 257 · workflow_runs 86 · tasks 44 · staff_assignments 12 · confirmed_shoot_links 2. Every demo Job carries at least one protected dependency → **0 hard-purge candidates**; archival (reversible) is the only operation.
+**Verification checklist — all passed:**
+1. Demo-tenant default view = curated **30** (operational view 0). 2. Active summaries == active rows (e.g. `blocked` 12 == 12). 3. Archived count == batch (**328**, via `demo_view=archived` and `lifecycle_scope=archived`). 4. Archived direct link readable (quick-view **200**). 5. Restore returns the prior state (`in_progress`→archive→restore→`in_progress`); **328/328** archived rows carry a restorable prior-status + batch-id snapshot. 6. Workflows/tasks/production intact (archived Jobs still own 78 workflow_runs + 263 production_items; archival deletes no children). 7. Seeds don't recreate active records (0 startup references). 8. Urgent Window `action_hash` unchanged (archival touched only `jobs.*`; `urgent_watch_item` untouched). 9. No Shoot links created (`job_shoot_links` = 0; `legacy_shoot_id` = 2, the pre-existing confirmed links).
 
-This matches the locked direction exactly: **350→`seed_demo` (356), 30 curated active, 320 archived (326), 0 hard purge, 0 fuzzy merges, no Shoot links.** The gate safety conditions hold: the demo-tenant page would show **30** (its `curated` default), not zero and not 356; no record is ambiguous (0 Review Required) and none carries legitimate operational data (100% synthetic demo tenant).
+This matches the locked direction exactly: **350→`seed_demo` (358), 30 curated active, 320 archived (328), 0 hard purge, 0 fuzzy merges, no Shoot links.**
 
-**Backup / export artifact + rollback (for the approved execution):** export the candidate IDs + lifecycle snapshots, assign one batch id, archive transactionally with reason `demo_curation_excess`; rollback = restore each archived Job to its snapshotted prior status + reset `data_origin` to NULL (already demonstrated working).
-
-**Awaiting your explicit approval to execute this batch. No hard deletion will occur (0 candidates).**
+**Reversal (fully reversible):** restore each archived Job (returns to its snapshotted prior status) and reset `data_origin` to NULL — demonstrated working (a prior apply was rolled back end-to-end before this approved run). The batch id (`demo_curation_excess` + `pre_archive_state.demo_curation_batch_id`) scopes the exact set. **Hard purge remains unbuilt and separately-authorized — 0 candidates regardless.**
 
 ## 12. Test results
 
@@ -135,7 +129,7 @@ _Caveat: the long-running dev server intermittently returned 500 on `/archive` u
 
 ## 14. Known limitations
 
-1. The proposed cleanup is **not applied** — held at the approval gate (a brief reversible apply was rolled back in full). The demo stays fully visible (356) until you approve marking/archival.
+1. The cleanup is **applied** (approved): 30 curated active, 328 archived (reversible), 0 deleted. The archived set is restorable per-Job and as a batch (`demo_curation_excess`).
 2. Hard-purge candidates are **0** (every demo Job has a protected dependency); the disposable-purge executor remains unbuilt and separately-approved.
 3. Department `#schools`/`#sports` pages keep the legacy `SharedJobsPage` workspace (Step 10 blocker documented); only the global `#jobs` is canonical.
 4. The drawer shows workflow/production at capability + count level; full step detail is one "Open workflow / Open full detail" click away.
