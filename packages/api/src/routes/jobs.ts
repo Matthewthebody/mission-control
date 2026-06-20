@@ -52,6 +52,7 @@ import {
   archiveJobLifecycle,
   restoreJobLifecycle,
   reconcileJobsLifecycle,
+  getJobsPurgeDryRun,
   listAlertCenter,
   listDashboardWidgetPreferences,
   listJobs,
@@ -1637,6 +1638,23 @@ router.post("/:jobId/restore", async (req, res, next) => {
     const auth = getAuth(req as unknown as AuthenticatedRequest);
     const detail = await withClientTransaction(auth.tenantId, auth.id, (client) => restoreJobLifecycle(client, auth, singleParam(req.params.jobId)));
     return res.json(detail);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Cleanup dry-run: classify every Job, count protected dependencies, and propose a
+// safe action. Read-only — writes nothing and never deletes. Admin-gated.
+router.get("/cleanup/dry-run", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const client = await connectGuardedClient();
+    try {
+      const report = await getJobsPurgeDryRun(client, auth);
+      return res.json(report);
+    } finally {
+      client.release();
+    }
   } catch (error) {
     return next(error);
   }

@@ -1,0 +1,202 @@
+import type { PoolClient } from "pg";
+import { ApiError } from "../../errors/apiError.js";
+import type { AuthUser } from "../../types/auth.js";
+import type { JobDepartmentType } from "../../domain/jobTruth/index.js";
+import { hasReadScope } from "./jobService.js";
+import { hasAuthorityTier } from "../../authz/authority.js";
+import { classifyJobLifecycle, JOBS_RECENT_COMPLETION_DAYS } from "./jobsLifecycle.js";
+
+// ── Jobs cleanup dry-run (Phase 3C, Commit 3) ────────────────────────────────
+// Read-only. Classifies every Job, counts its protected dependencies, and proposes
+// a safe action. It writes NO data and is stable on re-run. A hard purge is NEVER
+// performed here — purge-eligible candidates are only reported, and any record with
+// a protected dependency is blocked. The actual executor is a separately-approved,
+// transactional, backed-up, batch-recorded step (see docs/jobs-data-lifecycle-and-
+// cleanup-audit.md §7-9). This module deliberately contains no delete.
+
+const ALL_DEPARTMENTS: JobDepartmentType[] = ["schools", "sports", "corporate", "headshots", "other"];
+
+// Any of these child relationships blocks a hard purge (operational / workflow /
+// production / staffing / audit value). Counted per Job from canonical job_id links.
+export const JOB_PURGE_BLOCKING_DEPENDENCIES = [
+  "workflow_runs",
+  "tasks",
+  "production_items",
+  "staff_assignments",
+  "readiness_items",
+  "watch_flags",
+  "activity_log",
+  "job_days",
+  "confirmed_shoot_links"
+] as const;
+
+export type JobPurgeProposedAction = "keep_active" | "archive" | "manual_review" | "duplicate_review" | "purge";
+
+export type JobPurgeCandidate = {
+  tenant_id: string;
+  job_id: string;
+  job_number: string | null;
+  title: string;
+  organization_id: string | null;
+  created_at: string;
+  scheduled_start_at: string | null;
+  lifecycle_status: string;
+  production_status: string;
+  readiness_status: string;
+  risk_status: string;
+  owner_user_id: string | null;
+  last_meaningful_activity_at: string;
+  data_origin: string | null;
+  related_record_counts: Record<string, number>;
+  blocking_dependencies: string[];
+  proposed_action: JobPurgeProposedAction;
+  classification_reason: string;
+  confidence: "high" | "medium" | "low";
+  warnings: string[];
+  survivor_job_id: string | null;
+};
+
+export type JobsPurgeDryRunReport = {
+  dry_run: true;
+  generated_for_tenant: string;
+  recent_completion_days: number;
+  total_jobs: number;
+  totals_by_action: Record<JobPurgeProposedAction, number>;
+  hard_purge_candidates: JobPurgeCandidate[];
+  blocked_candidates: JobPurgeCandidate[];
+  duplicate_groups: Array<{ key: string; job_ids: string[] }>;
+  candidates: JobPurgeCandidate[];
+};
+
+function readableDepartments(auth: AuthUser): JobDepartmentType[] {
+  return ALL_DEPARTMENTS.filter((d) => hasReadScope(auth, d) != null);
+}
+
+export async function getJobsPurgeDryRun(client: PoolClient, auth: AuthUser): Promise<JobsPurgeDryRunReport> {
+  // Purge is the most destructive operation — even the dry-run is gated to an
+  // administrative role (stronger than archive's manage access).
+  if (!hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin"])) {
+    throw new ApiError(403, "Jobs cleanup requires an administrative role");
+  }
+  const departments = readableDepartments(auth);
+  const base: JobsPurgeDryRunReport = {
+    dry_run: true,
+    generated_for_tenant: auth.tenantId,
+    recent_completion_days: JOBS_RECENT_COMPLETION_DAYS,
+    total_jobs: 0,
+    totals_by_action: { keep_active: 0, archive: 0, manual_review: 0, duplicate_review: 0, purge: 0 },
+    hard_purge_candidates: [],
+    blocked_candidates: [],
+    duplicate_groups: [],
+    candidates: []
+  };
+  if (!departments.length) return base;
+
+  const rows = (
+    await client.query(
+      `
+      SELECT
+        j.id::text AS job_id, j.tenant_id::text AS tenant_id, j.job_number, j.title, j.organization_id::text AS organization_id,
+        j.created_at::text AS created_at, j.scheduled_start_at::text AS scheduled_start_at,
+        j.job_status::text AS job_status, j.production_status::text AS production_status, j.readiness_status::text AS readiness_status,
+        j.risk_status::text AS risk_status, j.staffing_status::text AS staffing_status, j.account_owner_user_id::text AS account_owner_user_id,
+        j.archived_at::text AS archived_at, j.cancelled_at::text AS cancelled_at, j.completed_at::text AS completed_at, j.data_origin,
+        (SELECT count(*) FROM job_readiness_items r WHERE r.tenant_id=j.tenant_id AND r.job_id=j.id AND r.is_blocker AND NOT r.is_complete)::int AS open_blocker_count,
+        (SELECT count(*) FROM job_watch_flags w WHERE w.tenant_id=j.tenant_id AND w.job_id=j.id AND w.status IN ('open','acknowledged','snoozed'))::int AS open_watch_flag_count,
+        GREATEST(j.updated_at, j.created_at,
+          COALESCE((SELECT max(a.created_at) FROM activity_log_entries a WHERE a.tenant_id=j.tenant_id AND a.job_id=j.id),'epoch'),
+          COALESCE((SELECT max(wr.updated_at) FROM workflow_run wr WHERE wr.tenant_id=j.tenant_id AND wr.job_id=j.id),'epoch'),
+          COALESCE((SELECT max(p.updated_at) FROM production_items p WHERE p.tenant_id=j.tenant_id AND p.job_id=j.id),'epoch'))::text AS last_meaningful_activity_at,
+        -- protected dependency counts
+        (SELECT count(*) FROM workflow_run wr WHERE wr.tenant_id=j.tenant_id AND wr.job_id=j.id)::int AS dep_workflow_runs,
+        (SELECT count(*) FROM work_task t WHERE t.tenant_id=j.tenant_id AND t.related_job_id=j.id)::int AS dep_tasks,
+        (SELECT count(*) FROM production_items p WHERE p.tenant_id=j.tenant_id AND p.job_id=j.id)::int AS dep_production_items,
+        (SELECT count(*) FROM job_staff_assignments sa WHERE sa.tenant_id=j.tenant_id AND sa.job_id=j.id)::int AS dep_staff_assignments,
+        (SELECT count(*) FROM job_readiness_items r WHERE r.tenant_id=j.tenant_id AND r.job_id=j.id)::int AS dep_readiness_items,
+        (SELECT count(*) FROM job_watch_flags w WHERE w.tenant_id=j.tenant_id AND w.job_id=j.id)::int AS dep_watch_flags,
+        (SELECT count(*) FROM activity_log_entries a WHERE a.tenant_id=j.tenant_id AND a.job_id=j.id)::int AS dep_activity_log,
+        (SELECT count(*) FROM job_days d WHERE d.tenant_id=j.tenant_id AND d.job_id=j.id)::int AS dep_job_days,
+        (CASE WHEN j.legacy_shoot_id IS NOT NULL THEN 1 ELSE 0 END
+          + (SELECT count(*) FROM job_shoot_links l WHERE l.tenant_id=j.tenant_id AND l.job_id=j.id))::int AS dep_confirmed_shoot_links
+      FROM jobs j
+      WHERE j.tenant_id=$1 AND j.department_type::text = ANY($2::text[])
+      `,
+      [auth.tenantId, departments]
+    )
+  ).rows as any[];
+
+  const nowMs = Date.now();
+  const candidates: JobPurgeCandidate[] = rows.map((r) => {
+    const { lifecycle } = classifyJobLifecycle(
+      {
+        id: r.job_id, department_type: "sports", job_status: r.job_status, production_status: r.production_status,
+        readiness_status: r.readiness_status, risk_status: r.risk_status, staffing_status: r.staffing_status,
+        account_owner_user_id: r.account_owner_user_id, scheduled_start_at: r.scheduled_start_at, archived_at: r.archived_at,
+        cancelled_at: r.cancelled_at, completed_at: r.completed_at, data_origin: r.data_origin,
+        open_blocker_count: r.open_blocker_count, open_watch_flag_count: r.open_watch_flag_count, open_workflow_count: 0,
+        open_production_count: 0, last_meaningful_activity_at: r.last_meaningful_activity_at
+      },
+      nowMs
+    );
+    const related: Record<string, number> = {
+      workflow_runs: r.dep_workflow_runs, tasks: r.dep_tasks, production_items: r.dep_production_items,
+      staff_assignments: r.dep_staff_assignments, readiness_items: r.dep_readiness_items, watch_flags: r.dep_watch_flags,
+      activity_log: r.dep_activity_log, job_days: r.dep_job_days, confirmed_shoot_links: r.dep_confirmed_shoot_links
+    };
+    const blocking = JOB_PURGE_BLOCKING_DEPENDENCIES.filter((d) => (related[d] ?? 0) > 0);
+    const isSynthetic = r.data_origin === "seed_demo" || r.data_origin === "test_fixture";
+    const isOrphan = r.organization_id == null && blocking.length === 0;
+
+    let action: JobPurgeProposedAction;
+    let reason: string;
+    let confidence: "high" | "medium" | "low" = "medium";
+    if (r.archived_at != null) {
+      action = "keep_active"; reason = "Already archived — retained."; confidence = "high";
+    } else if (lifecycle === "review_required") {
+      action = "manual_review"; reason = "Complete-looking but has open blockers/workflow/production."; confidence = "low";
+    } else if (isSynthetic && blocking.length === 0) {
+      action = "purge"; reason = `Synthetic ${r.data_origin} record with no protected dependencies.`; confidence = "high";
+    } else if (isOrphan) {
+      action = "manual_review"; reason = "Orphaned: no organization and no canonical child records."; confidence = "low";
+    } else if (lifecycle === "historical_completed") {
+      action = "archive"; reason = "Completed and outside the recent-completion window."; confidence = "high";
+    } else if (lifecycle === "canceled") {
+      action = "archive"; reason = "Canceled — exclude from the active view."; confidence = "high";
+    } else {
+      action = "keep_active"; reason = `Live operational record (${lifecycle}).`; confidence = "high";
+    }
+    const warnings: string[] = [];
+    if (isSynthetic && blocking.length > 0) warnings.push(`Synthetic record but blocked by dependencies: ${blocking.join(", ")}.`);
+
+    return {
+      tenant_id: r.tenant_id, job_id: r.job_id, job_number: r.job_number, title: r.title, organization_id: r.organization_id,
+      created_at: r.created_at, scheduled_start_at: r.scheduled_start_at, lifecycle_status: lifecycle,
+      production_status: r.production_status, readiness_status: r.readiness_status, risk_status: r.risk_status,
+      owner_user_id: r.account_owner_user_id, last_meaningful_activity_at: r.last_meaningful_activity_at, data_origin: r.data_origin,
+      related_record_counts: related, blocking_dependencies: blocking, proposed_action: action, classification_reason: reason,
+      confidence, warnings, survivor_job_id: null
+    };
+  });
+
+  // Deterministic duplicate groups (exact job_number — unique constraint => none today;
+  // listed for completeness, never auto-merged).
+  const byNumber = new Map<string, string[]>();
+  for (const c of candidates) {
+    if (!c.job_number) continue;
+    byNumber.set(c.job_number, [...(byNumber.get(c.job_number) ?? []), c.job_id]);
+  }
+  const duplicate_groups = Array.from(byNumber.entries()).filter(([, v]) => v.length > 1).map(([key, job_ids]) => ({ key, job_ids }));
+
+  const totals_by_action = { ...base.totals_by_action };
+  for (const c of candidates) totals_by_action[c.proposed_action] += 1;
+
+  return {
+    ...base,
+    total_jobs: candidates.length,
+    totals_by_action,
+    hard_purge_candidates: candidates.filter((c) => c.proposed_action === "purge"),
+    blocked_candidates: candidates.filter((c) => c.warnings.length > 0),
+    duplicate_groups,
+    candidates
+  };
+}
