@@ -179,6 +179,13 @@ export async function getJobsIndex(token: string, query: Record<string, string |
   return apiFetch<JobsIndexResponse>(`${JOBS_BASE}/index${search ? `?${search}` : ""}`, token);
 }
 
+// Single-Job quick view by jobs.id, for an off-page deep-linked ?selected=<id>. Same
+// row shape as the index. A non-Job id (e.g. a Shoot id), cross-tenant, or unauthorized
+// department resolves to a 404 (apiFetch throws with status 404).
+export async function getJobQuickView(token: string, jobId: string): Promise<{ row: JobIndexRow }> {
+  return apiFetch<{ row: JobIndexRow }>(`${JOBS_BASE}/quick-view/${encodeURIComponent(jobId)}`, token);
+}
+
 export type SharedJobStatusCounts = {
   total_active: number;
   behind: number;

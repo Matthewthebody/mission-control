@@ -6,10 +6,12 @@ import type { JobIndexRow, JobsIndexResponse } from "../services/jobsApi";
 import type { SessionUser } from "../types";
 
 const getJobsIndexMock = vi.fn();
+const getJobQuickViewMock = vi.fn();
 const archiveSharedJobMock = vi.fn();
 const restoreSharedJobMock = vi.fn();
 vi.mock("../services/jobsApi", () => ({
   getJobsIndex: (...a: unknown[]) => getJobsIndexMock(...a),
+  getJobQuickView: (...a: unknown[]) => getJobQuickViewMock(...a),
   archiveSharedJob: (...a: unknown[]) => archiveSharedJobMock(...a),
   restoreSharedJob: (...a: unknown[]) => restoreSharedJobMock(...a)
 }));
@@ -65,6 +67,7 @@ function response(over: Partial<JobsIndexResponse> = {}): JobsIndexResponse {
 beforeEach(() => {
   window.location.hash = "#jobs";
   getJobsIndexMock.mockReset();
+  getJobQuickViewMock.mockReset();
   archiveSharedJobMock.mockReset().mockResolvedValue({});
   restoreSharedJobMock.mockReset().mockResolvedValue({});
 });
@@ -216,5 +219,37 @@ describe("JobQuickViewDrawer", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(window.location.hash).not.toContain("selected="); // cleared synchronously
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+});
+
+describe("JobQuickViewDrawer — off-page deep link (Phase 3C.1)", () => {
+  it("(8) opens a ?selected job not on the current page via quick-view, outside the filtered result, preserving filters", async () => {
+    getJobsIndexMock.mockResolvedValue(response()); // page has job-1/2/3, not off-1
+    getJobQuickViewMock.mockResolvedValue({ row: row({ id: "off-1", title: "Off Page Job", organization_name: "Hidden HS" }) });
+    window.location.hash = "#jobs?selected=off-1&metric=blocked";
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    expect(await screen.findByText("Off Page Job")).toBeInTheDocument();
+    expect(screen.getByText(/outside the current filtered result/i)).toBeInTheDocument();
+    expect(getJobQuickViewMock).toHaveBeenCalledWith("t", "off-1");
+    // Filters/pagination/selection are preserved (the off-page job is not inserted into the table).
+    expect(window.location.hash).toContain("selected=off-1");
+    expect(window.location.hash).toContain("metric=blocked");
+    expect(screen.queryByRole("button", { name: /Off Page Job/ })).toBeNull(); // not added as a table row
+  });
+
+  it("(8) a non-job deep link (e.g. a shoot id) shows a safe not-found", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    getJobQuickViewMock.mockRejectedValue(Object.assign(new Error("nf"), { status: 404 }));
+    window.location.hash = "#jobs?selected=shoot-xyz";
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    expect(await screen.findByText(/couldn't be found/i)).toBeInTheDocument();
+  });
+
+  it("(8) an unauthorized deep link shows a safe access-denied, not the job", async () => {
+    getJobsIndexMock.mockResolvedValue(response());
+    getJobQuickViewMock.mockRejectedValue(Object.assign(new Error("denied"), { status: 403 }));
+    window.location.hash = "#jobs?selected=secret-1";
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    expect(await screen.findByText(/don't have access to this job/i)).toBeInTheDocument();
   });
 });

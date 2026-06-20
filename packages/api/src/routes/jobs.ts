@@ -48,6 +48,7 @@ import {
   getJobDetail,
   getJobStatusCounts,
   getJobsCanonicalIndex,
+  getJobQuickView,
   archiveJobLifecycle,
   restoreJobLifecycle,
   reconcileJobsLifecycle,
@@ -1005,6 +1006,26 @@ router.get("/index", validateQuery(jobsIndexQuerySchema), async (req, res, next)
     try {
       const result = await getJobsCanonicalIndex(client, auth, req.query as any);
       return res.json(result);
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Single-Job quick view by jobs.id for an off-page deep link (?selected=<id> not on the
+// current page). Same row shape as /index, not constrained by lifecycle scope. A non-Job
+// id (e.g. a Shoot id), cross-tenant id, or unreadable department returns 404 — a safe
+// not-found that leaks nothing. Registered before GET /:jobId (distinct two-segment path).
+router.get("/quick-view/:jobId", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const client = await connectGuardedClient();
+    try {
+      const row = await getJobQuickView(client, auth, singleParam(req.params.jobId));
+      if (!row) return res.status(404).json({ error: "Job not found" });
+      return res.json({ row });
     } finally {
       client.release();
     }

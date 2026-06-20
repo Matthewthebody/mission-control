@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
 import { HelpTooltip } from "../components/HelpTooltip";
-import { getJobsIndex, archiveSharedJob, restoreSharedJob, type JobsIndexResponse, type JobIndexRow } from "../services/jobsApi";
+import { getJobsIndex, getJobQuickView, archiveSharedJob, restoreSharedJob, type JobsIndexResponse, type JobIndexRow } from "../services/jobsApi";
 import type { SessionUser } from "../types";
 
 const MANAGE_TIERS = ["super_admin", "leadership", "director_admin"];
@@ -105,6 +105,36 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
   const activeMetric = filters.metric ?? null;
   const scope = filters.lifecycle_scope ?? "active";
   const offset = Number(filters.offset ?? 0);
+
+  // Off-page deep link: a ?selected=<id> that is NOT on the current filtered page is
+  // fetched by id (RBAC-scoped) so the drawer can still open, without inserting the Job
+  // into the filtered table or disturbing the current filters/pagination.
+  const [offPage, setOffPage] = useState<{ id: string; row: JobIndexRow | null; state: "loading" | "ready" | "denied" | "notfound" } | null>(null);
+  useEffect(() => {
+    const id = filters.selected;
+    if (!id || selectedRow || state !== "ready") {
+      setOffPage(null);
+      return;
+    }
+    let cancelled = false;
+    setOffPage({ id, row: null, state: "loading" });
+    getJobQuickView(token, id)
+      .then((r) => {
+        if (!cancelled) setOffPage({ id, row: r.row, state: "ready" });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const s = (error as { status?: number })?.status;
+        setOffPage({ id, row: null, state: s === 403 ? "denied" : "notfound" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, filters.selected, selectedRow, state, reloadNonce]);
+
+  const drawerRow = selectedRow ?? (offPage?.state === "ready" ? offPage.row : null);
+  const drawerOutside = !selectedRow && Boolean(offPage?.row);
+  const closeSelection = () => writeHash({ selected: null, focus: null });
 
   return (
     <section className="panel jobs-index" aria-label="Jobs">
@@ -241,15 +271,30 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
         )
       ) : null}
 
-      {selectedRow ? (
+      {drawerRow ? (
         <JobQuickViewDrawer
-          row={selectedRow}
+          row={drawerRow}
           token={token}
           canManage={canManage}
           focusSection={filters.focus ?? null}
-          onClose={() => writeHash({ selected: null, focus: null })}
+          outsideResult={drawerOutside}
+          onClose={closeSelection}
           onMutated={() => setReloadNonce((n) => n + 1)}
         />
+      ) : offPage && offPage.state !== "ready" ? (
+        <div className="jobs-drawer__scrim" onClick={closeSelection}>
+          <aside className="jobs-drawer jobs-drawer--status" role="dialog" aria-modal="true" aria-label="Job quick view" onClick={(e) => e.stopPropagation()}>
+            <header className="jobs-drawer__head">
+              <strong>Job quick view</strong>
+              <button type="button" className="jobs-drawer__close" onClick={closeSelection} aria-label="Close quick view">✕</button>
+            </header>
+            <div className="jobs-drawer__status" role={offPage.state === "loading" ? undefined : "alert"}>
+              {offPage.state === "loading" ? "Loading job…" : null}
+              {offPage.state === "denied" ? "You don't have access to this job." : null}
+              {offPage.state === "notfound" ? "This job couldn't be found. The link may point to a different record type or a job outside your access." : null}
+            </div>
+          </aside>
+        </div>
       ) : null}
     </section>
   );
@@ -267,6 +312,7 @@ function JobQuickViewDrawer({
   token,
   canManage,
   focusSection,
+  outsideResult = false,
   onClose,
   onMutated
 }: {
@@ -274,6 +320,7 @@ function JobQuickViewDrawer({
   token: string;
   canManage: boolean;
   focusSection: string | null;
+  outsideResult?: boolean;
   onClose: () => void;
   onMutated: () => void;
 }) {
@@ -336,6 +383,11 @@ function JobQuickViewDrawer({
             ✕
           </button>
         </header>
+        {outsideResult ? (
+          <p className="jobs-drawer__outside" role="note">
+            This job is outside the current filtered result. Your filters and page are unchanged.
+          </p>
+        ) : null}
 
         <section className="jobs-drawer__section" id="jobs-drawer-section-snapshot" aria-label="Truth snapshot">
           <dl className="jobs-drawer__snapshot">

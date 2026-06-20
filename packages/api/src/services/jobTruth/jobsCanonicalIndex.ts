@@ -276,6 +276,74 @@ function attentionReasonsSelect(): string {
   return `ARRAY_REMOVE(ARRAY[${parts.join(", ")}], NULL) AS attention_reasons`;
 }
 
+// The canonical row projection — shared verbatim by the paginated index AND the
+// single-Job quick view, so an off-page deep-linked Job renders with the EXACT same
+// shape (capabilities, attention reasons, confirmed links) as a row in the table.
+const JOB_ROW_FROM = `
+    FROM filtered f
+    LEFT JOIN organization org ON org.id = f.organization_id
+    LEFT JOIN app_user owner_u ON owner_u.id = f.account_owner_user_id`;
+
+function jobRowSelectColumns(): string {
+  return `
+      f.id, f.job_number, f.title, f.event_name, f.department_type, f.job_category,
+      f.organization_id, org.canonical_name AS organization_name,
+      f.account_owner_user_id, owner_u.full_name AS owner_name,
+      f.scheduled_start_at AS job_date, f.scheduled_end_at,
+      f.job_status, f.production_status, f.readiness_status, f.risk_status, f.staffing_status,
+      f.client_deadline_at, f.production_deadline_at,
+      f.blocker_count, f.open_watch_flag_count, f.incomplete_required_count,
+      f.workflow_run_count, f.production_item_count, f.linked_shoot_count,
+      (f.linked_shoot_count > 0) AS shoot_data_available,
+      (f.linked_shoot_count > 0) AS staffing_data_available,
+      (f.linked_shoot_count > 0) AS schedule_data_available,
+      (f.workflow_run_count > 0) AS workflow_data_available,
+      (f.production_item_count > 0) AS production_data_available,
+      CASE WHEN f.linked_shoot_count > 0 THEN 'linked' ELSE 'unlinked' END AS shoot_link_status,
+      ${attentionReasonsSelect()}`;
+}
+
+// Attach the deduped confirmed-link projection (ids + sources) to a set of raw rows in
+// one batched query (no N+1), and derive the honest operational-availability fields.
+async function attachConfirmedLinks(client: PoolClient, tenantId: string, rawRows: Record<string, any>[]) {
+  const pageIds = rawRows.map((r) => r.id as string);
+  const linkRows = pageIds.length
+    ? (
+        await client.query(
+          `SELECT job_id, shoot_id, source FROM (
+             SELECT id AS job_id, legacy_shoot_id AS shoot_id, 'legacy_shoot_id' AS source FROM jobs WHERE tenant_id=$1 AND id = ANY($2::uuid[]) AND legacy_shoot_id IS NOT NULL
+             UNION
+             SELECT job_id, shoot_id, 'job_shoot_links' AS source FROM job_shoot_links WHERE tenant_id=$1 AND job_id = ANY($2::uuid[])
+           ) u`,
+          [tenantId, pageIds]
+        )
+      ).rows
+    : [];
+  const linksByJob = new Map<string, { ids: Set<string>; sources: Set<string> }>();
+  for (const lr of linkRows) {
+    const e = linksByJob.get(lr.job_id) ?? { ids: new Set<string>(), sources: new Set<string>() };
+    if (lr.shoot_id) e.ids.add(lr.shoot_id);
+    e.sources.add(lr.source);
+    linksByJob.set(lr.job_id, e);
+  }
+  return rawRows.map((r) => {
+    const link = linksByJob.get(r.id as string);
+    const ids = link ? Array.from(link.ids) : [];
+    const sources = link ? Array.from(link.sources) : [];
+    const linked = ids.length > 0;
+    return {
+      ...r,
+      linked_shoot_ids: ids,
+      link_sources: sources,
+      single_linked_shoot_id: ids.length === 1 ? ids[0] : null,
+      operational_data_available: linked || r.workflow_data_available || r.production_data_available,
+      operational_link_explanation: linked
+        ? null
+        : "No Shoot linked — operational scheduling and staffing data are unavailable until a Shoot is linked."
+    };
+  });
+}
+
 export type JobIndexResult = {
   rows: Record<string, unknown>[];
   summary: { total: number; metrics: Array<{ key: string; label: string; available: boolean; reason?: string; count: number | null }> };
@@ -325,69 +393,15 @@ export async function getJobsCanonicalIndex(client: PoolClient, auth: AuthUser, 
   const rowParams = [...params, limit, offset];
   const rowsSql = `
     WITH ${FILTERED_CTE}
-    SELECT
-      f.id, f.job_number, f.title, f.event_name, f.department_type, f.job_category,
-      f.organization_id, org.canonical_name AS organization_name,
-      f.account_owner_user_id, owner_u.full_name AS owner_name,
-      f.scheduled_start_at AS job_date, f.scheduled_end_at,
-      f.job_status, f.production_status, f.readiness_status, f.risk_status, f.staffing_status,
-      f.client_deadline_at, f.production_deadline_at,
-      f.blocker_count, f.open_watch_flag_count, f.incomplete_required_count,
-      f.workflow_run_count, f.production_item_count, f.linked_shoot_count,
-      (f.linked_shoot_count > 0) AS shoot_data_available,
-      (f.linked_shoot_count > 0) AS staffing_data_available,
-      (f.linked_shoot_count > 0) AS schedule_data_available,
-      (f.workflow_run_count > 0) AS workflow_data_available,
-      (f.production_item_count > 0) AS production_data_available,
-      CASE WHEN f.linked_shoot_count > 0 THEN 'linked' ELSE 'unlinked' END AS shoot_link_status,
-      ${attentionReasonsSelect()}
-    FROM filtered f
-    LEFT JOIN organization org ON org.id = f.organization_id
-    LEFT JOIN app_user owner_u ON owner_u.id = f.account_owner_user_id
+    SELECT ${jobRowSelectColumns()}
+    ${JOB_ROW_FROM}
     WHERE ${where}${metricSql}
     ORDER BY ${sortCol} ${dir}${nullsLast}, f.id ASC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
   const rawRows = (await client.query(rowsSql, rowParams)).rows;
 
-  // Per-row confirmed-link projection (ids + sources), deduped. Done as a single
-  // batched query over the returned page (no N+1).
-  const pageIds = rawRows.map((r) => r.id as string);
-  const linkRows = pageIds.length
-    ? (
-        await client.query(
-          `SELECT job_id, shoot_id, source FROM (
-             SELECT id AS job_id, legacy_shoot_id AS shoot_id, 'legacy_shoot_id' AS source FROM jobs WHERE tenant_id=$1 AND id = ANY($2::uuid[]) AND legacy_shoot_id IS NOT NULL
-             UNION
-             SELECT job_id, shoot_id, 'job_shoot_links' AS source FROM job_shoot_links WHERE tenant_id=$1 AND job_id = ANY($2::uuid[])
-           ) u`,
-          [auth.tenantId, pageIds]
-        )
-      ).rows
-    : [];
-  const linksByJob = new Map<string, { ids: Set<string>; sources: Set<string> }>();
-  for (const lr of linkRows) {
-    const e = linksByJob.get(lr.job_id) ?? { ids: new Set<string>(), sources: new Set<string>() };
-    if (lr.shoot_id) e.ids.add(lr.shoot_id);
-    e.sources.add(lr.source);
-    linksByJob.set(lr.job_id, e);
-  }
-
-  const rows = rawRows.map((r) => {
-    const link = linksByJob.get(r.id as string);
-    const ids = link ? Array.from(link.ids) : [];
-    const sources = link ? Array.from(link.sources) : [];
-    const linked = ids.length > 0;
-    return {
-      ...r,
-      linked_shoot_ids: ids,
-      link_sources: sources,
-      single_linked_shoot_id: ids.length === 1 ? ids[0] : null,
-      operational_data_available: linked || r.workflow_data_available || r.production_data_available,
-      operational_link_explanation: linked
-        ? null
-        : "No Shoot linked — operational scheduling and staffing data are unavailable until a Shoot is linked."
-    };
-  });
+  // Per-row confirmed-link projection (ids + sources), deduped, batched (no N+1).
+  const rows = await attachConfirmedLinks(client, auth.tenantId, rawRows);
 
   return {
     rows,
@@ -396,4 +410,28 @@ export async function getJobsCanonicalIndex(client: PoolClient, auth: AuthUser, 
     attention_reason_availability: { job_native: JOB_NATIVE_ATTENTION_REASONS.map((r) => r.reason), unavailable: JOB_INDEX_UNAVAILABLE_ATTENTION_REASONS },
     applied_metric: metricKey
   };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Single-Job quick view by jobs.id, for an off-page deep-linked `?selected=<id>`.
+// Returns the SAME row shape as the index (so the drawer renders identically), but is
+// NOT constrained by lifecycle scope/filters — it can find an archived/demo/off-page
+// Job the user is authorized to read. Tenant- and department-scoped: a Shoot id (or any
+// non-Job uuid), a cross-tenant id, or a Job in an unreadable department all return null
+// (a safe not-found that leaks nothing). The caller must NOT insert this row into the
+// filtered table unless it independently belongs there.
+export async function getJobQuickView(client: PoolClient, auth: AuthUser, jobId: string): Promise<Record<string, unknown> | null> {
+  if (!UUID_RE.test((jobId ?? "").trim())) return null; // not even a uuid → not a Job
+  const departments = ALL_DEPARTMENTS.filter((d) => hasReadScope(auth, d) != null);
+  if (!departments.length) return null;
+  const sql = `
+    WITH ${FILTERED_CTE}
+    SELECT ${jobRowSelectColumns()}
+    ${JOB_ROW_FROM}
+    WHERE f.tenant_id = $1 AND f.department_type::text = ANY($2::text[]) AND f.id = $3::uuid`;
+  const rawRows = (await client.query(sql, [auth.tenantId, departments, jobId.trim()])).rows;
+  if (!rawRows.length) return null;
+  const [row] = await attachConfirmedLinks(client, auth.tenantId, rawRows);
+  return row;
 }

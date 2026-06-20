@@ -363,3 +363,45 @@ describe("GET /api/jobs/index — show_demo", () => {
     expect(body.page.total).toBe(body.summary.total); // rows and summary move together
   });
 });
+
+// Phase 3C.1 — single-Job quick view by id for an off-page deep link. Finds any Job the
+// user can read regardless of lifecycle scope; a Shoot id / unknown id / non-Job is a
+// safe 404 that leaks nothing; jobs.id is the only identity.
+describe("GET /api/jobs/quick-view/:jobId — off-page deep link", () => {
+  let archivedOffPageId = "";
+  beforeAll(async () => {
+    archivedOffPageId = (
+      await dbPool.query(
+        `INSERT INTO jobs (tenant_id, department_type, title, job_status, archived_at)
+         VALUES ($1,'sports','quickview-archived-fixture','archived', now()) RETURNING id::text`,
+        [tenantId]
+      )
+    ).rows[0].id;
+  });
+  afterAll(async () => {
+    await dbPool.query(`DELETE FROM jobs WHERE id=$1`, [archivedOffPageId]);
+  });
+  const qv = (id: string, token = leadershipToken) => request(app).get(`/api/jobs/quick-view/${id}`).set("Authorization", `Bearer ${token}`);
+
+  it("returns the canonical row for a Job by id, ignoring lifecycle scope (finds an archived Job)", async () => {
+    const res = await qv(archivedOffPageId);
+    expect(res.status).toBe(200);
+    expect(res.body.row.id).toBe(archivedOffPageId);
+    expect(res.body.row).toHaveProperty("attention_reasons");
+    expect(res.body.row).toHaveProperty("shoot_link_status");
+    expect(res.body.row).toHaveProperty("operational_link_explanation");
+  });
+
+  it("a Shoot id is never a Job id — returns 404, not a fabricated job", async () => {
+    expect((await qv(standaloneShootId)).status).toBe(404);
+  });
+
+  it("an unknown uuid and a non-uuid both safely 404", async () => {
+    expect((await qv("00000000-0000-0000-0000-000000000000")).status).toBe(404);
+    expect((await qv("not-a-uuid")).status).toBe(404);
+  });
+
+  it("requires auth (no token => 401, never leaks the Job)", async () => {
+    expect((await request(app).get(`/api/jobs/quick-view/${archivedOffPageId}`)).status).toBe(401);
+  });
+});
