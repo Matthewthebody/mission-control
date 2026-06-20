@@ -1,9 +1,9 @@
 # Phase 3C.1 — Jobs Data Hygiene & Deep-Link Closure Report
 
-**Date:** 2026-06-19
+**Date:** 2026-06-20
 **Branch:** `feature/work-spine-foundation-v1` · from Phase 3C closing HEAD `80373f3`
-**Tenant under test:** Demo Studio `223ee748-3dcd-4837-97a9-8eba7dbb11f2` (a dedicated demo tenant; ~350 Jobs, all synthetic)
-**Status:** Implementation complete through Commit 6; **Commit 7 (user-authorized) applied the reversible cleanup.** Provenance marking + reversible archival executed; **no hard deletion** (0 candidates). The demo tenant's Jobs page now shows **30 curated jobs** (Show Demo Data defaults on), with **326 archived (every one reversible)** and **0 deleted**.
+**Tenant under test:** Demo Studio `223ee748-3dcd-4837-97a9-8eba7dbb11f2` (a dedicated demo tenant; 356 Jobs, all synthetic)
+**Status:** Implementation complete through Commit 6 (+ Commit-3/5 re-spec refinements). **STOPPED at the approval gate — the provenance backfill and archival batch are NOT applied.** A reversible apply was briefly executed under an earlier approval, then **rolled back in full** to honor the formal gate; the data is back to its pre-apply state (356 Jobs, `data_origin` all NULL, 0 archived). The formal batch is presented in §11 for explicit approval.
 
 ---
 
@@ -13,11 +13,11 @@
 |---|--------|---------|
 | 1 | `a40be39` | docs: audit jobs demo provenance and bloat |
 | 2 | `7d9f5bd` | feat: classify jobs provenance and curate demo data |
-| 3 | `4cdebfa` | fix: preserve jobs lifecycle through archive restore |
+| 3 | `4cdebfa` + `2ad111e` | fix: preserve jobs lifecycle through archive restore (+ extended coverage, 13 tests) |
 | 4 | `776209d` | fix: load off-page jobs into the quick view |
-| 5 | `b8d156e` | fix: complete canonical job detail actionability |
-| 6 | `6333f5c` | test: close jobs data hygiene and deep-link verification |
-| 7 | _this commit_ | feat: apply jobs provenance marking and reversible demo archival (user-authorized) |
+| 5 | `b8d156e` + `d73965e` | fix: complete canonical job detail actionability (+ explicit demo data states) |
+| 6 | _this commit_ | test: close jobs data hygiene and deep-link verification |
+| (executor) | `f151ff9` | the archival-only executor + apply route — present but **rolled back / not currently applied** |
 
 Preserved (untouched): `11a470c`, `175dbf4`, `600b9ee`, `3ed6b9e`, `666ab80`, `5e45580`, `80373f3`. `stash@{0}` untouched. Nothing pushed.
 
@@ -37,9 +37,14 @@ Preserved (untouched): `11a470c`, `175dbf4`, `600b9ee`, `3ed6b9e`, `666ab80`, `5
 
 `getCuratedDemoJobIds` is a deterministic, reproducible rule: the explicitly-marked scenario Jobs, padded with capability-bearing Jobs (workflow / production / confirmed Shoot link), ordered by id, up to **`JOB_CURATED_DEMO_TARGET = 30`**. Decision (Matthew): **marked scenarios + padded sample (~30)** so every lifecycle/capability state stays demonstrable. Live: **30 curated** (16 marked + 14 padded).
 
-## 5. Default-view truth + Show Demo Data (Step 4)
+## 5. Default-view truth + explicit demo states (Step 4)
 
-The active/needs-attention scopes exclude `seed_demo`/`test_fixture` by default. A `show_demo` flag drops that exclusion; **one base predicate feeds both the rows and the summary counts**, so the toggle moves them together and the `summary[metric] === page.total` invariant survives (verified for every available metric, with and without the toggle). The index also returns `tenant_is_demo`: the **API default still hides demo** (operational tenants and every test stay clean), and the **UI defaults the toggle ON for a demo tenant** (one-time, URL-backed; `?show_demo=false` overrides). The checkbox reflects the resolved state and writes explicit `true`/`false`.
+The operating views exclude `seed_demo`/`test_fixture` by default. Demo Jobs are surfaced only via an explicit, distinctly-labeled **`demo_view`** (not one overloaded boolean — per the locked re-spec):
+- **`curated`** — the deterministic curated demo set, active (the active predicate ∩ `getCuratedDemoJobIds`). **The dedicated demo tenant defaults here** — never zero, never all hundreds.
+- **`archived`** — the archived demo records (*Show Archived Demo*).
+- **`all`** — every demo record, any lifecycle (*Show All Demo*, diagnostic).
+
+Absent ⇒ operational (demo hidden); operational tenants show no demo selector. **One base predicate feeds both rows and summary counts** (the curated id set is computed once and passed into the predicate), so `summary[metric] === page.total` holds for the curated state too (verified). The curated set reads marker/capability signals, not `data_origin`, so it is stable before *and* after any apply. The index returns `tenant_is_demo` to drive the UI default; the **API default hides demo** (operational tenants and every test stay clean). Live (demo tenant, pre-apply): default **356**, `curated` **30**, `archived` **0**, `all` **0**.
 
 ## 6. Cleanup dry-run (Steps 5–6) — the reviewable batch
 
@@ -74,28 +79,47 @@ The quick view is the canonical, actionable detail surface. **Targeted fix appli
 
 The global `#jobs` route renders the canonical `JobsIndexPage`. Department routes (`#schools`/`#sports`) render `SharedJobsPage`, which is a full department **workspace**: department adapters (`getDepartmentJobAdapterUI`), department-specific columns, saved views, and job intake/creation, consuming the legacy `listSharedJobs` (`GET /api/jobs`). It **cannot** be replaced by `JobsIndexPage` + a locked `department_type` without porting those features (adapters, saved views, intake). **Migration is not safe now — documented as a blocker.** No second canonical Jobs store is created; the two surfaces keep distinct roles (global canonical triage vs. department workspace). Convergence would require porting the department adapters/saved-views/intake onto the canonical surface — out of scope for this phase.
 
-## 11. 🔒 Purge approval gate (Step 6) — APPROVED & APPLIED (archival only; 0 hard-purge)
+## 11. 🔒 Approval gate (Step 6) — STOPPED, awaiting explicit approval (live dry-run)
 
-Matthew approved **apply marking + reversible archival**. **Commit 7** (`feat: apply jobs provenance marking and reversible demo archival`) adds the **archival-only** executor (`applyJobsCleanupArchival` + `POST /api/jobs/cleanup/apply`): in one transaction it (1) marks provably-demo Jobs `data_origin='seed_demo'`, then (2) archives the demo Jobs not in the curated set through the **reversible** archive columns (records `pre_archive_state` so restore returns the prior status). **It contains no DELETE — it is structurally incapable of hard deletion.** Admin-gated, idempotent.
+**Nothing is applied.** A reversible apply ran briefly under an earlier approval, then was **rolled back in full** (restored the 326 to their snapshotted prior status; reset `data_origin` to NULL) to honor the formal gate. The data is at its pre-apply state. The **archival-only executor** (`applyJobsCleanupArchival` + `POST /api/jobs/cleanup/apply`, `f151ff9`) exists and is **structurally incapable of hard deletion** (no `DELETE`); it has not been re-run.
 
-**Applied live (Demo Studio):** marked **356** `seed_demo`, archived **326** excess-demo, kept **30** curated, **hard-purged 0**. Post-state: default operational view **0** (100% demo tenant) · **Show Demo Data view 30** (what the demo UI shows by default) · archived **326** (every one carries a `pre_archive_state` snapshot → fully reversible via the restore endpoint) · unmarked **0**. **No row was deleted.**
+**Proposed batch (live dry-run, Demo Studio, 356 Jobs):**
 
-**Hard purge remains unbuilt and separately-authorized** — there are **0 candidates** (every demo Job has a protected dependency), so nothing is eligible regardless. Backup plan for any future hard purge: a dedicated, explicitly-authorized executor that (a) re-runs the dry-run, (b) `pg_dump`s the candidate rows + children, (c) deletes in one transaction with a recorded batch id, (d) is revertible from the dump.
+| Item | Value |
+|---|---|
+| total Jobs | **356** |
+| proposed `seed_demo` markings | **356** (16 by marker/number + 340 by demo tenant) |
+| curated **active** (keep) | **30** |
+| excess demo → **archive (reversible)** | **326** |
+| Review Required | **0** |
+| blocked archive | **0** (archival is always safe/reversible) |
+| archive-legitimate (completed/canceled) | **0** |
+| **hard-purge candidates** | **0** |
+| expected operational default view (demo hidden) | **0** |
+| expected **demo-tenant default** view (`curated`) | **30** ✅ (not zero, not 356) |
+| expected archived count | **326** |
+| expected `demo_view`: curated / archived / all | **30 / 326 / 356** |
 
-**Reversal:** to undo, restore the archived Jobs (each returns to its snapshotted prior status) and set `data_origin` back to NULL.
+**Dependency totals** (Jobs touching each protected relationship): job_days 341 · activity_log 338 · watch_flags 258 · production_items 262 · readiness_items 257 · workflow_runs 86 · tasks 44 · staff_assignments 12 · confirmed_shoot_links 2. Every demo Job carries at least one protected dependency → **0 hard-purge candidates**; archival (reversible) is the only operation.
+
+This matches the locked direction exactly: **350→`seed_demo` (356), 30 curated active, 320 archived (326), 0 hard purge, 0 fuzzy merges, no Shoot links.** The gate safety conditions hold: the demo-tenant page would show **30** (its `curated` default), not zero and not 356; no record is ambiguous (0 Review Required) and none carries legitimate operational data (100% synthetic demo tenant).
+
+**Backup / export artifact + rollback (for the approved execution):** export the candidate IDs + lifecycle snapshots, assign one batch id, archive transactionally with reason `demo_curation_excess`; rollback = restore each archived Job to its snapshotted prior status + reset `data_origin` to NULL (already demonstrated working).
+
+**Awaiting your explicit approval to execute this batch. No hard deletion will occur (0 candidates).**
 
 ## 12. Test results
 
-**New Phase 3C.1 tests: 30** (target 28).
+**New Phase 3C.1 tests: 38** (target 28).
 
 | Suite | Tests |
 |---|---|
 | `jobsProvenance.test.ts` (new) | 4 |
-| `jobsArchiveRestore.test.ts` (new) | 7 |
+| `jobsArchiveRestore.test.ts` (new; all 8 Step-7 cases) | 13 |
 | `jobsDataHygieneClosure.test.ts` (new) | 5 |
-| `jobsCleanup.test.ts` (+3 = ) | 10 |
-| `jobsCanonicalIndex.test.ts` (+6 = ) | 26 |
-| `jobsIndexPage.test.tsx` (web, +5 = ) | 19 |
+| `jobsCleanup.test.ts` (+ executor) | 12 |
+| `jobsCanonicalIndex.test.ts` (+ demo_view + quick-view) | 26 |
+| `jobsIndexPage.test.tsx` (web) | 19 |
 
 Neighbors green: `jobsLifecycle` 13, `jobStatusCounts` 7, `jobTruthLayer` 20. **admin-web full suite: 504/504 (93 files, serial).** API + admin-web `tsc --noEmit`: clean. Migration 159 applied to the dev DB.
 
@@ -105,13 +129,13 @@ _Note: the full admin-web suite shows non-deterministic cross-file flakiness und
 
 Driven against the running stack (`:5173` web / `:4000` API); interactive UI behaviors are covered by the 19-test `jobsIndexPage` suite (the cross-directory session makes the preview launcher impractical, as in Phase 3C):
 
-1. Web root → **200**. 2. Index default → 350 Jobs, `tenant_is_demo=true`. 3. Metric coherence → `summary.blocked === page.total(metric=blocked)`. 4. Show Demo Data default/on → equal (nothing marked yet — correct). 5. Provenance dry-run → all `seed_demo`, 0 Review. 6. Cleanup dry-run → 30 curated / ~322 excess / **0 purge** / projected 0 & 30. 7–10. Quick-view: valid **200**, Shoot id **404**, bad uuid **404**, no token **401**. 11. RBAC: photographer **403** on provenance-apply, cleanup, reconcile-apply. 12. Archive → **200**, `job_status='archived'`, `pre_archive_state.job_status` captured; restore round-trips to the prior status. 13. Restore reconcile → Review Required when child data contradicts the prior status. 14. Off-page archived Job → quick-view **200**, **absent** from the default active index. 15. Interactive UI (drawer open/Escape, toggle, off-page banner, demo-default) → component suite. 16. Git: HEAD `b8d156e` (pre-this-commit), nothing pushed, `stash@{0}` intact.
+1. Web root → **200**. 2. Index default → 356 Jobs, `tenant_is_demo=true`. 3. Metric coherence → `summary.blocked === page.total(metric=blocked)`. 4. Demo states (demo tenant) → `curated` **30** / `archived` **0** / `all` **0** (pre-apply); curated+metric invariant holds. 5. Provenance dry-run → all `seed_demo`, 0 Review. 6. Cleanup dry-run → 30 curated / 326 excess / **0 purge** / projected 0 & 30. 7–10. Quick-view: valid **200**, Shoot id **404**, bad uuid **404**, no token **401**. 11. RBAC: photographer **403** on provenance-apply, cleanup, reconcile-apply. 12. Archive → **200**, `job_status='archived'`, `pre_archive_state.job_status` captured; restore round-trips to the prior status. 13. Restore reconcile → Review Required when child data contradicts the prior status. 14. Off-page archived Job → quick-view **200**, **absent** from the default active index. 15. Interactive UI (drawer open/Escape, demo selector, off-page banner, demo default) → component suite. 16. Git: nothing pushed, `stash@{0}` intact. Apply-then-rollback round-trip verified: applied (356 marked / 326 archived) then fully reversed (0 archived / 0 marked).
 
 _Caveat: the long-running dev server intermittently returned 500 on `/archive` under rapid burst scripting (connection-pool/hot-reload churn after ~6 reloads); never reproduced in the clean per-process test app (7/7) or sequential calls (12/12 `200`). The archive/restore behavior is authoritatively verified by the deterministic test suite + successful live captures._
 
 ## 14. Known limitations
 
-1. The proposed cleanup is **not applied** — held at the approval gate. The demo stays fully visible (350) until you approve marking/archival.
+1. The proposed cleanup is **not applied** — held at the approval gate (a brief reversible apply was rolled back in full). The demo stays fully visible (356) until you approve marking/archival.
 2. Hard-purge candidates are **0** (every demo Job has a protected dependency); the disposable-purge executor remains unbuilt and separately-approved.
 3. Department `#schools`/`#sports` pages keep the legacy `SharedJobsPage` workspace (Step 10 blocker documented); only the global `#jobs` is canonical.
 4. The drawer shows workflow/production at capability + count level; full step detail is one "Open workflow / Open full detail" click away.
