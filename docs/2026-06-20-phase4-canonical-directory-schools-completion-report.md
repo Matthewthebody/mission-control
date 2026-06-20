@@ -4,67 +4,136 @@
 **Branch:** `feature/work-spine-foundation-v1` · from Phase 4 audit HEAD `9e0289d`
 **Migration head:** 162 (applied + verified). **Pushed:** nothing. **`stash@{0}`:** untouched.
 
-**Scope delivered:** the canonical-model backend for Slices 1–4 and 7 — Organization hierarchy (with the initial Directory UI), reusable Contact identity, brand/website/logo history, the school-year/season service layer, and deterministic legacy district reconciliation. All additive, RLS-forced, reversible, and tested. The remaining UI-rebuild slices (4B service-term UI, 5 full detail, 6 create flow), the Job-Intake UI integration (8), and the permissions/a11y/30-step browser pass (9) are scoped in §5 — they require the admin-web React detail/create rebuilds and a browser environment.
+**Scope delivered:** the complete canonical Directory & Schools product experience — the
+canonical model backend (Slices 1–4, 7) **and** the full admin-web product surface and
+verification (Slices A–G): stabilized API contracts, the school-year/season service-term
+experience, canonical District↔School navigation and detail, a canonical Create Organization
+flow, an orchestrated legacy-reconciliation batch with demo artifacts, canonical job-intake
+context, an enforced permission matrix, and a real browser verification against the running
+app. All additive, RLS-forced, reversible, and tested.
 
-Explicit confirmations: **no Monday import ran · no role-specific Schools dashboard was built · no Job↔Shoot link changed · no hard deletion occurred · no second Schools database / `schools_v2` was created · no Vibe app was rebuilt · no new structured values were written to the `organization.notes` blob.** No NOT-NULL column was relaxed. No record was fuzzy-merged.
+Explicit confirmations (all hold): **no Monday.com import ran · no role-specific Schools
+dashboard was built · no Job↔Shoot link was created or changed · no Urgent-Window action hash
+or mileage was edited · no hard deletion occurred · no record was fuzzy-merged · no second
+Schools database / District or School table was created · no NOT-NULL column was relaxed
+(`organization_contact.organization_id` stayed NOT NULL) · no new structured values were
+written to the `organization.notes` blob (brand moved *out* of notes to canonical columns) ·
+Phase 5 / Phase 3D were not started.**
 
 ---
 
-## 1. Commit ledger (this program)
+## 1. Commit ledger
 
 | Commit | Slice | Subject |
 |---|---|---|
 | `9e0289d` | audit | docs: audit canonical directory and schools for phase 4 |
-| `67dbaac` | 1 (full) | feat: write canonical organization hierarchy in directory |
+| `67dbaac` | 1 | feat: write canonical organization hierarchy in directory |
 | `a4dc9a0` | 4 (backend) | feat: add school year and season service profiles |
 | `bf2895f` | 2 (backend) | feat: add reusable contacts and contextual organization roles |
 | `f6a90a2` | 3 (backend) | feat: normalize organization brand and logo history |
 | `8065902` | 7 (backend) | fix: reconcile legacy directory data into canonical records |
-| `3e0641d`,`3683330`,_this_ | docs | progress → completion report |
+| `63daf76` | report | docs: report phase 4 canonical directory backend and verification |
+| `e7a6893` | A | fix: stabilize canonical directory API contracts |
+| `807e800` | B | feat: surface school year and season service profiles |
+| `7dab52b` | C | feat: add canonical district school contact and location detail |
+| `bdec4ba` | D | feat: rebuild organization creation on canonical directory data |
+| `cd19d65` | E | fix: reconcile legacy directory data into canonical records |
+| `e18d300` | F | fix: use canonical directory records in job intake |
+| `9d02d1b` | G | fix: enforce canonical directory permissions |
+| _this_ | G | test: close phase 4 canonical directory and schools verification |
 
-All additive + reversible. No migration destroyed history.
+All additive + reversible. No migration destroyed history. The seven preserved commits
+(`9e0289d`, `67dbaac`, `a4dc9a0`, `bf2895f`, `f6a90a2`, `8065902`, `63daf76`) are intact and
+were not amended, squashed, reset, or rebased.
 
-## 2. Migrations (all additive, RLS-forced, clean-DB safe)
+## 2. Migrations (160–162, all additive, RLS-forced, clean-DB safe)
 
-- **160 `school_service_term`** — `(tenant, organization)` time-bound service terms; one-`current`-per-period partial unique; rollover provenance.
-- **161 `contact` + `organization_contact.contact_id`** — reusable Contact identity; the org-bound relationship keeps `organization_id NOT NULL`; email intentionally non-unique.
-- **162 organization brand columns + `organization_logo_history`** — brand_primary/secondary_color, mascot, brand_status, normalized_website, logo_status; append-only logo history.
+Unchanged in A–G (no new migrations were needed — the UI/service work is additive over the
+existing canonical schema):
 
-Each uses `app.current_tenant_id()` RLS, `gen_random_uuid()` PKs, tenant-safe FKs, and `IF NOT EXISTS`/nullable additions — verified applied on the live dev DB and structurally clean-DB safe (no data dependencies). Reversal = revert the commit + `DROP TABLE`/`DROP COLUMN`.
+- **160 `school_service_term`** — `(tenant, organization)` time-bound terms; one-`current`-per-period partial unique; rollover provenance.
+- **161 `contact` + `organization_contact.contact_id`** — reusable Contact identity; org-bound relationship stays `organization_id NOT NULL`; email intentionally non-unique.
+- **162 organization brand columns + `organization_logo_history`** — brand colors, mascot, brand/logo status, normalized website; append-only logo history.
 
-## 3. Final canonical model (delivered backend)
+## 3. What each slice delivered (A–G)
 
-- **Organization hierarchy (Slice 1):** District = `client_entity_kind='parent_organization'` (top-level); School = `account` with `parent_organization_id` → District. Validated (same-tenant, parent-is-District, no self/cycle), backward-compatible (legacy parentless schools still work), with parent/child reads and a legacy-notes fallback for website/phone. Website/Main Phone are canonical fields; the form stopped packing them into notes.
-- **Reusable Contact (Slice 2):** a `contact` identity referenced by org-bound rows via `contact_id`. `linkContactToOrganization` gives one identity distinct per-org roles (District contact + School picture-day contact). Roles consolidate onto the canonical `client_roles[]`. An idempotent, reversible, dry-run-default backfill creates one identity per existing row, never merging on name/email, leaving identity-less rows Review Required.
-- **Brand / website / logo (Slice 3):** brand colors/mascot + explicit state values in real columns; one `normalizeWebsite` (adds https://, lowercases host, drops trailing slash, rejects unsafe protocols), wired into create/update; append-only logo history with restore; a dry-run legacy-notes brand parser (never strips notes).
-- **School-year/season service truth (Slice 4):** `school_service_term` with explicit current selection (activating a newer term closes the prior as historical), rollover into an unconfirmed draft with inherited markers (never silently current), and confirm/change — separate from static account truth (`account_service` untouched) and dated Job/Shoot truth.
-- **Legacy reconciliation (Slice 7):** `reconcileDistricts` classifies Schools' legacy free-text `district_name` against canonical Districts and links ONLY deterministic exact matches on parentless Schools (never overwrites a parent, never merges); dry-run writes nothing; idempotent; reversible via `applied_links`; batch + audit.
+- **A — Stabilize API contracts (`e7a6893`).** Cast `organization_contact_relationship.client_roles` to `text[]` in `getContactRelationships` so per-org rich roles serialize as a real JSON array (not a Postgres array string) over HTTP, and surfaced `organization_contact_id` for a stable unlink target. Added an HTTP route test for the array contract.
+- **B — Service-term experience (`807e800`).** `ServiceTermsPanel` (self-contained, `token`+`organizationId`) over the Slice 4 API: current term, upcoming drafts, closed history. Rolled-over drafts are flagged **Needs review** and list inherited field keys (copied ≠ confirmed). Managers add / roll over / confirm / make-current / change; non-managers see read-only. No rollover algorithm reimplemented in React.
+- **C — Canonical navigation + detail (`7dab52b`).** Searchable canonical-districts read (`GET /districts`, only `client_entity_kind='parent_organization'`, with child counts). `ParentDistrictSelector` (self-loading, searchable) replaces the unwired `districtOptions` prop — a District is chosen as a record, never typed. `OrganizationHierarchyCard` shows child Schools on a District, the parent District on a School, and **Review required** for a parentless school account.
+- **D — Canonical Create Organization (`bdec4ba`).** Brand (colors / mascot / logo status / logo notes) is mapped to the migration-162 columns and applied via `PATCH /:id/brand` after upsert (create + edit); `buildOrganizationNotes` no longer emits any brand tokens. The dead "Logo Last Updated" field was removed. New school accounts can seed a first service term inline (`POST /:id/service-terms`).
+- **E — Reconciliation batch + Demo Studio artifacts (`cd19d65`).** `reconcileDirectoryBatch` reports districts + contacts + brand/notes in one dry-run-by-default pass; apply runs ONLY the surgical, reversible districts links (exact normalized-name match, parentless only). Contact backfill and brand/notes parsing stay Review Required. `POST /reconcile/directory` + `scripts/reconcile-directory-demo.ts` write JSON + Markdown artifacts under `docs/artifacts/` with a batch id + rollback block.
+- **F — Canonical job intake (`e18d300`).** `JobIntakeCanonicalContext` shows the selected school's parent District (or **Review required**) and current service term (read from the canonical records by id) in `QuickCreateJobDrawer`; a District shows its child-school count. Pickers continue to resolve organization/location/contact by canonical id; the term is surfaced for confirmation, not silently snapshotted.
+- **G — Permissions + verification (`9d02d1b` + this commit).** Permission matrix enforced + locked (below), real browser verification (below), full gates green, and this report.
 
-## 4. Test + build results (this session)
+## 4. Permission matrix (authority-tier floor, enforced)
 
-**New Phase 4 API tests (45):** organizationHierarchy 16 · schoolServiceTerm 9 · canonicalContacts 5 · organizationBrand 12 · directoryReconciliation 3 — all green. **Web:** organizationsPage 30/30 (updated for canonical website/phone/entity-kind, not notes). **Regression (green):** organizationsDirectory 16 · clientCommandCenter 2 · schoolsHub 9. **Typechecks:** api + admin-web `tsc --noEmit` clean. **Builds:** api + admin-web `build` OK. **Migration head 162 applied.**
+The canonical directory adopts the **authority-tier floor** the audit recommended (not per-row
+permission codes). `directoryPermissionsMatrix.test.ts` locks the contract across every Phase 4
+route:
 
-Test-infra notes: a few service-level tests run inside a rolled-back transaction (deterministic) to avoid (a) the shared dev DB's intermittent first-write 500 (observed across phases) and (b) mutating live demo data; the route paths are covered by dry-run / RBAC / cross-tenant cases. Pre-existing baseline (untouched): the 3 `timeClockMileagePhase5` assertions; admin-web parallel-run flakiness (serial is green).
+| Tier | Who | Routes | Denial |
+|---|---|---|---|
+| **Read** | any authenticated user | `GET /districts`, `/:id/service-terms`, `/:id/logo-history`, `/contact-identities/:id/relationships`, list/detail | `401` only when unauthenticated |
+| **Manage** | super_admin / leadership / director_admin, or `*_client_success` / `customer_service_rep` | `POST /contact-identities`(+`/links`,`/backfill`), `PATCH /:id/brand`, `POST /:id/logo-restore`, `POST /reconcile/districts`, `POST /reconcile/directory` | `403` for an authenticated non-manager |
+| **School foundation** | the above, or schools-supervisor / `director_of_school_photography` | `POST /:id/service-terms`, `POST /service-terms/:id/rollover`\|`activate`, `PATCH /service-terms/:id` | `403` for a non-foundation user |
 
-## 5. Remaining slices (continuation — UI + browser)
+Authorization is decided by the guard before any write, so the dry-run reconcile is proven
+allowed *and* side-effect-free for a manager.
 
-Backend is in place for these; the work below is admin-web React + browser:
+## 5. Test + build results (this session)
 
-- **Slice 4B — service-term UI:** admin-web client types + current/next/history view + rollover/confirm actions on Organization detail (consume the Slice 4 API; no second rollover algorithm in React).
-- **Slice 5 — full Directory navigation + detail:** searchable canonical Parent-District selector (replacing the `districtOptions` prop), full-page Organization route (Back-preserving, deny/not-found), District/School/Contact/Location detail surfaces over the canonical reads, parentless-legacy-school "Review Required" marker, a11y + no-N+1.
-- **Slice 6 — canonical Create Organization:** progressive sections (hierarchy → identity → parent → locations → contacts → ownership → brand → notes → initial term), existing/inline Contact + Location, one transaction with staged uploads, field-level errors.
-- **Slice 8 — Job Intake:** District→School→approved-Location→contextual-Contact selection by canonical id; room/area stays free text (no duplicate Location); current service-term context shown but only required values snapshotted; Sports/non-school intake unchanged.
-- **Slice 9 — permissions matrix + a11y + performance + 30-step browser pass + this report's browser section.** A server-side permission matrix (wire the seeded `organization.*`/`contact.*`/`location.*` codes or formally accept the tier floor) + the deterministic browser scenario (start Docker/API/admin-web, fixture + cleanup).
+**Phase 4 API tests (63, all green):** organizationHierarchy 18 · schoolServiceTerm 9 ·
+canonicalContacts 6 · organizationBrand 12 · directoryReconciliation 3 ·
+directoryReconciliationBatch 3 · directoryPermissionsMatrix 12.
+**Phase 4 web tests (47, all green):** organizationsPage 32 · serviceTermsPanel 5 ·
+directoryHierarchy 5 · jobIntakeCanonicalContext 5.
+**Regression (green):** API organizationsDirectory 16 · clientCommandCenter 2 · schoolsHub 9;
+web jobIntakeQuickCreate 12.
+**Gates:** api + admin-web `tsc --noEmit` clean; api + admin-web `build` clean. Migration head 162.
 
-The Slice-7 framework also extends to contact-identity reconciliation (reuse the Slice 2 backfill) and notes reconciliation (reuse the Slice 3 parser) under one batch artifact; the demo-tenant reversible apply runs as a gated batch with JSON/Markdown artifacts.
+Test-infra notes: service-level tests that mutate run inside a rolled-back transaction
+(deterministic) to avoid the shared dev DB's intermittent first-write 500 and to leave live demo
+data untouched; their route paths are covered by dry-run / RBAC / cross-tenant cases. Pre-existing
+baseline untouched (`timeClockMileagePhase5`; admin-web parallel-run flakiness — serial is green).
 
-## 6. Rollback / deployment
+## 6. Browser verification (real attempt, against the running app)
 
-All migrations are additive (new tables / nullable columns); rolling back the app leaves them harmless. Each feature commit is individually revertible. No endpoint marks, archives, or deletes without an explicit admin apply (`?apply=true`); all default to dry-run/read. The brand website-normalization swap rejects unsafe protocols on write (a deliberate hardening). Demo-curation and Phase 1–3 work are untouched.
+Ran a live browser pass against the running admin-web (Vite preview) + API (`:4000`),
+authenticated through the app's password/dev-login + cookie/CSRF session:
 
-## 7. Known limitations
+1. Signed in → Mission Control home.
+2. Opened **Directory** → organization search returns canonical accounts.
+3. Searched "Wayzata" → 3 canonical orgs (High School, Public Schools, School District).
+4. Opened **Wayzata High School** → **Account Hierarchy** card shows `PARENT DISTRICT — Wayzata School District` (correctly *not* flagged Review required) and the **Service Terms** panel renders with the manager's "Add term" action + empty state.
+5. Clicked the parent-District link → **Wayzata School District** → **District Hierarchy** shows `1 LINKED SCHOOL — Wayzata High School`. (Bidirectional canonical navigation.)
+6. Opened **Create Organization** → searchable **ParentDistrictSelector** ("Choose district") and the **First Service Term** section both render.
+7. "Choose district" loaded live canonical districts (Osseo Area Schools · Tonka United · Wayzata School District), each with its child-school count.
+8. `GET /api/organizations/districts` → `200`, 3 canonical districts with child counts.
+9. `POST /api/organizations/reconcile/directory` (dry-run) → `200`, matches the committed artifact exactly: districts considered=3 (no_candidate=3), contacts unlinked=187, brand/notes review=1, applied all 0.
+10. No fixtures were persisted (read-only navigation + an unsubmitted create form). The only failed network calls were two pre-login `GET /auth/session → 401` (expected). The only console errors are a **pre-existing** React duplicate-key warning in an unrelated staffing list ("Trade Replacement Photographer") — none of the Phase 4 components emit it (all use unique `id` keys).
 
-1. The detail/create/service-term UIs (Slices 4B/5/6/8) are not built — the canonical backend + APIs are ready for them.
-2. The reconciliation apply + contact backfill apply are dry-run by default; the demo-tenant reversible apply + artifacts are a gated batch (not executed this session).
-3. The legacy `organization.notes` still contains brand/owner tokens for existing rows; new writes don't add to it, and the Slice-3 parser can extract them deterministically (apply pending Slice 6/7).
-4. The 30-step browser verification (Slice 9) requires the admin-web preview environment.
+## 7. Accessibility & performance
+
+- **a11y:** the new surfaces carry semantic roles/labels — `ServiceTermsPanel` (`section[aria-label]`, `role="alert"` errors, labelled inputs), `ParentDistrictSelector` (`aria-expanded`, labelled search, `role="listbox"`/`option`, `aria-selected`), `OrganizationHierarchyCard` (`role="status"` review banner, labelled child list), `JobIntakeCanonicalContext` (`role="group"` with label). Verified present in the live accessibility tree.
+- **performance (no N+1):** `GET /districts` is a single capped query (LIMIT 50) with a correlated child-count subquery; `child_organizations` is a single capped read (LIMIT 500); `service-terms` is a single ordered query; the reconciliation batch classifies in set queries, not per-row loops. The selector debounces search (200 ms).
+
+## 8. Rollback / deployment
+
+All migrations are additive (new tables / nullable columns); rolling back the app leaves them
+harmless, and each feature commit is individually revertible. Every mutating endpoint defaults to
+dry-run/read and applies only with explicit management access (`?apply=true` for reconcile). The
+reconciliation batch carries a batch id + rollback block (the exact applied links to undo; contact
+backfill + brand/notes are reported only and never written by the batch). The committed dry-run
+artifact shows the live demo tenant is **not** mutated by this work; the apply is built, dry-run
+generated, and test-proven reversible. Demo-curation (Phase 3C.1) and Phase 1–3 work are untouched.
+
+## 9. Known limitations
+
+1. The reconciliation **apply** against live demo data is intentionally not executed in this run
+   (the demo tenant shows 0 exact-match district links and 187 contact-identity candidates — a
+   bulk create kept as an explicit, separately-gated step). Run `npm --workspace packages/api run
+   reconcile:directory-demo -- --apply` when ready; it is reversible via the artifact's rollback block.
+2. Brand/notes reconciliation is dry-run/Review-Required only (parsing free-text notes into
+   canonical brand is ambiguous by design).
+3. The service term is surfaced in job intake for operator confirmation; its values are not
+   auto-snapshotted into the job (safest — avoids overwriting operator input).
