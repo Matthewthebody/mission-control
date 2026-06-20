@@ -748,7 +748,8 @@ router.get("/internal-owners", requireCanonicalDirectoryManageAccess, async (req
 
 // Phase 4 Slice 5 — canonical parent Districts for the searchable Parent-District
 // selector. Registered before "/:id" so it is not captured by the detail route.
-router.get("/districts", async (req, res, next) => {
+// Read access is enforced router-wide; the explicit guard keeps the tier visible at the route.
+router.get("/districts", requireCanonicalDirectoryReadAccess, async (req, res, next) => {
   try {
     const auth = (req as AuthenticatedRequest).auth;
     const search = typeof req.query.search === "string" ? req.query.search : null;
