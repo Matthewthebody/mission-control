@@ -195,14 +195,24 @@ async function loadJobDepartment(client: PoolClient, auth: AuthUser, jobId: stri
   return rows[0];
 }
 
-// Audit-aware archive: records who/why and clears any prior restore marker. Reuses
-// the existing archived_at column; idempotent (already-archived is a no-op).
+// Audit-aware archive: records who/why, snapshots the prior lifecycle status into
+// pre_archive_state (so restore can return to it), and clears any prior restore marker.
+// Reuses the existing archived_at column; idempotent (already-archived is a no-op).
+// NOTE: in a single UPDATE every SET right-hand side reads the row's PRE-update values,
+// so pre_archive_state.job_status captures the live status before it becomes 'archived'.
 export async function archiveJobLifecycle(client: PoolClient, auth: AuthUser, jobId: string, reason: string | null) {
   const job = await loadJobDepartment(client, auth, jobId);
   requireManageAccess(auth, job.department_type);
   if (job.archived_at == null) {
     await client.query(
       `UPDATE jobs SET archived_at = now(), archived_by_user_id = $3, archive_reason = $4, restored_at = NULL, restored_by_user_id = NULL,
+              pre_archive_state = jsonb_build_object(
+                'job_status', job_status::text,
+                'production_status', production_status::text,
+                'readiness_status', readiness_status::text,
+                'risk_status', risk_status::text,
+                'staffing_status', staffing_status::text
+              ),
               job_status = 'archived', updated_at = now()
          WHERE tenant_id=$1 AND id=$2 AND archived_at IS NULL`,
       [auth.tenantId, jobId, auth.id, reason]
@@ -212,19 +222,93 @@ export async function archiveJobLifecycle(client: PoolClient, auth: AuthUser, jo
   return getJobDetail(client, auth, jobId);
 }
 
-// Restore an archived Job. Idempotent (not-archived is a no-op).
+// Decide the restore target from the recorded prior status reconciled against current
+// child data. Pure + exported for direct unit testing. Returns the job_status to set
+// and the reconciliation outcome. Never blindly forces pending_confirmation: a valid,
+// consistent prior status is restored; pending_confirmation is used only as a labeled
+// Review Required outcome when the prior state is missing or contradicts child data.
+const TERMINAL_PRIOR_STATUSES = new Set(["execution_complete", "cancelled", "archived"]);
+export function resolveRestoreTarget(input: {
+  priorJobStatus: string | null;
+  currentlyComplete: boolean;
+  currentlyCanceled: boolean;
+  hasOpenWork: boolean;
+}): { targetStatus: string; outcome: "restored_prior" | "review_required"; reason: string | null } {
+  const prior = input.priorJobStatus;
+  if (!prior || prior === "archived") {
+    return { targetStatus: "pending_confirmation", outcome: "review_required", reason: "No recorded pre-archive status; needs re-triage." };
+  }
+  const priorIsTerminal = TERMINAL_PRIOR_STATUSES.has(prior);
+  // A previously-terminal status that now has open child work is contradictory.
+  if (priorIsTerminal && input.hasOpenWork) {
+    return { targetStatus: "pending_confirmation", outcome: "review_required", reason: `Prior status '${prior}' is terminal but the Job now has open work.` };
+  }
+  // A previously-active status while the Job is now canonically complete/canceled with
+  // no open work is contradictory — restoring an active status would misrepresent state.
+  if (!priorIsTerminal && (input.currentlyComplete || input.currentlyCanceled) && !input.hasOpenWork) {
+    return {
+      targetStatus: "pending_confirmation",
+      outcome: "review_required",
+      reason: `Prior status '${prior}' is active but child data now reads ${input.currentlyCanceled ? "canceled" : "complete"}.`
+    };
+  }
+  return { targetStatus: prior, outcome: "restored_prior", reason: null };
+}
+
+// Restore an archived Job to its recorded prior lifecycle status, reconciled against
+// current child data. Idempotent (not-archived is a no-op). Returns to the prior status
+// when it is valid and consistent; falls to a labeled Review Required (pending_
+// confirmation) only when the prior state is missing or contradicts the current data —
+// never blindly forcing pending_confirmation. Clears pre_archive_state once consumed.
 export async function restoreJobLifecycle(client: PoolClient, auth: AuthUser, jobId: string) {
   const job = await loadJobDepartment(client, auth, jobId);
   requireManageAccess(auth, job.department_type);
-  if (job.archived_at != null) {
-    await client.query(
-      // Return to a re-triage status (the prior status was overwritten at archive time).
-      `UPDATE jobs SET archived_at = NULL, restored_at = now(), restored_by_user_id = $3,
-              job_status = CASE WHEN job_status = 'archived' THEN 'pending_confirmation' ELSE job_status END, updated_at = now()
-         WHERE tenant_id=$1 AND id=$2 AND archived_at IS NOT NULL`,
-      [auth.tenantId, jobId, auth.id]
-    );
-    await writeJobActivity(client, { tenantId: auth.tenantId, jobId, actorUserId: auth.id, eventType: "job_restored", summary: "Restored job from archive", departmentType: job.department_type, newValues: { archived: false } });
+  if (job.archived_at == null) {
+    return getJobDetail(client, auth, jobId); // not archived — no-op
   }
+
+  // Read the recorded prior status + current child signals for this one Job.
+  const signal = (
+    await client.query<{
+      prior_job_status: string | null;
+      production_status: string;
+      completed_at: string | null;
+      cancelled_at: string | null;
+      open_blocker_count: number;
+      open_workflow_count: number;
+      open_production_count: number;
+    }>(
+      `SELECT
+         j.pre_archive_state->>'job_status' AS prior_job_status,
+         j.production_status::text AS production_status,
+         j.completed_at::text AS completed_at, j.cancelled_at::text AS cancelled_at,
+         (SELECT count(*) FROM job_readiness_items r WHERE r.tenant_id=j.tenant_id AND r.job_id=j.id AND r.is_blocker AND NOT r.is_complete)::int AS open_blocker_count,
+         (SELECT count(*) FROM workflow_run wr WHERE wr.tenant_id=j.tenant_id AND wr.job_id=j.id)::int AS open_workflow_count,
+         (SELECT count(*) FROM production_items p WHERE p.tenant_id=j.tenant_id AND p.job_id=j.id AND p.status::text NOT IN ('delivered','complete','cancelled'))::int AS open_production_count
+       FROM jobs j WHERE j.tenant_id=$1 AND j.id=$2`,
+      [auth.tenantId, jobId]
+    )
+  ).rows[0];
+
+  const currentlyComplete = signal.production_status === "delivered" || signal.production_status === "complete" || signal.completed_at != null;
+  const currentlyCanceled = signal.cancelled_at != null;
+  const hasOpenWork = signal.open_blocker_count > 0 || signal.open_workflow_count > 0 || signal.open_production_count > 0;
+  const { targetStatus, outcome, reason } = resolveRestoreTarget({ priorJobStatus: signal.prior_job_status, currentlyComplete, currentlyCanceled, hasOpenWork });
+
+  await client.query(
+    `UPDATE jobs SET archived_at = NULL, restored_at = now(), restored_by_user_id = $3,
+            job_status = $4::job_status_type, pre_archive_state = NULL, updated_at = now()
+       WHERE tenant_id=$1 AND id=$2 AND archived_at IS NOT NULL`,
+    [auth.tenantId, jobId, auth.id, targetStatus]
+  );
+  await writeJobActivity(client, {
+    tenantId: auth.tenantId,
+    jobId,
+    actorUserId: auth.id,
+    eventType: "job_restored",
+    summary: outcome === "restored_prior" ? `Restored job to prior status '${targetStatus}'` : "Restored job — Review Required",
+    departmentType: job.department_type,
+    newValues: { archived: false, restore_outcome: outcome, restored_status: targetStatus, reason }
+  });
   return getJobDetail(client, auth, jobId);
 }
