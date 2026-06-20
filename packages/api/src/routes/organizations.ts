@@ -60,6 +60,7 @@ import {
 } from "../services/canonicalContacts.js";
 import { updateOrganizationBrand, getLogoHistory, restoreOrganizationLogo } from "../services/organizationBrand.js";
 import { reconcileDistricts } from "../services/directoryReconciliation.js";
+import { reconcileDirectoryBatch } from "../services/directoryReconciliationBatch.js";
 import {
   createDirectoryCommunicationLog,
   createDirectoryRelationshipFollowUp,
@@ -1391,6 +1392,20 @@ router.post("/reconcile/districts", requireCanonicalDirectoryManageAccess, async
     const auth = (req as AuthenticatedRequest).auth;
     const apply = String(req.query.apply ?? "") === "true";
     const report = await withClientTransaction(auth.tenantId, auth.id, (client) => reconcileDistricts(client, auth, { dryRun: !apply }));
+    return res.json(report);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Combined reconciliation batch (Phase 4 Slice E): districts + contacts + brand/notes in
+// one report. Dry-run by default; ?apply=true applies ONLY the deterministic additive
+// domains (districts links + contact identities). Brand/notes stay Review Required.
+router.post("/reconcile/directory", requireCanonicalDirectoryManageAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const apply = String(req.query.apply ?? "") === "true";
+    const report = await withClientTransaction(auth.tenantId, auth.id, (client) => reconcileDirectoryBatch(client, auth, { dryRun: !apply }));
     return res.json(report);
   } catch (error) {
     return next(error);

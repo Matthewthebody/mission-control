@@ -1,0 +1,85 @@
+{
+  "stamped_at": "2026-06-20T21:43:36.409Z",
+  "admin_email": "schools-office@example.com",
+  "dry_run": true,
+  "batch_id": null,
+  "tenant_id": "223ee748-3dcd-4837-97a9-8eba7dbb11f2",
+  "districts": {
+    "dry_run": true,
+    "batch_id": null,
+    "tenant_id": "223ee748-3dcd-4837-97a9-8eba7dbb11f2",
+    "total_considered": 3,
+    "by_class": {
+      "already_canonical": 0,
+      "exact_match": 0,
+      "multiple_candidates": 0,
+      "no_candidate": 3,
+      "conflicting_parent": 0
+    },
+    "applied": 0,
+    "applied_links": [],
+    "candidates": [
+      {
+        "organization_id": "a982ef59-268c-4cf9-9d4d-dd9113f123fc",
+        "display_name": "White Bear Lake High School",
+        "district_name": "White Bear Lake Area Schools",
+        "current_parent_id": null,
+        "classification": "no_candidate",
+        "matched_district_id": null
+      },
+      {
+        "organization_id": "0e4a1023-7b87-4982-8a82-acf92617ec2b",
+        "display_name": "Cedar Ridge High School",
+        "district_name": "East Metro Public Schools",
+        "current_parent_id": null,
+        "classification": "no_candidate",
+        "matched_district_id": null
+      },
+      {
+        "organization_id": "1a083600-140f-49a4-bd5e-e7a8f396d481",
+        "display_name": "Maple Grove Middle School",
+        "district_name": "Maple Grove Public Schools",
+        "current_parent_id": null,
+        "classification": "no_candidate",
+        "matched_district_id": null
+      }
+    ]
+  },
+  "contacts": {
+    "dry_run": true,
+    "batch_id": null,
+    "total_unlinked": 187,
+    "one_to_one": 187,
+    "invalid_no_identity": 0,
+    "possible_duplicate": 0,
+    "applied": 0
+  },
+  "brand_notes": {
+    "considered": 1,
+    "review_required": 1,
+    "candidates": [
+      {
+        "organization_id": "4b6a07cf-4cb4-461f-b293-5d5cbbcca60f",
+        "display_name": "BGPFGS",
+        "parsed": {
+          "website": "https://www.browngirlsrule.com",
+          "main_phone": "8654051021",
+          "primary_color": null,
+          "secondary_color": null,
+          "mascot": null,
+          "logo_status": "Current"
+        }
+      }
+    ]
+  },
+  "applied": {
+    "districts": 0,
+    "contacts": 0,
+    "brand_notes": 0
+  },
+  "rollback": {
+    "districts_applied_links": [],
+    "contacts_backfill_batch_id": null,
+    "instructions": "Reverse districts: UPDATE organization SET parent_organization_id = NULL for each rollback.districts_applied_links row. Contacts and brand/notes are reported only by this batch (never applied), so there is nothing to reverse there — run POST /contact-identities/backfill explicitly to apply the one-to-one identity backfill."
+  }
+}
