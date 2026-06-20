@@ -4,6 +4,7 @@ import type { AuthUser } from "../../types/auth.js";
 import type { JobDepartmentType } from "../../domain/jobTruth/index.js";
 import { hasReadScope } from "./jobService.js";
 import { JOBS_RECENT_COMPLETION_DAYS } from "./jobsLifecycle.js";
+import { tenantIsDemo } from "./jobsProvenance.js";
 
 // ── Canonical Jobs index read model (Phase 3B) ───────────────────────────────
 // ONE predicate layer shared by the returned rows AND every summary count, so
@@ -350,6 +351,10 @@ export type JobIndexResult = {
   page: { limit: number; offset: number; total: number; returned: number; has_more: boolean };
   attention_reason_availability: { job_native: string[]; unavailable: typeof JOB_INDEX_UNAVAILABLE_ATTENTION_REASONS };
   applied_metric: string | null;
+  // Whether this tenant is a demo tenant. The API default still hides demo data (so
+  // operational tenants and every test stay clean); the UI uses this to default the
+  // Show Demo Data toggle ON for a demo tenant so its curated demo is visible.
+  tenant_is_demo: boolean;
 };
 
 export async function getJobsCanonicalIndex(client: PoolClient, auth: AuthUser, filters: JobIndexFilters): Promise<JobIndexResult> {
@@ -408,7 +413,8 @@ export async function getJobsCanonicalIndex(client: PoolClient, auth: AuthUser, 
     summary: { total: baseTotal, metrics: [...metrics, ...unavailableMetrics] },
     page: { limit, offset, total: filteredTotal, returned: rows.length, has_more: offset + rows.length < filteredTotal },
     attention_reason_availability: { job_native: JOB_NATIVE_ATTENTION_REASONS.map((r) => r.reason), unavailable: JOB_INDEX_UNAVAILABLE_ATTENTION_REASONS },
-    applied_metric: metricKey
+    applied_metric: metricKey,
+    tenant_is_demo: await tenantIsDemo(client, auth.tenantId)
   };
 }
 

@@ -168,6 +168,7 @@ export type JobsIndexResponse = {
   page: { limit: number; offset: number; total: number; returned: number; has_more: boolean };
   attention_reason_availability: { job_native: string[]; unavailable: Array<{ reason: string; explanation: string }> };
   applied_metric: string | null;
+  tenant_is_demo: boolean;
 };
 
 export async function getJobsIndex(token: string, query: Record<string, string | number | undefined | null> = {}): Promise<JobsIndexResponse> {

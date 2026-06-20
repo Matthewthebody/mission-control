@@ -60,6 +60,7 @@ function response(over: Partial<JobsIndexResponse> = {}): JobsIndexResponse {
     page: { limit: 25, offset: 0, total: 3, returned: 3, has_more: false },
     attention_reason_availability: { job_native: ["late", "blocked_no_owner"], unavailable: [{ reason: "not_acknowledged", explanation: "Shoot-scoped" }] },
     applied_metric: null,
+    tenant_is_demo: false,
     ...over
   };
 }
@@ -126,6 +127,21 @@ describe("JobsIndexPage", () => {
     await waitFor(() => expect(getJobsIndexMock.mock.calls.at(-1)?.[1]).toMatchObject({ show_demo: "true" }));
   });
 
+  it("(3C.1) a demo tenant defaults Show Demo Data ON; an operational tenant does not", async () => {
+    getJobsIndexMock.mockResolvedValue(response({ tenant_is_demo: true }));
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    await screen.findByRole("heading", { name: "Jobs" });
+    await waitFor(() => expect(window.location.hash).toContain("show_demo=true")); // auto-enabled once
+    expect((screen.getByLabelText("Show demo data") as HTMLInputElement).checked).toBe(true);
+    cleanup();
+    window.location.hash = "#jobs";
+    getJobsIndexMock.mockResolvedValue(response({ tenant_is_demo: false }));
+    render(<JobsIndexPage token="t" currentUser={user()} />);
+    await screen.findByRole("heading", { name: "Jobs" });
+    expect(window.location.hash).not.toContain("show_demo"); // operational tenant: not auto-enabled
+    expect((screen.getByLabelText("Show demo data") as HTMLInputElement).checked).toBe(false);
+  });
+
   it("(36/37/38) unlinked jobs show no fabricated Shoot state; linked show labeled data; workflow is independent", async () => {
     getJobsIndexMock.mockResolvedValue(response());
     render(<JobsIndexPage token="t" currentUser={user()} />);
@@ -164,6 +180,9 @@ describe("JobQuickViewDrawer", () => {
     expect(within(drawer).getByText("Organization")).toBeInTheDocument();
     expect(within(drawer).getByText("Promised delivery")).toBeInTheDocument();
     expect(within(drawer).getByText("Edina HS")).toBeInTheDocument();
+    // Lifecycle is a distinct derived label, not a duplicate of Status (job_status "confirmed").
+    expect(within(drawer).getByText("Lifecycle")).toBeInTheDocument();
+    expect(within(drawer).getByText("Active")).toBeInTheDocument();
   });
 
   it("(44/55) shows canonical attention reasons as text, not color alone", async () => {

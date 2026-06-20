@@ -107,7 +107,9 @@ describe("GET /api/jobs/index — predicate consistency", () => {
   it("(3) never falls back to demo counts — an empty result is a true zero, not a sample number", async () => {
     const body = (await index("department_type=corporate&search=__definitely_absent__")).body;
     expect(body.page.total).toBe(0);
-    expect(JSON.stringify(body)).not.toMatch(/sample|demo|illustrative/i);
+    // No fabricated demo/sample DATA. (tenant_is_demo is honest metadata, not content — exclude it.)
+    const { tenant_is_demo, ...content } = body;
+    expect(JSON.stringify(content)).not.toMatch(/sample|demo|illustrative/i);
   });
 
   it("(4) unavailable metrics expose no enabled count/filter contract", async () => {

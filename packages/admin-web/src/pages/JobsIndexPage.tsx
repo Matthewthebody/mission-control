@@ -136,6 +136,17 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
   const drawerOutside = !selectedRow && Boolean(offPage?.row);
   const closeSelection = () => writeHash({ selected: null, focus: null });
 
+  // Demo tenants default the Show Demo Data toggle ON (so the curated demo is visible)
+  // the first time the view is opened without an explicit choice. The API default stays
+  // off; this is a one-time URL-backed default the user can override (?show_demo=false).
+  useEffect(() => {
+    if (data?.tenant_is_demo && filters.show_demo == null) {
+      writeHash({ show_demo: "true" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.tenant_is_demo, filters.show_demo]);
+  const showDemoChecked = filters.show_demo != null ? filters.show_demo === "true" : Boolean(data?.tenant_is_demo);
+
   return (
     <section className="panel jobs-index" aria-label="Jobs">
       <header className="jobs-index__header">
@@ -189,8 +200,8 @@ export function JobsIndexPage({ token, currentUser }: { token: string; currentUs
             <input
               type="checkbox"
               aria-label="Show demo data"
-              checked={filters.show_demo === "true"}
-              onChange={(e) => writeHash({ show_demo: e.target.checked ? "true" : null, offset: null })}
+              checked={showDemoChecked}
+              onChange={(e) => writeHash({ show_demo: e.target.checked ? "true" : "false", offset: null })}
             />
             <span>Show demo data</span>
           </label>
@@ -371,6 +382,15 @@ function JobQuickViewDrawer({
   }
 
   const dueDate = row.production_deadline_at ?? row.client_deadline_at;
+  // Distinct lifecycle label (Step 9: remove the duplicate status — "Lifecycle" must not
+  // simply restate "Status"). Derived from canonical fields, not a second copy of job_status.
+  const lifecycleLabel = isArchived
+    ? "Archived"
+    : row.job_status === "cancelled"
+      ? "Canceled"
+      : row.job_status === "execution_complete" || row.production_status === "delivered" || row.production_status === "complete"
+        ? "Completed"
+        : "Active";
   return (
     <div className="jobs-drawer__scrim" onClick={onClose}>
       <aside className="jobs-drawer" role="dialog" aria-modal="true" aria-label={`Job quick view: ${row.title}`} onClick={(e) => e.stopPropagation()}>
@@ -403,7 +423,7 @@ function JobQuickViewDrawer({
             <div><dt>Blockers</dt><dd>{row.blocker_count}</dd></div>
             <div><dt>Missing required</dt><dd>{row.incomplete_required_count}</dd></div>
             <div><dt>Promised delivery</dt><dd>{formatDate(dueDate)}</dd></div>
-            <div><dt>Lifecycle</dt><dd>{isArchived ? "Archived" : humanize(row.job_status)}</dd></div>
+            <div><dt>Lifecycle</dt><dd>{lifecycleLabel}</dd></div>
           </dl>
         </section>
 
