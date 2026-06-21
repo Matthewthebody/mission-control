@@ -47,6 +47,55 @@ async function loadContact(client: PoolClient, tenantId: string, contactId: stri
   return rows[0] ?? null;
 }
 
+// ── Canonical contact-identity list (Phase 4.2 Part 2) ───────────────────────
+// First-class list over the reusable `contact` identities (NOT org-bound rows), with the
+// count of organizations each person is linked to and a compact role summary. Searchable by
+// name / email / phone; filterable by organization and active state. Never merges; one row
+// per identity. Read access only (any authed user).
+export type CanonicalContactListItem = CanonicalContactRecord & {
+  linked_organization_count: number;
+  role_summary: string[];
+};
+
+export async function listCanonicalContacts(
+  client: PoolClient,
+  auth: AuthUser,
+  filters: { search?: string | null; organizationId?: string | null; activeStatus?: string | null; limit?: number; offset?: number } = {}
+): Promise<{ contacts: CanonicalContactListItem[]; total: number }> {
+  const search = norm(filters.search);
+  const like = search ? `%${search}%` : null;
+  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
+  const offset = Math.max(filters.offset ?? 0, 0);
+  const params: unknown[] = [auth.tenantId, like, filters.organizationId ?? null, filters.activeStatus ?? null];
+  // The org filter narrows to identities that have at least one organization_contact in that org.
+  const where = `
+    c.tenant_id = $1
+    AND ($2::text IS NULL OR c.normalized_full_name LIKE $2 OR c.normalized_email LIKE $2 OR lower(COALESCE(c.phone,'')) LIKE $2)
+    AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM organization_contact oc WHERE oc.tenant_id=c.tenant_id AND oc.contact_id=c.id AND oc.organization_id=$3))
+    AND ($4::text IS NULL OR c.active_status = $4)`;
+  const totalRow = await client.query<{ n: string }>(`SELECT count(*)::text n FROM contact c WHERE ${where}`, params);
+  const total = Number(totalRow.rows[0]?.n ?? 0);
+  const { rows } = await client.query<CanonicalContactListItem>(
+    `SELECT ${CONTACT_COLUMNS},
+            (SELECT count(DISTINCT oc.organization_id) FROM organization_contact oc WHERE oc.tenant_id=c.tenant_id AND oc.contact_id=c.id)::int AS linked_organization_count,
+            COALESCE((
+              SELECT array_agg(DISTINCT role)::text[] FROM (
+                SELECT unnest(COALESCE(ocr.client_roles, '{}'))::text AS role
+                  FROM organization_contact oc
+                  JOIN organization_contact_relationship ocr ON ocr.tenant_id=oc.tenant_id AND ocr.contact_id=oc.id AND ocr.is_current=true
+                 WHERE oc.tenant_id=c.tenant_id AND oc.contact_id=c.id
+                 LIMIT 50
+              ) roles WHERE role IS NOT NULL
+            ), '{}')::text[] AS role_summary
+       FROM contact c
+      WHERE ${where}
+      ORDER BY lower(COALESCE(c.full_name, c.email, '')), c.id
+      LIMIT ${limit} OFFSET ${offset}`,
+    params
+  );
+  return { contacts: rows, total };
+}
+
 export type CreateCanonicalContactInput = {
   first_name?: string | null;
   last_name?: string | null;

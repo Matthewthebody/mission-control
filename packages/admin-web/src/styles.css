@@ -23470,3 +23470,15 @@ html[data-theme="light"] .help-tooltip__bubble {
 .record-detail__archived { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px dashed rgba(211, 165, 106, 0.5); border-radius: 10px; background: var(--warm-accent-soft); }
 .record-detail__list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .link-button { background: none; border: none; padding: 0; color: var(--warm-accent); cursor: pointer; font: inherit; text-decoration: underline; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Phase 4.2 Part 2 — reusable canonical contact selector + list */
+.canonical-contact-selector { display: flex; flex-direction: column; gap: 8px; }
+.canonical-contact-selector__results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; }
+.canonical-contact-selector__option { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: inherit; cursor: pointer; }
+.canonical-contact-selector__option:hover, .canonical-contact-selector__option:focus-visible { border-color: var(--border-strong); }
+.canonical-contact-selector__name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.canonical-contact-selector__create { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
+.canonical-contacts-panel__list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.canonical-contacts-panel__relationships { padding: 8px 12px; }
+.canonical-contacts-panel__relationships ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

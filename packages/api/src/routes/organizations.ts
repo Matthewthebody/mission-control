@@ -56,6 +56,7 @@ import {
   createCanonicalContact,
   linkContactToOrganization,
   getContactRelationships,
+  listCanonicalContacts,
   backfillContactIdentities
 } from "../services/canonicalContacts.js";
 import { updateOrganizationBrand, getLogoHistory, restoreOrganizationLogo } from "../services/organizationBrand.js";
@@ -1476,6 +1477,25 @@ const linkContactSchema = z.object({
   relationship_role: z.string().trim().max(80).optional(),
   client_roles: z.array(z.string().trim().max(80)).max(20).optional(),
   is_primary: z.boolean().optional()
+});
+
+// Phase 4.2 Part 2 — first-class canonical contact-identity list (read access).
+router.get("/contact-identities", requireCanonicalDirectoryReadAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      listCanonicalContacts(client, auth, {
+        search: typeof req.query.search === "string" ? req.query.search : null,
+        organizationId: typeof req.query.organization_id === "string" ? req.query.organization_id : null,
+        activeStatus: typeof req.query.active_status === "string" ? req.query.active_status : null,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        offset: req.query.offset ? Number(req.query.offset) : undefined
+      })
+    );
+    return res.json(payload);
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.post("/contact-identities", requireCanonicalDirectoryManageAccess, validateBody(createContactIdentitySchema), async (req, res, next) => {

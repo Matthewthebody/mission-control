@@ -45,6 +45,9 @@ import type {
   DirectoryTouchpointPlan,
   DirectoryTouchpointPlanStatus,
   DirectoryTouchpointRecord,
+  CanonicalContactListResponse,
+  CanonicalContactRecord,
+  CanonicalContactRelationshipsResponse,
   CanonicalDistrictListResponse,
   OrganizationAccountType,
   OrganizationDetail,
@@ -522,6 +525,52 @@ export type OrganizationBrandInput = {
 export async function updateOrganizationBrandRecord(token: string, organizationId: string, input: OrganizationBrandInput) {
   return apiFetch<OrganizationDetail>(`/api/organizations/${organizationId}/brand`, token, {
     method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+// ── Phase 4.2 Part 2 — reusable canonical Contact identities ─────────────────
+export async function listCanonicalContacts(
+  token: string,
+  filters: { search?: string; organizationId?: string | null; activeStatus?: string | null; limit?: number; offset?: number } = {}
+) {
+  const params = new URLSearchParams();
+  if (filters.search?.trim()) params.set("search", filters.search.trim());
+  if (filters.organizationId) params.set("organization_id", filters.organizationId);
+  if (filters.activeStatus) params.set("active_status", filters.activeStatus);
+  if (filters.limit) params.set("limit", String(filters.limit));
+  if (filters.offset) params.set("offset", String(filters.offset));
+  const query = params.toString();
+  return apiFetch<CanonicalContactListResponse>(`/api/organizations/contact-identities${query ? `?${query}` : ""}`, token);
+}
+
+export type CanonicalContactCreateInput = {
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  preferred_contact_method?: string | null;
+};
+
+export async function createCanonicalContactRecord(token: string, input: CanonicalContactCreateInput) {
+  return apiFetch<{ contact: CanonicalContactRecord }>("/api/organizations/contact-identities", token, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function getCanonicalContactRelationships(token: string, contactId: string) {
+  return apiFetch<CanonicalContactRelationshipsResponse>(`/api/organizations/contact-identities/${contactId}/relationships`, token);
+}
+
+export async function linkCanonicalContactToOrganizationRecord(
+  token: string,
+  contactId: string,
+  input: { organization_id: string; relationship_role?: string; client_roles?: string[]; is_primary?: boolean }
+) {
+  return apiFetch<{ organization_contact_id: string }>(`/api/organizations/contact-identities/${contactId}/links`, token, {
+    method: "POST",
     body: JSON.stringify(input)
   });
 }

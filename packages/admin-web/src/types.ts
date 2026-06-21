@@ -2269,6 +2269,46 @@ export type SchoolServiceTermListResponse = {
   service_terms: SchoolServiceTermRecord[];
 };
 
+// Phase 4.2 Part 2 — reusable canonical Contact identities (the `contact` table, not org-bound rows).
+export type CanonicalContactRecord = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  display_name: string | null;
+  email: string | null;
+  phone: string | null;
+  preferred_contact_method: string | null;
+  active_status: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CanonicalContactListItem = CanonicalContactRecord & {
+  linked_organization_count: number;
+  role_summary: string[];
+};
+
+export type CanonicalContactListResponse = {
+  contacts: CanonicalContactListItem[];
+  total: number;
+};
+
+export type CanonicalContactRelationship = {
+  organization_id: string;
+  organization_name: string;
+  organization_contact_id: string;
+  relationship_role: string | null;
+  client_roles: string[];
+  is_primary: boolean;
+};
+
+export type CanonicalContactRelationshipsResponse = {
+  identity: CanonicalContactRecord;
+  relationships: CanonicalContactRelationship[];
+};
+
 // Phase 4.1 — organization logo history (migration 162 organization_logo_history).
 export type OrganizationLogoHistoryEntry = {
   id: string;

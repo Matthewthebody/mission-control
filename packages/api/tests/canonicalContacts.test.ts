@@ -99,6 +99,27 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     expect(res.body.relationships[0].organization_contact_id).toBeTruthy(); // stable id for unlink
   });
 
+  it("(LIST) the contact-identity list is searchable and reports linked organization count", async () => {
+    const stampName = `Zxq List ${stamp}`;
+    const cid = (await pool.query(`INSERT INTO contact (tenant_id, first_name, last_name, full_name, normalized_full_name, email, normalized_email) VALUES ($1,'Zxq','List',$2,$3,$4,$4) RETURNING id::text`, [tenantId, stampName, stampName.toLowerCase(), `zxq${stamp}@list.example.com`])).rows[0].id;
+    createdContactIds.push(cid);
+    const oc = (await pool.query(`INSERT INTO organization_contact (tenant_id, organization_id, contact_id, first_name, last_name, full_name, normalized_full_name, active_status) VALUES ($1,$2,$3,'Zxq','List',$4,$5,'active') RETURNING id::text`, [tenantId, districtId, cid, stampName, stampName.toLowerCase()])).rows[0].id;
+    await pool.query(`INSERT INTO organization_contact_relationship (tenant_id, organization_id, contact_id, relationship_role, client_roles, is_current) VALUES ($1,$2,$3,'general',ARRAY['district_contact']::client_contact_role[],true)`, [tenantId, districtId, oc]);
+
+    const res = await get(`/contact-identities?search=${encodeURIComponent("Zxq List")}`);
+    expect(res.status).toBe(200);
+    const found = res.body.contacts.find((c: any) => c.id === cid);
+    expect(found).toBeTruthy();
+    expect(found.linked_organization_count).toBe(1);
+    expect(found.role_summary).toContain("district_contact");
+    expect(typeof res.body.total).toBe("number");
+  });
+
+  it("(LIST) read access only: an authenticated photographer can list, unauthenticated is 401", async () => {
+    expect((await get("/contact-identities", photographerToken)).status).toBe(200);
+    expect((await request(app).get("/api/organizations/contact-identities")).status).toBe(401);
+  });
+
   it("(20) backfill dry-run writes nothing", async () => {
     const before = (await pool.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1`, [tenantId])).rows[0].n;
     const res = await post("/contact-identities/backfill", {});

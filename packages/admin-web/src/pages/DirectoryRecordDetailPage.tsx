@@ -15,6 +15,7 @@ import { canManageCanonicalDirectoryRecords } from "../permissions";
 import { OrganizationHierarchyCard } from "../components/directory/OrganizationHierarchyCard";
 import { ServiceTermsPanel } from "../components/directory/ServiceTermsPanel";
 import { LogoHistoryPanel } from "../components/directory/LogoHistoryPanel";
+import { CanonicalContactsPanel } from "../components/directory/CanonicalContactsPanel";
 import { DirectoryAvatar } from "../components/directory/DirectoryAvatar";
 import { formatDateLabel, labelForActiveStatus } from "../components/directory/directoryOptions";
 
@@ -225,6 +226,8 @@ function OrganizationRecordDetail({
       ) : null}
 
       <LogoHistoryPanel token={token} organizationId={org.id} organizationName={org.display_name} currentLogoUrl={org.logo_url} canManage={canManage && !archived} />
+
+      <CanonicalContactsPanel token={token} organizationId={org.id} />
 
       <section className="request-card" aria-label="Contextual contacts">
         <div className="directory-card__header">

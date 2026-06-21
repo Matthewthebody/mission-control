@@ -92,6 +92,7 @@ describe("DirectoryRecordDetailPage", () => {
       if (path === "/api/organizations/org-1") return Promise.resolve(ORG_DETAIL);
       if (path.endsWith("/service-terms")) return Promise.resolve({ service_terms: [] });
       if (path.endsWith("/logo-history")) return Promise.resolve({ logo_history: [] });
+      if (path.includes("/contact-identities")) return Promise.resolve({ contacts: [], total: 0 });
       return Promise.resolve({});
     });
     render(<DirectoryRecordDetailPage token="t" currentUser={USER} recordType="organization" />);
@@ -125,6 +126,7 @@ describe("DirectoryRecordDetailPage", () => {
       if (path === "/api/organizations/org-1") return Promise.resolve({ ...ORG_DETAIL, organization: { ...ORG_DETAIL.organization, active_status: "inactive" } });
       if (path.endsWith("/service-terms")) return Promise.resolve({ service_terms: [] });
       if (path.endsWith("/logo-history")) return Promise.resolve({ logo_history: [] });
+      if (path.includes("/contact-identities")) return Promise.resolve({ contacts: [], total: 0 });
       return Promise.resolve({});
     });
     render(<DirectoryRecordDetailPage token="t" currentUser={USER} recordType="organization" />);
@@ -137,6 +139,7 @@ describe("DirectoryRecordDetailPage", () => {
       if (path === "/api/organizations/org-1") return Promise.resolve(ORG_DETAIL);
       if (path.endsWith("/service-terms")) return Promise.resolve({ service_terms: [] });
       if (path.endsWith("/logo-history")) return Promise.resolve({ logo_history: [] });
+      if (path.includes("/contact-identities")) return Promise.resolve({ contacts: [], total: 0 });
       return Promise.resolve({});
     });
     sessionStorage.removeItem("directory:return-hash");
