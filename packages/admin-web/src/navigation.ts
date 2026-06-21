@@ -118,6 +118,7 @@ type RouteRender =
   | { kind: "files-workspace" }
   | { kind: "checklist-templates" }
   | { kind: "directory"; entryView: "organizations" | "contacts" | "locations"; defaultContactAudience?: "all" | "company" }
+  | { kind: "directory-record-detail"; recordType: "organization" | "contact" | "location" }
   | {
       kind: "admin-system";
       view: "overview" | "foundation" | "communications" | "diagnostics" | "audit" | "sync" | "repairs" | "access-debug" | "imports" | "exports" | "trace";
@@ -1126,6 +1127,43 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: true,
     render: { kind: "directory", entryView: "organizations" }
+  },
+  {
+    // Phase 4.2 — stable full-page canonical detail routes (#directory/organizations/<id> etc.).
+    id: "directory-organization-detail",
+    label: "Organization Detail",
+    sectionKey: "contacts",
+    description: "Full-page canonical Organization / District / School record.",
+    canonicalHash: "#directory/organizations",
+    visibleTabs: ["organizations"],
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "directory-record-detail", recordType: "organization" }
+  },
+  {
+    id: "directory-contact-detail",
+    label: "Contact Detail",
+    sectionKey: "contacts",
+    description: "Full-page canonical Contact identity record with all organization relationships.",
+    canonicalHash: "#directory/contacts",
+    visibleTabs: ["contacts"],
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "directory-record-detail", recordType: "contact" }
+  },
+  {
+    id: "directory-location-detail",
+    label: "Location Detail",
+    sectionKey: "contacts",
+    description: "Full-page canonical Location record.",
+    canonicalHash: "#directory/locations",
+    visibleTabs: ["locations"],
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "directory-record-detail", recordType: "location" }
   },
   {
     id: "assets",
@@ -2336,6 +2374,17 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "production/workload") {
     return pickVisibleRoute("graphics-workload", availableTabs, employeeOnlyMode);
+  }
+  // Phase 4.2 — full-page canonical detail routes (matched before the list routes so a
+  // trailing id segment opens the record page, not the list).
+  if (/^(directory\/organizations|directory\/accounts|accounts)\/[^/]+$/i.test(path)) {
+    return pickVisibleRoute("directory-organization-detail", availableTabs, employeeOnlyMode);
+  }
+  if (/^(directory\/contacts|contacts)\/[^/]+$/i.test(path)) {
+    return pickVisibleRoute("directory-contact-detail", availableTabs, employeeOnlyMode);
+  }
+  if (/^(directory\/locations|locations)\/[^/]+$/i.test(path)) {
+    return pickVisibleRoute("directory-location-detail", availableTabs, employeeOnlyMode);
   }
   if (path === "directory") {
     return pickVisibleRoute("directory", availableTabs, employeeOnlyMode);

@@ -23461,3 +23461,12 @@ html[data-theme="light"] .help-tooltip__bubble {
 .logo-history-panel__entry { display: flex; align-items: flex-start; gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); }
 .logo-history-panel__entry-body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .logo-history-panel__note { font-size: 0.86rem; }
+
+/* Phase 4.2 — full-page canonical record detail routes */
+.record-detail { display: flex; flex-direction: column; gap: 14px; max-width: 1100px; margin: 0 auto; padding: 8px 0 40px; }
+.record-detail__topbar { display: flex; align-items: center; gap: 10px; }
+.record-detail__hero { display: flex; align-items: center; gap: 18px; }
+.record-detail__hero h1 { margin: 4px 0 8px; }
+.record-detail__archived { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px dashed rgba(211, 165, 106, 0.5); border-radius: 10px; background: var(--warm-accent-soft); }
+.record-detail__list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.link-button { background: none; border: none; padding: 0; color: var(--warm-accent); cursor: pointer; font: inherit; text-decoration: underline; }

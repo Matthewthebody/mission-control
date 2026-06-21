@@ -2211,12 +2211,15 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
     case "directory":
       return canAccessSection(user, "directory");
     case "directory-contacts":
+    case "directory-contact-detail":
       return hasCapability(user, "directory_contacts.view");
     case "directory-internal":
       return hasCapability(user, "directory_internal.view");
     case "directory-locations":
+    case "directory-location-detail":
       return hasCapability(user, "directory_locations.view");
     case "directory-accounts":
+    case "directory-organization-detail":
       return hasCapability(user, "directory_accounts.view");
     case "assets":
       return canAccessGearModule(user);

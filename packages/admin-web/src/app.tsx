@@ -192,6 +192,9 @@ const LazyShootLocations = lazy(() =>
 const LazyOrganizations = lazy(() =>
   import("./pages/Organizations").then((module) => ({ default: module.Organizations }))
 );
+const LazyDirectoryRecordDetailPage = lazy(() =>
+  import("./pages/DirectoryRecordDetailPage").then((module) => ({ default: module.DirectoryRecordDetailPage }))
+);
 const LazyGear = lazy(() =>
   import("./pages/Gear").then((module) => ({ default: module.Gear }))
 );
@@ -1316,6 +1319,14 @@ function renderRouteContent({
       />,
       "Loading directory",
       "Opening the directory workspace."
+    );
+  }
+
+  if (route.render.kind === "directory-record-detail") {
+    return withRouteSuspense(
+      <LazyDirectoryRecordDetailPage token={token} currentUser={currentUser} recordType={route.render.recordType} />,
+      "Loading record",
+      "Opening the canonical directory record."
     );
   }
 
