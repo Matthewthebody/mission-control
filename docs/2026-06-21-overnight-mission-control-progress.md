@@ -194,3 +194,38 @@ tests · browser · known limitation · next slice.
   gates; closure report + `test: close reusable contact identity acceptance`.
 
 ---
+
+## Slice — URL-backed Contacts mode + canonical Contact route + archive/restore
+
+- **Files:** `services/canonicalContacts.ts` (+role filter on the list, +`setCanonicalContactArchived`),
+  `routes/organizations.ts` (+`role` query param, +`POST /contact-identities/:id/archive`),
+  `tests/canonicalContacts.test.ts` (+ARCHIVE soft+restore, +ARCHIVE RBAC, +LIST-ROLE → 18),
+  `tests/directoryPermissionsMatrix.test.ts` (+archive route → 13),
+  `services/organizationApi.ts` (+`role` filter, +`setCanonicalContactArchivedRecord`),
+  `components/directory/CanonicalContactsPanel.tsx` (urlBacked + focusContactId + archive),
+  `pages/Organizations.tsx` (Contacts mode passes `urlBacked`),
+  `pages/DirectoryRecordDetailPage.tsx` (canonical Contact full-page route, legacy fallback),
+  `test/canonicalContactExperience.test.tsx` (+archive, +focus read-only, +urlBacked Open → 12).
+- **Behavior:**
+  - **Contacts mode (Part 1)** is now URL-authoritative: search (`cq`), role filter (`crole`),
+    active/archive filter (`cstatus`), organization filter (`corg`), pagination (`cpage`), and the
+    selected/expanded contact (`cselected`) all live in the hash, survive refresh, and restore on
+    Back/Forward. Each row has an **Open** button that routes to the stable canonical Contact page.
+  - **Canonical Contact route (Part 2)**: `#directory/contacts/<id>` renders the canonical identity
+    experience (person edit that propagates to every org view, link, per-relationship role edit,
+    unlink, archive) via the panel's focus mode; older org-bound contact ids fall back to the
+    read-only relationship view (404-probe → legacy).
+  - **Archive/read-only (Part 4)**: archiving sets the identity `active_status='inactive'` (the
+    existing soft convention — no hard delete, no second system). Archived identities + their
+    relationships + history stay readable; every mutation control is hidden and only **Restore** is
+    offered (manager). Server-enforced manage RBAC + tenant.
+- **Data/migration:** none (migration head 162 unchanged; `contact.active_status` already supports
+  active|inactive).
+- **Tests:** api `canonicalContacts` 18, `directoryPermissionsMatrix` 13; web
+  `canonicalContactExperience` 12, `organizationsPage` 33, `directoryRecordRoutes` 6. tsc (api+web)
+  clean; vite build clean.
+- **Next:** integrate the shared `CanonicalContactSelector` into Contact + Org detail; deterministic
+  browser fixture with real mutations + cleanup; remaining tests; full gates; closure report +
+  `test: close reusable contact identity acceptance`.
+
+---

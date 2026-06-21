@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin } from "./helpers.js";
-import { backfillContactIdentities, createCanonicalContact, updateCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, updateContactRelationship, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
+import { backfillContactIdentities, createCanonicalContact, updateCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, updateContactRelationship, getContactRelationships, setCanonicalContactArchived, listCanonicalContacts, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
 
 // Phase 4 Slice 2 — reusable canonical Contact identity. A `contact` identity (migration
 // 161) is the reusable person; org-bound `organization_contact` rows reference it via
@@ -144,6 +144,55 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
 
   it("(EDIT) the person-edit route requires management access", async () => {
     expect((await request(app).patch(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}`).set("Authorization", `Bearer ${photographerToken}`).send({ phone: "x" })).status).toBe(403);
+  });
+
+  it("(ARCHIVE) archiving a contact identity is soft — identity + relationships stay readable; restore reactivates (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const contact = await createCanonicalContact(client, auth, { first_name: "Arch", last_name: "Ive", email: "arch@ive.example.com" });
+      await linkContactToOrganization(client, auth, contact.id, districtId, { client_roles: ["district_contact"] });
+
+      const archived = await setCanonicalContactArchived(client, auth, contact.id, true);
+      expect(archived.active_status).toBe("inactive"); // soft-archive via active_status, no hard delete
+
+      // identity row still exists and is fully readable, relationships preserved
+      const rel = (await getContactRelationships(client, auth, contact.id))!;
+      expect(rel.identity.id).toBe(contact.id);
+      expect(rel.relationships.map((r: any) => r.organization_id)).toContain(districtId);
+
+      // restore returns it to active
+      const restored = await setCanonicalContactArchived(client, auth, contact.id, false);
+      expect(restored.active_status).toBe("active");
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(ARCHIVE) the archive route requires management access", async () => {
+    expect((await request(app).post(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}/archive`).set("Authorization", `Bearer ${photographerToken}`).send({ archived: true })).status).toBe(403);
+  });
+
+  it("(LIST-ROLE) the role filter narrows the canonical list to identities holding that current role (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const yb = await createCanonicalContact(client, auth, { first_name: "Yearbook", last_name: "Person", email: `yb-${Date.now()}@role.example.com` });
+      await linkContactToOrganization(client, auth, yb.id, schoolId, { client_roles: ["yearbook_contact"] });
+      const billing = await createCanonicalContact(client, auth, { first_name: "Billing", last_name: "Person", email: `bill-${Date.now()}@role.example.com` });
+      await linkContactToOrganization(client, auth, billing.id, schoolId, { client_roles: ["billing_contact"] });
+
+      const filtered = await listCanonicalContacts(client, auth, { role: "yearbook_contact", limit: 100 });
+      const ids = filtered.contacts.map((c) => c.id);
+      expect(ids).toContain(yb.id);
+      expect(ids).not.toContain(billing.id);
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
   });
 
   it("(UNLINK) unlinking one relationship preserves the identity and every other relationship (rolled back)", async () => {

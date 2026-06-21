@@ -60,6 +60,7 @@ import {
   updateContactRelationship,
   getContactRelationships,
   listCanonicalContacts,
+  setCanonicalContactArchived,
   backfillContactIdentities
 } from "../services/canonicalContacts.js";
 import { updateOrganizationBrand, getLogoHistory, restoreOrganizationLogo } from "../services/organizationBrand.js";
@@ -1580,6 +1581,7 @@ router.get("/contact-identities", requireCanonicalDirectoryReadAccess, async (re
         search: typeof req.query.search === "string" ? req.query.search : null,
         organizationId: typeof req.query.organization_id === "string" ? req.query.organization_id : null,
         activeStatus: typeof req.query.active_status === "string" ? req.query.active_status : null,
+        role: typeof req.query.role === "string" ? req.query.role : null,
         limit: req.query.limit ? Number(req.query.limit) : undefined,
         offset: req.query.offset ? Number(req.query.offset) : undefined
       })
@@ -1628,6 +1630,22 @@ router.patch("/contact-identities/:contactId", requireCanonicalDirectoryManageAc
   try {
     const auth = (req as AuthenticatedRequest).auth;
     const contact = await withClientTransaction(auth.tenantId, auth.id, (client) => updateCanonicalContact(client, auth, String(req.params.contactId), req.body));
+    return res.json({ contact });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Phase 4.2 Bundle close — archive (soft) or restore a canonical Contact identity. Uses the
+// existing active_status convention (no hard delete, no second archive system). Manage-gated.
+const archiveContactIdentitySchema = z.object({ archived: z.boolean() });
+
+router.post("/contact-identities/:contactId/archive", requireCanonicalDirectoryManageAccess, validateBody(archiveContactIdentitySchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const contact = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      setCanonicalContactArchived(client, auth, String(req.params.contactId), Boolean(req.body.archived))
+    );
     return res.json({ contact });
   } catch (error) {
     return next(error);

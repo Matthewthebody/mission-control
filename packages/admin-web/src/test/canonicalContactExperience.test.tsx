@@ -217,4 +217,57 @@ describe("CanonicalContactsPanel", () => {
     await waitFor(() => expect(screen.queryByText("Maple High")).not.toBeInTheDocument());
     expect(screen.getByText("Maple District")).toBeInTheDocument();
   });
+
+  it("archives a person (manager) via POST to /archive (soft, no hard delete)", async () => {
+    apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if ((path ?? "").includes("/relationships")) return Promise.resolve({ identity: item({}), relationships: [] });
+      if ((path ?? "").includes("/archive") && method === "POST") return Promise.resolve({ contact: item({ active_status: "inactive" }) });
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" canManage />);
+    await waitFor(() => expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Sam Rivera/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Archive person" }));
+    await waitFor(() =>
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/contact-identities/c1/archive"),
+        "t",
+        expect.objectContaining({ method: "POST", body: expect.stringContaining("\"archived\":true") })
+      )
+    );
+  });
+
+  it("full-page focus mode renders the identity, and an archived identity is read-only with restore", async () => {
+    apiFetchMock.mockImplementation((path: string) => {
+      if ((path ?? "").includes("/relationships")) {
+        return Promise.resolve({ identity: item({ active_status: "inactive" }), relationships: [
+          { organization_id: "d1", organization_name: "Maple District", organization_contact_id: "oc1", relationship_role: "general", client_roles: ["district_contact"], is_primary: true }
+        ] });
+      }
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" canManage focusContactId="c1" />);
+    await waitFor(() => expect(screen.getByText("Maple District")).toBeInTheDocument());
+    expect(screen.getByText(/read-only/i)).toBeInTheDocument();
+    // mutation controls are hidden while archived; only restore is offered
+    expect(screen.queryByRole("button", { name: "Edit person" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unlink" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore person" })).toBeInTheDocument();
+  });
+
+  it("urlBacked Contacts mode exposes filters and an Open button that routes to the canonical Contact page", async () => {
+    apiFetchMock.mockImplementation((path: string) => {
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    window.location.hash = "#directory/contacts?view=contacts";
+    render(<CanonicalContactsPanel token="t" canManage urlBacked />);
+    await waitFor(() => expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument());
+    expect(screen.getByLabelText("Filter by role")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter by status")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Open Sam Rivera full page/ }));
+    expect(window.location.hash).toContain("directory/contacts/c1");
+  });
 });

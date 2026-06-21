@@ -798,8 +798,9 @@ export function Organizations({
       {pageError ? <div className="request-card directory-page-error">{pageError}</div> : null}
       {route.view === "contacts" ? (
         // Phase 4.2 — first-class canonical Contacts surface: one row per reusable Contact
-        // identity (not per org relationship), with search + full relationship management.
-        <CanonicalContactsPanel token={token} canManage={canManage} />
+        // identity (not per org relationship). URL-backed search/role/status/org filters +
+        // pagination + selected contact; each row opens the stable canonical Contact route.
+        <CanonicalContactsPanel token={token} canManage={canManage} urlBacked />
       ) : null}
       <div className="directory-layout">
         <DirectoryRail

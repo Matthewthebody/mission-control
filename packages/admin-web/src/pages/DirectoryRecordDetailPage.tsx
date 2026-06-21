@@ -7,6 +7,7 @@ import type {
   SessionUser
 } from "../types";
 import {
+  getCanonicalContactRelationships,
   getDirectoryContactDetail,
   getOrganizationDetail,
   listDirectoryLocations
@@ -59,6 +60,9 @@ export function DirectoryRecordDetailPage({ token, currentUser, recordType }: Pr
   const [state, setState] = useState<LoadState>("loading");
   const [organization, setOrganization] = useState<OrganizationDetail | null>(null);
   const [contact, setContact] = useState<DirectoryContactDetailResponse | null>(null);
+  // "canonical" → the route id is a reusable Contact identity (full canonical experience);
+  // "legacy" → an org-bound contact id from older links (read-only relationship view fallback).
+  const [contactKind, setContactKind] = useState<"canonical" | "legacy">("canonical");
   const [location, setLocation] = useState<DirectoryLocationSummary | null>(null);
 
   const canManage = canManageCanonicalDirectoryRecords(currentUser);
@@ -82,7 +86,19 @@ export function DirectoryRecordDetailPage({ token, currentUser, recordType }: Pr
       if (recordType === "organization") {
         setOrganization(await getOrganizationDetail(token, recordId));
       } else if (recordType === "contact") {
-        setContact(await getDirectoryContactDetail(token, recordId));
+        // Prefer the canonical identity experience; fall back to the org-bound view for older
+        // links whose id is an organization_contact rather than a reusable contact identity.
+        try {
+          await getCanonicalContactRelationships(token, recordId);
+          setContactKind("canonical");
+        } catch (canonicalError) {
+          if (canonicalError instanceof ApiClientError && canonicalError.status === 404) {
+            setContact(await getDirectoryContactDetail(token, recordId));
+            setContactKind("legacy");
+          } else {
+            throw canonicalError;
+          }
+        }
       } else {
         const list = await listDirectoryLocations(token, {});
         const match = list.locations.find((entry) => entry.id === recordId) ?? null;
@@ -158,6 +174,20 @@ export function DirectoryRecordDetailPage({ token, currentUser, recordType }: Pr
 
   if (recordType === "organization" && organization) {
     return <OrganizationRecordDetail detail={organization} token={token} canManage={canManage} header={header} />;
+  }
+  if (recordType === "contact" && contactKind === "canonical") {
+    return (
+      <section className="record-detail" aria-label="Contact identity detail">
+        {header}
+        <div className="request-card record-detail__hero">
+          <div>
+            <p className="eyebrow">Contact</p>
+            <p className="muted">A reusable person identity — edit the person once and it updates every organization view; manage each organization relationship independently.</p>
+          </div>
+        </div>
+        <CanonicalContactsPanel token={token} canManage={canManage} focusContactId={recordId} />
+      </section>
+    );
   }
   if (recordType === "contact" && contact) {
     return <ContactRecordDetail detail={contact} header={header} />;

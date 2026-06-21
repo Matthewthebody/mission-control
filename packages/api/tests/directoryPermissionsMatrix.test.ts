@@ -60,6 +60,7 @@ describe("Phase 4 Slice G — canonical directory permission matrix", () => {
   // ── Manage tier: denial is deterministic; the dry-run reconcile is a safe positive. ──
   const manageDenied: Array<[string, "post" | "patch", string, Record<string, unknown>]> = [
     ["POST /contact-identities", "post", "/contact-identities", { first_name: "No", last_name: "Access" }],
+    ["POST /contact-identities/:id/archive", "post", `/contact-identities/${"00000000-0000-0000-0000-000000000000"}/archive`, { archived: true }],
     ["POST /contact-identities/backfill", "post", "/contact-identities/backfill", {}],
     ["PATCH /:id/brand", "patch", `/${"PLACEHOLDER"}/brand`, { mascot: "Denied" }],
     ["POST /reconcile/districts", "post", "/reconcile/districts", {}],

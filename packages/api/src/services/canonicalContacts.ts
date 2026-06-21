@@ -60,19 +60,25 @@ export type CanonicalContactListItem = CanonicalContactRecord & {
 export async function listCanonicalContacts(
   client: PoolClient,
   auth: AuthUser,
-  filters: { search?: string | null; organizationId?: string | null; activeStatus?: string | null; limit?: number; offset?: number } = {}
+  filters: { search?: string | null; organizationId?: string | null; activeStatus?: string | null; role?: string | null; limit?: number; offset?: number } = {}
 ): Promise<{ contacts: CanonicalContactListItem[]; total: number }> {
   const search = norm(filters.search);
   const like = search ? `%${search}%` : null;
   const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
   const offset = Math.max(filters.offset ?? 0, 0);
-  const params: unknown[] = [auth.tenantId, like, filters.organizationId ?? null, filters.activeStatus ?? null];
-  // The org filter narrows to identities that have at least one organization_contact in that org.
+  const params: unknown[] = [auth.tenantId, like, filters.organizationId ?? null, filters.activeStatus ?? null, filters.role ?? null];
+  // The org filter narrows to identities with at least one organization_contact in that org;
+  // the role filter narrows to identities holding that rich client role on a CURRENT relationship.
   const where = `
     c.tenant_id = $1
     AND ($2::text IS NULL OR c.normalized_full_name LIKE $2 OR c.normalized_email LIKE $2 OR lower(COALESCE(c.phone,'')) LIKE $2)
     AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM organization_contact oc WHERE oc.tenant_id=c.tenant_id AND oc.contact_id=c.id AND oc.organization_id=$3))
-    AND ($4::text IS NULL OR c.active_status = $4)`;
+    AND ($4::text IS NULL OR c.active_status = $4)
+    AND ($5::text IS NULL OR EXISTS (
+      SELECT 1 FROM organization_contact oc
+        JOIN organization_contact_relationship ocr ON ocr.tenant_id=oc.tenant_id AND ocr.contact_id=oc.id AND ocr.is_current=true
+       WHERE oc.tenant_id=c.tenant_id AND oc.contact_id=c.id AND $5 = ANY(ocr.client_roles::text[])
+    ))`;
   const totalRow = await client.query<{ n: string }>(`SELECT count(*)::text n FROM contact c WHERE ${where}`, params);
   const total = Number(totalRow.rows[0]?.n ?? 0);
   const { rows } = await client.query<CanonicalContactListItem>(
@@ -293,6 +299,34 @@ export async function getContactRelationships(client: PoolClient, auth: AuthUser
     [auth.tenantId, contactId]
   );
   return { identity, relationships: rows };
+}
+
+// Archive (soft) or restore a canonical Contact identity. Archiving sets the identity's
+// active_status to 'inactive' — the SAME soft-archive convention used elsewhere (no hard delete,
+// no second archive system). The identity, every relationship, and the history stay fully
+// readable; the UI hides mutation controls while inactive and offers restore to managers.
+export async function setCanonicalContactArchived(
+  client: PoolClient,
+  auth: AuthUser,
+  contactId: string,
+  archived: boolean
+): Promise<CanonicalContactRecord> {
+  requireManage(auth);
+  const existing = await loadContact(client, auth.tenantId, contactId);
+  if (!existing) throw new ApiError(404, "Contact not found");
+  await client.query(
+    `UPDATE contact SET active_status=$3, updated_by_user_id=$4, updated_at=now() WHERE tenant_id=$1 AND id=$2`,
+    [auth.tenantId, contactId, archived ? "inactive" : "active", auth.id]
+  );
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    action: archived ? "contact.identity_archived" : "contact.identity_restored",
+    entityType: "contact",
+    entityId: contactId,
+    metadata: { active_status: archived ? "inactive" : "active" }
+  });
+  return (await loadContact(client, auth.tenantId, contactId))!;
 }
 
 export type ContactBackfillClassification = "safe_one_to_one" | "possible_duplicate" | "invalid_no_identity";
