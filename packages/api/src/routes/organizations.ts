@@ -345,18 +345,27 @@ const atomicContactSchema = z.object({
   phone: z.string().trim().max(40).optional().nullable(),
   relationship_role: z.string().trim().max(80).optional(),
   client_roles: z.array(z.string().trim().max(80)).max(20).optional(),
-  is_primary: z.boolean().optional()
+  is_primary: z.boolean().optional(),
+  title: z.string().trim().max(160).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable()
 });
-const atomicLocationSchema = z.object({
-  location_name: z.string().trim().min(1).max(180),
-  address_line_1: z.string().trim().min(1).max(200),
-  address_line_2: z.string().trim().max(200).optional().nullable(),
-  city: z.string().trim().min(1).max(120),
-  state: z.string().trim().min(1).max(60),
-  zip: z.string().trim().min(1).max(20),
-  notes: z.string().trim().max(2000).optional().nullable(),
-  is_primary: z.boolean().optional()
-});
+const atomicLocationSchema = z
+  .object({
+    existing_location_id: z.string().uuid().optional().nullable(),
+    location_name: z.string().trim().max(180).optional().nullable(),
+    address_line_1: z.string().trim().max(200).optional().nullable(),
+    address_line_2: z.string().trim().max(200).optional().nullable(),
+    city: z.string().trim().max(120).optional().nullable(),
+    state: z.string().trim().max(60).optional().nullable(),
+    zip: z.string().trim().max(20).optional().nullable(),
+    notes: z.string().trim().max(2000).optional().nullable(),
+    is_primary: z.boolean().optional()
+  })
+  // Each location is either an existing tenant Location (by id) or a new inline one (name + street).
+  .refine(
+    (loc) => Boolean(loc.existing_location_id?.trim()) || (Boolean(loc.location_name?.trim()) && Boolean(loc.address_line_1?.trim())),
+    "Each location needs an existing Location id or a name and street address."
+  );
 const atomicBrandSchema = z.object({
   brand_primary_color: z.string().trim().max(60).optional().nullable(),
   brand_secondary_color: z.string().trim().max(60).optional().nullable(),

@@ -25,15 +25,22 @@ export type AtomicContactInput = {
   relationship_role?: string;
   client_roles?: string[];
   is_primary?: boolean;
+  // Per-organization contextual relationship fields (set on the org-bound row, NOT the person).
+  title?: string | null;
+  notes?: string | null;
 };
 
 export type AtomicLocationInput = {
-  location_name: string;
-  address_line_1: string;
+  // Either reuse an existing tenant Location (its canonical address is copied to this org —
+  // locations are org-bound, so reuse copies the address rather than re-parenting another org's
+  // row) OR create a new one inline. Room/access phrases (gym, auditorium) belong in notes.
+  existing_location_id?: string | null;
+  location_name?: string | null;
+  address_line_1?: string | null;
   address_line_2?: string | null;
-  city: string;
-  state: string;
-  zip: string;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
   notes?: string | null;
   is_primary?: boolean;
 };
@@ -58,6 +65,7 @@ export type AtomicCreateOrganizationResult = {
   created_contact_ids: string[];
   linked_contact_ids: string[];
   created_location_count: number;
+  primary_location_id: string | null;
 };
 
 export async function createOrganizationAtomic(
@@ -108,32 +116,88 @@ export async function createOrganizationAtomic(
     } else {
       linkedContactIds.push(contactId);
     }
-    await linkContactToOrganization(client, auth, contactId, organizationId, {
+    const link = await linkContactToOrganization(client, auth, contactId, organizationId, {
       relationship_role: contact.relationship_role,
       client_roles: contact.client_roles,
       is_primary: contact.is_primary
     });
+    // Per-organization contextual title/notes live on the org-bound row (not the person identity).
+    if (contact.title != null || contact.notes != null) {
+      await client.query(
+        `UPDATE organization_contact
+            SET title = CASE WHEN $3::boolean THEN $4 ELSE title END,
+                notes = CASE WHEN $5::boolean THEN $6 ELSE notes END,
+                updated_by_user_id = $7, updated_at = now()
+          WHERE tenant_id = $1 AND id = $2`,
+        [auth.tenantId, link.organization_contact_id, contact.title != null, contact.title ?? null, contact.notes != null, contact.notes ?? null, auth.id]
+      );
+    }
   }
 
-  // 5) Locations — new approved canonical locations under this organization.
+  // 5) Locations — reuse an existing tenant Location's canonical address or create a new one;
+  //    one may be designated the organization's primary location. Room/access phrases stay in notes.
   let createdLocationCount = 0;
+  let primaryLocationId: string | null = null;
   for (const location of input.locations ?? []) {
+    let name = (location.location_name ?? "").trim();
+    let line1 = (location.address_line_1 ?? "").trim();
+    let line2 = location.address_line_2 ?? null;
+    let city = (location.city ?? "").trim();
+    let state = (location.state ?? "").trim();
+    let zip = (location.zip ?? "").trim();
+    let notes = location.notes ?? null;
+    if (location.existing_location_id?.trim()) {
+      const src = (
+        await client.query<{ name: string; address_line_1: string | null; address_line_2: string | null; city: string | null; state: string | null; zip: string | null; location_details: string | null }>(
+          `SELECT name, address_line_1, address_line_2, city, state, zip, location_details FROM shoot_location WHERE tenant_id = $1 AND id = $2`,
+          [auth.tenantId, location.existing_location_id.trim()]
+        )
+      ).rows[0];
+      if (!src) throw new ApiError(400, "Selected Location was not found in this tenant.");
+      // Locations are org-bound: reuse copies the canonical address into this org's own row.
+      name = src.name;
+      line1 = src.address_line_1 ?? "";
+      line2 = src.address_line_2;
+      city = src.city ?? "";
+      state = src.state ?? "";
+      zip = src.zip ?? "";
+      notes = notes ?? src.location_details;
+    }
+    if (!name || !line1) {
+      throw new ApiError(400, "Each location needs a name and a street address (or an existing Location).");
+    }
     await createOrganizationLocation(client, auth, organizationId, {
-      location_name: location.location_name,
-      address_line_1: location.address_line_1,
-      address_line_2: location.address_line_2 ?? null,
-      city: location.city,
-      state: location.state,
-      zip: location.zip,
-      notes: location.notes ?? null
+      location_name: name,
+      address_line_1: line1,
+      address_line_2: line2,
+      city,
+      state,
+      zip,
+      notes
     });
     createdLocationCount += 1;
+    if (location.is_primary) {
+      const newLoc = (
+        await client.query<{ id: string }>(
+          `SELECT id::text FROM shoot_location WHERE tenant_id = $1 AND organization_id = $2 AND name = $3 ORDER BY created_at DESC LIMIT 1`,
+          [auth.tenantId, organizationId, name]
+        )
+      ).rows[0];
+      if (newLoc) primaryLocationId = newLoc.id;
+    }
+  }
+  if (primaryLocationId) {
+    await client.query(
+      `UPDATE organization SET primary_location_id = $3, updated_by_user_id = $4, updated_at = now() WHERE tenant_id = $1 AND id = $2`,
+      [auth.tenantId, organizationId, primaryLocationId, auth.id]
+    );
   }
 
   return {
     organization_id: organizationId,
     created_contact_ids: createdContactIds,
     linked_contact_ids: linkedContactIds,
-    created_location_count: createdLocationCount
+    created_location_count: createdLocationCount,
+    primary_location_id: primaryLocationId
   };
 }
