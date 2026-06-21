@@ -151,6 +151,36 @@ describe("CanonicalContactsPanel", () => {
     );
   });
 
+  it("edits one relationship's role (manager) via PATCH on the link, in isolation", async () => {
+    apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if ((path ?? "").includes("/relationships")) {
+        return Promise.resolve({ identity: item({}), relationships: [
+          { organization_id: "d1", organization_name: "Maple District", organization_contact_id: "oc1", relationship_role: "general", client_roles: ["district_contact"], is_primary: true },
+          { organization_id: "s1", organization_name: "Maple High", organization_contact_id: "oc2", relationship_role: "general", client_roles: ["picture_day_contact"], is_primary: false }
+        ] });
+      }
+      if ((path ?? "").includes("/links/oc2") && method === "PATCH") return Promise.resolve({ updated: true });
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" canManage />);
+    await waitFor(() => expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Sam Rivera/ }));
+    await waitFor(() => expect(screen.getByText("Maple High")).toBeInTheDocument());
+    // edit the School (2nd) relationship's role
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit role" })[1]);
+    fireEvent.change(screen.getByLabelText("Edit relationship role"), { target: { value: "yearbook_contact" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save role" }));
+    await waitFor(() =>
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/contact-identities/c1/links/oc2"),
+        "t",
+        expect.objectContaining({ method: "PATCH", body: expect.stringContaining("yearbook_contact") })
+      )
+    );
+  });
+
   it("unlinks one relationship (manager) via the DELETE endpoint and keeps the other", async () => {
     let relCall = 0;
     apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {

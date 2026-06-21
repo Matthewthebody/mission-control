@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin } from "./helpers.js";
-import { backfillContactIdentities, createCanonicalContact, updateCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
+import { backfillContactIdentities, createCanonicalContact, updateCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, updateContactRelationship, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
 
 // Phase 4 Slice 2 — reusable canonical Contact identity. A `contact` identity (migration
 // 161) is the reusable person; org-bound `organization_contact` rows reference it via
@@ -109,6 +109,37 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     } finally {
       client.release();
     }
+  });
+
+  it("(REL-EDIT) editing one relationship's role is isolated — the other relationship and the identity are unchanged (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const contact = await createCanonicalContact(client, auth, { first_name: "Rel", last_name: "Edit", email: "rel@edit.example.com" });
+      const d = await linkContactToOrganization(client, auth, contact.id, districtId, { client_roles: ["district_contact"], is_primary: true });
+      const s = await linkContactToOrganization(client, auth, contact.id, schoolId, { client_roles: ["picture_day_contact"] });
+
+      // change ONLY the School relationship role: picture_day_contact -> yearbook_contact
+      const res = await updateContactRelationship(client, auth, contact.id, s.organization_contact_id, { client_roles: ["yearbook_contact"] });
+      expect(res.updated).toBe(true);
+
+      const rel = (await getContactRelationships(client, auth, contact.id))!;
+      const byOrg = new Map(rel.relationships.map((r: any) => [r.organization_id, r.client_roles]));
+      expect(byOrg.get(schoolId)).toContain("yearbook_contact"); // School changed
+      expect(byOrg.get(schoolId)).not.toContain("picture_day_contact");
+      expect(byOrg.get(districtId)).toContain("district_contact"); // District UNCHANGED
+      // person identity unchanged
+      expect(rel.identity.email).toBe("rel@edit.example.com");
+      expect(d.organization_contact_id).toBeTruthy();
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(REL-EDIT) the relationship-edit route requires management access", async () => {
+    expect((await request(app).patch(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}/links/${"00000000-0000-0000-0000-000000000000"}`).set("Authorization", `Bearer ${photographerToken}`).send({ client_roles: ["yearbook_contact"] })).status).toBe(403);
   });
 
   it("(EDIT) the person-edit route requires management access", async () => {

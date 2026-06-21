@@ -57,6 +57,7 @@ import {
   updateCanonicalContact,
   linkContactToOrganization,
   unlinkContactFromOrganization,
+  updateContactRelationship,
   getContactRelationships,
   listCanonicalContacts,
   backfillContactIdentities
@@ -1628,6 +1629,29 @@ router.patch("/contact-identities/:contactId", requireCanonicalDirectoryManageAc
     const auth = (req as AuthenticatedRequest).auth;
     const contact = await withClientTransaction(auth.tenantId, auth.id, (client) => updateCanonicalContact(client, auth, String(req.params.contactId), req.body));
     return res.json({ contact });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Phase 4.2 Bundle close — edit ONE relationship (role / primary / title / notes) in isolation.
+const updateContactRelationshipSchema = z
+  .object({
+    relationship_role: z.string().trim().max(80).optional(),
+    client_roles: z.array(z.string().trim().max(80)).max(20).optional(),
+    is_primary: z.boolean().optional(),
+    title: z.string().trim().max(160).optional().nullable(),
+    notes: z.string().trim().max(4000).optional().nullable()
+  })
+  .refine((value) => Object.keys(value).length > 0, "Provide at least one relationship field to update");
+
+router.patch("/contact-identities/:contactId/links/:organizationContactId", requireCanonicalDirectoryManageAccess, validateBody(updateContactRelationshipSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      updateContactRelationship(client, auth, String(req.params.contactId), String(req.params.organizationContactId), req.body)
+    );
+    return res.json(result);
   } catch (error) {
     return next(error);
   }

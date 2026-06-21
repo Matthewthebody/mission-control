@@ -583,6 +583,19 @@ export async function linkCanonicalContactToOrganizationRecord(
   });
 }
 
+// Phase 4.2 — edit ONE relationship (role/primary/title/notes) in isolation.
+export async function updateCanonicalContactRelationshipRecord(
+  token: string,
+  contactId: string,
+  organizationContactId: string,
+  input: { relationship_role?: string; client_roles?: string[]; is_primary?: boolean; title?: string | null; notes?: string | null }
+) {
+  return apiFetch<{ updated: boolean }>(`/api/organizations/contact-identities/${contactId}/links/${organizationContactId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
 // Phase 4.2 Slice A — unlink one organization relationship (soft; identity + other links kept).
 export async function unlinkCanonicalContactRelationshipRecord(token: string, contactId: string, organizationContactId: string) {
   return apiFetch<{ unlinked: boolean }>(`/api/organizations/contact-identities/${contactId}/links/${organizationContactId}`, token, {

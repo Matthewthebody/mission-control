@@ -24,6 +24,7 @@ import {
   SchoolRuleForm
 } from "../components/directory/DirectorySchoolForms";
 import { DirectoryWorkspace } from "../components/directory/DirectoryWorkspace";
+import { CanonicalContactsPanel } from "../components/directory/CanonicalContactsPanel";
 import type { DirectoryView, DirectoryWorkspaceTab } from "../components/directory/directoryOptions";
 import { canManageCanonicalDirectoryRecords, canManageSchoolFoundation } from "../permissions";
 import {
@@ -795,6 +796,11 @@ export function Organizations({
         </div>
       </section>
       {pageError ? <div className="request-card directory-page-error">{pageError}</div> : null}
+      {route.view === "contacts" ? (
+        // Phase 4.2 — first-class canonical Contacts surface: one row per reusable Contact
+        // identity (not per org relationship), with search + full relationship management.
+        <CanonicalContactsPanel token={token} canManage={canManage} />
+      ) : null}
       <div className="directory-layout">
         <DirectoryRail
           view={route.view}

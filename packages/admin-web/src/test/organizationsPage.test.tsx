@@ -2267,6 +2267,9 @@ describe("organizations workflow surface", () => {
     expect(screen.queryByRole("button", { name: "Organizations" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Contacts" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Locations" })).not.toBeInTheDocument();
+    // Let the first-class canonical Contacts panel settle (it loads identities on mount) so its
+    // async state update doesn't leak into the next test when we switch modes.
+    await screen.findByText("No contacts match.");
     fireEvent.change(screen.getByLabelText("Directory view"), { target: { value: "organizations" } });
     fireEvent.click(await screen.findByRole("button", { name: "New organization" }));
 

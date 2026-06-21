@@ -229,6 +229,55 @@ export async function unlinkContactFromOrganization(
   return { unlinked: true };
 }
 
+export type UpdateContactRelationshipInput = {
+  relationship_role?: string;
+  client_roles?: string[];
+  is_primary?: boolean;
+  title?: string | null;
+  notes?: string | null;
+};
+
+// Edit ONE organization relationship (its contextual role / primary flag / title / notes) for a
+// canonical contact, in isolation — the contact identity, the person fields, and EVERY other
+// relationship are untouched. Per-org role lives on the relationship, not the person.
+export async function updateContactRelationship(
+  client: PoolClient,
+  auth: AuthUser,
+  contactId: string,
+  organizationContactId: string,
+  patch: UpdateContactRelationshipInput
+): Promise<{ updated: boolean }> {
+  requireManage(auth);
+  const oc = await client.query(
+    `SELECT 1 FROM organization_contact WHERE tenant_id=$1 AND id=$2 AND contact_id=$3`,
+    [auth.tenantId, organizationContactId, contactId]
+  );
+  if (!oc.rowCount) throw new ApiError(404, "Relationship not found for this contact");
+  if (patch.relationship_role !== undefined || patch.client_roles !== undefined || patch.is_primary !== undefined) {
+    await client.query(
+      `UPDATE organization_contact_relationship
+          SET relationship_role = COALESCE($3, relationship_role),
+              client_roles = COALESCE($4::client_contact_role[], client_roles),
+              is_primary = COALESCE($5, is_primary),
+              updated_by_user_id = $6, updated_at = now()
+        WHERE tenant_id=$1 AND contact_id=$2 AND is_current=true`,
+      [auth.tenantId, organizationContactId, patch.relationship_role ?? null, patch.client_roles ?? null, patch.is_primary ?? null, auth.id]
+    );
+  }
+  if (patch.title !== undefined || patch.notes !== undefined) {
+    await client.query(
+      `UPDATE organization_contact
+          SET title = CASE WHEN $3::boolean THEN $4 ELSE title END,
+              notes = CASE WHEN $5::boolean THEN $6 ELSE notes END,
+              updated_by_user_id = $7, updated_at = now()
+        WHERE tenant_id=$1 AND id=$2`,
+      [auth.tenantId, organizationContactId, patch.title !== undefined, patch.title ?? null, patch.notes !== undefined, patch.notes ?? null, auth.id]
+    );
+  }
+  await createAuditLog(client, { tenantId: auth.tenantId, actorUserId: auth.id, action: "contact.relationship_updated", entityType: "contact", entityId: contactId, metadata: { organization_contact_id: organizationContactId, client_roles: patch.client_roles, is_primary: patch.is_primary } });
+  return { updated: true };
+}
+
 // The identity + each Organization relationship it holds (with its per-org role).
 export async function getContactRelationships(client: PoolClient, auth: AuthUser, contactId: string) {
   const identity = await loadContact(client, auth.tenantId, contactId);

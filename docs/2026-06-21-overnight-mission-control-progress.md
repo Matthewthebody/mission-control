@@ -165,3 +165,32 @@ tests · browser · known limitation · next slice.
   use identities; then Bundle 2 (multi-contact/location atomic create form), Bundle 3, Bundle 4 closure.
 
 ---
+
+## Slice — relationship-edit route + first-class Contacts mode
+
+- **Files:** `packages/api/src/services/canonicalContacts.ts` (+`updateContactRelationship`),
+  `packages/api/src/routes/organizations.ts` (+guarded PATCH
+  `/contact-identities/:contactId/links/:organizationContactId`),
+  `packages/api/tests/canonicalContacts.test.ts` (+2 rel-edit tests → 15),
+  `packages/admin-web/src/services/organizationApi.ts`
+  (+`updateCanonicalContactRelationshipRecord`),
+  `packages/admin-web/src/components/directory/CanonicalContactsPanel.tsx` (per-relationship
+  "Edit role" inline form; search label → "Search people"),
+  `packages/admin-web/src/pages/Organizations.tsx` (render `CanonicalContactsPanel` as the
+  first-class Contacts mode surface),
+  `packages/admin-web/src/test/canonicalContactExperience.test.tsx` (+1 rel-edit test → 9),
+  `packages/admin-web/src/test/organizationsPage.test.tsx` (await panel settle before view switch).
+- **Behavior:** a single relationship can now be edited in isolation — change ONLY the School
+  role to yearbook_contact while the District relationship + the shared person identity are
+  untouched. Person and relationship fields are SEPARATE mutations (person PATCH propagates;
+  relationship PATCH is scoped to one org-bound row via a guarded route). The Directory Contacts
+  mode now leads with the canonical-identity panel (one row per person).
+- **Data/migration:** none (migration head 162 unchanged).
+- **Tests:** api `canonicalContacts` 15 green (rel-edit isolation + rel-edit RBAC 403); web
+  `canonicalContactExperience` 9 green (PATCH on the link with yearbook_contact body);
+  `organizationsPage` 33 green; `directoryRecordRoutes` 6 green. vite build clean.
+- **Next:** URL-backed Contacts-mode filters/pagination + row→canonical route; archive/restore;
+  shared CanonicalContactSelector integration; deterministic browser fixture; remaining tests;
+  gates; closure report + `test: close reusable contact identity acceptance`.
+
+---

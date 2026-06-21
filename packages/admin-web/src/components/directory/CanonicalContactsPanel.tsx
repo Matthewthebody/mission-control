@@ -7,7 +7,8 @@ import {
   listCanonicalContacts,
   listOrganizations,
   unlinkCanonicalContactRelationshipRecord,
-  updateCanonicalContactRecord
+  updateCanonicalContactRecord,
+  updateCanonicalContactRelationshipRecord
 } from "../../services/organizationApi";
 import type { OrganizationSummary } from "../../types";
 
@@ -45,6 +46,9 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
   const [orgResults, setOrgResults] = useState<OrganizationSummary[]>([]);
   const [linkRole, setLinkRole] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
+  const [editRelId, setEditRelId] = useState<string | null>(null);
+  const [relRole, setRelRole] = useState("");
+  const [relEditBusy, setRelEditBusy] = useState(false);
 
   const reloadRelationships = useCallback(
     async (contactId: string) => {
@@ -119,6 +123,23 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
     [personForm, token, load, expandedId, reloadRelationships]
   );
 
+  const submitRelEdit = useCallback(
+    async (contactId: string, organizationContactId: string) => {
+      setRelEditBusy(true);
+      try {
+        await updateCanonicalContactRelationshipRecord(token, contactId, organizationContactId, { client_roles: relRole.trim() ? [relRole.trim()] : [] });
+        setEditRelId(null);
+        setRelRole("");
+        await reloadRelationships(contactId);
+      } catch {
+        /* keep the form open on failure */
+      } finally {
+        setRelEditBusy(false);
+      }
+    },
+    [token, relRole, reloadRelationships]
+  );
+
   const submitLink = useCallback(
     async (contactId: string, organizationId: string) => {
       setLinkBusy(true);
@@ -174,8 +195,8 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
       </div>
 
       <label className="directory-field">
-        <span className="visually-hidden">Search contacts</span>
-        <input type="text" aria-label="Search contacts" placeholder="Search by name, email, or phone…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <span className="visually-hidden">Search people</span>
+        <input type="text" aria-label="Search people" placeholder="Search by name, email, or phone…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </label>
 
       {error ? <div className="form-error" role="alert">{error}</div> : null}
@@ -273,26 +294,48 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
                           {rel.client_roles.length ? <span className="muted"> — {rel.client_roles.map((r) => r.replace(/_/g, " ")).join(", ")}</span> : null}
                           {rel.is_primary ? <span className="meta-pill">Primary</span> : null}
                           {canManage ? (
-                            <button
-                              type="button"
-                              className="secondary-button canonical-contacts-panel__unlink"
-                              disabled={unlinkBusy === rel.organization_contact_id}
-                              onClick={async () => {
-                                // Unlink this relationship only — the identity + other relationships stay.
-                                setUnlinkBusy(rel.organization_contact_id);
-                                try {
-                                  await unlinkCanonicalContactRelationshipRecord(token, contact.id, rel.organization_contact_id);
-                                  const refreshed = await getCanonicalContactRelationships(token, contact.id);
-                                  setRelationships(refreshed.relationships);
-                                } catch {
-                                  /* leave the list as-is on failure */
-                                } finally {
-                                  setUnlinkBusy("");
-                                }
-                              }}
-                            >
-                              Unlink
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => {
+                                  setEditRelId(editRelId === rel.organization_contact_id ? null : rel.organization_contact_id);
+                                  setRelRole(rel.client_roles[0] ?? "");
+                                }}
+                              >
+                                {editRelId === rel.organization_contact_id ? "Close" : "Edit role"}
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary-button canonical-contacts-panel__unlink"
+                                disabled={unlinkBusy === rel.organization_contact_id}
+                                onClick={async () => {
+                                  // Unlink this relationship only — the identity + other relationships stay.
+                                  setUnlinkBusy(rel.organization_contact_id);
+                                  try {
+                                    await unlinkCanonicalContactRelationshipRecord(token, contact.id, rel.organization_contact_id);
+                                    const refreshed = await getCanonicalContactRelationships(token, contact.id);
+                                    setRelationships(refreshed.relationships);
+                                  } catch {
+                                    /* leave the list as-is on failure */
+                                  } finally {
+                                    setUnlinkBusy("");
+                                  }
+                                }}
+                              >
+                                Unlink
+                              </button>
+                            </>
+                          ) : null}
+                          {editRelId === rel.organization_contact_id ? (
+                            <div className="canonical-contacts-panel__edit" style={{ width: "100%" }}>
+                              <label>
+                                Contextual role
+                                <input aria-label="Edit relationship role" placeholder="e.g. yearbook_contact" value={relRole} onChange={(e) => setRelRole(e.target.value)} />
+                              </label>
+                              <p className="muted">Changes only this organization relationship — the person and every other relationship stay the same.</p>
+                              <button type="button" disabled={relEditBusy} onClick={() => void submitRelEdit(contact.id, rel.organization_contact_id)}>Save role</button>
+                            </div>
                           ) : null}
                         </li>
                       ))}
