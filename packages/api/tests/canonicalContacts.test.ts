@@ -146,6 +146,36 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     expect((await request(app).patch(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}`).set("Authorization", `Bearer ${photographerToken}`).send({ phone: "x" })).status).toBe(403);
   });
 
+  it("(JOB-TRUTH) the identity id + relationship id a Job commits to stay stable across person and role edits (rolled back)", async () => {
+    // Historical Job-truth foundation: a Job stores canonical FKs (primary_contact_id = the
+    // organization_contact id; the identity is reachable via organization_contact.contact_id).
+    // Editing the person's name or the relationship role must NOT change WHICH records a Job
+    // points to — only the (live-joined) display reflects the current canonical truth.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const contact = await createCanonicalContact(client, auth, { first_name: "Commit", last_name: "Target", email: "commit@jobtruth.example.com" });
+      const link = await linkContactToOrganization(client, auth, contact.id, schoolId, { client_roles: ["picture_day_contact"] });
+      const committedIdentityId = contact.id;
+      const committedRelationshipId = link.organization_contact_id; // what a Job's primary_contact_id would store
+
+      // a downstream user later renames the person AND changes the relationship role
+      await updateCanonicalContact(client, auth, contact.id, { first_name: "Renamed", last_name: "Person" });
+      await updateContactRelationship(client, auth, contact.id, link.organization_contact_id, { client_roles: ["yearbook_contact"] });
+
+      // the Job's committed FK target (the org_contact row) is the SAME id, still the SAME identity
+      const oc = await client.query<{ id: string; contact_id: string }>(`SELECT id::text, contact_id::text FROM organization_contact WHERE id=$1`, [committedRelationshipId]);
+      expect(oc.rows[0].id).toBe(committedRelationshipId); // relationship id immutable
+      expect(oc.rows[0].contact_id).toBe(committedIdentityId); // still the same canonical identity (no new identity on rename)
+      const ident = await client.query<{ id: string }>(`SELECT id::text FROM contact WHERE id=$1`, [committedIdentityId]);
+      expect(ident.rows[0].id).toBe(committedIdentityId);
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
   it("(ARCHIVE) archiving a contact identity is soft — identity + relationships stay readable; restore reactivates (rolled back)", async () => {
     const client = await pool.connect();
     try {
