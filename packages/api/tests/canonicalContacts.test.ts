@@ -353,3 +353,116 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     expect((await post(`/contact-identities/${contactId}/links`, { organization_id: crossOrgId, relationship_role: "general" })).status).toBe(404);
   });
 });
+
+// ── Deterministic end-to-end fixture: the exact HTTP sequence the browser drives, with REAL
+//    (committed) mutations against a controlled fixture identity, then full cleanup. Mirrors the
+//    18-step acceptance workflow: create → link District + School → confirm distinct roles → edit
+//    person (propagates to both org records) → edit ONLY the School role (District unchanged) →
+//    refresh persists → unlink School (identity + District remain) → read-only blocked →
+//    cross-tenant denied → archive/restore → delete every fixture row. No demo record is touched.
+describe("(E2E) full canonical contact identity workflow with real mutations + cleanup", () => {
+  it("drives create → link → propagate → isolate → unlink → archive → restore through the HTTP routes and cleans up", async () => {
+    let contactId = "";
+    let schoolOcId = "";
+    let districtOcId = "";
+    try {
+      // 1. create a brand-new reusable identity (real INSERT)
+      const created = await postRetry("/contact-identities", { first_name: "E2E", last_name: "Persona", email: `e2e-${stamp}@persona.example.com`, phone: "555-0000" });
+      expect(created.status).toBe(201);
+      contactId = created.body.contact.id;
+      createdContactIds.push(contactId);
+
+      // 2. link to the District as district_contact
+      const linkDistrict = await postRetry(`/contact-identities/${contactId}/links`, { organization_id: districtId, client_roles: ["district_contact"], is_primary: true });
+      expect(linkDistrict.status).toBe(201);
+      districtOcId = linkDistrict.body.organization_contact_id;
+
+      // 3. link the SAME identity to the School as picture_day_contact
+      const linkSchool = await postRetry(`/contact-identities/${contactId}/links`, { organization_id: schoolId, client_roles: ["picture_day_contact"] });
+      expect(linkSchool.status).toBe(201);
+      schoolOcId = linkSchool.body.organization_contact_id;
+
+      // 4. relationships show ONE identity in two orgs with DISTINCT roles
+      const rel1 = await get(`/contact-identities/${contactId}/relationships`);
+      expect(rel1.status).toBe(200);
+      const byOrg1 = new Map(rel1.body.relationships.map((r: any) => [r.organization_id, r.client_roles]));
+      expect(byOrg1.get(districtId)).toContain("district_contact");
+      expect(byOrg1.get(schoolId)).toContain("picture_day_contact");
+
+      // 5. the list role filter finds this identity under district_contact
+      const listByRole = await get(`/contact-identities?role=district_contact&limit=100`);
+      expect(listByRole.body.contacts.some((c: any) => c.id === contactId)).toBe(true);
+
+      // 6. edit the PERSON (new phone) — one mutation
+      const patchPerson = await request(app).patch(`/api/organizations/contact-identities/${contactId}`).set("Authorization", `Bearer ${manageToken}`).send({ phone: "555-9999" });
+      expect(patchPerson.status).toBe(200);
+
+      // 7. the new phone propagated to BOTH org-bound records (District + School views)
+      const orgRows = await pool.query(`SELECT organization_id::text, phone FROM organization_contact WHERE contact_id=$1`, [contactId]);
+      const phones = new Map(orgRows.rows.map((r: any) => [r.organization_id, r.phone]));
+      expect(phones.get(districtId)).toBe("555-9999");
+      expect(phones.get(schoolId)).toBe("555-9999");
+
+      // 8. edit ONLY the School relationship role → yearbook_contact
+      const patchSchoolRole = await request(app).patch(`/api/organizations/contact-identities/${contactId}/links/${schoolOcId}`).set("Authorization", `Bearer ${manageToken}`).send({ client_roles: ["yearbook_contact"] });
+      expect(patchSchoolRole.status).toBe(200);
+
+      // 9. School changed, District UNCHANGED, identity UNCHANGED (isolation)
+      const rel2 = await get(`/contact-identities/${contactId}/relationships`);
+      const byOrg2 = new Map(rel2.body.relationships.map((r: any) => [r.organization_id, r.client_roles]));
+      expect(byOrg2.get(schoolId)).toContain("yearbook_contact");
+      expect(byOrg2.get(schoolId)).not.toContain("picture_day_contact");
+      expect(byOrg2.get(districtId)).toContain("district_contact");
+      expect(rel2.body.identity.email).toBe(`e2e-${stamp}@persona.example.com`);
+
+      // 10. "refresh persists" — a fresh request returns the same committed state
+      const rel2Refresh = await get(`/contact-identities/${contactId}/relationships`);
+      const byOrg2Refresh = new Map(rel2Refresh.body.relationships.map((r: any) => [r.organization_id, r.client_roles]));
+      expect(byOrg2Refresh.get(schoolId)).toContain("yearbook_contact");
+      expect(byOrg2Refresh.get(districtId)).toContain("district_contact");
+
+      // 11. unlink the School relationship only
+      const unlink = await request(app).delete(`/api/organizations/contact-identities/${contactId}/links/${schoolOcId}`).set("Authorization", `Bearer ${manageToken}`);
+      expect(unlink.status).toBe(200);
+
+      // 12. identity + District remain; the School org-bound row is soft-archived (inactive), its
+      //     current relationship ended
+      const rel3 = await get(`/contact-identities/${contactId}/relationships`);
+      expect(rel3.body.identity.id).toBe(contactId);
+      expect(rel3.body.relationships.map((r: any) => r.organization_id)).toContain(districtId);
+      expect((await pool.query(`SELECT active_status FROM organization_contact WHERE id=$1`, [schoolOcId])).rows[0].active_status).toBe("inactive");
+      expect((await pool.query(`SELECT count(*)::int n FROM organization_contact_relationship WHERE contact_id=$1 AND is_current=true`, [schoolOcId])).rows[0].n).toBe(0);
+
+      // 13. a read-only user is blocked from every mutation (server-enforced)
+      expect((await request(app).patch(`/api/organizations/contact-identities/${contactId}`).set("Authorization", `Bearer ${photographerToken}`).send({ phone: "x" })).status).toBe(403);
+      expect((await post(`/contact-identities/${contactId}/links`, { organization_id: districtId }, photographerToken)).status).toBe(403);
+      expect((await request(app).delete(`/api/organizations/contact-identities/${contactId}/links/${districtOcId}`).set("Authorization", `Bearer ${photographerToken}`)).status).toBe(403);
+      expect((await post(`/contact-identities/${contactId}/archive`, { archived: true }, photographerToken)).status).toBe(403);
+
+      // 14. cross-tenant denied — cannot link this identity to another tenant's org
+      expect((await post(`/contact-identities/${contactId}/links`, { organization_id: crossOrgId, client_roles: ["district_contact"] })).status).toBe(404);
+
+      // 15. archive the identity (soft) — readable, not deleted
+      const archive = await post(`/contact-identities/${contactId}/archive`, { archived: true });
+      expect(archive.status).toBe(200);
+      expect((await pool.query(`SELECT active_status FROM contact WHERE id=$1`, [contactId])).rows[0].active_status).toBe("inactive");
+
+      // 16. archived identity + its relationships are still fully readable
+      const relArchived = await get(`/contact-identities/${contactId}/relationships`);
+      expect(relArchived.status).toBe(200);
+      expect(relArchived.body.relationships.map((r: any) => r.organization_id)).toContain(districtId);
+
+      // 17. restore returns it to active
+      const restore = await post(`/contact-identities/${contactId}/archive`, { archived: false });
+      expect(restore.status).toBe(200);
+      expect((await pool.query(`SELECT active_status FROM contact WHERE id=$1`, [contactId])).rows[0].active_status).toBe("active");
+    } finally {
+      // 18. clean up EVERY fixture row this workflow created (no demo record touched)
+      if (contactId) {
+        await pool.query(`DELETE FROM organization_contact_relationship WHERE contact_id IN (SELECT id FROM organization_contact WHERE contact_id=$1)`, [contactId]);
+        await pool.query(`DELETE FROM organization_contact WHERE contact_id=$1`, [contactId]);
+        await pool.query(`DELETE FROM contact WHERE id=$1`, [contactId]);
+      }
+    }
+  });
+});

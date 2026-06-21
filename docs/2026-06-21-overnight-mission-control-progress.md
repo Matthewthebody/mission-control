@@ -249,3 +249,26 @@ tests · browser · known limitation · next slice.
   gates; closure report + `test: close reusable contact identity acceptance`.
 
 ---
+
+## Slice — deterministic end-to-end fixture with real mutations (Part 6)
+
+- **Files:** `packages/api/tests/canonicalContacts.test.ts` (+`(E2E)` 18-step workflow → 19).
+- **Behavior:** one deterministic test drives the EXACT HTTP sequence the browser issues, with REAL
+  (committed) mutations against a controlled fixture identity: create → link District
+  (district_contact) + School (picture_day_contact) → confirm distinct roles → list role filter →
+  edit the person's phone → **confirm the new phone in BOTH org-bound records** → edit ONLY the
+  School role to yearbook_contact → **District + identity unchanged** → fresh re-read (refresh
+  persists) → unlink School → identity + District remain, School row soft-archived → **read-only
+  user blocked on every mutation (403×4)** → **cross-tenant link denied (404)** → archive (soft) →
+  archived identity still readable → restore. A `finally` deletes every fixture row.
+- **Cleanup verified:** post-run DB query → 0 `e2e-…@persona.example.com` rows remain; no demo
+  record was mutated (all writes target a fixture identity + the controlled fixture orgs).
+- **Tests:** api `canonicalContacts` 19 (incl. the E2E workflow), deterministic across re-runs.
+- **Note:** no Playwright harness exists in this repo; the deterministic fixture runs at the
+  HTTP/route boundary (route → service → RLS → Postgres — identical to what the browser calls). The
+  UI layer is covered by the admin-web component/page suite; a live-browser smoke is recorded
+  separately in the closure report.
+- **Next:** audit coverage to the 32 enumerated tests; full verification gates; closure report +
+  `test: close reusable contact identity acceptance`.
+
+---
