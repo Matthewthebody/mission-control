@@ -2016,10 +2016,14 @@ describe("organizations workflow surface", () => {
     expect(input.website).toBe("northshore.org");
   });
 
-  it("hides the first service term section for a District (parent organization)", async () => {
+  it("offers the first service term for a schools District (parent organization) and hides it for non-schools accounts", async () => {
     render(<OrganizationEditorForm submitLabel="Create organization" onCancel={() => undefined} onSubmit={vi.fn()} />);
     expect(screen.getByLabelText("Initial term label")).toBeInTheDocument();
+    // Phase 4.2 Part 3 — a District with a schools account type can carry an initial term.
     fireEvent.change(screen.getByLabelText("Entity Kind"), { target: { value: "parent_organization" } });
+    expect(screen.getByLabelText("Initial term label")).toBeInTheDocument();
+    // a non-schools account type (e.g. studio) has no service term
+    fireEvent.change(screen.getByLabelText("Account Type"), { target: { value: "studio" } });
     expect(screen.queryByLabelText("Initial term label")).not.toBeInTheDocument();
   });
 
