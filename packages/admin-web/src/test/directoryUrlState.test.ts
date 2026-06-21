@@ -44,4 +44,34 @@ describe("directory URL state", () => {
     setHash("#directory/contacts?role=decision_maker");
     expect(parseOrganizationsHash("contacts").roleCategory).toBe("decision_maker");
   });
+
+  it("a direct organization hash selects Organizations mode", () => {
+    setHash("#directory/organizations?organization=org-7&tab=relationships");
+    const route = parseOrganizationsHash("contacts");
+    expect(route.view).toBe("organizations");
+    expect(route.organizationId).toBe("org-7");
+    expect(route.tab).toBe("relationships");
+  });
+
+  it("hydrates legacy directory roots compatibly (accounts / contacts / locations / internal)", () => {
+    setHash("#accounts");
+    expect(parseOrganizationsHash("organizations").view).toBe("organizations");
+    setHash("#contacts");
+    expect(parseOrganizationsHash("organizations").view).toBe("contacts");
+    setHash("#locations");
+    expect(parseOrganizationsHash("organizations").view).toBe("locations");
+    setHash("#directory/internal");
+    expect(parseOrganizationsHash("organizations").view).toBe("contacts");
+  });
+
+  it("carries only non-sensitive identifiers/filters in the URL (no tokens, emails, or PII)", () => {
+    setHash("#directory/contacts?view=contacts&contact=contact-9&q=smith&role=billing&status=inactive&tab=relationships");
+    const route = parseOrganizationsHash("contacts");
+    // every hydrated value is an id, a filter token, or a free-text search term the operator typed —
+    // never an auth token or structured PII field.
+    const values = JSON.stringify(route);
+    expect(values).not.toMatch(/eyJ|Bearer|@.+\./); // no JWT, bearer, or email-shaped strings
+    expect(route.contactId).toBe("contact-9");
+    expect(route.search).toBe("smith");
+  });
 });

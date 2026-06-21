@@ -1225,11 +1225,15 @@ export function parseOrganizationsHash(defaultView: DirectoryView): RouteState {
           ? "contacts"
           : root === "locations" || root === "directory/locations"
             ? "locations"
+          : root === "accounts" || root === "organizations" || root === "directory/accounts" || root === "directory/organizations"
+            ? "organizations"
           : params.get("contact")
             ? "contacts"
             : params.get("location")
               ? "locations"
-              : defaultView,
+              : params.get("organization")
+                ? "organizations"
+                : defaultView,
     organizationId: params.get("organization"),
     contactId: params.get("contact"),
     locationId: params.get("location"),
