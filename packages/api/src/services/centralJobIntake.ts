@@ -3268,6 +3268,30 @@ export async function publishDraftJob(
     ]
   );
 
+  // Phase 4.2 Part 2 — capture the dated-commitment snapshot at publish. This preserves the dated
+  // values the canonical model lets change later (contextual role, contact phone/preferred,
+  // service-term id/label) alongside the room/area and the already-snapshotted location address.
+  // FK references stay live (current canonical truth); this column never auto-updates.
+  await client.query(
+    `UPDATE shoot s SET dated_commitment = jsonb_strip_nulls(jsonb_build_object(
+        'organization_id', s.organization_id::text,
+        'primary_contact_id', s.primary_contact_id::text,
+        'contact_name', (SELECT full_name FROM organization_contact WHERE tenant_id = s.tenant_id AND id = s.primary_contact_id),
+        'contact_phone', (SELECT COALESCE(oc.phone, c.phone) FROM organization_contact oc LEFT JOIN contact c ON c.tenant_id = oc.tenant_id AND c.id = oc.contact_id WHERE oc.tenant_id = s.tenant_id AND oc.id = s.primary_contact_id),
+        'contact_preferred_method', (SELECT c.preferred_contact_method FROM organization_contact oc JOIN contact c ON c.tenant_id = oc.tenant_id AND c.id = oc.contact_id WHERE oc.tenant_id = s.tenant_id AND oc.id = s.primary_contact_id),
+        'contextual_role', (SELECT to_jsonb(ocr.client_roles) FROM organization_contact_relationship ocr WHERE ocr.tenant_id = s.tenant_id AND ocr.contact_id = s.primary_contact_id AND ocr.is_current = true LIMIT 1),
+        'location_id', s.location_id::text,
+        'location_address', s.location_address,
+        'room_area', s.special_instructions,
+        'service_term_id', (SELECT id::text FROM school_service_term WHERE tenant_id = s.tenant_id AND organization_id = s.organization_id AND status = 'current' ORDER BY created_at DESC LIMIT 1),
+        'service_term_label', (SELECT period_label FROM school_service_term WHERE tenant_id = s.tenant_id AND organization_id = s.organization_id AND status = 'current' ORDER BY created_at DESC LIMIT 1),
+        'confirmed_at', now()::text,
+        'confirmed_by', $3::text
+      ))
+      WHERE s.tenant_id = $1 AND s.id = $2`,
+    [auth.tenantId, shootId, auth.id]
+  );
+
   await upsertShootDay(client, auth, shootId, normalized);
   if (normalized.department === "schools") {
     await upsertSchoolDetail(client, auth, shootId, normalized.school_detail);

@@ -941,6 +941,65 @@ describe("central job intake publish pipeline", () => {
     expect(Number(persistedDownstream.rows[0].staffing_count)).toBeGreaterThan(0);
   });
 
+  it("captures a dated-commitment snapshot at publish that stays stable when the contact is later edited", async () => {
+    const tenantId = leadershipAuth.tenantId as string;
+    const stamp = Date.now();
+    // controlled fixture identity + relationship on the seeded schools org (no demo record mutated)
+    const contactId = (await dbPool.query<{ id: string }>(`INSERT INTO contact (tenant_id, first_name, last_name, full_name, normalized_full_name, email, phone, preferred_contact_method) VALUES ($1,'Dated','Commit',$2,$3,$4,'555-7777','text') RETURNING id::text`, [tenantId, `Dated Commit ${stamp}`, `dated commit ${stamp}`, `dated-${stamp}@commit.example.com`])).rows[0].id;
+    const ocId = (await dbPool.query<{ id: string }>(`INSERT INTO organization_contact (tenant_id, organization_id, contact_id, first_name, last_name, full_name, normalized_full_name, phone, active_status) VALUES ($1,$2,$3,'Dated','Commit',$4,$5,'555-7777','active') RETURNING id::text`, [tenantId, schoolsOrganizationId, contactId, `Dated Commit ${stamp}`, `dated commit ${stamp}`])).rows[0].id;
+    await dbPool.query(`INSERT INTO organization_contact_relationship (tenant_id, organization_id, contact_id, relationship_role, client_roles, is_current) VALUES ($1,$2,$3,'general',ARRAY['picture_day_contact']::client_contact_role[],true)`, [tenantId, schoolsOrganizationId, ocId]);
+
+    const createResponse = await createDraft(leadershipToken, {
+      department: "schools",
+      job_type: schoolsJobType,
+      organization_id: schoolsOrganizationId,
+      location_id: schoolsLocationId,
+      primary_contact_id: ocId,
+      job_owner_user_id: schoolsOfficeUserId,
+      start_date: futureSchoolsDate(120),
+      start_time: "08:30",
+      timezone: "America/Chicago",
+      production_required: true,
+      staffing_required: true,
+      staffing_estimate: 2,
+      special_instructions: "East gym; load-in at door 3",
+      request_source: "manual",
+      school_detail: { school_job_type: "fall_portraits", roster_status: "received" }
+    });
+    expect(createResponse.status).toBe(201);
+    const jobId = createResponse.body.job.id as string;
+    try {
+      await duplicateCheck(leadershipToken, jobId);
+      const publishResponse = await publishDraft(leadershipToken, jobId);
+      expect(publishResponse.status).toBe(200);
+
+      // the dated-commitment snapshot captured the role + contact + room/area at publish
+      const snap1 = (await dbPool.query<{ dated_commitment: any }>(`SELECT dated_commitment FROM shoot WHERE id=$1`, [jobId])).rows[0].dated_commitment;
+      expect(snap1).toBeTruthy();
+      expect(snap1.contact_name).toBe(`Dated Commit ${stamp}`);
+      expect(snap1.primary_contact_id).toBe(ocId);
+      expect(snap1.contextual_role).toEqual(["picture_day_contact"]);
+      expect(snap1.room_area).toContain("East gym");
+      expect(snap1.confirmed_by).toBeTruthy();
+
+      // a LATER edit to the canonical person (name) propagates to the live org_contact ...
+      await dbPool.query(`UPDATE contact SET full_name=$2, first_name='Renamed' WHERE id=$1`, [contactId, `Renamed Person ${stamp}`]);
+      await dbPool.query(`UPDATE organization_contact SET full_name=$2, first_name='Renamed' WHERE id=$1`, [ocId, `Renamed Person ${stamp}`]);
+      const liveName = (await dbPool.query<{ full_name: string }>(`SELECT full_name FROM organization_contact WHERE id=$1`, [ocId])).rows[0].full_name;
+      expect(liveName).toBe(`Renamed Person ${stamp}`); // live reference reflects current truth
+
+      // ... but the dated snapshot is UNCHANGED (the committed name + role are preserved)
+      const snap2 = (await dbPool.query<{ dated_commitment: any }>(`SELECT dated_commitment FROM shoot WHERE id=$1`, [jobId])).rows[0].dated_commitment;
+      expect(snap2.contact_name).toBe(`Dated Commit ${stamp}`); // dated commitment immutable
+      expect(snap2.contextual_role).toEqual(["picture_day_contact"]);
+    } finally {
+      await dbPool.query(`DELETE FROM shoot WHERE id=$1`, [jobId]);
+      await dbPool.query(`DELETE FROM organization_contact_relationship WHERE contact_id=$1`, [ocId]);
+      await dbPool.query(`DELETE FROM organization_contact WHERE id=$1`, [ocId]);
+      await dbPool.query(`DELETE FROM contact WHERE id=$1`, [contactId]);
+    }
+  });
+
   it("publishes a sports draft and creates downstream shells", async () => {
     const createResponse = await createDraft(leadershipToken, {
       department: "sports",
