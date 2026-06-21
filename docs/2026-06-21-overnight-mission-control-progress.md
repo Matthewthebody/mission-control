@@ -294,3 +294,17 @@ tests · browser · known limitation · next slice.
 - **Next:** full verification gates; closure report + `test: close reusable contact identity acceptance`.
 
 ---
+
+## CLOSURE — Reusable Contact Identity acceptance
+
+- **Report:** `docs/2026-06-21-reusable-contact-identity-acceptance-report.md`.
+- **Gates:** full admin-web suite **555/555 (serial)**; api `canonicalContacts` 21,
+  `directoryPermissionsMatrix` 13; web `canonicalContactExperience` 16, `directoryRecordRoutes` 8;
+  api + web `tsc --noEmit` clean; api + web builds clean; no ESLint configured (tsc is the static
+  gate). Live-server smoke (create/archive/restore 200, read-only 403, cleanup 0 orphans).
+- **Pre-existing baselines (untouched, zero diff vs d7bd0f6):** mileage `timeClockMileagePhase5`
+  3 failed/1 passed; `jobsCanonicalIndex` 7 failed/19 passed — both environmental/seed, no jobs or
+  mileage or migration files changed by this bundle.
+- **Closing commit:** `test: close reusable contact identity acceptance`.
+
+---
