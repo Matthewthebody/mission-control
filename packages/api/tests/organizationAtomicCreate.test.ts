@@ -359,6 +359,48 @@ describe("Phase 4.2 Part 3 — atomic create organization (extended acceptance)"
     expect((await pool.query(`SELECT count(*)::int n FROM organization WHERE tenant_id=$1 AND canonical_name=$2`, [tenantId, `Atomic XLoc ${stamp}`])).rows[0].n).toBe(0);
   });
 
+  // ── Consolidated journey (mirrors the deterministic browser fixture) ─────────
+  it("(JOURNEY) creates a District with everything, then a School under it reusing a District contact with a DIFFERENT role — roles stay independent", async () => {
+    // 1) District: brand + term + one inline contact (district_contact, primary) + one inline location (primary).
+    const district = await atomic({
+      organization: { canonical_name: `Journey District ${stamp}`, account_type: "schools_underclass_portraits", client_entity_kind: "parent_organization", website: "journeydistrict.example.org", main_phone: "555-0190" },
+      brand: { mascot: "Wolves", brand_status: "known", logo_url: "https://img.example/wolves.png", logo_status: "current" },
+      initial_service_term: { period_type: "school_year", period_label: `2026-2027 J ${stamp}` },
+      contacts: [{ first_name: "Jordan", last_name: "Dean", email: `jordan-${stamp}@journey.example.com`, client_roles: ["district_contact"], is_primary: true, title: "Superintendent" }],
+      locations: [{ location_name: `District Office ${stamp}`, address_line_1: "10 Admin Way", city: "Plymouth", state: "MN", zip: "55446", notes: "Main office; load-in at rear", is_primary: true }]
+    });
+    expect(district.status).toBe(201);
+    const districtNewId = district.body.organization_id;
+    createdOrgIds.push(districtNewId);
+    const jordanId = district.body.created_contact_ids[0];
+    expect(district.body.primary_location_id).toBeTruthy();
+    expect((await pool.query(`SELECT website FROM organization WHERE id=$1`, [districtNewId])).rows[0].website).toBe("https://journeydistrict.example.org");
+
+    // 2) School UNDER that District, reusing Jordan as a Picture Day Contact (different role).
+    const school = await atomic({
+      organization: { canonical_name: `Journey School ${stamp}`, account_type: "schools_underclass_portraits", client_entity_kind: "account", parent_organization_id: districtNewId },
+      contacts: [{ existing_contact_id: jordanId, client_roles: ["picture_day_contact"], title: "Photo Day Lead" }],
+      locations: [{ location_name: `School Gym ${stamp}`, address_line_1: "20 Court St", city: "Plymouth", state: "MN", zip: "55446" }]
+    });
+    expect(school.status).toBe(201);
+    const schoolNewId = school.body.organization_id;
+    createdOrgIds.push(schoolNewId);
+    expect(school.body.linked_contact_ids).toContain(jordanId); // reused, not duplicated
+
+    // 3) the SAME identity holds DISTINCT roles per organization (independent relationships)
+    const rels = await request(app).get(`/api/organizations/contact-identities/${jordanId}/relationships`).set("Authorization", `Bearer ${manageToken}`);
+    const byOrg = new Map(rels.body.relationships.map((r: any) => [r.organization_id, r.client_roles]));
+    expect(byOrg.get(districtNewId)).toContain("district_contact");
+    expect(byOrg.get(schoolNewId)).toContain("picture_day_contact");
+    expect(byOrg.get(schoolNewId)).not.toContain("district_contact");
+    // exactly one canonical identity for Jordan (no duplicate created on reuse)
+    expect((await pool.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1 AND email=$2`, [tenantId, `jordan-${stamp}@journey.example.com`])).rows[0].n).toBe(1);
+
+    // 4) read-only user cannot create
+    const denied = await atomic({ organization: { canonical_name: `Journey Denied ${stamp}`, account_type: "studio" } }, photographerToken);
+    expect(denied.status).toBe(403);
+  });
+
   // ── Single atomic endpoint shape ─────────────────────────────────────────────
   it("(38) one POST /atomic returns the full result (org id + created/linked contacts + locations + primary)", async () => {
     const res = await atomic({
