@@ -264,6 +264,41 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     expect((await request(app).get("/api/organizations/contact-identities")).status).toBe(401);
   });
 
+  it("(LIST-SEARCH) the canonical list is searchable by email and by phone (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const c = await createCanonicalContact(client, auth, { first_name: "Findable", last_name: "Bymeta", email: `unique-${stamp}@findme.example.com`, phone: "555-7" + String(stamp).slice(-6) });
+      const byEmail = await listCanonicalContacts(client, auth, { search: `unique-${stamp}@findme`, limit: 100 });
+      expect(byEmail.contacts.map((x) => x.id)).toContain(c.id);
+      const byPhone = await listCanonicalContacts(client, auth, { search: String(stamp).slice(-6), limit: 100 });
+      expect(byPhone.contacts.map((x) => x.id)).toContain(c.id);
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(SAME-NAME) two identities with the SAME name stay distinct — never merged (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const sharedName = `Jordan Samename ${stamp}`;
+      const a = await createCanonicalContact(client, auth, { full_name: sharedName, email: `a-${stamp}@same.example.com` });
+      const b = await createCanonicalContact(client, auth, { full_name: sharedName, email: `b-${stamp}@same.example.com` });
+      expect(a.id).not.toBe(b.id); // two people, two identities
+      const list = await listCanonicalContacts(client, auth, { search: sharedName, limit: 100 });
+      const ids = list.contacts.map((x) => x.id);
+      expect(ids).toContain(a.id);
+      expect(ids).toContain(b.id); // both returned — no silent merge on identical names
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
   it("(20) backfill dry-run writes nothing", async () => {
     const before = (await pool.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1`, [tenantId])).rows[0].n;
     const res = await post("/contact-identities/backfill", {});

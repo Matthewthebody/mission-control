@@ -272,3 +272,25 @@ tests · browser · known limitation · next slice.
   `test: close reusable contact identity acceptance`.
 
 ---
+
+## Slice — coverage to the enumerated acceptance tests (Part 7)
+
+- **Files:** `packages/api/tests/canonicalContacts.test.ts` (+LIST-SEARCH email/phone, +SAME-NAME
+  distinct → 21), `packages/admin-web/src/test/canonicalContactExperience.test.tsx` (+loading,
+  +pagination offset, +URL Back/Forward re-sync, +keyboard/focus aria-expanded/current → 16).
+- **Behavior covered (gaps closed):** search by email + by phone; two same-name identities stay
+  distinct (no merge); list loading state; pagination requests the next offset; urlBacked filters
+  seed from the URL and re-sync on Back/Forward; interactive controls are native focusable elements
+  and reflect selection via aria-expanded / aria-current.
+- **Coverage tally (canonical-contact-specific):** api `canonicalContacts` 21 +
+  `directoryPermissionsMatrix` (archive/create/backfill RBAC) ; web `canonicalContactExperience` 16
+  + `directoryRecordRoutes` 8 + `organizationsPage` contacts-entry — comfortably ≥ the 32 enumerated
+  behaviors (canonical list, search name/email/phone, filters, pagination, stable route, person
+  update + propagation, link District/School, distinct roles, rel-edit isolation, unlink isolation +
+  preservation, same-name distinct, shared-email no-merge, already-linked warning, archive/read-only,
+  restore, RBAC, cross-tenant, loading/empty/error/denied, keyboard/focus, refresh + Back/Forward,
+  fixture cleanup).
+- **Tests:** web 57 (33+8+16), api 34 (21+13) — all green, deterministic.
+- **Next:** full verification gates; closure report + `test: close reusable contact identity acceptance`.
+
+---

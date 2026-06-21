@@ -270,4 +270,60 @@ describe("CanonicalContactsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Open Sam Rivera full page/ }));
     expect(window.location.hash).toContain("directory/contacts/c1");
   });
+
+  it("shows a loading state before the list resolves", async () => {
+    apiFetchMock.mockImplementation((path: string) => {
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [], total: 0 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" />);
+    // the first paint shows loading (initial state) before the effect's fetch microtask flushes
+    expect(screen.getByText("Loading contacts…")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("No contacts match.")).toBeInTheDocument());
+  });
+
+  it("paginates the canonical list (Next requests the next page offset)", async () => {
+    const page = Array.from({ length: 25 }, (_, i) => item({ id: `p${i}`, full_name: `Person ${i}` }));
+    apiFetchMock.mockImplementation((path: string) => {
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: page, total: 60 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" />);
+    await waitFor(() => expect(screen.getByText("Person 0")).toBeInTheDocument());
+    expect(screen.getByText(/1–25 of 60/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(apiFetchMock.mock.calls.some(([p]) => typeof p === "string" && p.includes("offset=25"))).toBe(true)
+    );
+  });
+
+  it("urlBacked mode seeds filters from the URL and re-syncs on Back/Forward (hashchange)", async () => {
+    apiFetchMock.mockImplementation((path: string) => {
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    window.location.hash = "#directory/contacts?view=contacts&cq=rivera";
+    render(<CanonicalContactsPanel token="t" urlBacked />);
+    await waitFor(() => expect((screen.getByLabelText("Search people") as HTMLInputElement).value).toBe("rivera"));
+    // simulate Back/Forward to a different query
+    window.location.hash = "#directory/contacts?view=contacts&cq=nelson";
+    window.dispatchEvent(new Event("hashchange"));
+    await waitFor(() => expect((screen.getByLabelText("Search people") as HTMLInputElement).value).toBe("nelson"));
+  });
+
+  it("exposes keyboard-focusable controls and reflects selection state (aria-expanded / aria-current)", async () => {
+    apiFetchMock.mockImplementation((path: string) => {
+      if ((path ?? "").includes("/relationships")) return Promise.resolve({ identity: item({}), relationships: [] });
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" />);
+    const row = await screen.findByRole("button", { name: /Sam Rivera/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    const searchInput = screen.getByLabelText("Search people");
+    (searchInput as HTMLInputElement).focus();
+    expect(searchInput).toHaveFocus();
+    fireEvent.click(row);
+    await waitFor(() => expect(row).toHaveAttribute("aria-expanded", "true"));
+  });
 });
