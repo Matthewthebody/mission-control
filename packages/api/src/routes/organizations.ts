@@ -276,7 +276,9 @@ const agreementSignerSchema = z.object({
 const listQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   account_type: accountTypeSchema.optional(),
-  active_status: activeStatusSchema.optional()
+  active_status: activeStatusSchema.optional(),
+  // Phase 4.1 — scope the list to a District's child accounts (Schools) for Job Intake.
+  parent_organization_id: z.string().uuid().optional()
 });
 
 const contactListQuerySchema = listQuerySchema.extend({
@@ -689,7 +691,8 @@ router.get("/", validateQuery(listQuerySchema), async (req, res, next) => {
       listOrganizations(client, auth, {
         search: (req.query.search as string | undefined) ?? null,
         account_type: ((req.query.account_type as OrganizationAccountType | undefined) ?? null) as OrganizationAccountType | null,
-        active_status: ((req.query.active_status as DirectoryActiveStatus | undefined) ?? null) as DirectoryActiveStatus | null
+        active_status: ((req.query.active_status as DirectoryActiveStatus | undefined) ?? null) as DirectoryActiveStatus | null,
+        parent_organization_id: (req.query.parent_organization_id as string | undefined) ?? null
       })
     );
     return res.json(payload);

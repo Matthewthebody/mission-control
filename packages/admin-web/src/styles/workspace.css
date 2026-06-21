@@ -550,6 +550,11 @@
   color: #f6e6c8;
 }
 
+/* Phase 4.1 — optional District scope for school intake */
+.job-intake__district-scope {
+  margin-bottom: 12px;
+}
+
 .job-intake__required {
   color: #ff9f9f;
   margin-left: 4px;

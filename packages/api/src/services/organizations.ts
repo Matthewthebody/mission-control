@@ -527,6 +527,8 @@ export async function listOrganizations(
     search?: string | null;
     account_type?: OrganizationAccountType | null;
     active_status?: DirectoryActiveStatus | null;
+    // Phase 4.1 — scope to a District's child accounts (Schools) for canonical Job Intake.
+    parent_organization_id?: string | null;
   } = {}
 ): Promise<OrganizationListResponse> {
   const normalizedSearch = normalizeDirectoryText(filters.search);
@@ -573,6 +575,7 @@ export async function listOrganizations(
       WHERE o.tenant_id = $1
         AND ($2::organization_account_type IS NULL OR o.account_type = $2)
         AND ($3::directory_active_status IS NULL OR o.active_status = $3)
+        AND ($5::uuid IS NULL OR o.parent_organization_id = $5)
         AND (
           $4::text IS NULL
           OR o.normalized_canonical_name LIKE $4
@@ -588,7 +591,7 @@ export async function listOrganizations(
       ORDER BY lower(o.display_name), lower(o.canonical_name)
       LIMIT 80
     `,
-    [auth.tenantId, filters.account_type ?? null, filters.active_status ?? null, fuzzySearch]
+    [auth.tenantId, filters.account_type ?? null, filters.active_status ?? null, fuzzySearch, filters.parent_organization_id ?? null]
   );
 
   return {

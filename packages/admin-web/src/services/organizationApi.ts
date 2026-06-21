@@ -415,6 +415,7 @@ export async function listOrganizations(
     search?: string;
     accountType?: OrganizationAccountType | "all";
     activeStatus?: DirectoryActiveStatus | "all";
+    parentOrganizationId?: string | null;
   } = {}
 ) {
   const params = new URLSearchParams();
@@ -426,6 +427,9 @@ export async function listOrganizations(
   }
   if (filters.activeStatus && filters.activeStatus !== "all") {
     params.set("active_status", filters.activeStatus);
+  }
+  if (filters.parentOrganizationId) {
+    params.set("parent_organization_id", filters.parentOrganizationId);
   }
   const query = params.toString();
   return apiFetch<OrganizationListResponse>(`/api/organizations${query ? `?${query}` : ""}`, token);

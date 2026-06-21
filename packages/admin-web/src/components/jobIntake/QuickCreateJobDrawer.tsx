@@ -33,8 +33,8 @@ import {
   publishCentralJobDraft,
   updateCentralJobDraft
 } from "../../services/centralJobIntakeApi";
-import { getOrganizationDetail, listDirectoryOwnerOptions, listOrganizations, listSchoolServiceTerms } from "../../services/organizationApi";
-import type { DirectoryOwnerOption, OrganizationDetail, OrganizationSummary, SchoolServiceTermRecord, SessionUser } from "../../types";
+import { getOrganizationDetail, listCanonicalDistricts, listDirectoryOwnerOptions, listOrganizations, listSchoolServiceTerms } from "../../services/organizationApi";
+import type { CanonicalDistrictOption, DirectoryOwnerOption, OrganizationDetail, OrganizationSummary, SchoolServiceTermRecord, SessionUser } from "../../types";
 import { JobIntakeCanonicalContext } from "./JobIntakeCanonicalContext";
 import {
   buildIntakePayload,
@@ -75,6 +75,9 @@ export function QuickCreateJobDrawer({
   const [locationSearch, setLocationSearch] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [organizationResults, setOrganizationResults] = useState<OrganizationSummary[]>([]);
+  // Phase 4.1 — optional District scope for school intake (scopes the school list to a District).
+  const [districtOptions, setDistrictOptions] = useState<CanonicalDistrictOption[]>([]);
+  const [districtFilterId, setDistrictFilterId] = useState("");
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationSummary | null>(null);
   const [organizationDetail, setOrganizationDetail] = useState<OrganizationDetail | null>(null);
   // Phase 4 Slice F — canonical current service term for the selected school account.
@@ -125,6 +128,7 @@ export function QuickCreateJobDrawer({
     setSelectedOrganization(null);
     setOrganizationDetail(null);
     setCurrentServiceTerm(null);
+    setDistrictFilterId("");
     setDuplicateResult(null);
     setReadiness(null);
     setPublishValidation(null);
@@ -166,19 +170,42 @@ export function QuickCreateJobDrawer({
     };
   }, [open, token]);
 
+  // Phase 4.1 — load canonical Districts once per open for the schools-intake District scope.
+  useEffect(() => {
+    if (!open || defaultDepartment !== "schools") {
+      return;
+    }
+    let cancelled = false;
+    void listCanonicalDistricts(token)
+      .then((response) => {
+        if (!cancelled) setDistrictOptions(response.districts);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, defaultDepartment, token]);
+
   useEffect(() => {
     if (!open) {
       return;
     }
     const query = organizationSearch.trim();
-    if (query.length < 2) {
+    const districtScoped = form.department === "schools" && Boolean(districtFilterId);
+    // With a District chosen we can list its child Schools directly (no name needed);
+    // otherwise keep the 2-char typeahead threshold.
+    if (query.length < 2 && !districtScoped) {
       setOrganizationResults(selectedOrganization ? [selectedOrganization] : []);
       setLoadingOrganizations(false);
       return;
     }
     let cancelled = false;
     setLoadingOrganizations(true);
-    void listOrganizations(token, { search: query, activeStatus: "active" })
+    void listOrganizations(token, {
+      search: query.length >= 2 ? query : undefined,
+      activeStatus: "active",
+      parentOrganizationId: districtScoped ? districtFilterId : undefined
+    })
       .then((response) => {
         if (!cancelled) {
           setOrganizationResults(response.organizations);
@@ -201,7 +228,7 @@ export function QuickCreateJobDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, organizationSearch, selectedOrganization, token]);
+  }, [open, organizationSearch, selectedOrganization, token, form.department, districtFilterId]);
 
   useEffect(() => {
     if (!open || !resumeDraftId) {
@@ -580,6 +607,29 @@ export function QuickCreateJobDrawer({
               badge={organizationIssueCount > 0 ? <span className="job-intake__issue-badge">{organizationIssueCount} issue{organizationIssueCount === 1 ? "" : "s"}</span> : null}
             />
             <div className="job-intake__section-body">
+              {form.department === "schools" && districtOptions.length ? (
+                <div className="job-intake__district-scope">
+                  <label className="directory-field">
+                    <span>District (optional — scopes the school list)</span>
+                    <select
+                      aria-label="District scope"
+                      value={districtFilterId}
+                      onChange={(event) => {
+                        setDistrictFilterId(event.target.value);
+                        setOrganizationSearch("");
+                      }}
+                    >
+                      <option value="">All districts</option>
+                      {districtOptions.map((district) => (
+                        <option key={district.id} value={district.id}>
+                          {district.display_name} ({district.child_organization_count} school{district.child_organization_count === 1 ? "" : "s"})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {districtFilterId ? <p className="job-intake__helper">Showing schools in the selected District. Clear to search all organizations.</p> : null}
+                </div>
+              ) : null}
               <div className="field-grid job-intake__grid">
                 <OrganizationLookupField
                   department={form.department}

@@ -219,4 +219,21 @@ describe("Phase 4 Slice 1 — canonical organization hierarchy", () => {
     const res = await request(app).get("/api/organizations/districts");
     expect(res.status).toBe(401);
   });
+
+  it("(20) the organization list scopes to a District's child schools via parent_organization_id", async () => {
+    const token = `ZZScope${stamp}`;
+    const district = track(await createOrg(manageToken, { canonical_name: `${token} District`, account_type: SCHOOL, client_entity_kind: "parent_organization" }));
+    const childA = track(await createOrg(manageToken, { canonical_name: `${token} School A`, account_type: SCHOOL, client_entity_kind: "account", parent_organization_id: district }));
+    const childB = track(await createOrg(manageToken, { canonical_name: `${token} School B`, account_type: SCHOOL, client_entity_kind: "account", parent_organization_id: district }));
+    const otherDistrict = track(await createOrg(manageToken, { canonical_name: `${token} Other District`, account_type: SCHOOL, client_entity_kind: "parent_organization" }));
+    const otherChild = track(await createOrg(manageToken, { canonical_name: `${token} Other School`, account_type: SCHOOL, client_entity_kind: "account", parent_organization_id: otherDistrict }));
+
+    const res = await request(app).get(`/api/organizations?parent_organization_id=${district}`).set("Authorization", `Bearer ${manageToken}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.organizations.map((o: any) => o.id);
+    expect(ids).toContain(childA);
+    expect(ids).toContain(childB);
+    expect(ids).not.toContain(otherChild); // a different District's school is excluded
+    expect(ids).not.toContain(district); // the District itself is not its own child
+  });
 });

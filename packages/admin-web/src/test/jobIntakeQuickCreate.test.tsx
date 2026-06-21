@@ -51,7 +51,10 @@ vi.mock("../featureFlags", () => ({
 vi.mock("../services/organizationApi", () => ({
   listOrganizations: (...args: unknown[]) => listOrganizationsMock(...args),
   getOrganizationDetail: (...args: unknown[]) => getOrganizationDetailMock(...args),
-  listDirectoryOwnerOptions: (...args: unknown[]) => listDirectoryOwnerOptionsMock(...args)
+  listDirectoryOwnerOptions: (...args: unknown[]) => listDirectoryOwnerOptionsMock(...args),
+  // Phase 4 / 4.1 canonical intake reads (district scope + current service term).
+  listCanonicalDistricts: async () => ({ districts: [] }),
+  listSchoolServiceTerms: async () => ({ service_terms: [] })
 }));
 
 vi.mock("../services/centralJobIntakeApi", () => ({
