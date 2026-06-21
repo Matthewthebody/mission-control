@@ -54,6 +54,7 @@ import {
 } from "../services/schoolServiceTerm.js";
 import {
   createCanonicalContact,
+  updateCanonicalContact,
   linkContactToOrganization,
   unlinkContactFromOrganization,
   getContactRelationships,
@@ -1605,6 +1606,28 @@ router.post("/contact-identities/:contactId/links", requireCanonicalDirectoryMan
       linkContactToOrganization(client, auth, String(req.params.contactId), req.body.organization_id, { relationship_role: req.body.relationship_role, client_roles: req.body.client_roles, is_primary: req.body.is_primary })
     );
     return res.status(201).json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Phase 4.2 Bundle 1 — edit the canonical person identity (propagates to linked org rows).
+const updateContactIdentitySchema = z
+  .object({
+    first_name: z.string().trim().max(120).optional().nullable(),
+    last_name: z.string().trim().max(120).optional().nullable(),
+    full_name: z.string().trim().max(240).optional().nullable(),
+    email: z.string().trim().max(180).optional().nullable(),
+    phone: z.string().trim().max(40).optional().nullable(),
+    preferred_contact_method: z.string().trim().max(80).optional().nullable()
+  })
+  .refine((value) => Object.keys(value).length > 0, "Provide at least one field to update");
+
+router.patch("/contact-identities/:contactId", requireCanonicalDirectoryManageAccess, validateBody(updateContactIdentitySchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const contact = await withClientTransaction(auth.tenantId, auth.id, (client) => updateCanonicalContact(client, auth, String(req.params.contactId), req.body));
+    return res.json({ contact });
   } catch (error) {
     return next(error);
   }

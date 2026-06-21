@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClientError } from "../../api";
 import type { CanonicalContactListItem, CanonicalContactRelationship } from "../../types";
-import { getCanonicalContactRelationships, listCanonicalContacts, unlinkCanonicalContactRelationshipRecord } from "../../services/organizationApi";
+import {
+  getCanonicalContactRelationships,
+  linkCanonicalContactToOrganizationRecord,
+  listCanonicalContacts,
+  listOrganizations,
+  unlinkCanonicalContactRelationshipRecord,
+  updateCanonicalContactRecord
+} from "../../services/organizationApi";
+import type { OrganizationSummary } from "../../types";
 
 // Phase 4.2 Part 2 — first-class canonical Contacts list over reusable identities (the
 // `contact` table, not org-bound rows). Search by name/email/phone, see how many
@@ -29,6 +37,22 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
   const [relationships, setRelationships] = useState<CanonicalContactRelationship[]>([]);
   const [relLoading, setRelLoading] = useState(false);
   const [unlinkBusy, setUnlinkBusy] = useState("");
+  const [editPersonId, setEditPersonId] = useState<string | null>(null);
+  const [personForm, setPersonForm] = useState<{ first_name: string; last_name: string; email: string; phone: string }>({ first_name: "", last_name: "", email: "", phone: "" });
+  const [personBusy, setPersonBusy] = useState(false);
+  const [linkFor, setLinkFor] = useState<string | null>(null);
+  const [orgQuery, setOrgQuery] = useState("");
+  const [orgResults, setOrgResults] = useState<OrganizationSummary[]>([]);
+  const [linkRole, setLinkRole] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+
+  const reloadRelationships = useCallback(
+    async (contactId: string) => {
+      const refreshed = await getCanonicalContactRelationships(token, contactId);
+      setRelationships(refreshed.relationships);
+    },
+    [token]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +76,71 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
   useEffect(() => {
     setOffset(0);
   }, [search]);
+
+  // Org search for the "link to another organization" action (debounced).
+  useEffect(() => {
+    if (!linkFor || orgQuery.trim().length < 2) {
+      setOrgResults([]);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      void listOrganizations(token, { search: orgQuery.trim(), activeStatus: "active" })
+        .then((r) => {
+          if (!cancelled) setOrgResults(r.organizations);
+        })
+        .catch(() => undefined);
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [linkFor, orgQuery, token]);
+
+  const submitPersonEdit = useCallback(
+    async (contactId: string) => {
+      setPersonBusy(true);
+      try {
+        await updateCanonicalContactRecord(token, contactId, {
+          first_name: personForm.first_name || null,
+          last_name: personForm.last_name || null,
+          email: personForm.email || null,
+          phone: personForm.phone || null
+        });
+        setEditPersonId(null);
+        await load();
+        if (expandedId === contactId) await reloadRelationships(contactId);
+      } catch {
+        /* keep the form open on failure */
+      } finally {
+        setPersonBusy(false);
+      }
+    },
+    [personForm, token, load, expandedId, reloadRelationships]
+  );
+
+  const submitLink = useCallback(
+    async (contactId: string, organizationId: string) => {
+      setLinkBusy(true);
+      try {
+        await linkCanonicalContactToOrganizationRecord(token, contactId, {
+          organization_id: organizationId,
+          client_roles: linkRole ? [linkRole] : undefined
+        });
+        setLinkFor(null);
+        setOrgQuery("");
+        setOrgResults([]);
+        setLinkRole("");
+        await reloadRelationships(contactId);
+        await load();
+      } catch {
+        /* keep the form open on failure */
+      } finally {
+        setLinkBusy(false);
+      }
+    },
+    [token, linkRole, reloadRelationships, load]
+  );
 
   const toggleExpand = useCallback(
     async (contactId: string) => {
@@ -110,6 +199,68 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus, ca
               </button>
               {expandedId === contact.id ? (
                 <div className="canonical-contacts-panel__relationships">
+                  {canManage ? (
+                    <div className="page-intro-actions page-intro-actions--compact">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => {
+                          setEditPersonId(editPersonId === contact.id ? null : contact.id);
+                          setPersonForm({ first_name: contact.first_name ?? "", last_name: contact.last_name ?? "", email: contact.email ?? "", phone: contact.phone ?? "" });
+                          setLinkFor(null);
+                        }}
+                      >
+                        {editPersonId === contact.id ? "Close" : "Edit person"}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => {
+                          setLinkFor(linkFor === contact.id ? null : contact.id);
+                          setEditPersonId(null);
+                          setOrgQuery("");
+                          setOrgResults([]);
+                          setLinkRole("");
+                        }}
+                      >
+                        {linkFor === contact.id ? "Close" : "Link to organization"}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {editPersonId === contact.id ? (
+                    <div className="canonical-contacts-panel__edit">
+                      <div className="service-term-form-grid">
+                        <label>First name<input aria-label="Edit first name" value={personForm.first_name} onChange={(e) => setPersonForm((p) => ({ ...p, first_name: e.target.value }))} /></label>
+                        <label>Last name<input aria-label="Edit last name" value={personForm.last_name} onChange={(e) => setPersonForm((p) => ({ ...p, last_name: e.target.value }))} /></label>
+                        <label>Email<input type="email" aria-label="Edit email" value={personForm.email} onChange={(e) => setPersonForm((p) => ({ ...p, email: e.target.value }))} /></label>
+                        <label>Phone<input aria-label="Edit phone" value={personForm.phone} onChange={(e) => setPersonForm((p) => ({ ...p, phone: e.target.value }))} /></label>
+                      </div>
+                      <p className="muted">Editing the person updates every organization view they appear in.</p>
+                      <button type="button" disabled={personBusy} onClick={() => void submitPersonEdit(contact.id)}>Save person</button>
+                    </div>
+                  ) : null}
+
+                  {linkFor === contact.id ? (
+                    <div className="canonical-contacts-panel__edit">
+                      <label className="directory-field">Find an organization<input aria-label="Link organization search" placeholder="Search organizations…" value={orgQuery} onChange={(e) => setOrgQuery(e.target.value)} /></label>
+                      <label className="directory-field">Role<input aria-label="Link role" placeholder="e.g. picture_day_contact" value={linkRole} onChange={(e) => setLinkRole(e.target.value)} /></label>
+                      {orgResults.length ? (
+                        <ul className="canonical-contact-selector__results" role="listbox" aria-label="Organizations to link">
+                          {orgResults.slice(0, 6).map((org) => (
+                            <li key={org.id} role="option" aria-selected={false}>
+                              <button type="button" className="canonical-contact-selector__option" disabled={linkBusy} onClick={() => void submitLink(contact.id, org.id)}>
+                                {org.display_name}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : orgQuery.trim().length >= 2 ? (
+                        <p className="muted">No matching organizations.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {relLoading ? (
                     <p className="muted">Loading relationships…</p>
                   ) : relationships.length ? (

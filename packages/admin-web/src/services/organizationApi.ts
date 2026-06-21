@@ -560,6 +560,14 @@ export async function createCanonicalContactRecord(token: string, input: Canonic
   });
 }
 
+// Phase 4.2 Bundle 1 — edit the canonical person identity (propagates to linked org rows).
+export async function updateCanonicalContactRecord(token: string, contactId: string, input: CanonicalContactCreateInput) {
+  return apiFetch<{ contact: CanonicalContactRecord }>(`/api/organizations/contact-identities/${contactId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function getCanonicalContactRelationships(token: string, contactId: string) {
   return apiFetch<CanonicalContactRelationshipsResponse>(`/api/organizations/contact-identities/${contactId}/relationships`, token);
 }

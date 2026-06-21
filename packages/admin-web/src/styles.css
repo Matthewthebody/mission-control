@@ -23484,3 +23484,5 @@ html[data-theme="light"] .help-tooltip__bubble {
 .canonical-contacts-panel__relationships ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .canonical-contacts-panel__relationships li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .canonical-contacts-panel__unlink { margin-left: auto; padding: 2px 10px; font-size: 0.78rem; }
+.canonical-contacts-panel__edit { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
+.canonical-contacts-panel__edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }

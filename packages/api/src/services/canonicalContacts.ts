@@ -119,6 +119,51 @@ export async function createCanonicalContact(client: PoolClient, auth: AuthUser,
   return (await loadContact(client, auth.tenantId, rows[0].id))!;
 }
 
+export type UpdateCanonicalContactInput = {
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  preferred_contact_method?: string | null;
+};
+
+// Edit the canonical person identity ONCE and propagate the person-level fields to every
+// org-bound row that references it, so all organization views show the new info. Person-level
+// only — per-organization role/title/notes live on the relationship and are NOT touched here.
+export async function updateCanonicalContact(
+  client: PoolClient,
+  auth: AuthUser,
+  contactId: string,
+  patch: UpdateCanonicalContactInput
+): Promise<CanonicalContactRecord> {
+  requireManage(auth);
+  const existing = await loadContact(client, auth.tenantId, contactId);
+  if (!existing) throw new ApiError(404, "Contact not found");
+  const first = patch.first_name !== undefined ? patch.first_name : existing.first_name;
+  const last = patch.last_name !== undefined ? patch.last_name : existing.last_name;
+  const full = fullName(first, last, patch.full_name !== undefined ? patch.full_name : existing.full_name);
+  if (!full && !norm(patch.email !== undefined ? patch.email : existing.email)) {
+    throw new ApiError(400, "A contact needs at least a name or an email.");
+  }
+  const email = patch.email !== undefined ? patch.email : existing.email;
+  const phone = patch.phone !== undefined ? patch.phone : existing.phone;
+  const preferred = patch.preferred_contact_method !== undefined ? patch.preferred_contact_method : existing.preferred_contact_method;
+  await client.query(
+    `UPDATE contact SET first_name=$3, last_name=$4, full_name=$5, normalized_full_name=$6, email=$7, normalized_email=$8, phone=$9, preferred_contact_method=$10, updated_by_user_id=$11, updated_at=now()
+       WHERE tenant_id=$1 AND id=$2`,
+    [auth.tenantId, contactId, first, last, full || null, norm(full), email, norm(email), phone, preferred, auth.id]
+  );
+  // propagate the person fields to every linked org-bound row (both District + School views).
+  await client.query(
+    `UPDATE organization_contact SET first_name=$3, last_name=$4, full_name=$5, normalized_full_name=$6, email=$7, phone=$8, updated_by_user_id=$9, updated_at=now()
+       WHERE tenant_id=$1 AND contact_id=$2`,
+    [auth.tenantId, contactId, first, last, full || null, norm(full) ?? norm(email) ?? "", email, phone, auth.id]
+  );
+  await createAuditLog(client, { tenantId: auth.tenantId, actorUserId: auth.id, action: "contact.identity_updated", entityType: "contact", entityId: contactId, metadata: { full_name: full } });
+  return (await loadContact(client, auth.tenantId, contactId))!;
+}
+
 // Link an existing canonical Contact identity to another Organization, with its own
 // per-organization role. Creates the org-bound organization_contact row (pointing at the
 // identity) + an OCR carrying the role — enabling true cross-org reuse with distinct roles.

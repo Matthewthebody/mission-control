@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin } from "./helpers.js";
-import { backfillContactIdentities, createCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
+import { backfillContactIdentities, createCanonicalContact, updateCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
 
 // Phase 4 Slice 2 — reusable canonical Contact identity. A `contact` identity (migration
 // 161) is the reusable person; org-bound `organization_contact` rows reference it via
@@ -85,6 +85,34 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     } finally {
       client.release();
     }
+  });
+
+  it("(EDIT) editing the person propagates the new phone to every linked organization view (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const contact = await createCanonicalContact(client, auth, { first_name: "Edit", last_name: "Me", email: "edit@prop.example.com", phone: "555-0001" });
+      const d = await linkContactToOrganization(client, auth, contact.id, districtId, { client_roles: ["district_contact"] });
+      const s = await linkContactToOrganization(client, auth, contact.id, schoolId, { client_roles: ["picture_day_contact"] });
+
+      const updated = await updateCanonicalContact(client, auth, contact.id, { phone: "555-9999", email: "edited@prop.example.com" });
+      expect(updated.phone).toBe("555-9999");
+      // the new phone + email propagate to BOTH org-bound rows (both organization views)
+      const dRow = (await client.query(`SELECT phone, email FROM organization_contact WHERE id=$1`, [d.organization_contact_id])).rows[0];
+      const sRow = (await client.query(`SELECT phone, email FROM organization_contact WHERE id=$1`, [s.organization_contact_id])).rows[0];
+      expect(dRow.phone).toBe("555-9999");
+      expect(sRow.phone).toBe("555-9999");
+      expect(dRow.email).toBe("edited@prop.example.com");
+      expect(sRow.email).toBe("edited@prop.example.com");
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(EDIT) the person-edit route requires management access", async () => {
+    expect((await request(app).patch(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}`).set("Authorization", `Bearer ${photographerToken}`).send({ phone: "x" })).status).toBe(403);
   });
 
   it("(UNLINK) unlinking one relationship preserves the identity and every other relationship (rolled back)", async () => {

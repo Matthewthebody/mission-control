@@ -130,7 +130,38 @@ tests · browser · known limitation · next slice.
   mode still renders org-bound rows (canonical-identity Contacts mode + pagination + filters not
   migrated); person-identity editing and link-to-another-org-via-selector UI not yet wired (the
   link API + selector exist; unlink now added). These are the next Slice A steps before closure.
-- **Next slice:** continue Slice A — migrate Contacts rail to canonical identities + wire
-  link-to-org (selector) + person edit on the contact route; then Slices B–E, then Phase 6A.
+- **Next slice:** Bundle 1 relationship management (below).
+
+---
+
+## Phase 4.2 Bundle 1 — canonical contact person-edit + link (relationship management) — DONE
+
+- **Commit:** (this commit) `feat: add canonical contact person-edit and link relationship management`
+- **Files:** api `canonicalContacts.ts` (+`updateCanonicalContact` w/ propagation),
+  `routes/organizations.ts` (`PATCH /contact-identities/:id`), `canonicalContacts.test.ts`;
+  web `organizationApi.ts` (+wrapper), `CanonicalContactsPanel.tsx` (person-edit + link-to-org
+  forms), `styles.css`, `canonicalContactExperience.test.tsx`.
+- **Behavior:** the canonical contacts panel is now a full relationship manager on canonical
+  identities — search/list (Part 2) + expand to the cross-org relationship rollup + **edit the
+  person once** (name/email/phone, which PROPAGATES to every linked org-bound row so all
+  organization views update) + **link to another organization** (org search + role) +
+  **unlink** (prior commit). Manager-gated.
+- **Data/migration:** none.
+- **Tests:** api `canonicalContacts` 13 (person-edit propagates phone+email to both org rows;
+  PATCH RBAC 403; plus prior unlink/link/list); web `canonicalContactExperience` 8 (person-edit
+  PATCH, link POST, unlink DELETE-keeps-other). tsc + build clean.
+- **Browser (live, API restarted):** logged in; `GET /contact-identities` returns 197 identities;
+  opened a school full-page detail (`#directory/organizations/<id>`); the contacts panel renders;
+  expanding a contact shows **Edit person / Link to organization / Unlink**; the Edit-person form
+  opens with fields + the "updates every organization view" propagation note; PATCH/link/unlink
+  routes confirmed live (401 unauth). No real demo data mutated (mutations proven by tests).
+- **Known limitation (Bundle 1 still acceptance-incomplete):** the Directory Contacts RAIL mode
+  still lists org-bound rows (canonical-identity first-class mode + its URL pagination/filters
+  not migrated); the full-page Contact ROUTE shows org-bound relationship_history rather than the
+  canonical relationship manager. The relationship-management JOURNEY (edit/link/unlink with
+  isolation + propagation) is complete and reachable via the org detail's canonical contacts panel.
+- **Next slice:** migrate the Contacts rail/mode to canonical identities (reuse
+  CanonicalContactsPanel as the Contacts surface) so the first-class Contacts mode + Contact route
+  use identities; then Bundle 2 (multi-contact/location atomic create form), Bundle 3, Bundle 4 closure.
 
 ---

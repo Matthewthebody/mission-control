@@ -104,6 +104,53 @@ describe("CanonicalContactsPanel", () => {
     await waitFor(() => expect(screen.getByText("No contacts match.")).toBeInTheDocument());
   });
 
+  it("edits the person (manager) via PATCH and reloads", async () => {
+    apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if ((path ?? "").includes("/relationships")) return Promise.resolve({ identity: item({}), relationships: [] });
+      if (method === "PATCH") return Promise.resolve({ contact: item({ phone: "555-1212" }) });
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" canManage />);
+    await waitFor(() => expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Sam Rivera/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit person" }));
+    fireEvent.change(screen.getByLabelText("Edit phone"), { target: { value: "555-1212" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save person" }));
+    await waitFor(() =>
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/contact-identities/c1"),
+        "t",
+        expect.objectContaining({ method: "PATCH", body: expect.stringContaining("555-1212") })
+      )
+    );
+  });
+
+  it("links the contact to another organization (manager) via POST", async () => {
+    apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if ((path ?? "").includes("/relationships")) return Promise.resolve({ identity: item({}), relationships: [] });
+      if ((path ?? "").includes("/links") && method === "POST") return Promise.resolve({ organization_contact_id: "oc-new" });
+      if ((path ?? "").includes("/api/organizations?") || (path ?? "").includes("search=")) return Promise.resolve({ organizations: [{ id: "org-x", display_name: "Eastview High", canonical_name: "eastview", account_type: "schools_underclass_portraits", active_status: "active", aliases: [], contact_count: 0, location_count: 0 }], search: { query: "east", total: 1 } });
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" canManage />);
+    await waitFor(() => expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Sam Rivera/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Link to organization" }));
+    fireEvent.change(screen.getByLabelText("Link organization search"), { target: { value: "east" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Eastview High" }));
+    await waitFor(() =>
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/contact-identities/c1/links"),
+        "t",
+        expect.objectContaining({ method: "POST", body: expect.stringContaining("org-x") })
+      )
+    );
+  });
+
   it("unlinks one relationship (manager) via the DELETE endpoint and keeps the other", async () => {
     let relCall = 0;
     apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {
