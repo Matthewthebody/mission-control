@@ -60,8 +60,31 @@ tests · browser · known limitation · next slice.
 - **Known limitation:** the create FORM still collects one primary contact + no inline
   locations; the atomic endpoint accepts arrays, so the multi-contact/multi-location form UI
   is the remaining frontend piece.
-- **Next slice:** Phase 4.2 Part 4 — complete + verify Job Intake District→School→Location→
-  Contact scoping (District→School filter already exists from Phase 4.1; finish contextual
-  contacts + tests).
+- **Next slice:** Phase 4.2 Part 4 / Slice 5 (see below).
+
+---
+
+## Phase 4.2 Slice 5 — Directory URL-state convergence — DONE
+
+- **Commit:** (this commit) `fix: converge canonical directory navigation and url state`
+- **Files:** web `pages/Organizations.tsx` (RouteState + parse + pushRoute + sync/debounce
+  effects; export parseOrganizationsHash), `test/directoryUrlState.test.ts`.
+- **Behavior:** the URL is now authoritative for mode + selected record + tab AND **search +
+  primary filters** (account type, active status, role). `parseOrganizationsHash` hydrates
+  them on mount/refresh/Back-Forward; `pushRoute` carries them so record navigation and the
+  full-page "return context" preserve them; a debounced effect writes filter changes to the
+  hash (loop-guarded — only pushes when the URL differs). No sensitive data in the URL (ids
+  stay in path/query as before; only search text + filter enums added).
+- **Data/migration:** none.
+- **Tests:** web `directoryUrlState` 4 (hydrate mode/record/search/filters; defaults; direct
+  contact/location hash selects mode; role filter), `organizationsPage` 33 unaffected. tsc clean.
+- **Browser:** batched into Part 6/Slice 6 closure scenario.
+- **Known limitation:** only the four primary filters are URL-backed (search, account_type,
+  status, role); the secondary contact filters (owner, importance, photo/logo flags) remain
+  local — adequate for the acceptance scenario (refresh/Back-Forward restore the visible
+  search + mode + record + primary filters).
+- **Next slice:** Phase 4.2 Part 4 — finish + verify the Job Intake District→School→Location→
+  Contact cascade (District→School already wired in Phase 4.1; add contextual-contact tests),
+  then Slice 6 closure (browser scenario + gates + closure report).
 
 ---

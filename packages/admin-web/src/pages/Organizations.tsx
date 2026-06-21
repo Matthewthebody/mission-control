@@ -108,7 +108,18 @@ type Props = {
   entryView?: DirectoryView;
   defaultContactAudience?: "all" | "company";
 };
-type RouteState = { view: DirectoryView; organizationId: string | null; contactId: string | null; locationId: string | null; tab: DirectoryWorkspaceTab };
+type RouteState = {
+  view: DirectoryView;
+  organizationId: string | null;
+  contactId: string | null;
+  locationId: string | null;
+  tab: DirectoryWorkspaceTab;
+  // Phase 4.2 Slice 5 — URL-authoritative search + primary filters (refresh / Back-Forward stable).
+  search: string;
+  accountType: OrganizationAccountType | "all";
+  activeStatus: DirectoryActiveStatus | "all";
+  roleCategory: DirectoryContactRoleCategory | "all";
+};
 type ContactAudience = "all" | "company" | "external";
 type DrawerState =
   | { type: "create-organization" }
@@ -156,11 +167,12 @@ export function Organizations({
   const canManage = canManageCanonicalDirectoryRecords(currentUser);
   const canManageSchoolRecords = canManageSchoolFoundation(currentUser);
   const [route, setRoute] = useState<RouteState>(() => parseOrganizationsHash(entryView));
-  const [search, setSearch] = useState("");
-  const [accountType, setAccountType] = useState<OrganizationAccountType | "all">("all");
-  const [activeStatus, setActiveStatus] = useState<DirectoryActiveStatus | "all">("active");
+  // Phase 4.2 Slice 5 — seed search + primary filters from the URL (refresh-stable).
+  const [search, setSearch] = useState<string>(() => route.search);
+  const [accountType, setAccountType] = useState<OrganizationAccountType | "all">(() => route.accountType);
+  const [activeStatus, setActiveStatus] = useState<DirectoryActiveStatus | "all">(() => route.activeStatus);
   const [contactStatus, setContactStatus] = useState<DirectoryContactStatus | "all">("all");
-  const [roleCategory, setRoleCategory] = useState<DirectoryContactRoleCategory | "all">("all");
+  const [roleCategory, setRoleCategory] = useState<DirectoryContactRoleCategory | "all">(() => route.roleCategory);
   const [operationalImportance, setOperationalImportance] = useState<DirectoryOperationalImportance | "all">("all");
   const [decisionInfluence, setDecisionInfluence] = useState<DirectoryDecisionInfluence | "all">("all");
   const [primaryInternalOwnerUserId, setPrimaryInternalOwnerUserId] = useState("");
@@ -207,12 +219,37 @@ export function Organizations({
   useEffect(() => {
     const sync = () => {
       if (isDirectoryHash(window.location.hash)) {
-        setRoute(parseOrganizationsHash(entryView));
+        const parsed = parseOrganizationsHash(entryView);
+        setRoute(parsed);
+        // Phase 4.2 Slice 5 — restore search + primary filters from the URL on refresh /
+        // Back-Forward (React no-ops when the value is unchanged, so this can't loop).
+        setSearch(parsed.search);
+        setAccountType(parsed.accountType);
+        setActiveStatus(parsed.activeStatus);
+        setRoleCategory(parsed.roleCategory);
       }
     };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [entryView]);
+
+  // Phase 4.2 Slice 5 — when the user changes search/filters, reflect them in the URL (so a
+  // refresh or the full-page "return context" restores them). Debounced to keep history sane.
+  useEffect(() => {
+    if (!isDirectoryHash(window.location.hash)) return;
+    const current = parseOrganizationsHash(entryView);
+    if (
+      current.search === search &&
+      current.accountType === accountType &&
+      current.activeStatus === activeStatus &&
+      current.roleCategory === roleCategory
+    ) {
+      return; // URL already matches — nothing to push (prevents loops)
+    }
+    const handle = setTimeout(() => pushRoute({ search, accountType, activeStatus, roleCategory }), 250);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, accountType, activeStatus, roleCategory, entryView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -558,7 +595,13 @@ export function Organizations({
       organizationId: next.organizationId !== undefined ? next.organizationId : route.organizationId,
       contactId: next.contactId !== undefined ? next.contactId : route.contactId,
       locationId: next.locationId !== undefined ? next.locationId : route.locationId,
-      tab: next.tab ?? route.tab
+      tab: next.tab ?? route.tab,
+      // Phase 4.2 Slice 5 — carry the current search + primary filters so record navigation
+      // and the full-page "return context" preserve them.
+      search: next.search !== undefined ? next.search : search,
+      accountType: next.accountType ?? accountType,
+      activeStatus: next.activeStatus ?? activeStatus,
+      roleCategory: next.roleCategory ?? roleCategory
     };
     if (!canManage && merged.tab === "duplicates") merged.tab = "profile";
     const params = new URLSearchParams();
@@ -567,6 +610,10 @@ export function Organizations({
     if (merged.organizationId) params.set("organization", merged.organizationId);
     if (merged.contactId) params.set("contact", merged.contactId);
     if (merged.locationId) params.set("location", merged.locationId);
+    if (merged.search.trim()) params.set("q", merged.search.trim());
+    if (merged.accountType !== "all") params.set("account_type", merged.accountType);
+    if (merged.activeStatus !== "active") params.set("status", merged.activeStatus);
+    if (merged.roleCategory !== "all") params.set("role", merged.roleCategory);
     const root = getDirectoryRouteRoot(merged.view, defaultContactAudience);
     window.location.hash = `#${root}?${params.toString()}`;
   }
@@ -1137,7 +1184,7 @@ async function refreshRailAndWorkspaceAfterImport(
   }
 }
 
-function parseOrganizationsHash(defaultView: DirectoryView): RouteState {
+export function parseOrganizationsHash(defaultView: DirectoryView): RouteState {
   const root = window.location.hash.replace(/^#/, "").split("?")[0] ?? "";
   const [, query = ""] = window.location.hash.split("?");
   const params = new URLSearchParams(query);
@@ -1170,7 +1217,12 @@ function parseOrganizationsHash(defaultView: DirectoryView): RouteState {
           ? "relationships"
           : defaultView === "contacts"
             ? "relationships"
-            : "profile"
+            : "profile",
+    // Phase 4.2 Slice 5 — search + primary filters from the URL (defaults when absent).
+    search: params.get("q") ?? "",
+    accountType: (params.get("account_type") as OrganizationAccountType | "all") || "all",
+    activeStatus: (params.get("status") as DirectoryActiveStatus | "all") || "active",
+    roleCategory: (params.get("role") as DirectoryContactRoleCategory | "all") || "all"
   };
 }
 
