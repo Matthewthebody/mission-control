@@ -77,6 +77,15 @@ describe("OrganizationEditorForm — atomic create", () => {
     expect(screen.getByLabelText("Search canonical locations")).toBeInTheDocument();
   });
 
+  it("offers an initial service term for a District (parent_organization) schools account", () => {
+    apiFetchMock.mockResolvedValue({ contacts: [], total: 0, locations: [] });
+    renderForm();
+    // default account type is a schools type; switching Entity Kind to District keeps the term offer
+    fireEvent.change(screen.getByLabelText("Entity Kind"), { target: { value: "parent_organization" } });
+    expect(screen.getByText("First Service Term")).toBeInTheDocument();
+    expect(screen.getByLabelText("Initial term label")).toBeInTheDocument();
+  });
+
   it("adds an existing contact + an inline location and submits ONE atomic payload with both", async () => {
     apiFetchMock.mockImplementation((path: string) => {
       if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [CONTACT_ITEM], total: 1 });

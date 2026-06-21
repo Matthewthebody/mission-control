@@ -236,7 +236,9 @@ export function OrganizationEditorForm({
   };
   const ownerSelectOptions = ownerOptions.length ? ownerOptions.map((owner) => owner.full_name) : FALLBACK_INTERNAL_OWNERS;
   const isCreateMode = !initialValue;
-  const offerInitialTerm = isCreateMode && entityKind === "account" && accountType.startsWith("schools");
+  // Offer an initial draft term for any schools account — a District (parent_organization) or a
+  // School — since service terms live on either in the canonical model.
+  const offerInitialTerm = isCreateMode && accountType.startsWith("schools");
 
   async function handleLogoSelected(file: File | null) {
     if (!file || !onUploadLogo) {
