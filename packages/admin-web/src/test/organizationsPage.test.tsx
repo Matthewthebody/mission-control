@@ -1851,6 +1851,14 @@ function createDirectoryHarness(
       return importSession;
     }
 
+    // Phase 4 / 4.1 self-loading detail panels (ServiceTermsPanel, LogoHistoryPanel) — benign empties.
+    if (path.endsWith("/service-terms") && method === "GET") {
+      return { service_terms: [] };
+    }
+    if (path.endsWith("/logo-history") && method === "GET") {
+      return { logo_history: [] };
+    }
+
     throw new Error(`Unexpected call: ${method} ${path}`);
   });
 

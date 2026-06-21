@@ -50,6 +50,7 @@ import type {
   OrganizationDetail,
   OrganizationOperationsHub,
   OrganizationListResponse,
+  OrganizationLogoHistoryResponse,
   SchoolServiceTermListResponse,
   SchoolServiceTermPeriodType,
   SchoolServiceTermRecord,
@@ -518,6 +519,18 @@ export async function updateOrganizationBrandRecord(token: string, organizationI
   return apiFetch<OrganizationDetail>(`/api/organizations/${organizationId}/brand`, token, {
     method: "PATCH",
     body: JSON.stringify(input)
+  });
+}
+
+// Phase 4.1 — organization logo history + restore (migration-162 backend).
+export async function getOrganizationLogoHistory(token: string, organizationId: string) {
+  return apiFetch<OrganizationLogoHistoryResponse>(`/api/organizations/${organizationId}/logo-history`, token);
+}
+
+export async function restoreOrganizationLogoRecord(token: string, organizationId: string, historyId: string) {
+  return apiFetch<OrganizationLogoHistoryResponse>(`/api/organizations/${organizationId}/logo-restore`, token, {
+    method: "POST",
+    body: JSON.stringify({ history_id: historyId })
   });
 }
 

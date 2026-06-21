@@ -2269,6 +2269,22 @@ export type SchoolServiceTermListResponse = {
   service_terms: SchoolServiceTermRecord[];
 };
 
+// Phase 4.1 — organization logo history (migration 162 organization_logo_history).
+export type OrganizationLogoHistoryEntry = {
+  id: string;
+  logo_url: string | null;
+  source: string | null;
+  status: string | null;
+  note: string | null;
+  set_by_user_id: string | null;
+  set_by_user_name: string | null;
+  created_at: string;
+};
+
+export type OrganizationLogoHistoryResponse = {
+  logo_history: OrganizationLogoHistoryEntry[];
+};
+
 // Phase 4 Slice 5 — canonical parent Districts for the searchable Parent-District selector.
 export type CanonicalDistrictOption = {
   id: string;

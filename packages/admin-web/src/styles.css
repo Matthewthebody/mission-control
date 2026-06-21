@@ -23452,3 +23452,12 @@ html[data-theme="light"] .help-tooltip__bubble {
 .directory-link-button { display: flex; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: inherit; cursor: pointer; }
 .directory-link-button:hover, .directory-link-button:focus-visible { border-color: var(--border-strong); }
 .organization-hierarchy-review { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed rgba(211, 165, 106, 0.5); border-radius: 10px; background: var(--warm-accent-soft); }
+
+/* Phase 4.1 — organization logo / brand history */
+.logo-history-panel { margin-top: 14px; }
+.logo-history-panel__current { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.logo-history-panel__current-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.logo-history-panel__list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.logo-history-panel__entry { display: flex; align-items: flex-start; gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); }
+.logo-history-panel__entry-body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.logo-history-panel__note { font-size: 0.86rem; }

@@ -112,9 +112,12 @@ export async function updateOrganizationBrand(client: PoolClient, auth: AuthUser
 }
 
 export async function getLogoHistory(client: PoolClient, auth: AuthUser, organizationId: string) {
+  // LEFT JOIN app_user so the UI can show WHO set each logo (actor name), not a raw id.
   const { rows } = await client.query(
-    `SELECT id::text, logo_url, source, status, note, set_by_user_id::text, created_at::text
-       FROM organization_logo_history WHERE tenant_id=$1 AND organization_id=$2 ORDER BY created_at DESC LIMIT 100`,
+    `SELECT h.id::text, h.logo_url, h.source, h.status, h.note, h.set_by_user_id::text, u.full_name AS set_by_user_name, h.created_at::text
+       FROM organization_logo_history h
+       LEFT JOIN app_user u ON u.id = h.set_by_user_id
+       WHERE h.tenant_id=$1 AND h.organization_id=$2 ORDER BY h.created_at DESC LIMIT 100`,
     [auth.tenantId, organizationId]
   );
   return { logo_history: rows };
