@@ -137,3 +137,80 @@ generated, and test-proven reversible. Demo-curation (Phase 3C.1) and Phase 1–
    canonical brand is ambiguous by design).
 3. The service term is surfaced in job intake for operator confirmation; its values are not
    auto-snapshotted into the job (safest — avoids overwriting operator input).
+
+---
+
+# Phase 4.1 — Acceptance Closure (2026-06-20)
+
+A factual acceptance audit (`docs/phase4-1-directory-acceptance-gap-audit.md`, commit `7a63f01`)
+re-checked the seven Directory journeys and found that while the Phase 4 backend + panels are real,
+several user-facing workflows were Partial/Missing. Phase 4.1 closed the bounded, backend-ready gaps,
+applied the reversible contact backfill, and recorded the larger gaps honestly.
+
+## 4.1 commit ledger (on top of `6a8c891`)
+
+| Commit | Part | Subject |
+|---|---|---|
+| `7a63f01` | A | docs: audit phase 4 directory acceptance gaps |
+| `9ed9afe` | B | feat: complete organization logo-history experience |
+| `f94eb67` | B | fix: scope school job intake to canonical directory records |
+| `5d1b60c` | B | fix: accept scheme-less website in the organization editor |
+| `e03fae0` | C | fix: apply reversible demo contact identity backfill |
+| _this_ | D | test: close phase 4 directory acceptance gaps |
+
+## What 4.1 closed (Part B — bounded, tested wins)
+
+- **Logo history + restore UI** (`9ed9afe`) — the migration-162 endpoints had no UI; now a
+  self-contained `LogoHistoryPanel` renders in the organization detail with the current logo
+  preview, the append-only history (source / who / when), and a manager-only Restore. Backend
+  `getLogoHistory` now joins `app_user` for the actor name. 4 panel tests.
+- **Job Intake District→School scoping** (`f94eb67`) — the org list endpoint gained an additive
+  `parent_organization_id` filter; school intake now offers a District selector that scopes the
+  school search to that District's children (browser-verified: Wayzata School District → Wayzata
+  High School). 1 API test; location/contact scoping and free-text room/area unchanged.
+- **Scheme-less Website** (`5d1b60c`) — the editor accepted only fully-schemed URLs (`type="url"`);
+  now a bare domain is accepted and the server canonicalizes it. 1 test.
+
+## What 4.1 applied (Part C — reversible demo backfill)
+
+`backfillContactIdentities` gained per-relationship detail + a **safe-only** apply mode (apply only
+unique one-to-one rows; leave possible-duplicate / identity-less rows Review Required) and a
+`rollbackContactIdentityBackfill`. The fresh demo dry run classified **all 187** unlinked org-bound
+contacts as safe one-to-one (0 possible duplicates, 0 invalid), so the safe-only apply ran:
+**187 identities created, link coverage 2/189 → 189/189**, batch
+`4689434a-6f7c-4e21-a414-78bb47600224`. Verified: idempotent (re-run finds 0 unlinked), no
+relationship lost (189 org-contacts unchanged), counts reconcile (187 new identities), 0 orphaned
+links, 0 cross-tenant changes, compat fields preserved (187/187), reversible (rollback proven on a
+deterministic test batch). No names or shared emails merged; nothing hard-deleted. Artifacts under
+`docs/artifacts/phase4-1-contact-identity-backfill-*`.
+
+## Honestly remaining (documented, not claimed done)
+
+These larger gaps from the audit are **not** closed in 4.1 and are scoped with their smallest-safe
+correction in `docs/phase4-1-directory-acceptance-gap-audit.md`:
+
+1. **Full-page detail routes** for District / School / Contact / Location (today: one workspace with
+   query-param selection; no record-level not-found / denied / archived surfaces). Largest UI build.
+2. **Reusable Contact identity UI** — the four `/contact-identities*` endpoints (and now 189 linked
+   identities from Part C) still have no admin-web surface for create-identity / reuse-search /
+   link-with-role-across-orgs / person-edit-propagation / org-level unlink. The UI still edits the
+   older org-bound contact model.
+3. **Atomic Create Organization** with inline multiple Contacts + Locations (today: one free-text
+   primary contact, no inline Location, sequential non-atomic calls). School→parent-District is still
+   not enforced at submit; no client duplicate-name warning.
+
+## 4.1 verification
+
+- **Tests:** Phase 4 + 4.1 API suite **81/81** green run serially (the one parallel-run failure is the
+  documented shared-DB interference in `directoryReconciliation` — green alone and serially, unrelated
+  to 4.1). Web Phase 4 + 4.1 suite **64/64** (incl. 4 logo-history tests). api + admin-web `tsc` +
+  `build` clean.
+- **Browser (live):** LogoHistoryPanel renders in the organization detail with correct current/empty
+  states; the District→School scoping endpoint returns only the District's child school. The contact
+  backfill was verified at the data layer (189/189 linked, 0 orphaned, 0 cross-tenant).
+
+## Non-goals reaffirmed for 4.1
+
+No Shoot↔Job bridge · no role dashboards · no full Monday import · no hard deletion · no fuzzy merge ·
+no second canonical model · no relaxed NOT-NULL · brand stays in canonical columns (not notes).
+Migration head unchanged at **162** (4.1 added no migrations). `stash@{0}` untouched; nothing pushed.
