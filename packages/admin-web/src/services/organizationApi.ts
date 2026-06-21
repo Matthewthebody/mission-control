@@ -575,6 +575,13 @@ export async function linkCanonicalContactToOrganizationRecord(
   });
 }
 
+// Phase 4.2 Slice A — unlink one organization relationship (soft; identity + other links kept).
+export async function unlinkCanonicalContactRelationshipRecord(token: string, contactId: string, organizationContactId: string) {
+  return apiFetch<{ unlinked: boolean }>(`/api/organizations/contact-identities/${contactId}/links/${organizationContactId}`, token, {
+    method: "DELETE"
+  });
+}
+
 // Phase 4.1 — organization logo history + restore (migration-162 backend).
 export async function getOrganizationLogoHistory(token: string, organizationId: string) {
   return apiFetch<OrganizationLogoHistoryResponse>(`/api/organizations/${organizationId}/logo-history`, token);

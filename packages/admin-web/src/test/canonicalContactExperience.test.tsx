@@ -103,4 +103,41 @@ describe("CanonicalContactsPanel", () => {
     render(<CanonicalContactsPanel token="t" />);
     await waitFor(() => expect(screen.getByText("No contacts match.")).toBeInTheDocument());
   });
+
+  it("unlinks one relationship (manager) via the DELETE endpoint and keeps the other", async () => {
+    let relCall = 0;
+    apiFetchMock.mockImplementation((path: string, _t?: string, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if ((path ?? "").includes("/relationships")) {
+        relCall += 1;
+        // first load: two relationships; after unlink: only the District remains
+        const rels = relCall === 1
+          ? [
+              { organization_id: "d1", organization_name: "Maple District", organization_contact_id: "oc1", relationship_role: "general", client_roles: ["district_contact"], is_primary: true },
+              { organization_id: "s1", organization_name: "Maple High", organization_contact_id: "oc2", relationship_role: "general", client_roles: ["picture_day_contact"], is_primary: false }
+            ]
+          : [{ organization_id: "d1", organization_name: "Maple District", organization_contact_id: "oc1", relationship_role: "general", client_roles: ["district_contact"], is_primary: true }];
+        return Promise.resolve({ identity: item({}), relationships: rels });
+      }
+      if (method === "DELETE") return Promise.resolve({ unlinked: true });
+      if ((path ?? "").includes("/contact-identities")) return Promise.resolve({ contacts: [item({})], total: 1 });
+      return Promise.resolve({});
+    });
+    render(<CanonicalContactsPanel token="t" canManage />);
+    await waitFor(() => expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Sam Rivera/ }));
+    await waitFor(() => expect(screen.getByText("Maple High")).toBeInTheDocument());
+    // unlink the School relationship (the 2nd Unlink button)
+    fireEvent.click(screen.getAllByRole("button", { name: "Unlink" })[1]);
+    await waitFor(() =>
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/contact-identities/c1/links/oc2"),
+        "t",
+        expect.objectContaining({ method: "DELETE" })
+      )
+    );
+    // after the reload the School is gone, the District remains
+    await waitFor(() => expect(screen.queryByText("Maple High")).not.toBeInTheDocument());
+    expect(screen.getByText("Maple District")).toBeInTheDocument();
+  });
 });

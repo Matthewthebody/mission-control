@@ -104,8 +104,33 @@ tests · browser · known limitation · next slice.
 - **Known limitation:** District-level contacts are not yet merged into the school intake
   contact picker (it shows the school org's contacts); adding the parent-District's contacts is
   a bounded follow-up. Sports / non-school intake unchanged.
-- **Next slice:** Phase 4.2 Slice 6 — closure (deterministic browser scenario + full gates +
-  `docs/2026-06-21-phase4-2-directory-product-closure-report.md`), then Tier 2 (Schools
-  leadership + CSR operating views).
+- **Next slice:** Phase 4.2 Slice A continuation (below).
+
+---
+
+## Phase 4.2 Slice A — canonical contact relationship UNLINK (with isolation) — DONE
+
+- **Commit:** (this commit) `feat: add canonical contact relationship unlink with isolation`
+- **Files:** api `canonicalContacts.ts` (+`unlinkContactFromOrganization`),
+  `routes/organizations.ts` (`DELETE /contact-identities/:contactId/links/:organizationContactId`),
+  `canonicalContacts.test.ts`; web `organizationApi.ts` (+wrapper),
+  `CanonicalContactsPanel.tsx` (Unlink button, canManage), `DirectoryRecordDetailPage.tsx`,
+  `styles.css`, `canonicalContactExperience.test.tsx`.
+- **Behavior:** unlink ONE organization relationship from a canonical contact without deleting
+  the identity or any other relationship. Soft by design (no hard delete): the current
+  relationship ends (is_current=false) and the org-bound row is archived (active_status=inactive)
+  so history stays readable. Wired into the contacts panel's per-person relationship list
+  (manager-only Unlink, then the list reloads).
+- **Data/migration:** none.
+- **Tests:** api `canonicalContacts` 11 (link 2 orgs → unlink 1 → identity + other relationship
+  preserved, unlinked row archived + relationship ended; RBAC 403; 404 mismatch); web
+  `canonicalContactExperience` 6 (unlink via DELETE keeps the other). tsc + build clean.
+- **Browser:** batched into Slice E closure.
+- **Known limitation (Slice A remaining, acceptance-incomplete):** the Directory Contacts RAIL
+  mode still renders org-bound rows (canonical-identity Contacts mode + pagination + filters not
+  migrated); person-identity editing and link-to-another-org-via-selector UI not yet wired (the
+  link API + selector exist; unlink now added). These are the next Slice A steps before closure.
+- **Next slice:** continue Slice A — migrate Contacts rail to canonical identities + wire
+  link-to-org (selector) + person edit on the contact route; then Slices B–E, then Phase 6A.
 
 ---

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin } from "./helpers.js";
-import { backfillContactIdentities, createCanonicalContact, linkContactToOrganization, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
+import { backfillContactIdentities, createCanonicalContact, linkContactToOrganization, unlinkContactFromOrganization, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
 
 // Phase 4 Slice 2 — reusable canonical Contact identity. A `contact` identity (migration
 // 161) is the reusable person; org-bound `organization_contact` rows reference it via
@@ -85,6 +85,42 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
     } finally {
       client.release();
     }
+  });
+
+  it("(UNLINK) unlinking one relationship preserves the identity and every other relationship (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      const contact = await createCanonicalContact(client, auth, { first_name: "Dual", last_name: "Linked", email: "dual@unlink.example.com" });
+      const districtLink = await linkContactToOrganization(client, auth, contact.id, districtId, { client_roles: ["district_contact"], is_primary: true });
+      const schoolLink = await linkContactToOrganization(client, auth, contact.id, schoolId, { client_roles: ["picture_day_contact"] });
+
+      // unlink ONLY the school relationship
+      const result = await unlinkContactFromOrganization(client, auth, contact.id, schoolLink.organization_contact_id);
+      expect(result.unlinked).toBe(true);
+
+      // the identity still exists, the District relationship remains current, the School is gone from current
+      const rel = (await getContactRelationships(client, auth, contact.id))!;
+      expect(rel.identity.id).toBe(contact.id); // identity preserved
+      const orgIds = rel.relationships.map((r: any) => r.organization_id);
+      expect(orgIds).toContain(districtId); // District relationship preserved
+      // the School org-bound row is archived (inactive); its current relationship ended
+      expect((await client.query(`SELECT active_status FROM organization_contact WHERE id=$1`, [schoolLink.organization_contact_id])).rows[0].active_status).toBe("inactive");
+      expect((await client.query(`SELECT count(*)::int n FROM organization_contact_relationship WHERE contact_id=$1 AND is_current=true`, [schoolLink.organization_contact_id])).rows[0].n).toBe(0);
+      // the District org-bound row is still active
+      expect((await client.query(`SELECT active_status FROM organization_contact WHERE id=$1`, [districtLink.organization_contact_id])).rows[0].active_status).toBe("active");
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(UNLINK) the unlink route requires management access and 404s for a mismatched contact", async () => {
+    // RBAC: a photographer cannot unlink
+    expect((await request(app).delete(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}/links/${"00000000-0000-0000-0000-000000000000"}`).set("Authorization", `Bearer ${photographerToken}`)).status).toBe(403);
+    // manager unlinking a non-existent relationship → 404
+    expect((await request(app).delete(`/api/organizations/contact-identities/${"00000000-0000-0000-0000-000000000000"}/links/${"00000000-0000-0000-0000-000000000000"}`).set("Authorization", `Bearer ${manageToken}`)).status).toBe(404);
   });
 
   it("(HTTP) the relationships route returns client_roles as a real JSON array (not a pg array string)", async () => {

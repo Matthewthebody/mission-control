@@ -55,6 +55,7 @@ import {
 import {
   createCanonicalContact,
   linkContactToOrganization,
+  unlinkContactFromOrganization,
   getContactRelationships,
   listCanonicalContacts,
   backfillContactIdentities
@@ -1604,6 +1605,20 @@ router.post("/contact-identities/:contactId/links", requireCanonicalDirectoryMan
       linkContactToOrganization(client, auth, String(req.params.contactId), req.body.organization_id, { relationship_role: req.body.relationship_role, client_roles: req.body.client_roles, is_primary: req.body.is_primary })
     );
     return res.status(201).json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Phase 4.2 Slice A — unlink one organization relationship from a canonical contact (soft;
+// the identity and other relationships are preserved). Manage-gated.
+router.delete("/contact-identities/:contactId/links/:organizationContactId", requireCanonicalDirectoryManageAccess, async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      unlinkContactFromOrganization(client, auth, String(req.params.contactId), String(req.params.organizationContactId))
+    );
+    return res.json(result);
   } catch (error) {
     return next(error);
   }

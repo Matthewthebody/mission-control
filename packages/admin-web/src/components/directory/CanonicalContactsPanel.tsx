@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClientError } from "../../api";
 import type { CanonicalContactListItem, CanonicalContactRelationship } from "../../types";
-import { getCanonicalContactRelationships, listCanonicalContacts } from "../../services/organizationApi";
+import { getCanonicalContactRelationships, listCanonicalContacts, unlinkCanonicalContactRelationshipRecord } from "../../services/organizationApi";
 
 // Phase 4.2 Part 2 — first-class canonical Contacts list over reusable identities (the
 // `contact` table, not org-bound rows). Search by name/email/phone, see how many
@@ -13,11 +13,12 @@ type Props = {
   token: string;
   organizationId?: string | null;
   activeStatus?: string | null;
+  canManage?: boolean;
 };
 
 const PAGE_SIZE = 25;
 
-export function CanonicalContactsPanel({ token, organizationId, activeStatus }: Props) {
+export function CanonicalContactsPanel({ token, organizationId, activeStatus, canManage }: Props) {
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<CanonicalContactListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -27,6 +28,7 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus }: 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [relationships, setRelationships] = useState<CanonicalContactRelationship[]>([]);
   const [relLoading, setRelLoading] = useState(false);
+  const [unlinkBusy, setUnlinkBusy] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,6 +121,28 @@ export function CanonicalContactsPanel({ token, organizationId, activeStatus }: 
                           </button>
                           {rel.client_roles.length ? <span className="muted"> — {rel.client_roles.map((r) => r.replace(/_/g, " ")).join(", ")}</span> : null}
                           {rel.is_primary ? <span className="meta-pill">Primary</span> : null}
+                          {canManage ? (
+                            <button
+                              type="button"
+                              className="secondary-button canonical-contacts-panel__unlink"
+                              disabled={unlinkBusy === rel.organization_contact_id}
+                              onClick={async () => {
+                                // Unlink this relationship only — the identity + other relationships stay.
+                                setUnlinkBusy(rel.organization_contact_id);
+                                try {
+                                  await unlinkCanonicalContactRelationshipRecord(token, contact.id, rel.organization_contact_id);
+                                  const refreshed = await getCanonicalContactRelationships(token, contact.id);
+                                  setRelationships(refreshed.relationships);
+                                } catch {
+                                  /* leave the list as-is on failure */
+                                } finally {
+                                  setUnlinkBusy("");
+                                }
+                              }}
+                            >
+                              Unlink
+                            </button>
+                          ) : null}
                         </li>
                       ))}
                     </ul>

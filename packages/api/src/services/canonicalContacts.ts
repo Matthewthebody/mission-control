@@ -154,6 +154,36 @@ export async function linkContactToOrganization(
   return { organization_contact_id: oc.id };
 }
 
+// Unlink one Organization relationship from a canonical Contact identity WITHOUT deleting the
+// identity or any other relationship. Soft by design (no hard delete): the current relationship
+// is ended (is_current=false) and the org-bound row is archived (active_status='inactive'), so
+// the relationship history stays readable. Other org relationships and the identity are untouched.
+export async function unlinkContactFromOrganization(
+  client: PoolClient,
+  auth: AuthUser,
+  contactId: string,
+  organizationContactId: string
+): Promise<{ unlinked: boolean }> {
+  requireManage(auth);
+  const oc = await client.query(
+    `SELECT 1 FROM organization_contact WHERE tenant_id=$1 AND id=$2 AND contact_id=$3`,
+    [auth.tenantId, organizationContactId, contactId]
+  );
+  if (!oc.rowCount) throw new ApiError(404, "Relationship not found for this contact");
+  await client.query(
+    `UPDATE organization_contact_relationship SET is_current=false, updated_by_user_id=$3, updated_at=now()
+       WHERE tenant_id=$1 AND contact_id=$2 AND is_current=true`,
+    [auth.tenantId, organizationContactId, auth.id]
+  );
+  await client.query(
+    `UPDATE organization_contact SET active_status='inactive', updated_by_user_id=$3, updated_at=now()
+       WHERE tenant_id=$1 AND id=$2`,
+    [auth.tenantId, organizationContactId, auth.id]
+  );
+  await createAuditLog(client, { tenantId: auth.tenantId, actorUserId: auth.id, action: "contact.unlinked_from_organization", entityType: "contact", entityId: contactId, metadata: { organization_contact_id: organizationContactId } });
+  return { unlinked: true };
+}
+
 // The identity + each Organization relationship it holds (with its per-org role).
 export async function getContactRelationships(client: PoolClient, auth: AuthUser, contactId: string) {
   const identity = await loadContact(client, auth.tenantId, contactId);

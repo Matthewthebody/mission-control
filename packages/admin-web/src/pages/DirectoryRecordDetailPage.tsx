@@ -227,7 +227,7 @@ function OrganizationRecordDetail({
 
       <LogoHistoryPanel token={token} organizationId={org.id} organizationName={org.display_name} currentLogoUrl={org.logo_url} canManage={canManage && !archived} />
 
-      <CanonicalContactsPanel token={token} organizationId={org.id} />
+      <CanonicalContactsPanel token={token} organizationId={org.id} canManage={canManage && !archived} />
 
       <section className="request-card" aria-label="Contextual contacts">
         <div className="directory-card__header">
