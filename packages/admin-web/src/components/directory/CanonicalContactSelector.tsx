@@ -66,6 +66,13 @@ export function CanonicalContactSelector({ token, organizationId, onSelect, disa
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Only hit the network for a real query — an empty selector makes no call (and never leaks an
+    // on-mount fetch into the page that embeds it).
+    if (!query.trim()) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
     debounceRef.current = setTimeout(() => void search(query.trim()), 200);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

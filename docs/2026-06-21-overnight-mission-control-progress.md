@@ -229,3 +229,23 @@ tests · browser · known limitation · next slice.
   `test: close reusable contact identity acceptance`.
 
 ---
+
+## Slice — shared CanonicalContactSelector integration (Part 5)
+
+- **Files:** `components/directory/CanonicalContactSelector.tsx` (skip empty-query network call),
+  `pages/DirectoryRecordDetailPage.tsx` (Organization detail "Add a person" via the shared selector
+  → link + panel refresh; hooks hoisted above data reads),
+  `pages/Organizations.tsx` (Contacts mode "Find a person" selector → opens the canonical route),
+  `test/directoryRecordRoutes.test.tsx` (+org-detail link via selector, +canonical contact route → 8).
+- **Behavior:** the ONE committed `CanonicalContactSelector` is now wired into both named surfaces —
+  Organization detail (pick an existing identity to link to this org; already-linked warning, no
+  duplicate people, loading/empty/error states, parent page preserved) and the Contacts directory
+  mode (search a person and jump straight to the canonical Contact route). The selector no longer
+  fires an on-mount empty search (cleaner + removes an embed-time async leak).
+- **Data/migration:** none.
+- **Tests:** web `directoryRecordRoutes` 8 (incl. selector link + canonical contact route),
+  `canonicalContactExperience` 12, `organizationsPage` 33 — 53 together, deterministic ×N. tsc + build clean.
+- **Next:** deterministic browser fixture with real mutations + cleanup; remaining tests to 32; full
+  gates; closure report + `test: close reusable contact identity acceptance`.
+
+---

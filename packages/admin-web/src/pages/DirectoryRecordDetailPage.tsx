@@ -10,6 +10,7 @@ import {
   getCanonicalContactRelationships,
   getDirectoryContactDetail,
   getOrganizationDetail,
+  linkCanonicalContactToOrganizationRecord,
   listDirectoryLocations
 } from "../services/organizationApi";
 import { canManageCanonicalDirectoryRecords } from "../permissions";
@@ -17,6 +18,7 @@ import { OrganizationHierarchyCard } from "../components/directory/OrganizationH
 import { ServiceTermsPanel } from "../components/directory/ServiceTermsPanel";
 import { LogoHistoryPanel } from "../components/directory/LogoHistoryPanel";
 import { CanonicalContactsPanel } from "../components/directory/CanonicalContactsPanel";
+import { CanonicalContactSelector } from "../components/directory/CanonicalContactSelector";
 import { DirectoryAvatar } from "../components/directory/DirectoryAvatar";
 import { formatDateLabel, labelForActiveStatus } from "../components/directory/directoryOptions";
 
@@ -224,6 +226,12 @@ function OrganizationRecordDetail({
   canManage: boolean;
   header: React.ReactNode;
 }) {
+  // Linking an existing canonical identity to this org through the ONE shared selector. The nonce
+  // remounts the contacts panel below so a freshly linked person appears without a full reload.
+  // Hooks stay unconditional and above the data reads.
+  const [linkNonce, setLinkNonce] = useState(0);
+  const [linkStatus, setLinkStatus] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
   const org = detail.organization;
   const archived = org.active_status === "inactive";
   const isSchool = org.account_type.startsWith("schools");
@@ -257,7 +265,38 @@ function OrganizationRecordDetail({
 
       <LogoHistoryPanel token={token} organizationId={org.id} organizationName={org.display_name} currentLogoUrl={org.logo_url} canManage={canManage && !archived} />
 
-      <CanonicalContactsPanel token={token} organizationId={org.id} canManage={canManage && !archived} />
+      {canManage && !archived ? (
+        <section className="request-card" aria-label="Link an existing person">
+          <div className="directory-card__header">
+            <div>
+              <strong>Add a person to this organization</strong>
+              <div className="muted">Search the reusable contact directory and link an existing identity — no duplicate people created.</div>
+            </div>
+          </div>
+          <CanonicalContactSelector
+            token={token}
+            organizationId={org.id}
+            label="Search people to link"
+            disabled={linkBusy}
+            onSelect={async (contact) => {
+              setLinkBusy(true);
+              setLinkStatus("");
+              try {
+                await linkCanonicalContactToOrganizationRecord(token, contact.id, { organization_id: org.id });
+                setLinkStatus(`Linked ${contact.full_name || contact.email || "contact"} to ${org.display_name}.`);
+                setLinkNonce((n) => n + 1);
+              } catch {
+                setLinkStatus("We couldn't link that contact. Please try again.");
+              } finally {
+                setLinkBusy(false);
+              }
+            }}
+          />
+          {linkStatus ? <p className="muted" role="status">{linkStatus}</p> : null}
+        </section>
+      ) : null}
+
+      <CanonicalContactsPanel key={linkNonce} token={token} organizationId={org.id} canManage={canManage && !archived} />
 
       <section className="request-card" aria-label="Contextual contacts">
         <div className="directory-card__header">

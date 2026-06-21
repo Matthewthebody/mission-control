@@ -25,6 +25,7 @@ import {
 } from "../components/directory/DirectorySchoolForms";
 import { DirectoryWorkspace } from "../components/directory/DirectoryWorkspace";
 import { CanonicalContactsPanel } from "../components/directory/CanonicalContactsPanel";
+import { CanonicalContactSelector } from "../components/directory/CanonicalContactSelector";
 import type { DirectoryView, DirectoryWorkspaceTab } from "../components/directory/directoryOptions";
 import { canManageCanonicalDirectoryRecords, canManageSchoolFoundation } from "../permissions";
 import {
@@ -800,7 +801,24 @@ export function Organizations({
         // Phase 4.2 — first-class canonical Contacts surface: one row per reusable Contact
         // identity (not per org relationship). URL-backed search/role/status/org filters +
         // pagination + selected contact; each row opens the stable canonical Contact route.
-        <CanonicalContactsPanel token={token} canManage={canManage} urlBacked />
+        <>
+          <section className="request-card" aria-label="Jump to a person">
+            <div className="directory-card__header">
+              <div>
+                <strong>Find a person</strong>
+                <div className="muted">Search the reusable contact directory and open the canonical Contact record directly.</div>
+              </div>
+            </div>
+            <CanonicalContactSelector
+              token={token}
+              label="Find a person to open"
+              onSelect={(contact) => {
+                window.location.hash = `#directory/contacts/${contact.id}`;
+              }}
+            />
+          </section>
+          <CanonicalContactsPanel token={token} canManage={canManage} urlBacked />
+        </>
       ) : null}
       <div className="directory-layout">
         <DirectoryRail
