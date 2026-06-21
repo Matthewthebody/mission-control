@@ -285,6 +285,30 @@ export function DirectoryWorkspace({
               </button>
             </>
           ) : null}
+          {(() => {
+            // Phase 4.2 — open the stable full-page record route (preview is not the only detail experience).
+            const fullHash =
+              view === "contacts" && selectedContact
+                ? `#directory/contacts/${selectedContact.id}`
+                : view === "locations" && selectedLocation
+                  ? `#directory/locations/${selectedLocation.id}`
+                  : view === "organizations"
+                    ? `#directory/organizations/${detail.organization.id}`
+                    : null;
+            if (!fullHash) return null;
+            return (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  sessionStorage.setItem("directory:return-hash", window.location.hash);
+                  window.location.hash = fullHash;
+                }}
+              >
+                Open full page
+              </button>
+            );
+          })()}
         </div>
       </div>
 
