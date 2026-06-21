@@ -1,0 +1,42 @@
+{
+  "_note": "SANITIZED SAMPLE — not real Monday data. Phase 5 dry-run pilot fixture.",
+  "board": {
+    "workspace": "Schools",
+    "board_id": "sample_initial_process",
+    "board_name": "Initial Process",
+    "columns": [
+      { "id": "name", "title": "Job", "type": "name" },
+      { "id": "text_school", "title": "School", "type": "text" },
+      { "id": "date_shoot", "title": "Shoot Date", "type": "date" },
+      { "id": "status_stage", "title": "Stage", "type": "status" },
+      { "id": "mirror_owner", "title": "Owner (mirror)", "type": "mirror" }
+    ],
+    "items": [
+      {
+        "item_id": "ip_2001",
+        "name": "Sample Maple High — Fall Picture Day",
+        "group_id": "intake",
+        "group_title": "Intake",
+        "column_values": { "text_school": "Sample Maple High School", "date_shoot": "2026-09-15", "status_stage": "Scheduled", "mirror_owner": "Jordan" },
+        "updated_at": "2026-05-01T00:00:00.000Z",
+        "subitem_count": 2,
+        "update_count": 5
+      },
+      {
+        "item_id": "ip_2002",
+        "name": "Sample Oak Middle — Fall Picture Day",
+        "group_id": "intake",
+        "group_title": "Intake",
+        "column_values": { "text_school": "Sample Oak Middle School", "date_shoot": "", "status_stage": "Awaiting Date", "mirror_owner": "Sam" },
+        "updated_at": "2026-05-02T00:00:00.000Z"
+      }
+    ]
+  },
+  "mapping": {
+    "target_entity": "job",
+    "dedupe_object_type": "job",
+    "column_map": { "job_title": "name", "school_name": "text_school", "shoot_date": "date_shoot", "stage": "status_stage" },
+    "required_fields": ["job_title", "school_name"],
+    "unsupported_column_types": ["formula", "mirror", "dependency", "subtasks"]
+  }
+}

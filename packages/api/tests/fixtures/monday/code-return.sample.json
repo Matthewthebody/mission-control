@@ -1,0 +1,40 @@
+{
+  "_note": "SANITIZED SAMPLE — not real Monday data. Phase 5 dry-run pilot fixture (service/process board).",
+  "board": {
+    "workspace": "Schools",
+    "board_id": "sample_code_return",
+    "board_name": "Code Return",
+    "columns": [
+      { "id": "name", "title": "School Term", "type": "name" },
+      { "id": "text_school", "title": "School", "type": "text" },
+      { "id": "text_year", "title": "School Year", "type": "text" },
+      { "id": "status_return", "title": "Code Return Status", "type": "status" },
+      { "id": "dependency_prev", "title": "Depends On (dependency)", "type": "dependency" }
+    ],
+    "items": [
+      {
+        "item_id": "cr_3001",
+        "name": "Sample Maple High — 2026-2027 Code Return",
+        "group_id": "current",
+        "group_title": "Current Year",
+        "column_values": { "text_school": "Sample Maple High School", "text_year": "2026-2027", "status_return": "Returned", "dependency_prev": "cr_2999" },
+        "updated_at": "2026-05-01T00:00:00.000Z"
+      },
+      {
+        "item_id": "cr_3002",
+        "name": "Sample Oak Middle — 2026-2027 Code Return",
+        "group_id": "current",
+        "group_title": "Current Year",
+        "column_values": { "text_school": "Sample Oak Middle School", "text_year": "2026-2027", "status_return": "Pending", "dependency_prev": "" },
+        "updated_at": "2026-05-02T00:00:00.000Z"
+      }
+    ]
+  },
+  "mapping": {
+    "target_entity": "service_term",
+    "dedupe_object_type": "school_service_term",
+    "column_map": { "term_label": "text_year", "school_name": "text_school", "code_return_status": "status_return" },
+    "required_fields": ["term_label", "school_name"],
+    "unsupported_column_types": ["formula", "mirror", "dependency", "subtasks"]
+  }
+}

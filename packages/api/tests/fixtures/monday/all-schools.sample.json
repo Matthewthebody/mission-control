@@ -1,0 +1,52 @@
+{
+  "_note": "SANITIZED SAMPLE — not real Monday data. Used by the Phase 5 dry-run pilot to exercise the importer framework contract. Replace with a real export under docs/artifacts/monday/.",
+  "board": {
+    "workspace": "Schools",
+    "board_id": "sample_all_schools",
+    "board_name": "All Schools",
+    "columns": [
+      { "id": "name", "title": "School", "type": "name" },
+      { "id": "text_district", "title": "District", "type": "text" },
+      { "id": "text_website", "title": "Website", "type": "text" },
+      { "id": "phone_main", "title": "Main Phone", "type": "phone" },
+      { "id": "formula_health", "title": "Relationship Health (formula)", "type": "formula" }
+    ],
+    "items": [
+      {
+        "item_id": "sch_1001",
+        "name": "Sample Maple High School",
+        "group_id": "active",
+        "group_title": "Active Schools",
+        "column_values": { "text_district": "Sample Maple District", "text_website": "maplehigh.example.org", "phone_main": "555-0100", "formula_health": "Healthy" },
+        "updated_at": "2026-05-01T00:00:00.000Z",
+        "subitem_count": 0,
+        "update_count": 3,
+        "attachment_count": 1
+      },
+      {
+        "item_id": "sch_1002",
+        "name": "Sample Oak Middle School",
+        "group_id": "active",
+        "group_title": "Active Schools",
+        "column_values": { "text_district": "Sample Oak District", "text_website": "oakmiddle.example.org", "phone_main": "555-0101", "formula_health": "Watch" },
+        "updated_at": "2026-05-02T00:00:00.000Z",
+        "subitem_count": 0
+      },
+      {
+        "item_id": "sch_1003",
+        "name": "",
+        "group_id": "active",
+        "group_title": "Active Schools",
+        "column_values": { "text_district": "Sample Oak District", "text_website": "", "phone_main": "", "formula_health": "" },
+        "updated_at": "2026-05-03T00:00:00.000Z"
+      }
+    ]
+  },
+  "mapping": {
+    "target_entity": "organization",
+    "dedupe_object_type": "organization",
+    "column_map": { "canonical_name": "name", "district_name": "text_district", "website": "text_website", "main_phone": "phone_main" },
+    "required_fields": ["canonical_name"],
+    "unsupported_column_types": ["formula", "mirror", "dependency", "subtasks"]
+  }
+}
