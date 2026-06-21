@@ -336,7 +336,7 @@ type OrganizationUpcomingShootRow = OrganizationRecentShootRow & {
   start_time: string | null;
 };
 
-type CreateOrganizationInput = {
+export type CreateOrganizationInput = {
   canonical_name: string;
   display_name?: string | null;
   logo_url?: string | null;
@@ -451,7 +451,7 @@ type UpdateOrganizationContactInput = {
   notes?: string | null;
 };
 
-type CreateOrganizationLocationInput = {
+export type CreateOrganizationLocationInput = {
   location_name: string;
   address_line_1: string;
   address_line_2?: string | null;

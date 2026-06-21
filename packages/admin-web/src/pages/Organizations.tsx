@@ -38,6 +38,7 @@ import {
   createDirectoryTouchpointPlanRecord,
   createOrganizationContactRecord,
   createOrganizationLocationRecord,
+  createOrganizationAtomicRecord,
   createOrganizationRecord,
   createSchoolNoteRecord,
   createSchoolRuleRecord,
@@ -932,32 +933,24 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
   if (!drawerState) return null;
   if (drawerState.type === "create-organization") {
     return <OrganizationEditorForm token={token} ownerOptions={ownerOptions} submitLabel="Create organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, null, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput, context) => runAction(async () => {
-      const response = await createOrganizationRecord(token, input);
-      const newOrganizationId = response.organization.id;
-      // Phase 4 Slice 6 — brand goes to canonical columns (not notes); an optional first
-      // service term seeds the school-year/season record. Applied after the org exists.
-      if (context.brand) {
-        await updateOrganizationBrandRecord(token, newOrganizationId, context.brand);
-      }
-      if (context.initialServiceTerm) {
-        await createSchoolServiceTermRecord(token, newOrganizationId, context.initialServiceTerm);
-      }
+      // Phase 4.2 Part 3 — one atomic transaction: organization + brand + first term + the
+      // primary contact relationship. A failure rolls everything back (no orphan org/contact).
       const primaryContact = context.primaryContact;
-      if (primaryContact?.name) {
-        const { firstName, lastName } = splitContactName(primaryContact.name);
-        await createOrganizationContactRecord(token, newOrganizationId, {
-          first_name: firstName,
-          last_name: lastName,
-          title: primaryContact.title || null,
-          email: primaryContact.email || null,
-          phone: primaryContact.phone || null,
-          contact_status: "active",
-          role_category: "other",
-          notes: primaryContact.preferredContactMethod ? `Preferred contact method: ${primaryContact.preferredContactMethod}` : null
-        });
-      }
+      const contacts = primaryContact?.name
+        ? [(() => {
+            const { firstName, lastName } = splitContactName(primaryContact.name);
+            return { first_name: firstName, last_name: lastName, email: primaryContact.email || null, phone: primaryContact.phone || null, is_primary: true };
+          })()]
+        : [];
+      const response = await createOrganizationAtomicRecord(token, {
+        organization: input,
+        contacts,
+        brand: context.brand,
+        initial_service_term: context.initialServiceTerm
+      });
+      const newOrganizationId = response.organization_id;
       await refreshAll(newOrganizationId);
-      pushRoute({ view: "organizations", organizationId: response.organization.id, contactId: null, locationId: null, tab: "profile" });
+      pushRoute({ view: "organizations", organizationId: newOrganizationId, contactId: null, locationId: null, tab: "profile" });
     }, true)} />;
   }
   if (drawerState.type === "import-contacts") {

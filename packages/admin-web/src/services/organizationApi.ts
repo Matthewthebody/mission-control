@@ -702,6 +702,45 @@ export async function createOrganizationRecord(token: string, input: Organizatio
   });
 }
 
+// Phase 4.2 Part 3 — atomic create: organization + contacts + locations + brand + first term
+// in one transaction (no orphans on failure). The org fields reuse OrganizationCreateInput.
+export type AtomicCreateContactInput = {
+  existing_contact_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  relationship_role?: string;
+  client_roles?: string[];
+  is_primary?: boolean;
+};
+export type AtomicCreateLocationInput = {
+  location_name: string;
+  address_line_1: string;
+  address_line_2?: string | null;
+  city: string;
+  state: string;
+  zip: string;
+  notes?: string | null;
+  is_primary?: boolean;
+};
+export type AtomicCreateOrganizationInput = {
+  organization: OrganizationCreateInput;
+  contacts?: AtomicCreateContactInput[];
+  locations?: AtomicCreateLocationInput[];
+  brand?: OrganizationBrandInput | null;
+  initial_service_term?: { period_type?: SchoolServiceTermPeriodType; period_label: string; start_date?: string | null; end_date?: string | null } | null;
+};
+
+export async function createOrganizationAtomicRecord(token: string, input: AtomicCreateOrganizationInput) {
+  return apiFetch<{ organization_id: string; created_contact_ids: string[]; linked_contact_ids: string[]; created_location_count: number }>(
+    "/api/organizations/atomic",
+    token,
+    { method: "POST", body: JSON.stringify(input) }
+  );
+}
+
 export async function updateOrganizationRecord(token: string, organizationId: string, input: OrganizationUpdateInput) {
   return apiFetch<OrganizationDetail>(`/api/organizations/${organizationId}`, token, {
     method: "PATCH",

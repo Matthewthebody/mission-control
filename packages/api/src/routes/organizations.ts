@@ -62,6 +62,7 @@ import {
 import { updateOrganizationBrand, getLogoHistory, restoreOrganizationLogo } from "../services/organizationBrand.js";
 import { reconcileDistricts } from "../services/directoryReconciliation.js";
 import { reconcileDirectoryBatch } from "../services/directoryReconciliationBatch.js";
+import { createOrganizationAtomic } from "../services/organizationAtomicCreate.js";
 import {
   createDirectoryCommunicationLog,
   createDirectoryRelationshipFollowUp,
@@ -328,6 +329,55 @@ const createOrganizationSchema = z.object({
   client_organization_type: clientOrganizationTypeSchema.optional().nullable(),
   website: z.string().trim().max(500).optional().nullable(),
   main_phone: z.string().trim().max(40).optional().nullable()
+});
+
+// Phase 4.2 Part 3 — atomic Create Organization (org + contacts + locations + brand + term in one tx).
+const atomicContactSchema = z.object({
+  existing_contact_id: z.string().uuid().optional().nullable(),
+  first_name: z.string().trim().max(120).optional().nullable(),
+  last_name: z.string().trim().max(120).optional().nullable(),
+  full_name: z.string().trim().max(240).optional().nullable(),
+  email: z.string().trim().max(180).optional().nullable(),
+  phone: z.string().trim().max(40).optional().nullable(),
+  relationship_role: z.string().trim().max(80).optional(),
+  client_roles: z.array(z.string().trim().max(80)).max(20).optional(),
+  is_primary: z.boolean().optional()
+});
+const atomicLocationSchema = z.object({
+  location_name: z.string().trim().min(1).max(180),
+  address_line_1: z.string().trim().min(1).max(200),
+  address_line_2: z.string().trim().max(200).optional().nullable(),
+  city: z.string().trim().min(1).max(120),
+  state: z.string().trim().min(1).max(60),
+  zip: z.string().trim().min(1).max(20),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  is_primary: z.boolean().optional()
+});
+const atomicBrandSchema = z.object({
+  brand_primary_color: z.string().trim().max(60).optional().nullable(),
+  brand_secondary_color: z.string().trim().max(60).optional().nullable(),
+  mascot: z.string().trim().max(120).optional().nullable(),
+  brand_status: z.enum(["known", "unknown", "not_available", "not_applicable"]).optional().nullable(),
+  website: z.string().trim().max(500).optional().nullable(),
+  logo_url: z.string().trim().max(1000).optional().nullable(),
+  logo_status: z.enum(["current", "outdated", "pending_review", "unavailable"]).optional().nullable(),
+  logo_note: z.string().trim().max(2000).optional().nullable(),
+  logo_source: z.string().trim().max(60).optional().nullable()
+});
+const atomicCreateOrganizationSchema = z.object({
+  organization: createOrganizationSchema,
+  contacts: z.array(atomicContactSchema).max(50).optional(),
+  locations: z.array(atomicLocationSchema).max(50).optional(),
+  brand: atomicBrandSchema.optional().nullable(),
+  initial_service_term: z
+    .object({
+      period_type: z.enum(["school_year", "season", "custom"]).optional(),
+      period_label: z.string().trim().min(1).max(120),
+      start_date: z.string().trim().max(40).optional().nullable(),
+      end_date: z.string().trim().max(40).optional().nullable()
+    })
+    .optional()
+    .nullable()
 });
 
 const createContactSchema = z.object({
@@ -926,6 +976,45 @@ router.post("/", requireCanonicalDirectoryManageAccess, validateBody(createOrgan
       )
     );
     return res.status(201).json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Phase 4.2 Part 3 — atomic Create Organization. One transaction creates the org + brand +
+// optional first term + contact relationships (existing identity or inline new) + new
+// locations; any failure rolls the whole thing back (no orphan org/contact/location/term).
+router.post("/atomic", requireCanonicalDirectoryManageAccess, validateBody(atomicCreateOrganizationSchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      createOrganizationAtomic(
+        client,
+        auth,
+        {
+          organization: {
+            canonical_name: req.body.organization.canonical_name,
+            display_name: req.body.organization.display_name ?? null,
+            logo_url: req.body.organization.logo_url ?? null,
+            account_type: req.body.organization.account_type,
+            active_status: req.body.organization.active_status,
+            aliases: req.body.organization.aliases ?? [],
+            notes: req.body.organization.notes ?? null,
+            parent_organization_id: req.body.organization.parent_organization_id ?? null,
+            client_entity_kind: req.body.organization.client_entity_kind ?? null,
+            client_organization_type: req.body.organization.client_organization_type ?? null,
+            website: req.body.organization.website ?? null,
+            main_phone: req.body.organization.main_phone ?? null
+          },
+          contacts: req.body.contacts,
+          locations: req.body.locations,
+          brand: req.body.brand ?? null,
+          initial_service_term: req.body.initial_service_term ?? null
+        },
+        getRequestMeta(req)
+      )
+    );
+    return res.status(201).json(result);
   } catch (error) {
     return next(error);
   }
