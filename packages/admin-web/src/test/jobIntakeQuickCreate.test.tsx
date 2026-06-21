@@ -844,6 +844,42 @@ describe("central job intake quick create", () => {
     );
   });
 
+  it("shows honest missing-Location and missing-Contact states + the room/area distinction when the org has none", async () => {
+    listOrganizationsMock.mockResolvedValue({
+      organizations: [
+        { id: "org-hollow", canonical_name: "hollow-school", logo_url: null, display_name: "Hollow School", account_type: "schools_underclass_portraits", active_status: "active", aliases: [], notes: null, contact_count: 0, location_count: 0, created_at: "2026-04-01T12:00:00.000Z", updated_at: "2026-04-01T12:00:00.000Z" }
+      ],
+      search: { query: "Hollow", total: 1 }
+    });
+    getOrganizationDetailMock.mockResolvedValue({
+      organization: { id: "org-hollow", canonical_name: "hollow-school", logo_url: null, display_name: "Hollow School", account_type: "schools_underclass_portraits", active_status: "active", aliases: [], notes: null, contact_count: 0, location_count: 0, created_at: "2026-04-01T12:00:00.000Z", updated_at: "2026-04-01T12:00:00.000Z" },
+      contacts: [],
+      locations: [],
+      recent_shoots: [],
+      child_organizations: []
+    });
+    render(
+      <QuickCreateJobDrawer
+        open
+        token="token-demo"
+        currentUser={{ ...baseUser, department: "schools" }}
+        defaultDepartment="schools"
+        launchLabel="Schools intake"
+        onClose={vi.fn()}
+      />
+    );
+    const dialog = screen.getByRole("dialog");
+    const scope = within(dialog);
+    fireEvent.change(screen.getByPlaceholderText("Search canonical organizations"), { target: { value: "Hollow" } });
+    fireEvent.click(await scope.findByRole("button", { name: /hollow school/i }));
+    // honest, specific missing-state messages — never a generic "Failed to fetch"
+    expect(await scope.findByText(/no approved Locations yet/i)).toBeInTheDocument();
+    expect(scope.getByText(/no contacts yet/i)).toBeInTheDocument();
+    // the room/area distinction is explicit: gym/auditorium is dated job detail, not a new Location
+    expect(scope.getByText(/never creates a new canonical Location/i)).toBeInTheDocument();
+    expect(scope.queryByText(/Failed to fetch/i)).not.toBeInTheDocument();
+  });
+
   it("saves a sports draft from the shared intake drawer", async () => {
     render(
       <QuickCreateJobDrawer

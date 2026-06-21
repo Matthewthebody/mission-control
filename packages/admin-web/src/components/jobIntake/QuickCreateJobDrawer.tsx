@@ -664,7 +664,18 @@ export function QuickCreateJobDrawer({
                   options={locationOptions}
                   selectedLocationId={form.location_id}
                   onSelectLocation={(value) => handleFormChange((current) => ({ ...current, location_id: value }))}
-                  helperText={loadingDefaults ? "Applying organization defaults..." : undefined}
+                  helperText={
+                    loadingDefaults
+                      ? "Applying organization defaults..."
+                      : "Pick the approved physical Location. A room/area (gym, auditorium, cafeteria) is dated job detail — note it in the placeholder below or special instructions; it never creates a new canonical Location."
+                  }
+                  unresolvedLabel="Room / area or placeholder venue"
+                  unresolvedPlaceholder="e.g. East gym, auditorium, loading dock (does not create a Location)"
+                  emptyOptionsText={
+                    selectedOrganization
+                      ? "This organization has no approved Locations yet. Open it in Directory to add or link a canonical Location — your intake entries here are preserved. You can keep a room/area placeholder for now."
+                      : undefined
+                  }
                   errors={[...(fieldErrors.location_id ?? []), ...(fieldErrors.unresolved_location_name ?? [])]}
                 />
                 <ContactLookupField
@@ -679,6 +690,11 @@ export function QuickCreateJobDrawer({
                   selectedContactId={form.primary_contact_id}
                   onSelectContact={(value) =>
                     handleFormChange((current) => ({ ...current, primary_contact_id: value }))
+                  }
+                  emptyOptionsText={
+                    selectedOrganization
+                      ? "This organization has no contacts yet. Open it in Directory to add a contact or link an existing canonical identity — your intake entries here are preserved."
+                      : undefined
                   }
                   errors={[
                     ...(fieldErrors.primary_contact_id ?? []),
