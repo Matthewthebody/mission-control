@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   DirectoryDuplicateReviewCreateInput,
   DirectoryRelationshipAttachInput,
@@ -29,6 +29,25 @@ import {
   buildShootLabel
 } from "./directoryOptions";
 import { ParentDistrictSelector } from "./ParentDistrictSelector";
+import { CanonicalContactSelector } from "./CanonicalContactSelector";
+import { CanonicalLocationSelector, type LocationSelection } from "./CanonicalLocationSelector";
+import type { CanonicalContactListItem } from "../../types";
+import type { CanonicalContactCreateInput } from "../../services/organizationApi";
+
+const ATOMIC_ROLE_OPTIONS = [
+  "principal",
+  "head_secretary",
+  "athletic_director",
+  "activities_director",
+  "yearbook_contact",
+  "picture_day_contact",
+  "billing_contact",
+  "approval_contact",
+  "district_contact",
+  "primary_contact",
+  "other"
+];
+const humanizeRoleLabel = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 type FormProps = {
   onCancel: () => void;
@@ -57,6 +76,33 @@ export type OrganizationPrimaryContactDraft = {
   preferredContactMethod: string;
 };
 
+// Phase 4.2 Part 3 — multiple Contact + Location relationship rows submitted in ONE atomic
+// payload. Existing canonical records are referenced by id; inline ones carry their draft fields
+// so the single transaction creates them (and rolls them back on any failure).
+export type OrganizationEditorContactRow = {
+  existing_contact_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  client_roles?: string[];
+  is_primary?: boolean;
+  title?: string | null;
+  notes?: string | null;
+};
+export type OrganizationEditorLocationRow = {
+  existing_location_id?: string | null;
+  location_name?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  notes?: string | null;
+  is_primary?: boolean;
+};
+
 export type OrganizationEditorSubmitContext = {
   primaryContact: OrganizationPrimaryContactDraft | null;
   // Phase 4 Slice 6 — canonical brand patch + optional first service term, applied by the
@@ -64,6 +110,9 @@ export type OrganizationEditorSubmitContext = {
   // POST /:id/service-terms). Both null when the operator left them blank.
   brand: OrganizationBrandDraft | null;
   initialServiceTerm: OrganizationInitialServiceTermDraft | null;
+  // Phase 4.2 Part 3 — additional canonical Contact + Location relationship rows (atomic create).
+  contacts: OrganizationEditorContactRow[];
+  locations: OrganizationEditorLocationRow[];
 };
 
 type ContactEditorFormProps = FormProps & {
@@ -161,6 +210,30 @@ export function OrganizationEditorForm({
   const [initialTermEnd, setInitialTermEnd] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  // Phase 4.2 Part 3 — multiple canonical Contact + Location relationship rows (atomic create).
+  type ContactRow = OrganizationEditorContactRow & { key: string; displayName: string };
+  type LocationRow = OrganizationEditorLocationRow & { key: string; displayName: string };
+  const [contactRows, setContactRows] = useState<ContactRow[]>([]);
+  const [locationRows, setLocationRows] = useState<LocationRow[]>([]);
+  const rowSeq = useRef(0);
+  const nextKey = () => `row-${(rowSeq.current += 1)}`;
+  const addExistingContact = (item: CanonicalContactListItem) => {
+    setContactRows((rows) =>
+      rows.some((r) => r.existing_contact_id === item.id)
+        ? rows
+        : [...rows, { key: nextKey(), displayName: item.full_name || item.email || "Selected person", existing_contact_id: item.id, client_roles: [], is_primary: false }]
+    );
+  };
+  const addInlineContact = (draft: CanonicalContactCreateInput) => {
+    const name = [draft.first_name, draft.last_name].filter(Boolean).join(" ") || draft.full_name || draft.email || "New person";
+    setContactRows((rows) => [...rows, { key: nextKey(), displayName: name, first_name: draft.first_name ?? null, last_name: draft.last_name ?? null, full_name: draft.full_name ?? null, email: draft.email ?? null, phone: draft.phone ?? null, client_roles: [], is_primary: false }]);
+  };
+  const addLocation = (sel: LocationSelection) => {
+    setLocationRows((rows) => [
+      ...rows,
+      { key: nextKey(), displayName: sel.location_name, existing_location_id: sel.existing_location_id ?? null, location_name: sel.location_name, address_line_1: sel.address_line_1, address_line_2: sel.address_line_2 ?? null, city: sel.city, state: sel.state, zip: sel.zip, notes: sel.notes ?? null, is_primary: false }
+    ]);
+  };
   const ownerSelectOptions = ownerOptions.length ? ownerOptions.map((owner) => owner.full_name) : FALLBACK_INTERNAL_OWNERS;
   const isCreateMode = !initialValue;
   const offerInitialTerm = isCreateMode && entityKind === "account" && accountType.startsWith("schools");
@@ -229,7 +302,9 @@ export function OrganizationEditorForm({
                   start_date: initialTermStart || null,
                   end_date: initialTermEnd || null
                 }
-              : null
+              : null,
+          contacts: contactRows.map(({ key: _key, displayName: _displayName, ...row }) => row),
+          locations: locationRows.map(({ key: _key, displayName: _displayName, ...row }) => row)
         });
       }}
     >
@@ -375,6 +450,74 @@ export function OrganizationEditorForm({
           </label>
         </div>
       </fieldset>
+
+      {isCreateMode && token ? (
+        <fieldset className="directory-form__section" aria-label="Contacts">
+          <legend>Contacts</legend>
+          <p className="muted">Add one or more people. Pick an existing canonical contact or create a new one — everything is saved in a single transaction.</p>
+          {contactRows.length ? (
+            <ul className="directory-form__rowlist" aria-label="Pending contacts">
+              {contactRows.map((row) => (
+                <li key={row.key} className="directory-form__row">
+                  <div className="directory-form__row-head">
+                    <strong>{row.displayName}</strong>
+                    <button type="button" className="link-button" aria-label={`Remove contact ${row.displayName}`} onClick={() => setContactRows((rows) => rows.filter((r) => r.key !== row.key))}>Remove</button>
+                  </div>
+                  <div className="directory-form__grid">
+                    <label className="directory-field">
+                      <span>Role</span>
+                      <select aria-label={`Role for ${row.displayName}`} value={row.client_roles?.[0] ?? ""} onChange={(e) => setContactRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, client_roles: e.target.value ? [e.target.value] : [] } : r)))}>
+                        <option value="">No specific role</option>
+                        {ATOMIC_ROLE_OPTIONS.map((role) => (
+                          <option key={role} value={role}>{humanizeRoleLabel(role)}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="directory-field">
+                      <span>Contextual title</span>
+                      <input aria-label={`Title for ${row.displayName}`} value={row.title ?? ""} onChange={(e) => setContactRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, title: e.target.value } : r)))} />
+                    </label>
+                    <label className="directory-field directory-field--wide">
+                      <span>Responsibilities / notes</span>
+                      <input aria-label={`Notes for ${row.displayName}`} value={row.notes ?? ""} onChange={(e) => setContactRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, notes: e.target.value } : r)))} />
+                    </label>
+                    <label className="directory-field directory-field--check">
+                      <input type="checkbox" aria-label={`Primary contact ${row.displayName}`} checked={Boolean(row.is_primary)} onChange={(e) => setContactRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, is_primary: e.target.checked } : { ...r, is_primary: e.target.checked ? false : r.is_primary })))} />
+                      <span>Primary contact</span>
+                    </label>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <CanonicalContactSelector token={token} label="Add a contact" onSelect={addExistingContact} onCreateDraft={addInlineContact} />
+        </fieldset>
+      ) : null}
+
+      {isCreateMode && token ? (
+        <fieldset className="directory-form__section" aria-label="Locations">
+          <legend>Locations</legend>
+          <p className="muted">Add approved locations. Reuse an existing address or create a new one. Keep rooms (gym, auditorium) as access notes — don't make a separate location per room.</p>
+          {locationRows.length ? (
+            <ul className="directory-form__rowlist" aria-label="Pending locations">
+              {locationRows.map((row) => (
+                <li key={row.key} className="directory-form__row">
+                  <div className="directory-form__row-head">
+                    <strong>{row.displayName}</strong>
+                    <span className="muted">{[row.address_line_1, row.city, row.state].filter(Boolean).join(", ")}{row.existing_location_id ? " · reused" : ""}</span>
+                    <button type="button" className="link-button" aria-label={`Remove location ${row.displayName}`} onClick={() => setLocationRows((rows) => rows.filter((r) => r.key !== row.key))}>Remove</button>
+                  </div>
+                  <label className="directory-field directory-field--check">
+                    <input type="checkbox" aria-label={`Primary location ${row.displayName}`} checked={Boolean(row.is_primary)} onChange={(e) => setLocationRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, is_primary: e.target.checked } : { ...r, is_primary: e.target.checked ? false : r.is_primary })))} />
+                    <span>Primary location</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <CanonicalLocationSelector token={token} label="Add a location" onSelect={addLocation} />
+        </fieldset>
+      ) : null}
 
       <fieldset className="directory-form__section">
         <legend>Brand</legend>

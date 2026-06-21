@@ -17,9 +17,13 @@ type Props = {
   onSelect: (contact: CanonicalContactListItem) => void;
   disabled?: boolean;
   label?: string;
+  // Deferred-create mode (atomic flows): when provided, the inline "Create & use" returns the
+  // entered draft instead of persisting a new identity immediately, so the identity is created
+  // inside the caller's single transaction (and rolls back with it). Same canonical validation.
+  onCreateDraft?: (draft: CanonicalContactCreateInput) => void;
 };
 
-export function CanonicalContactSelector({ token, organizationId, onSelect, disabled, label }: Props) {
+export function CanonicalContactSelector({ token, organizationId, onSelect, disabled, label, onCreateDraft }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CanonicalContactListItem[]>([]);
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set());
@@ -83,6 +87,13 @@ export function CanonicalContactSelector({ token, organizationId, onSelect, disa
     const hasName = Boolean((createForm.first_name ?? "").trim() || (createForm.last_name ?? "").trim() || (createForm.full_name ?? "").trim());
     if (!hasName && !(createForm.email ?? "").trim()) {
       setError("A new contact needs at least a name or an email.");
+      return;
+    }
+    // Deferred mode — hand the validated draft back; the caller creates it in its own transaction.
+    if (onCreateDraft) {
+      onCreateDraft({ ...createForm });
+      setCreating(false);
+      setCreateForm({ first_name: "", last_name: "", email: "", phone: "" });
       return;
     }
     setCreateBusy(true);

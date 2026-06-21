@@ -751,14 +751,17 @@ export type AtomicCreateContactInput = {
   relationship_role?: string;
   client_roles?: string[];
   is_primary?: boolean;
+  title?: string | null;
+  notes?: string | null;
 };
 export type AtomicCreateLocationInput = {
-  location_name: string;
-  address_line_1: string;
+  existing_location_id?: string | null;
+  location_name?: string | null;
+  address_line_1?: string | null;
   address_line_2?: string | null;
-  city: string;
-  state: string;
-  zip: string;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
   notes?: string | null;
   is_primary?: boolean;
 };
@@ -771,7 +774,7 @@ export type AtomicCreateOrganizationInput = {
 };
 
 export async function createOrganizationAtomicRecord(token: string, input: AtomicCreateOrganizationInput) {
-  return apiFetch<{ organization_id: string; created_contact_ids: string[]; linked_contact_ids: string[]; created_location_count: number }>(
+  return apiFetch<{ organization_id: string; created_contact_ids: string[]; linked_contact_ids: string[]; created_location_count: number; primary_location_id: string | null }>(
     "/api/organizations/atomic",
     token,
     { method: "POST", body: JSON.stringify(input) }

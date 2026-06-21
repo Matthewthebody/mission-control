@@ -1005,18 +1005,21 @@ function renderDrawer({ drawerState, detail, contacts, organizations, ownerOptio
   if (!drawerState) return null;
   if (drawerState.type === "create-organization") {
     return <OrganizationEditorForm token={token} ownerOptions={ownerOptions} submitLabel="Create organization" submitting={actionBusy} error={drawerError} onUploadLogo={(file) => uploadOrganizationLogoFile(token, null, file)} onCancel={closeDrawer} onSubmit={(input: OrganizationCreateInput, context) => runAction(async () => {
-      // Phase 4.2 Part 3 — one atomic transaction: organization + brand + first term + the
-      // primary contact relationship. A failure rolls everything back (no orphan org/contact).
+      // Phase 4.2 Part 3 — one atomic transaction: organization + brand + first term + every
+      // contact + every location relationship. A failure at any stage rolls the whole thing back
+      // (no orphan org/contact/identity/relationship/location/term).
       const primaryContact = context.primaryContact;
-      const contacts = primaryContact?.name
+      const legacyPrimary = primaryContact?.name
         ? [(() => {
             const { firstName, lastName } = splitContactName(primaryContact.name);
             return { first_name: firstName, last_name: lastName, email: primaryContact.email || null, phone: primaryContact.phone || null, is_primary: true };
           })()]
         : [];
+      const contacts = [...legacyPrimary, ...context.contacts];
       const response = await createOrganizationAtomicRecord(token, {
         organization: input,
         contacts,
+        locations: context.locations,
         brand: context.brand,
         initial_service_term: context.initialServiceTerm
       });
