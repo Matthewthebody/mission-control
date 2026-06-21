@@ -39,9 +39,29 @@ tests · browser · known limitation · next slice.
 - **Browser:** not yet (batched into Part 6 closure scenario).
 - **Known limitation:** the existing Contacts rail mode still renders org-bound rows; the
   canonical list + selector are the reusable foundation it migrates onto in a follow-up.
-- **Next slice:** Phase 4.2 Part 3 — atomic canonical Create Organization (one
-  transaction-backed orchestration endpoint for org + inline/existing contacts + locations +
-  brand + initial term; forced-failure rollback leaves no orphans). Start by adding a backend
-  `POST /api/organizations/atomic` (or extend create) in `services/organizations.ts`.
+- **Next slice:** Phase 4.2 Part 3 (done below).
+
+---
+
+## Phase 4.2 Part 3 — Atomic canonical Create Organization — DONE
+
+- **Commit:** `d136cae` `feat: make organization creation atomic and canonical`
+- **Files:** api `organizationAtomicCreate.ts` (new), `organizations.ts` (export input types),
+  `routes/organizations.ts` (`POST /atomic` + schema), `organizationAtomicCreate.test.ts`;
+  web `organizationApi.ts` (+wrapper/types), `pages/Organizations.tsx` (create → atomic).
+- **Behavior:** one transaction creates org + brand + first term + N contacts (existing
+  identity by id or inline new) + N new locations; any failure rolls the whole thing back —
+  no orphan org/contact/identity/relationship/location/brand/term. Create handler now makes
+  one atomic call instead of 4 sequential ones.
+- **Data/migration:** none.
+- **Tests:** api `organizationAtomicCreate` 5 (success; forced-failure-no-orphans; duplicate
+  no-partial; reuse-by-id; RBAC); web `organizationsPage` 33 unaffected. tsc + build clean.
+- **Browser:** batched into Part 6 closure.
+- **Known limitation:** the create FORM still collects one primary contact + no inline
+  locations; the atomic endpoint accepts arrays, so the multi-contact/multi-location form UI
+  is the remaining frontend piece.
+- **Next slice:** Phase 4.2 Part 4 — complete + verify Job Intake District→School→Location→
+  Contact scoping (District→School filter already exists from Phase 4.1; finish contextual
+  contacts + tests).
 
 ---
