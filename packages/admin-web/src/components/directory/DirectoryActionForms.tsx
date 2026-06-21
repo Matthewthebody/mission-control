@@ -399,7 +399,9 @@ export function OrganizationEditorForm({
         <div className="directory-form__grid">
           <label className="directory-field">
             <span>Website</span>
-            <input type="url" value={website} onChange={(event) => setWebsite(event.target.value)} />
+            {/* Phase 4.1: accept scheme-less input (school.org) — the server normalizes it to a
+                canonical https URL on write (normalizeWebsite). type="url" would reject it. */}
+            <input type="text" inputMode="url" value={website} placeholder="school.org" onChange={(event) => setWebsite(event.target.value)} />
           </label>
           <label className="directory-field">
             <span>Main Phone</span>

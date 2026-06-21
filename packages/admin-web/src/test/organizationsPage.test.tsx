@@ -2004,6 +2004,18 @@ describe("organizations workflow surface", () => {
     });
   });
 
+  it("accepts a scheme-less website and passes it through for server-side normalization", async () => {
+    const onSubmit = vi.fn();
+    render(<OrganizationEditorForm submitLabel="Create organization" onCancel={() => undefined} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("Organization Name"), { target: { value: "North Shore" } });
+    fireEvent.change(screen.getByLabelText("Website"), { target: { value: "northshore.org" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create organization" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const [input] = onSubmit.mock.calls[0] as [{ website: string | null }];
+    // Raw scheme-less value flows to the API (the backend normalizeWebsite adds https://).
+    expect(input.website).toBe("northshore.org");
+  });
+
   it("hides the first service term section for a District (parent organization)", async () => {
     render(<OrganizationEditorForm submitLabel="Create organization" onCancel={() => undefined} onSubmit={vi.fn()} />);
     expect(screen.getByLabelText("Initial term label")).toBeInTheDocument();
