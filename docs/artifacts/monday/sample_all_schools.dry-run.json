@@ -1,0 +1,123 @@
+{
+  "stamped_at": "2026-06-21T01:52:42.085Z",
+  "source_file": "all-schools.sample.json",
+  "deterministic": true,
+  "dry_run": true,
+  "side_effects_suppressed": true,
+  "provider": "monday",
+  "workspace": "Schools",
+  "board_id": "sample_all_schools",
+  "board_name": "All Schools",
+  "target_entity": "organization",
+  "total_items": 3,
+  "counts": {
+    "create": 2,
+    "update": 0,
+    "skip": 0,
+    "conflict": 0,
+    "review_required": 1
+  },
+  "unsupported_column_ids": [
+    "formula_health"
+  ],
+  "rows": [
+    {
+      "item_id": "sch_1001",
+      "item_name": "Sample Maple High School",
+      "classification": "create",
+      "target_entity": "organization",
+      "mapped_fields": {
+        "canonical_name": "Sample Maple High School",
+        "district_name": "Sample Maple District",
+        "website": "maplehigh.example.org",
+        "main_phone": "555-0100"
+      },
+      "missing_required": [],
+      "unsupported_columns": [
+        "formula_health"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:organization:sch_1001",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_all_schools",
+        "item_id": "sch_1001",
+        "group_id": "active",
+        "column_ids": [
+          "name",
+          "text_district",
+          "text_website",
+          "phone_main",
+          "formula_health"
+        ]
+      }
+    },
+    {
+      "item_id": "sch_1002",
+      "item_name": "Sample Oak Middle School",
+      "classification": "create",
+      "target_entity": "organization",
+      "mapped_fields": {
+        "canonical_name": "Sample Oak Middle School",
+        "district_name": "Sample Oak District",
+        "website": "oakmiddle.example.org",
+        "main_phone": "555-0101"
+      },
+      "missing_required": [],
+      "unsupported_columns": [
+        "formula_health"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:organization:sch_1002",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_all_schools",
+        "item_id": "sch_1002",
+        "group_id": "active",
+        "column_ids": [
+          "name",
+          "text_district",
+          "text_website",
+          "phone_main",
+          "formula_health"
+        ]
+      }
+    },
+    {
+      "item_id": "sch_1003",
+      "item_name": "",
+      "classification": "review_required",
+      "target_entity": "organization",
+      "mapped_fields": {
+        "canonical_name": "",
+        "district_name": "Sample Oak District",
+        "website": "",
+        "main_phone": ""
+      },
+      "missing_required": [
+        "canonical_name"
+      ],
+      "unsupported_columns": [
+        "formula_health"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:organization:sch_1003",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_all_schools",
+        "item_id": "sch_1003",
+        "group_id": "active",
+        "column_ids": [
+          "name",
+          "text_district",
+          "text_website",
+          "phone_main",
+          "formula_health"
+        ]
+      }
+    }
+  ]
+}

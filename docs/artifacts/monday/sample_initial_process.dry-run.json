@@ -1,0 +1,89 @@
+{
+  "stamped_at": "2026-06-21T01:52:42.085Z",
+  "source_file": "initial-process.sample.json",
+  "deterministic": true,
+  "dry_run": true,
+  "side_effects_suppressed": true,
+  "provider": "monday",
+  "workspace": "Schools",
+  "board_id": "sample_initial_process",
+  "board_name": "Initial Process",
+  "target_entity": "job",
+  "total_items": 2,
+  "counts": {
+    "create": 2,
+    "update": 0,
+    "skip": 0,
+    "conflict": 0,
+    "review_required": 0
+  },
+  "unsupported_column_ids": [
+    "mirror_owner"
+  ],
+  "rows": [
+    {
+      "item_id": "ip_2001",
+      "item_name": "Sample Maple High — Fall Picture Day",
+      "classification": "create",
+      "target_entity": "job",
+      "mapped_fields": {
+        "job_title": "Sample Maple High — Fall Picture Day",
+        "school_name": "Sample Maple High School",
+        "shoot_date": "2026-09-15",
+        "stage": "Scheduled"
+      },
+      "missing_required": [],
+      "unsupported_columns": [
+        "mirror_owner"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:job:ip_2001",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_initial_process",
+        "item_id": "ip_2001",
+        "group_id": "intake",
+        "column_ids": [
+          "name",
+          "text_school",
+          "date_shoot",
+          "status_stage",
+          "mirror_owner"
+        ]
+      }
+    },
+    {
+      "item_id": "ip_2002",
+      "item_name": "Sample Oak Middle — Fall Picture Day",
+      "classification": "create",
+      "target_entity": "job",
+      "mapped_fields": {
+        "job_title": "Sample Oak Middle — Fall Picture Day",
+        "school_name": "Sample Oak Middle School",
+        "shoot_date": "",
+        "stage": "Awaiting Date"
+      },
+      "missing_required": [],
+      "unsupported_columns": [
+        "mirror_owner"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:job:ip_2002",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_initial_process",
+        "item_id": "ip_2002",
+        "group_id": "intake",
+        "column_ids": [
+          "name",
+          "text_school",
+          "date_shoot",
+          "status_stage",
+          "mirror_owner"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "stamped_at": "2026-06-21T01:52:42.085Z",
+  "source_file": "code-return.sample.json",
+  "deterministic": true,
+  "dry_run": true,
+  "side_effects_suppressed": true,
+  "provider": "monday",
+  "workspace": "Schools",
+  "board_id": "sample_code_return",
+  "board_name": "Code Return",
+  "target_entity": "service_term",
+  "total_items": 2,
+  "counts": {
+    "create": 2,
+    "update": 0,
+    "skip": 0,
+    "conflict": 0,
+    "review_required": 0
+  },
+  "unsupported_column_ids": [
+    "dependency_prev"
+  ],
+  "rows": [
+    {
+      "item_id": "cr_3001",
+      "item_name": "Sample Maple High — 2026-2027 Code Return",
+      "classification": "create",
+      "target_entity": "service_term",
+      "mapped_fields": {
+        "term_label": "2026-2027",
+        "school_name": "Sample Maple High School",
+        "code_return_status": "Returned"
+      },
+      "missing_required": [],
+      "unsupported_columns": [
+        "dependency_prev"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:school_service_term:cr_3001",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_code_return",
+        "item_id": "cr_3001",
+        "group_id": "current",
+        "column_ids": [
+          "name",
+          "text_school",
+          "text_year",
+          "status_return",
+          "dependency_prev"
+        ]
+      }
+    },
+    {
+      "item_id": "cr_3002",
+      "item_name": "Sample Oak Middle — 2026-2027 Code Return",
+      "classification": "create",
+      "target_entity": "service_term",
+      "mapped_fields": {
+        "term_label": "2026-2027",
+        "school_name": "Sample Oak Middle School",
+        "code_return_status": "Pending"
+      },
+      "missing_required": [],
+      "unsupported_columns": [
+        "dependency_prev"
+      ],
+      "existing_object_id": null,
+      "conflict_reason": null,
+      "dedupe_key": "monday:school_service_term:cr_3002",
+      "source_ids": {
+        "workspace": "Schools",
+        "board_id": "sample_code_return",
+        "item_id": "cr_3002",
+        "group_id": "current",
+        "column_ids": [
+          "name",
+          "text_school",
+          "text_year",
+          "status_return",
+          "dependency_prev"
+        ]
+      }
+    }
+  ]
+}
