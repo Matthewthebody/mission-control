@@ -122,28 +122,58 @@ export async function getContactRelationships(client: PoolClient, auth: AuthUser
   return { identity, relationships: rows };
 }
 
+export type ContactBackfillClassification = "safe_one_to_one" | "possible_duplicate" | "invalid_no_identity";
+
+export type ContactBackfillDetail = {
+  organization_contact_id: string;
+  organization_id: string;
+  organization_name: string | null;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  source: string | null;
+  existing_contact_id: string | null;
+  classification: ContactBackfillClassification;
+  duplicate_key: string;
+  duplicate_count: number;
+  proposed_action: "create_identity" | "review_required";
+  created_contact_id: string | null;
+};
+
 export type ContactBackfillReport = {
   dry_run: boolean;
+  // safe_only = apply ONLY unique-key one-to-one rows; leave possible_duplicate + invalid as Review Required.
+  safe_only: boolean;
   batch_id: string | null;
   total_unlinked: number;
   one_to_one: number;
   invalid_no_identity: number;
   possible_duplicate: number;
   applied: number;
+  details: ContactBackfillDetail[];
 };
 
 // Create one canonical identity per existing org-bound contact and link it (one-to-one).
 // NEVER merges on name or email. Rows with no name AND no email are Review Required
-// (skipped). Same-name+email rows are flagged possible_duplicate but still get their own
-// identity (no merge). Idempotent (only rows where contact_id IS NULL). Reversible: each
-// created identity is sourced 'backfill:<batch>'; rollback nulls the links + deletes them.
-export async function backfillContactIdentities(client: PoolClient, auth: AuthUser, options: { dryRun?: boolean } = {}): Promise<ContactBackfillReport> {
+// (skipped). Same-name+email rows are flagged possible_duplicate; with safeOnly they are
+// left as Review Required (not applied). Idempotent (only rows where contact_id IS NULL).
+// Reversible: each created identity is sourced 'backfill:<batch>'; rollback nulls the links
+// + deletes them (rollbackContactIdentityBackfill).
+export async function backfillContactIdentities(
+  client: PoolClient,
+  auth: AuthUser,
+  options: { dryRun?: boolean; safeOnly?: boolean } = {}
+): Promise<ContactBackfillReport> {
   const dryRun = options.dryRun !== false;
+  const safeOnly = options.safeOnly === true;
   if (!dryRun) requireManage(auth);
   const rows = (
-    await client.query<{ id: string; first_name: string | null; last_name: string | null; full_name: string | null; email: string | null; phone: string | null }>(
-      `SELECT id::text, first_name, last_name, full_name, email, phone
-         FROM organization_contact WHERE tenant_id=$1 AND contact_id IS NULL`,
+    await client.query<{ id: string; organization_id: string; organization_name: string | null; first_name: string | null; last_name: string | null; full_name: string | null; email: string | null; phone: string | null }>(
+      `SELECT oc.id::text, oc.organization_id::text, o.display_name AS organization_name,
+              oc.first_name, oc.last_name, oc.full_name, oc.email, oc.phone
+         FROM organization_contact oc
+         LEFT JOIN organization o ON o.tenant_id = oc.tenant_id AND o.id = oc.organization_id
+        WHERE oc.tenant_id=$1 AND oc.contact_id IS NULL`,
       [auth.tenantId]
     )
   ).rows;
@@ -153,33 +183,81 @@ export async function backfillContactIdentities(client: PoolClient, auth: AuthUs
     const key = `${norm(fullName(r.first_name, r.last_name, r.full_name))}|${norm(r.email)}`;
     keyCount.set(key, (keyCount.get(key) ?? 0) + 1);
   }
+  const rowById = new Map(rows.map((r) => [r.id, r]));
   let oneToOne = 0, invalid = 0, possibleDup = 0;
-  const valid: typeof rows = [];
+  const details: ContactBackfillDetail[] = [];
   for (const r of rows) {
     const full = fullName(r.first_name, r.last_name, r.full_name);
-    if (!full && !norm(r.email)) { invalid += 1; continue; }
-    oneToOne += 1;
     const key = `${norm(full)}|${norm(r.email)}`;
-    if ((keyCount.get(key) ?? 0) > 1) possibleDup += 1;
-    valid.push(r);
+    const dupCount = keyCount.get(key) ?? 1;
+    let classification: ContactBackfillClassification;
+    if (!full && !norm(r.email)) {
+      classification = "invalid_no_identity";
+      invalid += 1;
+    } else if (dupCount > 1) {
+      classification = "possible_duplicate";
+      oneToOne += 1;
+      possibleDup += 1;
+    } else {
+      classification = "safe_one_to_one";
+      oneToOne += 1;
+    }
+    // With safeOnly we apply ONLY safe_one_to_one; otherwise every valid row (incl. possible
+    // duplicates, each getting its own identity — never merged).
+    const willApply = classification === "safe_one_to_one" || (!safeOnly && classification === "possible_duplicate");
+    details.push({
+      organization_contact_id: r.id,
+      organization_id: r.organization_id,
+      organization_name: r.organization_name,
+      full_name: full,
+      email: r.email,
+      phone: r.phone,
+      source: null,
+      existing_contact_id: null,
+      classification,
+      duplicate_key: key,
+      duplicate_count: dupCount,
+      proposed_action: willApply ? "create_identity" : "review_required",
+      created_contact_id: null
+    });
   }
-  const report: ContactBackfillReport = { dry_run: dryRun, batch_id: null, total_unlinked: rows.length, one_to_one: oneToOne, invalid_no_identity: invalid, possible_duplicate: possibleDup, applied: 0 };
+  const report: ContactBackfillReport = { dry_run: dryRun, safe_only: safeOnly, batch_id: null, total_unlinked: rows.length, one_to_one: oneToOne, invalid_no_identity: invalid, possible_duplicate: possibleDup, applied: 0, details };
   if (dryRun) return report;
 
   const batchId = (await client.query<{ id: string }>(`SELECT gen_random_uuid()::text AS id`)).rows[0].id;
   report.batch_id = batchId;
-  for (const r of valid) {
-    const full = fullName(r.first_name, r.last_name, r.full_name);
+  for (const detail of details) {
+    if (detail.proposed_action !== "create_identity") continue;
+    const r = rowById.get(detail.organization_contact_id)!;
     const identity = (
       await client.query<{ id: string }>(
         `INSERT INTO contact (tenant_id, first_name, last_name, full_name, normalized_full_name, email, normalized_email, phone, source, created_by_user_id, updated_by_user_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10) RETURNING id::text`,
-        [auth.tenantId, r.first_name, r.last_name, full || null, norm(full), r.email, norm(r.email), r.phone, `backfill:${batchId}`, auth.id]
+        [auth.tenantId, r.first_name, r.last_name, detail.full_name || null, norm(detail.full_name), r.email, norm(r.email), r.phone, `backfill:${batchId}`, auth.id]
       )
     ).rows[0];
-    await client.query(`UPDATE organization_contact SET contact_id=$3, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND contact_id IS NULL`, [auth.tenantId, r.id, identity.id]);
-    report.applied += 1;
+    const updated = await client.query(`UPDATE organization_contact SET contact_id=$3, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND contact_id IS NULL`, [auth.tenantId, detail.organization_contact_id, identity.id]);
+    if (updated.rowCount) {
+      detail.created_contact_id = identity.id;
+      report.applied += 1;
+    }
   }
-  await createAuditLog(client, { tenantId: auth.tenantId, actorUserId: auth.id, action: "contact.identity_backfill", entityType: "contact", entityId: batchId, metadata: { applied: report.applied, possible_duplicate: possibleDup, invalid: invalid } });
+  await createAuditLog(client, { tenantId: auth.tenantId, actorUserId: auth.id, action: "contact.identity_backfill", entityType: "contact", entityId: batchId, metadata: { applied: report.applied, safe_only: safeOnly, possible_duplicate: possibleDup, invalid } });
   return report;
+}
+
+// Reverse a backfill batch: null the org-bound links, then delete the created identities.
+// Hard-deletes ONLY the identities this batch created (source = 'backfill:<batch>'); never
+// touches org-bound contacts or any identity from another source. Returns the counts undone.
+export async function rollbackContactIdentityBackfill(client: PoolClient, auth: AuthUser, batchId: string): Promise<{ unlinked: number; deleted: number }> {
+  requireManage(auth);
+  const source = `backfill:${batchId}`;
+  const unlinked = await client.query(
+    `UPDATE organization_contact SET contact_id = NULL, updated_at = now()
+       WHERE tenant_id = $1 AND contact_id IN (SELECT id FROM contact WHERE tenant_id = $1 AND source = $2)`,
+    [auth.tenantId, source]
+  );
+  const deleted = await client.query(`DELETE FROM contact WHERE tenant_id = $1 AND source = $2`, [auth.tenantId, source]);
+  await createAuditLog(client, { tenantId: auth.tenantId, actorUserId: auth.id, action: "contact.identity_backfill_rolled_back", entityType: "contact", entityId: batchId, metadata: { unlinked: unlinked.rowCount ?? 0, deleted: deleted.rowCount ?? 0 } });
+  return { unlinked: unlinked.rowCount ?? 0, deleted: deleted.rowCount ?? 0 };
 }

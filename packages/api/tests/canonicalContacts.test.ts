@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin } from "./helpers.js";
-import { backfillContactIdentities, createCanonicalContact, linkContactToOrganization, getContactRelationships } from "../src/services/canonicalContacts.js";
+import { backfillContactIdentities, createCanonicalContact, linkContactToOrganization, getContactRelationships, rollbackContactIdentityBackfill } from "../src/services/canonicalContacts.js";
 
 // Phase 4 Slice 2 — reusable canonical Contact identity. A `contact` identity (migration
 // 161) is the reusable person; org-bound `organization_contact` rows reference it via
@@ -134,6 +134,43 @@ describe("Phase 4 Slice 2 — reusable canonical contacts", () => {
       // idempotent: a second apply links nothing new
       const again = await backfillContactIdentities(client, auth, { dryRun: false });
       expect(again.applied).toBe(0);
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  });
+
+  it("(C) safe-only apply creates identities for unique rows, leaves possible duplicates Review Required, and is reversible (rolled back)", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const auth = { authorityTier: "leadership", tenantId, id: adminUserId } as any;
+      // two same-name+email rows (possible duplicate) + one unique row
+      const dupA = (await client.query(`INSERT INTO organization_contact (tenant_id, organization_id, first_name, last_name, full_name, normalized_full_name, email, active_status) VALUES ($1,$2,'Robin','Vale','Robin Vale','robin vale','robin@dup.example.com','active') RETURNING id::text`, [tenantId, districtId])).rows[0].id;
+      const dupB = (await client.query(`INSERT INTO organization_contact (tenant_id, organization_id, first_name, last_name, full_name, normalized_full_name, email, active_status) VALUES ($1,$2,'Robin','Vale','Robin Vale','robin vale','robin@dup.example.com','active') RETURNING id::text`, [tenantId, schoolId])).rows[0].id;
+      const unique = (await client.query(`INSERT INTO organization_contact (tenant_id, organization_id, first_name, last_name, full_name, normalized_full_name, email, active_status) VALUES ($1,$2,'Casey','Unique','Casey Unique','casey unique','casey@uniq.example.com','active') RETURNING id::text`, [tenantId, districtId])).rows[0].id;
+
+      const dry = await backfillContactIdentities(client, auth, { dryRun: true, safeOnly: true });
+      const dryUnique = dry.details.find((d: any) => d.organization_contact_id === unique)!;
+      const dryDup = dry.details.find((d: any) => d.organization_contact_id === dupA)!;
+      expect(dryUnique.classification).toBe("safe_one_to_one");
+      expect(dryUnique.proposed_action).toBe("create_identity");
+      expect(dryDup.classification).toBe("possible_duplicate");
+      expect(dryDup.proposed_action).toBe("review_required"); // safeOnly leaves dups for review
+
+      const applied = await backfillContactIdentities(client, auth, { dryRun: false, safeOnly: true });
+      // the unique row got an identity; the duplicates did NOT
+      expect((await client.query(`SELECT contact_id FROM organization_contact WHERE id=$1`, [unique])).rows[0].contact_id).not.toBeNull();
+      expect((await client.query(`SELECT contact_id FROM organization_contact WHERE id=$1`, [dupA])).rows[0].contact_id).toBeNull();
+      expect((await client.query(`SELECT contact_id FROM organization_contact WHERE id=$1`, [dupB])).rows[0].contact_id).toBeNull();
+      expect(applied.batch_id).toBeTruthy();
+
+      // rollback the batch: the unique row is unlinked again and the created identity deleted
+      const reversal = await rollbackContactIdentityBackfill(client, auth, applied.batch_id!);
+      expect(reversal.unlinked).toBe(applied.applied);
+      expect(reversal.deleted).toBe(applied.applied);
+      expect((await client.query(`SELECT contact_id FROM organization_contact WHERE id=$1`, [unique])).rows[0].contact_id).toBeNull();
+      expect((await client.query(`SELECT count(*)::int n FROM contact WHERE tenant_id=$1 AND source=$2`, [tenantId, `backfill:${applied.batch_id}`])).rows[0].n).toBe(0);
       await client.query("ROLLBACK");
     } finally {
       client.release();

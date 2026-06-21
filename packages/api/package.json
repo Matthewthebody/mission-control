@@ -14,6 +14,7 @@
     "seed": "tsx scripts/seed.ts",
     "verify:fresh-db-contract": "tsx scripts/verify-fresh-db-contract.ts",
     "reconcile:directory-demo": "tsx scripts/reconcile-directory-demo.ts",
+    "backfill:contacts-demo": "tsx scripts/backfill-contacts-demo.ts",
     "seed:mission-control-demo": "tsx scripts/seed-mission-control-demo.ts --allow-demo-data",
     "project-tracking:seed-demo": "tsx scripts/seed-project-tracking-demo.ts --allow-demo-data",
     "project-tracking:reset-demo": "tsx scripts/seed-project-tracking-demo.ts --allow-demo-data --reset",

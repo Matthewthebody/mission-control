@@ -1,0 +1,25 @@
+{
+  "stamped_at": "2026-06-21T01:38:15.368Z",
+  "admin_email": "schools-office@example.com",
+  "before": {
+    "total": 189,
+    "linked": 189,
+    "unlinked": 0,
+    "identities": 196
+  },
+  "after": {
+    "total": 189,
+    "linked": 189,
+    "unlinked": 0,
+    "identities": 196
+  },
+  "dry_run": true,
+  "safe_only": true,
+  "batch_id": null,
+  "total_unlinked": 0,
+  "one_to_one": 0,
+  "invalid_no_identity": 0,
+  "possible_duplicate": 0,
+  "applied": 0,
+  "details": []
+}
