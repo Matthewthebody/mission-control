@@ -83,8 +83,29 @@ tests · browser · known limitation · next slice.
   status, role); the secondary contact filters (owner, importance, photo/logo flags) remain
   local — adequate for the acceptance scenario (refresh/Back-Forward restore the visible
   search + mode + record + primary filters).
-- **Next slice:** Phase 4.2 Part 4 — finish + verify the Job Intake District→School→Location→
-  Contact cascade (District→School already wired in Phase 4.1; add contextual-contact tests),
-  then Slice 6 closure (browser scenario + gates + closure report).
+- **Next slice:** Phase 4.2 Part 4 (below).
+
+---
+
+## Phase 4.2 Part 4 — Job Intake canonical cascade — VERIFIED (scoping built in Phase 4.1)
+
+- **Commit:** (this commit) `fix: complete canonical directory scoping in job intake`
+- **Files:** web `test/jobIntakeQuickCreate.test.tsx` (overridable districts mock + cascade test).
+- **Behavior:** the District→School→Location→Contact cascade was wired in Phase 4.1
+  (`QuickCreateJobDrawer`: District selector scopes the school search by `parentOrganizationId`;
+  selecting a school scopes location/contact options from `organizationDetail`; room/area stays
+  free text; current service-term context shown). This commit adds the frontend proof that
+  selecting a District scopes the school search to its children by canonical id, complementing
+  the backend parent-filter test (`organizationHierarchy` (20)).
+- **Data/migration:** none.
+- **Tests:** web `jobIntakeQuickCreate` 13 (incl. the new cascade case); backend
+  `organizationHierarchy` (20) parent-scope already green.
+- **Browser:** batched into Slice 6 closure.
+- **Known limitation:** District-level contacts are not yet merged into the school intake
+  contact picker (it shows the school org's contacts); adding the parent-District's contacts is
+  a bounded follow-up. Sports / non-school intake unchanged.
+- **Next slice:** Phase 4.2 Slice 6 — closure (deterministic browser scenario + full gates +
+  `docs/2026-06-21-phase4-2-directory-product-closure-report.md`), then Tier 2 (Schools
+  leadership + CSR operating views).
 
 ---

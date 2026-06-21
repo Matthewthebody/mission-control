@@ -19,6 +19,7 @@ import type { SharedJobListItem } from "../jobTruthTypes";
 
 const listOrganizationsMock = vi.fn();
 const getOrganizationDetailMock = vi.fn();
+const listCanonicalDistrictsMock = vi.fn();
 const listDirectoryOwnerOptionsMock = vi.fn();
 const createCentralJobDraftMock = vi.fn();
 const getCentralJobDraftMock = vi.fn();
@@ -53,7 +54,7 @@ vi.mock("../services/organizationApi", () => ({
   getOrganizationDetail: (...args: unknown[]) => getOrganizationDetailMock(...args),
   listDirectoryOwnerOptions: (...args: unknown[]) => listDirectoryOwnerOptionsMock(...args),
   // Phase 4 / 4.1 canonical intake reads (district scope + current service term).
-  listCanonicalDistricts: async () => ({ districts: [] }),
+  listCanonicalDistricts: (...args: unknown[]) => listCanonicalDistrictsMock(...args),
   listSchoolServiceTerms: async () => ({ service_terms: [] })
 }));
 
@@ -425,6 +426,8 @@ async function openQuickCreate(buttonName = "New School Job") {
 beforeEach(() => {
   listOrganizationsMock.mockReset();
   getOrganizationDetailMock.mockReset();
+  listCanonicalDistrictsMock.mockReset();
+  listCanonicalDistrictsMock.mockResolvedValue({ districts: [] });
   listDirectoryOwnerOptionsMock.mockReset();
   createCentralJobDraftMock.mockReset();
   getCentralJobDraftMock.mockReset();
@@ -823,6 +826,22 @@ describe("central job intake quick create", () => {
     });
     expect(previewCentralJobDuplicatesMock).toHaveBeenCalledWith("token-demo", "job-draft-1");
     expect(await scope.findByText(/saved as a draft/i)).toBeInTheDocument();
+  });
+
+  it("scopes the school search to the selected District (District→School cascade)", async () => {
+    listCanonicalDistrictsMock.mockResolvedValue({
+      districts: [{ id: "district-1", display_name: "Wayzata School District", client_organization_type: "school_district", child_organization_count: 1 }]
+    });
+    renderSchoolsPage();
+    const dialog = await openQuickCreate();
+    const scope = within(dialog);
+    // the District selector appears once canonical districts load for the schools department
+    const districtSelect = await scope.findByLabelText("District scope");
+    fireEvent.change(districtSelect, { target: { value: "district-1" } });
+    // selecting a District scopes the school search to that District's children (by canonical id)
+    await waitFor(() =>
+      expect(listOrganizationsMock).toHaveBeenCalledWith("token-demo", expect.objectContaining({ parentOrganizationId: "district-1" }))
+    );
   });
 
   it("saves a sports draft from the shared intake drawer", async () => {
