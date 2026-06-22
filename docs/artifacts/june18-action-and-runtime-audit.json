@@ -1,0 +1,68 @@
+{
+  "artifact": "june18-action-and-runtime-audit",
+  "generated": "2026-06-22",
+  "method": "Derived from the canonical action contract (packages/admin-web/src/home/actionTargets.ts SOURCE_ROUTE + resolveActionTarget), the Company Command card configs (homeDemoData.ts), the canonical read-model destinations (Production /api/production/operations, Schools Leadership /api/schools/leadership/operations), and the date-change + Directory routes. 'verification' is 'contract' (statically derived from the resolver/config), 'test' (covered by an automated test), or 'live' (driven in the browser this session). It is NOT a fresh exhaustive live click-through of every control.",
+  "legend": {
+    "enabled": "the control resolves to an available destination",
+    "disabled": "the control resolves to UNAVAILABLE (resolveActionTarget.available === false) and renders as a non-interactive 'Not connected' card — never a dead enabled control",
+    "sample": "dataSource 'sample' — rendered with a visible 'Sample' badge so it never looks live"
+  },
+  "surfaces": [
+    {
+      "surface": "Company Command",
+      "controls": [
+        { "label": "On Fire", "source_type": "urgent_window", "count_source": "GET /api/exceptions (unresolved urgent)", "destination": "#urgent-window?status=open", "permission": "authed", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null },
+        { "label": "Shoots Today", "source_type": "schedule", "count_source": "sample", "destination": "#schedule", "permission": "authed", "state": "enabled", "data_source": "sample", "verification": "contract", "defect": null, "note": "honestly badged 'Sample'; live wiring is a documented future enhancement", "correction_commit": null },
+        { "label": "Staffing Risk", "source_type": "staffing", "count_source": "sample", "destination": "#operations/staffing?area=staffing", "permission": "authed", "state": "enabled", "data_source": "sample", "verification": "contract", "defect": null, "note": "honestly badged 'Sample'", "correction_commit": null },
+        { "label": "Late / Not Clocked In", "source_type": "attendance", "count_source": "sample", "destination": "#employees/attendance", "permission": "authed", "state": "enabled", "data_source": "sample", "verification": "contract", "defect": null, "note": "honestly badged 'Sample'", "correction_commit": null },
+        { "label": "Jobs Behind", "source_type": "job", "count_source": "GET /api/jobs/status-counts (behind)", "destination": "#jobs?readinessStatus=off_track", "permission": "authed", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null },
+        { "label": "Production Load", "source_type": "production", "count_source": "GET /api/production/operations (blocked metric)", "destination": "#production/operations?stage=blocked", "permission": "authed", "state": "enabled", "data_source": "live", "verification": "test", "defect": "was previously counting blocked JOBS and routing to #jobs (predicate mismatch)", "correction_commit": "0f683ff" },
+        { "label": "Weather", "source_type": "weather", "count_source": "none", "destination": null, "permission": "authed", "state": "disabled", "data_source": "unavailable", "verification": "test", "defect": "Weather Impact panel previously showed a demo forecast count badge", "correction_commit": "66a275f" },
+        { "label": "Client Issues", "source_type": "client_case", "count_source": "none", "destination": null, "permission": "authed", "state": "disabled", "data_source": "unavailable", "verification": "test", "defect": null, "correction_commit": null }
+      ]
+    },
+    {
+      "surface": "Production",
+      "controls": [
+        { "label": "metric chips (ready_to_delegate/working/blocked/unowned/behind_promised_delivery/missing_inputs/delivery_risk/done_recently)", "source_type": "production_project", "count_source": "GET /api/production/operations (scoped COUNT per predicate)", "destination": "#production/operations?stage=<status>", "permission": "authed (leadership=all / else own)", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null },
+        { "label": "row → quick-view → Open Full Record", "source_type": "production_project", "source_id": "<project id>", "destination": "#production?project=<id>", "permission": "authed", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null }
+      ]
+    },
+    {
+      "surface": "Schools Leadership / CSR",
+      "controls": [
+        { "label": "each operations issue row", "source_type": "<shoot|organization|school_service_term|school_work_item>", "source_id": "<exact id>", "count_source": "GET /api/schools/leadership/operations (count === issues.length)", "destination": "exact_destination_hash per issue (#schools/jobs/detail?job=<id> | #directory/organizations/<id>?tab=profile | #schools/jobs)", "permission": "getSchoolsHubAccessScope (all/own)", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null },
+        { "label": "unavailable categories (schedule_change_requests, declined_replacement_staffing, unresolved_client_communication_cases, rebooking_state)", "source_type": "none", "count_source": "{ available:false, count:null, reason }", "destination": null, "permission": "n/a", "state": "disabled", "data_source": "unavailable", "verification": "test", "defect": null, "correction_commit": null }
+      ]
+    },
+    {
+      "surface": "Shoot date-change (Shoot drawer)",
+      "controls": [
+        { "label": "Submit / Run feasibility / Record alternative / Await client / Approve / Decline / Cancel", "source_type": "shoot_date_change_request", "source_id": "<request id>", "destination": "in-panel (POST /api/shoots/date-change-requests/*)", "permission": "create=authed; approve/decline=leadership (canApproveOperationalExceptions, server-enforced)", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null }
+      ]
+    },
+    {
+      "surface": "Directory",
+      "controls": [
+        { "label": "Organizations / Contacts / Locations modes + record rows", "source_type": "organization|contact|shoot_location", "source_id": "<id>", "destination": "#directory/organizations/<id> | #directory/contacts/<id> | #directory/locations/<id>", "permission": "requireCanonicalDirectory* ", "state": "enabled", "data_source": "live", "verification": "test", "defect": null, "correction_commit": null }
+      ]
+    }
+  ],
+  "runtime": {
+    "console_errors": [
+      { "surface": "Schools photographer-trade list", "error": "duplicate React key 'Trade Replacement Photographer'", "scope": "pre-existing, outside June 18 scope, not introduced by this program", "fixed": false }
+    ],
+    "test_state_leaks_fixed": [
+      { "leak": "window.location.hash leaked from the Production view test into other admin-web files", "fix_commit": "e6c9cb5 (afterEach resets hash)" }
+    ],
+    "no_demo_fallback_after_api_error": true
+  },
+  "summary": {
+    "audited_surfaces": 5,
+    "deterministic_defects_found": 2,
+    "deterministic_defects_fixed": 2,
+    "fixes": ["0f683ff (Production Load predicate+route)", "66a275f (Weather demo count removed)"],
+    "dead_enabled_controls": 0,
+    "unavailable_sources_shown_as_zero_or_live": 0
+  }
+}

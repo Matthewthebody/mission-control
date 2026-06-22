@@ -4,6 +4,34 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Cross-surface action & runtime audit artifact (Slice 1 of run 3)
+
+- **Commit:** (this commit) `fix: close june 18 cross-surface actionability gaps`
+- **Completed slice:** the cross-surface action audit is produced, grounded in the live action
+  contract, and locked by a test.
+- **Files:** `docs/artifacts/june18-action-and-runtime-audit.json` (machine-readable);
+  `docs/june18-action-and-runtime-audit.md` (readable summary);
+  `packages/admin-web/src/test/actionAuditContract.test.tsx`.
+- **Runtime behavior:** the audit catalogues every enabled control across Company Command, Production,
+  Schools Leadership/CSR, the date-change panel, and Directory — with source type/id, count source,
+  exact destination, permission, and enabled/disabled state. **Deterministic defects found = 2, both
+  already fixed**: Production Load predicate+route (`0f683ff`) and the Weather demo count
+  (`66a275f`). **Dead enabled controls = 0**; unavailable sources shown as zero/live = 0. The three
+  Sample-badged Company Command cards (Shoots Today, Staffing Risk, Late/Not-Clocked-In) never look
+  live (visible "Sample" pill) — documented as a future live-wiring enhancement, not a defect.
+- **Migration/data impact:** none.
+- **Tests:** `actionAuditContract` **4/4** — artifact valid + fixes summarized; Production Load /
+  On Fire / Jobs Behind destinations match the live `resolveActionTarget`; Weather + Client Issues
+  unavailable in both contract and audit (so the audit can't silently go stale).
+- **Browser evidence:** the live Company Command + Production journeys were driven earlier this
+  session; this slice locks the static contract claims to tests.
+- **Limitation:** Urgent Window / Staffing / Capacity / Jobs / My-Work controls are catalogued by
+  contract but not each re-driven live this slice; their destinations are covered by their own suites.
+- **Exact next slice:** Slice 2 — Team Schedule acceptance (active-date-change indicator + exact
+  `shoot_date_change_request.id` link; reuse the canonical Capacity service; URL-backed state).
+
+---
+
 ## Slice — API test-runner hardening (Slice 5 of run 2)
 
 - **Commit:** (this commit) `fix: harden june 18 runtime and verification infrastructure`
