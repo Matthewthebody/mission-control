@@ -4,6 +4,36 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — API test-runner hardening (Slice 5 of run 2)
+
+- **Commit:** (this commit) `fix: harden june 18 runtime and verification infrastructure`
+- **Completed slice:** the API chunk runner is now trustworthy — no more hidden failures / silently
+  skipped tail files.
+- **Files:** `packages/api/scripts/run-vitest-chunks.mjs` (hardened); `tests/runVitestChunks.test.ts`.
+- **Runtime behavior / defect fixed:** the runner previously did `process.exit(status)` on the FIRST
+  failing file, **silently skipping every later file**. Now: fail-fast is **configurable**
+  (`--fail-fast` / `API_TESTS_FAIL_FAST=1`; `--no-fail-fast` wins) and **defaults to run-everything**;
+  every file's result is recorded; the end prints a **summary** (`passed=/failed=/skipped=`), lists
+  failed files, and — in fail-fast mode — lists the explicit **skipped tail files**; a skipped file
+  forces a non-zero exit (a skip is never a silent pass); and a single greppable `RESULT: PASS|FAIL`
+  line means a trailing shell pipe can't mask the outcome. `main()` is guarded
+  (`import.meta.url === process.argv[1]`) so importing the module for the self-test has no side effects.
+- **Migration/data impact:** none. **Mileage untouched** (no mileage test/logic changed).
+- **Tests:** `runVitestChunks` **4/4** (fail-fast configurability incl. env + override; summarize
+  PASS/exit-0, FAIL-on-failed-file, skipped-tail-explicit-and-non-zero). The runner also executes a
+  passthrough file correctly (exit 0).
+- **Browser verification:** n/a (tooling). **Runtime sweep note:** the only recurring console warning
+  on June 18 surfaces is a pre-existing duplicate React key ("Trade Replacement Photographer") on the
+  Schools photographer-trade list — outside June 18 scope and not introduced by this program; left for
+  a separate fix. The one shared-state leak found in this program (hash leak in the Production view
+  test) was already fixed in `e6c9cb5`.
+- **Limitation:** the full runtime debug sweep across every surface (live console/network capture) is
+  not exhaustively scripted; the deterministic infrastructure defect (the runner) is fixed + tested.
+- **Exact next slice:** Slice 4 — cross-surface action audit artifact
+  (`docs/artifacts/june18-action-and-runtime-audit.json`) generated from the action contract.
+
+---
+
 ## Slice — Cross-surface metric consistency (Slice 6 of run 2)
 
 - **Commit:** (this commit) `test: enforce june 18 cross-surface metric consistency`
