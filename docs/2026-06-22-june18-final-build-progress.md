@@ -4,6 +4,34 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Shoot date-change workflow UI (Slice 2 of run 2)
+
+- **Commit:** (this commit) `feat: add shoot date change operating workflow`
+- **Completed slice:** user-facing date-change workflow over migration 164 / `43de7dd`, reachable
+  from the Shoot detail drawer.
+- **Files:** `services/dateChangeApi.ts` (client for create/list/detail/feasibility/alternatives/
+  transition/decision); `components/schedule/DateChangeRequestPanel.tsx` (create form + request list
+  + detail + lifecycle actions + history); `components/ShootDetailDrawer.tsx` (renders the panel for
+  any dated shoot, `canApprove` = `canApproveOperationalExceptions`); `test/dateChangeRequestPanel.test.tsx`.
+- **Runtime behavior:** original booked date is **read-only**; submitting calls the request endpoint
+  (never a shoot-date mutation); the detail shows status, both dates, staffing/capacity/conflict
+  feasibility, **equipment honestly "Unavailable (no canonical source)"**, decision, final date, and
+  the full transition history. Lifecycle actions (Run feasibility, Record alternative, Await client,
+  Approve/Decline [leadership-only], Cancel) call the guarded backend and refresh from the
+  authoritative response. Errors are honest; no placeholder buttons.
+- **Migration/data impact:** none (consumes migration 164).
+- **Tests:** `dateChangeRequestPanel` **4/4** — read-only original + create-without-mutation, list+
+  detail + equipment-unavailable honesty, leadership-only approve vs non-approver, run feasibility.
+  tsc + vite build clean.
+- **Browser verification:** pending (live create→feasibility→approve in the Shoot drawer).
+- **Limitation:** wired into the Shoot detail drawer this slice; the additional entry points
+  (Team Schedule indicator/link, Schools Leadership, CSR, Urgent Window deep links carrying the
+  `shoot_date_change_request.id`) are the next wiring step.
+- **Exact next slice:** Slice 3 — Team Schedule acceptance (incl. an active-date-change indicator +
+  exact request link), reusing the canonical Capacity service.
+
+---
+
 ## Slice — Company Command Production Load → canonical Production truth (Slice 1 of run 2)
 
 - **Commit:** (this commit) `fix: connect company command production load to canonical work`

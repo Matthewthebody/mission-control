@@ -8,6 +8,8 @@ import { ChecklistRuntimePanel } from "./checklists/ChecklistRuntimePanel";
 import { ChecklistStatusSummary, buildChecklistRecordSummary } from "./checklists/ChecklistStatusSummary";
 import { ShootBriefingBody } from "./ShootBriefing";
 import { CentralJobDetailPanel } from "./jobIntake/CentralJobDetailPanel";
+import { DateChangeRequestPanel } from "./schedule/DateChangeRequestPanel";
+import { canApproveOperationalExceptions } from "../permissions";
 import { buildShootBriefing } from "../services/shootHotSheet";
 import { confirmShootReadyToShoot } from "../services/shootApi";
 import { getShootPostProductionSubstageLabel, getShootStatusHomeTone, getShootStatusLabel, normalizeShootStatus } from "../shootLifecycle";
@@ -233,6 +235,15 @@ export function ShootDetailDrawer({
             ) : null}
 
             {centralJob ? <CentralJobDetailPanel intake={centralJob} /> : null}
+
+            {summary?.id && summary?.shoot_date ? (
+              <DateChangeRequestPanel
+                token={token}
+                shootId={summary.id}
+                originalDate={summary.shoot_date}
+                canApprove={currentUser ? canApproveOperationalExceptions(currentUser, null) : false}
+              />
+            ) : null}
 
             <OperationalDetailSection
               title="Shoot Summary"
