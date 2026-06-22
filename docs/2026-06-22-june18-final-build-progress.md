@@ -4,6 +4,32 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Final Weather + Client Issues honesty (Slice 3 of run 2)
+
+- **Commit:** (this commit) `fix: keep weather and client issues honestly unavailable`
+- **Completed slice:** Weather and Client Issues are honestly unavailable everywhere on the home.
+- **Files:** `home/WeatherImpactPanel.tsx` (rewritten); `test/weatherClientIssuesHonesty.test.tsx`.
+- **Runtime behavior:** the Weather Impact panel previously rendered **demo forecast rows with a
+  count badge** (with a "sample data" note). It now renders a single honest "Weather provider not
+  connected" state — **no count, no fabricated forecast rows, no drilldown/CTA, no demo fallback** —
+  and documents the future integration requirements in-file (provider, credentials, canonical Shoot
+  coordinates, freshness, cache, stale/error, affected-Shoot derivation, thresholds). Travel-pressure
+  signals are explicitly never shown here as weather. The Company Command **Weather** card
+  (`weather-watch`) and **Client Issues** card were already unavailable targets (disabled "Not
+  connected", value "—", no route) — now covered by tests so they can't regress to a fake count or a
+  generic Client Success route.
+- **Migration/data impact:** none.
+- **Tests:** `weatherClientIssuesHonesty` **3/3** (panel not-connected + no count/rows/link; weather
+  card unavailable; client-issues card unavailable, no generic route). Regression: dashboard +
+  weather suite 14/14; vite build clean.
+- **Browser verification:** pending (Company Command live render of the not-connected states).
+- **Limitation:** `DEMO_WEATHER_IMPACT` remains exported in homeDemoData (now unused by the panel);
+  left in place to avoid touching unrelated references — safe to remove in a later cleanup.
+- **Exact next slice:** Slice 4 — cross-surface actionability audit artifact
+  (`docs/artifacts/june18-action-and-runtime-audit.json`) + deterministic fixes.
+
+---
+
 ## Slice — Shoot date-change workflow UI (Slice 2 of run 2)
 
 - **Commit:** (this commit) `feat: add shoot date change operating workflow`
