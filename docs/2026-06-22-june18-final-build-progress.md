@@ -4,6 +4,36 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Production / Graphics operating UI (Slice 1)
+
+- **Commit:** (this commit) `feat: complete production graphics operating view`
+- **Completed slice:** Slice 1 — dense Production operating UI over `GET /api/production/operations`.
+- **Files:** `packages/admin-web/src/services/productionOperationsApi.ts` (client + metric labels +
+  metric→stage map); `packages/admin-web/src/pages/ProductionOperationsView.tsx` (dense tracker +
+  metric chips + URL-backed stage filter + quick-view drawer); `navigation.ts` (render kind +
+  `#production/operations` route); `app.tsx` (lazy + dispatch);
+  `tests/productionOperationsView.test.tsx`.
+- **Runtime behavior:** React never re-totals — metric chips show the server's filtered totals;
+  clicking a chip URL-filters the table by the canonical stage (Back/Forward + refresh restore via
+  the hash). Dense table shows work item / stage / **live workflow step** / owner (Unowned pill) /
+  due / next action / missing inputs / blockers / risk. Row → in-viewport quick-view drawer
+  (Production Truth Snapshot: exact step, exact blocker, missing inputs, approval, owner, due, risk,
+  next action, age, source id, **Open Full Record** → exact destination). Honest error (no demo
+  fallback) + empty states; no placeholder mutation buttons.
+- **Migration/data impact:** none (read-only over the committed endpoint).
+- **Tests:** `productionOperationsView` **5/5** — metric chips + dense rows + live step, chip
+  URL-filters by stage, quick-view drawer w/ exact blocker + source + full-record link, honest error
+  (no fabricated rows), honest empty. tsc + vite build clean. Fixed a cross-file hash-state leak
+  (afterEach resets `window.location.hash`); admin-web pair re-run 38/38.
+- **Browser verification:** pending (the live `#production/operations` route + Company Command
+  "Production Load" deep link are the next slices).
+- **Limitation:** safe in-drawer Production mutations (e.g. assign owner) are not yet wired — the
+  drawer is read + navigate today; Company Command "Production Load" integration is Slice 2.
+- **Exact next slice:** Slice 2 — wire Company Command "Production Load" to the same predicate +
+  open `#production/operations?stage=...`; then Slice 3 — Shoot date-change UI.
+
+---
+
 ## Slice — Canonical Production / Graphics operating read model (backend)
 
 - **Commit:** (this commit) `feat: add canonical production operating read model`

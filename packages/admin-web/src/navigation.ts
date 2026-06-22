@@ -92,6 +92,7 @@ type RouteRender =
   | { kind: "project-tracking-command-center" }
   | { kind: "prep-readiness-queue" }
   | { kind: "production-hub" }
+  | { kind: "production-operations" }
   | { kind: "production-workflow-queue" }
   | { kind: "workflow-template-builder" }
   | { kind: "client-command-center" }
@@ -979,6 +980,17 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: false,
     render: { kind: "production-hub" }
+  },
+  {
+    id: "production-operations",
+    label: "Production Queue",
+    sectionKey: "production",
+    description: "Dense canonical Production operating queue with server-computed metrics.",
+    canonicalHash: "#production/operations",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "production-operations" }
   },
   {
     id: "graphics",
