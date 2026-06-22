@@ -973,25 +973,30 @@ describe("central job intake publish pipeline", () => {
       const publishResponse = await publishDraft(leadershipToken, jobId);
       expect(publishResponse.status).toBe(200);
 
-      // the dated-commitment snapshot captured the role + contact + room/area at publish
+      // the versioned dated-commitment snapshot captured org + contact + location + term at publish
       const snap1 = (await dbPool.query<{ dated_commitment: any }>(`SELECT dated_commitment FROM shoot WHERE id=$1`, [jobId])).rows[0].dated_commitment;
       expect(snap1).toBeTruthy();
-      expect(snap1.contact_name).toBe(`Dated Commit ${stamp}`);
-      expect(snap1.primary_contact_id).toBe(ocId);
-      expect(snap1.contextual_role).toEqual(["picture_day_contact"]);
-      expect(snap1.room_area).toContain("East gym");
-      expect(snap1.confirmed_by).toBeTruthy();
+      expect(snap1.schema_version).toBe(1);
+      expect(snap1.captured_at).toBeTruthy();
+      expect(snap1.captured_by_user_id).toBeTruthy();
+      expect(snap1.organization.organization_id).toBe(schoolsOrganizationId);
+      expect(snap1.contact.contact_name).toBe(`Dated Commit ${stamp}`);
+      expect(snap1.contact.organization_contact_id).toBe(ocId);
+      expect(snap1.contact.contextual_role_label).toBe("picture_day_contact");
+      expect(snap1.contact.phone).toBe("555-7777");
+      expect(snap1.location.room_area).toContain("East gym");
 
       // a LATER edit to the canonical person (name) propagates to the live org_contact ...
-      await dbPool.query(`UPDATE contact SET full_name=$2, first_name='Renamed' WHERE id=$1`, [contactId, `Renamed Person ${stamp}`]);
-      await dbPool.query(`UPDATE organization_contact SET full_name=$2, first_name='Renamed' WHERE id=$1`, [ocId, `Renamed Person ${stamp}`]);
+      await dbPool.query(`UPDATE contact SET full_name=$2, first_name='Renamed', phone='555-0000' WHERE id=$1`, [contactId, `Renamed Person ${stamp}`]);
+      await dbPool.query(`UPDATE organization_contact SET full_name=$2, first_name='Renamed', phone='555-0000' WHERE id=$1`, [ocId, `Renamed Person ${stamp}`]);
       const liveName = (await dbPool.query<{ full_name: string }>(`SELECT full_name FROM organization_contact WHERE id=$1`, [ocId])).rows[0].full_name;
       expect(liveName).toBe(`Renamed Person ${stamp}`); // live reference reflects current truth
 
-      // ... but the dated snapshot is UNCHANGED (the committed name + role are preserved)
+      // ... but the dated snapshot is UNCHANGED (the committed name + role + phone are preserved)
       const snap2 = (await dbPool.query<{ dated_commitment: any }>(`SELECT dated_commitment FROM shoot WHERE id=$1`, [jobId])).rows[0].dated_commitment;
-      expect(snap2.contact_name).toBe(`Dated Commit ${stamp}`); // dated commitment immutable
-      expect(snap2.contextual_role).toEqual(["picture_day_contact"]);
+      expect(snap2.contact.contact_name).toBe(`Dated Commit ${stamp}`); // dated commitment immutable
+      expect(snap2.contact.contextual_role_label).toBe("picture_day_contact");
+      expect(snap2.contact.phone).toBe("555-7777");
     } finally {
       await dbPool.query(`DELETE FROM shoot WHERE id=$1`, [jobId]);
       await dbPool.query(`DELETE FROM organization_contact_relationship WHERE contact_id=$1`, [ocId]);

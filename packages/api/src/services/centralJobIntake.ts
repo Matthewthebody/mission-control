@@ -3273,21 +3273,55 @@ export async function publishDraftJob(
   // service-term id/label) alongside the room/area and the already-snapshotted location address.
   // FK references stay live (current canonical truth); this column never auto-updates.
   await client.query(
-    `UPDATE shoot s SET dated_commitment = jsonb_strip_nulls(jsonb_build_object(
-        'organization_id', s.organization_id::text,
-        'primary_contact_id', s.primary_contact_id::text,
-        'contact_name', (SELECT full_name FROM organization_contact WHERE tenant_id = s.tenant_id AND id = s.primary_contact_id),
-        'contact_phone', (SELECT COALESCE(oc.phone, c.phone) FROM organization_contact oc LEFT JOIN contact c ON c.tenant_id = oc.tenant_id AND c.id = oc.contact_id WHERE oc.tenant_id = s.tenant_id AND oc.id = s.primary_contact_id),
-        'contact_preferred_method', (SELECT c.preferred_contact_method FROM organization_contact oc JOIN contact c ON c.tenant_id = oc.tenant_id AND c.id = oc.contact_id WHERE oc.tenant_id = s.tenant_id AND oc.id = s.primary_contact_id),
-        'contextual_role', (SELECT to_jsonb(ocr.client_roles) FROM organization_contact_relationship ocr WHERE ocr.tenant_id = s.tenant_id AND ocr.contact_id = s.primary_contact_id AND ocr.is_current = true LIMIT 1),
-        'location_id', s.location_id::text,
-        'location_address', s.location_address,
-        'room_area', s.special_instructions,
-        'service_term_id', (SELECT id::text FROM school_service_term WHERE tenant_id = s.tenant_id AND organization_id = s.organization_id AND status = 'current' ORDER BY created_at DESC LIMIT 1),
-        'service_term_label', (SELECT period_label FROM school_service_term WHERE tenant_id = s.tenant_id AND organization_id = s.organization_id AND status = 'current' ORDER BY created_at DESC LIMIT 1),
-        'confirmed_at', now()::text,
-        'confirmed_by', $3::text
-      ))
+    `UPDATE shoot s SET dated_commitment = jsonb_build_object(
+        'schema_version', 1,
+        'captured_at', now()::text,
+        'captured_by_user_id', $3::text,
+        'organization', jsonb_build_object(
+          'organization_id', s.organization_id::text,
+          'organization_name', (SELECT display_name FROM organization WHERE tenant_id = s.tenant_id AND id = s.organization_id),
+          'parent_district_id', (SELECT parent_organization_id::text FROM organization WHERE tenant_id = s.tenant_id AND id = s.organization_id),
+          'parent_district_name', (SELECT p.display_name FROM organization o JOIN organization p ON p.tenant_id = o.tenant_id AND p.id = o.parent_organization_id WHERE o.tenant_id = s.tenant_id AND o.id = s.organization_id)
+        ),
+        'contact', (
+          SELECT jsonb_build_object(
+            'contact_identity_id', oc.contact_id::text,
+            'organization_contact_id', oc.id::text,
+            'organization_id', oc.organization_id::text,
+            'contact_name', oc.full_name,
+            'contextual_role_code', ocr.relationship_role::text,
+            'contextual_role_label', (ocr.client_roles)[1]::text,
+            'title', oc.title,
+            'responsibilities', oc.notes,
+            'phone', COALESCE(oc.phone, c.phone),
+            'email', COALESCE(oc.email, c.email),
+            'preferred_contact_method', c.preferred_contact_method
+          )
+          FROM organization_contact oc
+          LEFT JOIN contact c ON c.tenant_id = oc.tenant_id AND c.id = oc.contact_id
+          LEFT JOIN organization_contact_relationship ocr ON ocr.tenant_id = oc.tenant_id AND ocr.contact_id = oc.id AND ocr.is_current = true
+          WHERE oc.tenant_id = s.tenant_id AND oc.id = s.primary_contact_id
+        ),
+        'location', jsonb_build_object(
+          'location_id', s.location_id::text,
+          'location_name', s.location_name,
+          'address', s.location_address,
+          'room_area', s.special_instructions
+        ),
+        'service_term', (
+          SELECT jsonb_build_object(
+            'service_term_id', st.id::text,
+            'period_type', st.period_type::text,
+            'period_label', st.period_label,
+            'status_at_capture', st.status::text,
+            'selected_service_values', st.service_config,
+            'confirmation_state', st.confirmation_state::text
+          )
+          FROM school_service_term st
+          WHERE st.tenant_id = s.tenant_id AND st.organization_id = s.organization_id AND st.status = 'current'
+          ORDER BY st.created_at DESC LIMIT 1
+        )
+      )
       WHERE s.tenant_id = $1 AND s.id = $2`,
     [auth.tenantId, shootId, auth.id]
   );
