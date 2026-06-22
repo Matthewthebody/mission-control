@@ -31,6 +31,7 @@ import organizationRoutes from "./routes/organizations.js";
 import schoolsHubRoutes from "./routes/schoolsHub.js";
 import schoolsLeadershipRoutes from "./routes/schoolsLeadership.js";
 import shootDateChangeRoutes from "./routes/shootDateChange.js";
+import productionOperationsRoutes from "./routes/productionOperations.js";
 import sportsRoutes from "./routes/sports.js";
 import scheduleRoutes from "./routes/schedule.js";
 import employeeRoutes from "./routes/employee.js";
@@ -212,6 +213,7 @@ export function createApp() {
   app.use("/api/schools-hub", schoolsHubRoutes);
   app.use("/api/schools/leadership", schoolsLeadershipRoutes);
   app.use("/api/shoots/date-change-requests", shootDateChangeRoutes);
+  app.use("/api/production", productionOperationsRoutes);
   app.use("/api/sports", sportsRoutes);
   app.use("/api/locations", locationRoutes);
   app.use("/api/gear", gearRoutes);

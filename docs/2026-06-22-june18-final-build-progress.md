@@ -4,6 +4,32 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Canonical Production / Graphics operating read model (backend)
+
+- **Commit:** (this commit) `feat: add canonical production operating read model`
+- **Completed slice:** Part 1 backend — Production operating read model over `production_project`.
+- **Files:** `packages/api/src/services/productionOperations.ts` (metrics + dense rows + stages);
+  `packages/api/src/routes/productionOperations.ts` (`GET /api/production/operations`); `app.ts`;
+  `tests/productionOperations.test.ts`.
+- **Runtime behavior:** one server-side aggregate. Metrics (ready_to_delegate, working, blocked,
+  unowned, behind_promised_delivery, missing_inputs, delivery_risk, done_recently) are each a scoped
+  COUNT(*) over an explicit predicate — **displayed count === filtered total**. Dense rows are a
+  single query (no N+1), deterministically sorted (blocked → due → priority → id), bounded page.
+  Status → normalized stage (To Delegate/Ready · Working · Waiting · Review · Delivery/Launch · Done);
+  "Working" exposes the current live step (the active `production_project_task`). Scope: leadership =
+  all; otherwise own (owner_user_id = self); 401 unauthenticated.
+- **Migration/data impact:** none (read-only over existing canonical tables).
+- **Tests:** `productionOperations` **5/5** — metrics+rows+pagination, metric==predicate-total
+  invariant (blocked/working/unowned re-derived), row contract + exact destination, deterministic
+  pagination, 401. tsc clean.
+- **Browser verification:** pending (the dense Production UI is the next slice).
+- **Limitation:** the Production UI (dense tracker + quick-view + Company Command "Production Load"
+  deep link) is not yet built; the canonical read model + metric invariant + contract are complete.
+- **Exact next slice:** Production UI over this read model (`packages/admin-web` Production surface),
+  then the Shoot date-change UI deep links.
+
+---
+
 ## Slice — Auditable Shoot date-change workflow (backend)
 
 - **Commit:** (this commit) `feat: add auditable shoot date change workflow`
