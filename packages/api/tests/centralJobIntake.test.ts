@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import request from "supertest";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  DATED_COMMITMENT_SCHEMA_VERSION,
   evaluateJobReadiness,
   normalizeIntakePayload,
   parseJobIntakeText,
@@ -976,7 +977,9 @@ describe("central job intake publish pipeline", () => {
       // the versioned dated-commitment snapshot captured org + contact + location + term at publish
       const snap1 = (await dbPool.query<{ dated_commitment: any }>(`SELECT dated_commitment FROM shoot WHERE id=$1`, [jobId])).rows[0].dated_commitment;
       expect(snap1).toBeTruthy();
-      expect(snap1.schema_version).toBe(1);
+      expect(snap1.schema_version).toBe(DATED_COMMITMENT_SCHEMA_VERSION); // versioned contract
+      // narrowly scoped: exactly the four committed sections, nothing else
+      expect(Object.keys(snap1).sort()).toEqual(["captured_at", "captured_by_user_id", "contact", "location", "organization", "schema_version", "service_term"]);
       expect(snap1.captured_at).toBeTruthy();
       expect(snap1.captured_by_user_id).toBeTruthy();
       expect(snap1.organization.organization_id).toBe(schoolsOrganizationId);
@@ -997,6 +1000,13 @@ describe("central job intake publish pipeline", () => {
       expect(snap2.contact.contact_name).toBe(`Dated Commit ${stamp}`); // dated commitment immutable
       expect(snap2.contact.contextual_role_label).toBe("picture_day_contact");
       expect(snap2.contact.phone).toBe("555-7777");
+
+      // write-once: the publish-time populate is guarded by `dated_commitment IS NULL`, so a second
+      // capture attempt affects zero rows — the dated commitment can never be silently re-written.
+      const reCapture = await dbPool.query(`UPDATE shoot SET dated_commitment = jsonb_build_object('schema_version', 1, 'captured_at', 'OVERWRITTEN') WHERE id=$1 AND dated_commitment IS NULL`, [jobId]);
+      expect(reCapture.rowCount).toBe(0);
+      const snap3 = (await dbPool.query<{ dated_commitment: any }>(`SELECT dated_commitment FROM shoot WHERE id=$1`, [jobId])).rows[0].dated_commitment;
+      expect(snap3.captured_at).toBe(snap1.captured_at); // unchanged — never overwritten
     } finally {
       await dbPool.query(`DELETE FROM shoot WHERE id=$1`, [jobId]);
       await dbPool.query(`DELETE FROM organization_contact_relationship WHERE contact_id=$1`, [ocId]);

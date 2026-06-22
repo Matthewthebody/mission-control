@@ -61,8 +61,21 @@ updates these everywhere — the Job shows the *same committed record's current*
 unchanged (the commitment target is immutable; the display follows canonical truth).
 
 ### Dated commitment snapshot (frozen at confirmation)
-Migration 163 adds **`shoot.dated_commitment jsonb`**, populated at publish and **never
-auto-updated**. It is an explicit **versioned** structure (`schema_version: 1`):
+Migration 163 adds **`shoot.dated_commitment jsonb`** — a **versioned, narrowly-scoped, write-once
+contract**, not an open JSON bag:
+
+- **Versioned + typed.** `centralJobIntake` exports `DATED_COMMITMENT_SCHEMA_VERSION = 1` and the
+  `DatedCommitmentV1` TypeScript type (the exact shape below). The populate query stamps the version
+  from the constant; bumping it + a reader migration is the documented path for shape changes.
+- **Write-once / immutable.** The publish-time populate is guarded by `AND dated_commitment IS NULL`,
+  so it is captured exactly once and a second attempt affects **zero rows**. `dated_commitment` is
+  **not** a member of `CentralJobIntakeInput`, so no draft/publish edit path can rewrite it.
+  Tested: a re-capture `UPDATE … WHERE dated_commitment IS NULL` returns `rowCount 0` and
+  `captured_at` is unchanged.
+- **Narrowly scoped.** Exactly four committed sections + the envelope; the test asserts the precise
+  top-level key set.
+
+The structure (`schema_version: 1`):
 
 ```
 { schema_version: 1, captured_at, captured_by_user_id,

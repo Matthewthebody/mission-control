@@ -3075,6 +3075,54 @@ export async function getIntakeJob(client: PoolClient, auth: AuthUser, shootId: 
   return buildIntakeResponse(client, auth, shootId);
 }
 
+// ── Dated-commitment contract (Phase 4.2 Part 2) ─────────────────────────────
+// shoot.dated_commitment is a VERSIONED, NARROWLY-SCOPED, WRITE-ONCE record of the dated Job
+// commitment — NOT an open JSON bag. It is captured exactly once at publish (the populate query
+// is guarded by `dated_commitment IS NULL`) and is never in CentralJobIntakeInput, so no edit path
+// can rewrite it. Bump DATED_COMMITMENT_SCHEMA_VERSION + add a reader migration if the shape
+// changes. Live canonical references (FKs + live joins) carry current truth; this carries the
+// frozen commitment.
+export const DATED_COMMITMENT_SCHEMA_VERSION = 1 as const;
+
+export type DatedCommitmentV1 = {
+  schema_version: typeof DATED_COMMITMENT_SCHEMA_VERSION;
+  captured_at: string;
+  captured_by_user_id: string | null;
+  organization: {
+    organization_id: string | null;
+    organization_name: string | null;
+    parent_district_id: string | null;
+    parent_district_name: string | null;
+  };
+  contact: {
+    contact_identity_id: string | null;
+    organization_contact_id: string | null;
+    organization_id: string | null;
+    contact_name: string | null;
+    contextual_role_code: string | null;
+    contextual_role_label: string | null;
+    title: string | null;
+    responsibilities: string | null;
+    phone: string | null;
+    email: string | null;
+    preferred_contact_method: string | null;
+  } | null;
+  location: {
+    location_id: string | null;
+    location_name: string | null;
+    address: string | null;
+    room_area: string | null;
+  };
+  service_term: {
+    service_term_id: string | null;
+    period_type: string | null;
+    period_label: string | null;
+    status_at_capture: string | null;
+    selected_service_values: unknown;
+    confirmation_state: string | null;
+  } | null;
+};
+
 export async function publishDraftJob(
   client: PoolClient,
   auth: AuthUser,
@@ -3274,7 +3322,7 @@ export async function publishDraftJob(
   // FK references stay live (current canonical truth); this column never auto-updates.
   await client.query(
     `UPDATE shoot s SET dated_commitment = jsonb_build_object(
-        'schema_version', 1,
+        'schema_version', ${DATED_COMMITMENT_SCHEMA_VERSION},
         'captured_at', now()::text,
         'captured_by_user_id', $3::text,
         'organization', jsonb_build_object(
@@ -3322,7 +3370,8 @@ export async function publishDraftJob(
           ORDER BY st.created_at DESC LIMIT 1
         )
       )
-      WHERE s.tenant_id = $1 AND s.id = $2`,
+      WHERE s.tenant_id = $1 AND s.id = $2
+        AND s.dated_commitment IS NULL`,
     [auth.tenantId, shootId, auth.id]
   );
 
