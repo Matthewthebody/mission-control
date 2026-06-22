@@ -4,6 +4,30 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Cross-surface metric consistency (Slice 6 of run 2)
+
+- **Commit:** (this commit) `test: enforce june 18 cross-surface metric consistency`
+- **Completed slice:** a reusable contract suite proving `displayed count === filtered row total`
+  across the canonical read models.
+- **Files:** `packages/api/tests/metricConsistency.test.ts`.
+- **Runtime behavior:** test-only (no product change). Re-derives each **Production** metric predicate
+  directly against `production_project` and asserts equality with the served count; asserts a zero
+  metric is a real numeric 0 (never null/disabled); asserts **Schools Leadership** available
+  `count === issues.length` and unavailable `count === null` + reason (never zero-as-live); asserts
+  scope/tenant deny an unauthenticated request (401) rather than returning a zeroed count; asserts a
+  bounded page never lets an absent source inflate the total.
+- **Migration/data impact:** none.
+- **Tests:** `metricConsistency` **5/5** (Production metric==predicate-total, numeric-zero, Schools
+  count==rows + unavailable-null, 401-not-zeroed, page-bounded).
+- **Browser verification:** n/a (server-contract suite).
+- **Limitation:** covers the two canonical read models with explicit metric contracts (Production,
+  Schools Leadership). Company Command / Staffing / Capacity / Jobs cards derive from job-status and
+  exception counts already individually tested; folding them into this same harness is a follow-on.
+- **Exact next slice:** Slice 5 — API test-runner hardening (trustworthy exit status + per-file
+  summary; do not edit mileage) and the runtime debug sweep.
+
+---
+
 ## Slice — Final Weather + Client Issues honesty (Slice 3 of run 2)
 
 - **Commit:** (this commit) `fix: keep weather and client issues honestly unavailable`
