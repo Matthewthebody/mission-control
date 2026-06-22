@@ -10,6 +10,7 @@ import { LeadershipReportsStrip } from "./LeadershipReportsStrip";
 import { HomeSectionHeader, navigateToHash } from "./homeShared";
 import { resolveActionTarget } from "./actionTargets";
 import { getExceptionWorkspace } from "../services/exceptionsApi";
+import { getProductionOperations } from "../services/productionOperationsApi";
 import { getSharedJobStatusCounts, type SharedJobStatusCounts } from "../services/jobsApi";
 import { countUnresolvedUrgentRows } from "./urgentWindow";
 
@@ -33,6 +34,35 @@ function useUnresolvedUrgentCount(token?: string): LiveCountState {
     getExceptionWorkspace(token)
       .then((workspace) => {
         if (!cancelled) setState({ state: "ready", count: countUnresolvedUrgentRows(workspace.items, Date.now()) });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ state: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+  return state;
+}
+
+// Production Load uses the SAME canonical Production predicate as #production/operations: the
+// read model's "blocked" metric. The count therefore equals the Production view's filtered total.
+// Error/no-session → no fabricated number (never a demo fallback).
+function useProductionBlockedCount(token?: string): LiveCountState {
+  const [state, setState] = useState<LiveCountState>(token ? { state: "loading" } : { state: "idle" });
+  useEffect(() => {
+    if (!token) {
+      setState({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ state: "loading" });
+    getProductionOperations(token, { limit: 1 })
+      .then((payload) => {
+        if (cancelled) return;
+        const blocked = payload.metrics.find((m) => m.key === "blocked");
+        if (blocked && blocked.available && blocked.count != null) setState({ state: "ready", count: blocked.count });
+        else setState({ state: "error" });
       })
       .catch(() => {
         if (!cancelled) setState({ state: "error" });
@@ -117,7 +147,7 @@ function productionLoadHelper(state: LiveCountState, fallback: string): string {
       : `${state.count} job${state.count === 1 ? "" : "s"} blocked in production — open to clear.`;
   }
   if (state.state === "loading") return "Loading live production load…";
-  if (state.state === "error") return "Live count unavailable — open Jobs.";
+  if (state.state === "error") return "Live count unavailable — open the Production queue.";
   return fallback;
 }
 
@@ -165,7 +195,9 @@ export function CompanyCommandHome({ role, token }: { role: HomeRole; token?: st
   const unresolvedUrgent = useUnresolvedUrgentCount(token);
   const jobCounts = useJobStatusCounts(token);
   const jobsBehind = pickJobCount(jobCounts, "behind");
-  const productionLoad = pickJobCount(jobCounts, "blocked_production");
+  // Production Load is sourced from the canonical Production read model (same predicate as the
+  // #production/operations "blocked" metric), so the card count === the Production view's total.
+  const productionLoad = useProductionBlockedCount(token);
   return (
     <>
       <section className="panel home-command__toprow" aria-label="Company command top row">

@@ -113,13 +113,14 @@ describe("role-aware Home", () => {
     expect(screen.getByRole("heading", { name: /People \/ Attendance Risk/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Weather Impact/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^Reports$/i })).toBeInTheDocument();
-    // Exactly two live backend calls — the On Fire unresolved count
-    // (/api/exceptions) and the canonical job-status counts behind Jobs Behind /
-    // Production Load (/api/jobs/status-counts) — and nothing else.
-    expect(apiFetchMock).toHaveBeenCalledTimes(2);
+    // Exactly three live backend calls — the On Fire unresolved count (/api/exceptions), the
+    // canonical job-status counts behind Jobs Behind (/api/jobs/status-counts), and the canonical
+    // Production read model behind Production Load (/api/production/operations) — and nothing else.
+    expect(apiFetchMock).toHaveBeenCalledTimes(3);
     const calledUrls = apiFetchMock.mock.calls.map((call) => String(call[0]));
     expect(calledUrls.some((url) => url.includes("/api/exceptions"))).toBe(true);
     expect(calledUrls.some((url) => url.includes("/api/jobs/status-counts"))).toBe(true);
+    expect(calledUrls.some((url) => url.includes("/api/production/operations"))).toBe(true);
   });
 
   it("defaults associates to My Workspace, not Company Command", () => {

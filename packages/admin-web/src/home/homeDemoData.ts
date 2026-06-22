@@ -274,11 +274,11 @@ export function buildCompanyCommandCards(): CompanyCommandCard[] {
       id: "production-load",
       label: "Production Load",
       value: "—",
-      helper: "Jobs blocked in production — open Jobs to clear them.",
+      helper: "Production work blocked — open the Production queue to clear it.",
       tone: "warning",
       dataSource: "live",
-      target: { sourceType: "job", focus: { productionStatus: "blocked" } },
-      drilldownLabel: "Open blocked jobs"
+      target: { sourceType: "production", focus: { stage: "blocked" } },
+      drilldownLabel: "Open blocked production"
     },
     {
       id: "client-issues",

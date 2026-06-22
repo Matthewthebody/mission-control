@@ -4,6 +4,30 @@ Bounded-slice progress for the final June 18 completion program. Newest first.
 
 ---
 
+## Slice — Company Command Production Load → canonical Production truth (Slice 1 of run 2)
+
+- **Commit:** (this commit) `fix: connect company command production load to canonical work`
+- **Completed slice:** Company Command "Production Load" now uses the canonical Production read model.
+- **Files:** `home/CompanyCommandHome.tsx` (new `useProductionBlockedCount` hook → `getProductionOperations`
+  "blocked" metric; honest error copy points to Production); `home/homeDemoData.ts` (card target →
+  `{ sourceType:"production", focus:{ stage:"blocked" } }`); `home/actionTargets.ts` (`production`
+  route → `#production/operations`); `test/companyCommandJobCards.test.tsx` +
+  `test/dashboardPersonalization.test.tsx` (updated to the canonical contract).
+- **Runtime behavior:** the Production Load count is the Production read model's **blocked** metric —
+  the SAME predicate as `#production/operations?stage=blocked` — so **card count === Production
+  filtered total**. The card opens that exact filtered view. Error → "Live count unavailable — open
+  the Production queue." (no demo fallback); zero → honest empty copy.
+- **Migration/data impact:** none.
+- **Tests:** `companyCommandJobCards` 4/4 (canonical count, exact Production destination, honest
+  unavailable, honest zero) + `dashboardPersonalization` 15/15 (now 3 live calls incl.
+  `/api/production/operations`). vite build clean.
+- **Browser verification:** pending (live Company Command → Production Load click-through).
+- **Limitation:** other Company Command live cards (Staffing Risk, Late/Not-Clocked-In, Shoots Today)
+  were not re-pointed this slice — only Production Load was the documented mismatch.
+- **Exact next slice:** Slice 2 — Shoot date-change UI + deep links over migration 164 / `43de7dd`.
+
+---
+
 ## Slice — Production / Graphics operating UI (Slice 1)
 
 - **Commit:** (this commit) `feat: complete production graphics operating view`

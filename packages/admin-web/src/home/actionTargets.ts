@@ -48,7 +48,7 @@ export type ResolvedTarget =
 const SOURCE_ROUTE: Record<ActionSourceType, string | null> = {
   job: "#jobs",
   project_tracking: "#project-tracking",
-  production: "#production",
+  production: "#production/operations",
   staffing: "#operations/staffing?area=staffing",
   attendance: "#employees/attendance",
   client_case: "#client-command-center",

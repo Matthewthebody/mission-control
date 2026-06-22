@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getSharedJobStatusCountsMock = vi.fn();
 const getExceptionWorkspaceMock = vi.fn();
+const getProductionOperationsMock = vi.fn();
 
 vi.mock("../services/jobsApi", () => ({
   getSharedJobStatusCounts: (...args: unknown[]) => getSharedJobStatusCountsMock(...args)
@@ -12,6 +13,13 @@ vi.mock("../services/jobsApi", () => ({
 vi.mock("../services/exceptionsApi", () => ({
   getExceptionWorkspace: (...args: unknown[]) => getExceptionWorkspaceMock(...args)
 }));
+// Production Load now sources from the canonical Production read model (not the jobs counts).
+vi.mock("../services/productionOperationsApi", () => ({
+  getProductionOperations: (...args: unknown[]) => getProductionOperationsMock(...args)
+}));
+function productionBlocked(count: number) {
+  return { generated_at: "x", scope: "all", metrics: [{ key: "blocked", available: true, count }], rows: [], page: { limit: 1, offset: 0, total: count } };
+}
 
 import { CompanyCommandHome } from "../home/CompanyCommandHome";
 import { getHomeRole } from "../home/homeRoles";
@@ -38,6 +46,7 @@ afterEach(() => {
   cleanup();
   getSharedJobStatusCountsMock.mockReset();
   getExceptionWorkspaceMock.mockReset();
+  getProductionOperationsMock.mockReset();
   window.location.hash = "#home";
 });
 
@@ -45,16 +54,19 @@ afterEach(() => {
 // counts from the canonical jobs world and drill into the matching #jobs filter, so
 // the number a leader sees equals the records its drilldown opens.
 describe("Company Command job-status cards (canonical, live)", () => {
-  it("renders the live canonical counts from /api/jobs/status-counts", async () => {
-    getSharedJobStatusCountsMock.mockResolvedValue({ counts: counts({ behind: 3, blocked_production: 7 }) });
+  it("renders Jobs Behind from jobs counts and Production Load from the canonical Production read model", async () => {
+    getSharedJobStatusCountsMock.mockResolvedValue({ counts: counts({ behind: 3 }) });
+    getProductionOperationsMock.mockResolvedValue(productionBlocked(7));
     render(<CompanyCommandHome role={getHomeRole("matthew")} token="t" />);
 
     expect(await screen.findByText("3 jobs behind on readiness — open to act.")).toBeInTheDocument();
-    expect(screen.getByText("7 jobs blocked in production — open to clear.")).toBeInTheDocument();
+    // Production Load count comes from the Production "blocked" metric (same predicate as the view)
+    expect(await screen.findByText("7 jobs blocked in production — open to clear.")).toBeInTheDocument();
   });
 
-  it("deep-links each card to the matching canonical jobs filter (count == destination)", async () => {
-    getSharedJobStatusCountsMock.mockResolvedValue({ counts: counts({ behind: 2, blocked_production: 7 }) });
+  it("deep-links Jobs Behind to #jobs and Production Load to the exact Production blocked view", async () => {
+    getSharedJobStatusCountsMock.mockResolvedValue({ counts: counts({ behind: 2 }) });
+    getProductionOperationsMock.mockResolvedValue(productionBlocked(7));
     render(<CompanyCommandHome role={getHomeRole("matthew")} token="t" />);
     await screen.findByText(/jobs behind on readiness/);
 
@@ -63,22 +75,25 @@ describe("Company Command job-status cards (canonical, live)", () => {
 
     window.location.hash = "#home";
     fireEvent.click(screen.getByRole("button", { name: /Production Load/i }));
-    expect(window.location.hash).toBe("#jobs?productionStatus=blocked");
+    // exact destination: the Production operating view filtered by the SAME blocked predicate
+    expect(window.location.hash).toBe("#production/operations?stage=blocked");
   });
 
-  it("shows an honest unavailable state — never a fabricated number — when the live count errors", async () => {
+  it("shows an honest unavailable state — never a fabricated number — when a live count errors", async () => {
     getSharedJobStatusCountsMock.mockRejectedValue(new Error("boom"));
+    getProductionOperationsMock.mockRejectedValue(new Error("boom"));
     render(<CompanyCommandHome role={getHomeRole("matthew")} token="t" />);
 
-    const unavailable = await screen.findAllByText("Live count unavailable — open Jobs.");
-    expect(unavailable).toHaveLength(2); // Jobs Behind + Production Load, both honestly blank
+    expect(await screen.findByText("Live count unavailable — open Jobs.")).toBeInTheDocument(); // Jobs Behind
+    expect(await screen.findByText("Live count unavailable — open the Production queue.")).toBeInTheDocument(); // Production Load
   });
 
   it("renders a real zero honestly (an empty queue is not an error)", async () => {
-    getSharedJobStatusCountsMock.mockResolvedValue({ counts: counts({ behind: 0, blocked_production: 0 }) });
+    getSharedJobStatusCountsMock.mockResolvedValue({ counts: counts({ behind: 0 }) });
+    getProductionOperationsMock.mockResolvedValue(productionBlocked(0));
     render(<CompanyCommandHome role={getHomeRole("matthew")} token="t" />);
 
     expect(await screen.findByText("No jobs behind on readiness right now.")).toBeInTheDocument();
-    expect(screen.getByText("No jobs blocked in production right now.")).toBeInTheDocument();
+    expect(await screen.findByText("No jobs blocked in production right now.")).toBeInTheDocument();
   });
 });
