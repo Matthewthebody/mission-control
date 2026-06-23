@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClientError } from "../api";
+import { HelpTooltip } from "../components/HelpTooltip";
 import {
   getProductionOperations,
   PRODUCTION_METRIC_LABELS,
@@ -68,9 +69,13 @@ export function ProductionOperationsView({ token }: Props) {
   return (
     <section className="production-operations" aria-label="Production operating queue">
       <div className="directory-card__header">
-        <div>
+        <div className="production-operations__title">
           <strong>Production / Graphics</strong>
-          <div className="muted">Dense operating queue over canonical production work. Counts are server-computed (displayed = filtered).</div>
+          {/* Progressive help — the explanatory copy is on demand, not permanently occupying the page. */}
+          <HelpTooltip
+            label="Help: Production queue"
+            text="A dense operating queue over canonical production work. Every metric count is computed on the server and equals its filtered rows (displayed = filtered). Click a metric chip to filter by stage; open a row for the Production Truth Snapshot."
+          />
         </div>
         <button type="button" className="secondary-button" onClick={() => void load()}>Refresh</button>
       </div>
