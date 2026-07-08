@@ -64,25 +64,36 @@ export function SchoolsLeadershipOperations({ token }: Props) {
     void load();
   }, [load]);
 
-  const scopeLabel = data?.scope === "own" ? "My schools" : "All schools";
+  // The read model derives scope on the server: "own" = the schools this user personally owns (field /
+  // graphic / office own-only users); "all" = every school. NOTE: the Schools CSR role
+  // (schools_client_success), like leadership and admins, is granted the "all" scope — it is NOT
+  // owner-scoped — so the page never invents a "my schools" framing for a user the server scoped to
+  // "all". Title / subtitle / help / badge all follow the server scope, so an own-scoped user sees an
+  // honest "My Schools" framing and an all-scoped user sees the leadership framing.
+  const isOwnScope = data?.scope === "own";
+  const scopeLabel = isOwnScope ? "My schools" : "All schools";
+  const pageTitle = isOwnScope ? "My Schools Operations" : "Schools Leadership";
+  const pageSubtitle = isOwnScope
+    ? "The schools you own this season, and what to line up for next."
+    : "Everything that needs a decision this season, and what to line up for next.";
+  const helpText = isOwnScope
+    ? "An operating board over the canonical Schools you personally own. Every category count is computed on the server and equals its listed rows (displayed = filtered). A category with no connected source shows as 'Not connected yet' with the reason — never a fabricated zero."
+    : "An operating board over canonical Schools records. Every category count is computed on the server and equals its listed rows (displayed = filtered). A category with no connected source shows as 'Not connected yet' with the reason — never a fabricated zero. Open a record with the exact deep-link; the primary action is only offered when it is actionable.";
 
   return (
-    <section className="production-operations" aria-label="Schools leadership operating board">
+    <section className="production-operations" aria-label={`${pageTitle} operating board`}>
       <div className="directory-card__header">
         <div className="production-operations__title">
-          <strong>Schools Leadership</strong>
+          <strong>{pageTitle}</strong>
           {data ? (
             <span className="meta-pill" aria-label={`Scope: ${scopeLabel}`}>{scopeLabel}</span>
           ) : null}
           {/* Progressive help — explanatory copy on demand, not permanently occupying the page. */}
-          <HelpTooltip
-            label="Help: Schools leadership"
-            text="An operating board over canonical Schools records. Every category count is computed on the server and equals its listed rows (displayed = filtered). A category with no connected source shows as 'Not connected yet' with the reason — never a fabricated zero. Open a record with the exact deep-link; the primary action is only offered when it is actionable."
-          />
+          <HelpTooltip label={`Help: ${pageTitle}`} text={helpText} />
         </div>
         <button type="button" className="secondary-button" onClick={() => void load()}>Refresh</button>
       </div>
-      <p className="section-subtitle">Everything that needs a decision this season, and what to line up for next.</p>
+      <p className="section-subtitle">{pageSubtitle}</p>
 
       {state === "loading" ? (
         <div className="empty-state empty-state--panel" aria-busy="true">Loading the Schools leadership board…</div>

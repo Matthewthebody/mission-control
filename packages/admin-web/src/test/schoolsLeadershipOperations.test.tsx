@@ -243,10 +243,21 @@ describe("SchoolsLeadershipOperations", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the scope badge from the server payload", async () => {
+  it("renders the leadership framing for the all-schools scope", async () => {
+    getSchoolsLeadershipOperationsMock.mockResolvedValue(payload("all"));
+    render(<SchoolsLeadershipOperations token="t" />);
+    expect(await screen.findByText("Schools Leadership")).toBeInTheDocument();
+    expect(screen.getByText("All schools")).toBeInTheDocument();
+    expect(screen.queryByText("My Schools Operations")).not.toBeInTheDocument();
+  });
+
+  it("renders an owner-scoped framing and badge for the own scope", async () => {
     getSchoolsLeadershipOperationsMock.mockResolvedValue(payload("own"));
     render(<SchoolsLeadershipOperations token="t" />);
-    expect(await screen.findByText("My schools")).toBeInTheDocument();
+    // an own-scoped user (field / graphic / office) sees a "My Schools" framing, never a fake leadership view
+    expect(await screen.findByText("My Schools Operations")).toBeInTheDocument();
+    expect(screen.getByText("My schools")).toBeInTheDocument();
+    expect(screen.queryByText("Schools Leadership")).not.toBeInTheDocument();
   });
 
   it("shows an honest error with retry when the load fails", async () => {
