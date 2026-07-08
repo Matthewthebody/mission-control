@@ -3,6 +3,7 @@ import type { Socket } from "socket.io-client";
 import { EmployeeShiftDetailPanel } from "../components/EmployeeShiftDetailPanel";
 import { EmployeeStaffingConfirmations } from "../components/EmployeeStaffingConfirmations";
 import { PayrollSelfCheckCard } from "../components/PayrollSelfCheckCard";
+import { PostShootEvaluationsDueCard } from "../components/PostShootEvaluationsDueCard";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
 import {
   fetchEmployeeMyWork,
@@ -202,6 +203,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
       {error ? <div className="error-banner">{error}</div> : null}
 
       <PayrollSelfCheckCard token={token} />
+
+      <PostShootEvaluationsDueCard token={token} />
 
       <EmployeeStaffingConfirmations token={token} focusShootId={focusShootId} />
 
