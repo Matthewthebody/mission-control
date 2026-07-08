@@ -42,7 +42,7 @@ import {
   SharedJobQaPanel
 } from "../components/jobs/SharedJobProduction";
 import { RecordResourcesPanel } from "../components/RecordResourcesPanel";
-import { navigateToSharedJobHash, parseSharedJobIdFromPath } from "../components/jobs/sharedJobRouting";
+import { navigateToSharedJobHash, parseSharedJobIdFromParams, parseSharedJobIdFromPath } from "../components/jobs/sharedJobRouting";
 import { StatusPill, formatDate, formatDateTime, humanizeToken, statusTone, useHashRouteSnapshot } from "../components/sports/SportsPrimitives";
 import { WorkspaceActionBar } from "../components/workspace/WorkspaceActionBar";
 import { WorkspaceEmptyState } from "../components/workspace/WorkspaceEmptyState";
@@ -284,7 +284,9 @@ function scrollToJobDetailAnchor(anchorId: string) {
 
 export function SharedJobDetailPage({ token, currentUser, departmentType, routeBase }: Props) {
   const { path, params } = useHashRouteSnapshot();
-  const jobId = parseSharedJobIdFromPath(path);
+  // Path-segment id first (#schools/jobs/<id>); on the canonical "#…/jobs/detail" hashes the id
+  // travels as ?job= / ?preview= instead. No id at all -> the honest "Job detail unavailable" state.
+  const jobId = parseSharedJobIdFromPath(path) ?? parseSharedJobIdFromParams(params);
   const [detail, setDetail] = useState<SharedJobDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

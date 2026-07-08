@@ -71,7 +71,7 @@ describe("Phase 6A — schools leadership operations read model", () => {
       expect(typeof issue.can_act).toBe("boolean");
       expect(issue.exact_destination_hash.startsWith("#")).toBe(true); // a real destination, never dead
       // a MUTATION action implies a known owner; navigation/assignment actions don't require one
-      const navigationActions = ["open_job", "open_work_item", "assign_owner"];
+      const navigationActions = ["open_shoot", "open_work_item", "assign_owner"];
       if (issue.can_act && issue.primary_action && !navigationActions.includes(issue.primary_action)) {
         expect(issue.owner_user_id).toBeTruthy();
       }

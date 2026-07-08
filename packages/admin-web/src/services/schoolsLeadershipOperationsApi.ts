@@ -105,6 +105,7 @@ export function leadershipCategoryLabel(category: string): string {
 // the issue's `can_act` is true; otherwise the row still offers a plain "Open" deep-link (viewing a
 // record is always safe) but never the action verb.
 export const LEADERSHIP_ACTION_LABELS: Record<string, string> = {
+  open_shoot: "Open shoot",
   open_job: "Open job",
   set_service_term: "Set service term",
   confirm_service_term: "Confirm service term",

@@ -64,6 +64,18 @@ export type SchoolsLeadershipOperations = {
 
 const orgDestination = (id: string) => `#directory/organizations/${id}`;
 
+// The authoritative shoot deep-link: the Staff Assignment Board consumes ?date= as its anchor date
+// and ?shoot= as a pending deep-link that opens that shoot's staffing drawer once the board loads
+// (StaffAssignmentBoard.readInitialDateFromHash / readShootFromHash). NOTE: deliberately NOT the
+// urgent-watch "#scheduling?area=staffing" hash — that path resolves to the Team Schedule calendar,
+// which never opens the shoot drawer.
+function shootDestination(shootId: string, shootDate: string) {
+  const params = new URLSearchParams();
+  params.set("date", shootDate);
+  params.set("shoot", shootId);
+  return `#operations/staffing?${params.toString()}`;
+}
+
 function severityForTimeState(time: LeadershipTimeState): "info" | "warning" | "critical" {
   if (time === "today" || time === "overdue") return "critical";
   if (time === "this_week") return "warning";
@@ -151,10 +163,13 @@ export async function getSchoolsLeadershipOperations(client: PoolClient, auth: A
         status: r.readiness_status,
         date_deadline: r.shoot_date,
         time_state: bucket,
-        exact_destination_hash: `#schools/jobs/detail?job=${r.shoot_id}`,
-        focus_reason: "Open the confirmed job to verify readiness.",
+        // A shoot is a LEGACY-spine record (0 of these ids exist in the canonical jobs world), so the
+        // exact destination is the authoritative scheduling deep-link — the same convention urgent-watch
+        // uses — which opens the shoot's staffing drawer. Never a jobs-world hash for a shoot id.
+        exact_destination_hash: shootDestination(r.shoot_id, r.shoot_date),
+        focus_reason: "Open the confirmed shoot to verify readiness and staffing.",
         can_act: true,
-        primary_action: "open_job",
+        primary_action: "open_shoot",
         source_availability: "live",
         provenance: "shoot(record_state=published)"
       }))
@@ -318,7 +333,9 @@ export async function getSchoolsLeadershipOperations(client: PoolClient, auth: A
       status: "blocked",
       date_deadline: r.due_date,
       time_state: r.due_date ? "future" : "none",
-      exact_destination_hash: `#schools/jobs`,
+      // focus=stalled is the Schools hub's existing consumed filter for blocked/stalled work — a
+      // filtered landing, not a generic list. (No per-work-item route exists yet to focus tighter.)
+      exact_destination_hash: `#schools/jobs?focus=stalled`,
       focus_reason: "Resolve the blocker on this work item.",
       can_act: Boolean(r.owner_user_id),
       primary_action: r.owner_user_id ? "open_work_item" : null,

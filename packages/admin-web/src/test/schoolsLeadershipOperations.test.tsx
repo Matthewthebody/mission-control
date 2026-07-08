@@ -35,10 +35,10 @@ function issue(overrides: Partial<LeadershipIssue> = {}): LeadershipIssue {
     status: "on_track",
     date_deadline: "2026-07-08",
     time_state: "today",
-    exact_destination_hash: "#schools/jobs/detail?job=s1",
-    focus_reason: "Open the confirmed job to verify readiness.",
+    exact_destination_hash: "#operations/staffing?date=2026-07-08&shoot=s1",
+    focus_reason: "Open the confirmed shoot to verify readiness and staffing.",
     can_act: true,
-    primary_action: "open_job",
+    primary_action: "open_shoot",
     source_availability: "live",
     provenance: "shoot(record_state=published)",
     ...overrides
@@ -203,9 +203,10 @@ describe("SchoolsLeadershipOperations", () => {
   it("renders the primary action as a deep-link when can_act is true", async () => {
     render(<SchoolsLeadershipOperations token="t" />);
     const wayzata = await screen.findByText("Wayzata High School").then(() => rowFor("Wayzata High School"));
-    expect(within(wayzata).getByRole("link", { name: "Open job" })).toHaveAttribute(
+    // a shoot row deep-links to the Staff Assignment Board's drawer deep-link (never a jobs-world hash)
+    expect(within(wayzata).getByRole("link", { name: "Open shoot" })).toHaveAttribute(
       "href",
-      "#schools/jobs/detail?job=s1"
+      "#operations/staffing?date=2026-07-08&shoot=s1"
     );
     const edina = rowFor("Edina Elementary");
     expect(within(edina).getByRole("link", { name: "Assign owner" })).toHaveAttribute(
