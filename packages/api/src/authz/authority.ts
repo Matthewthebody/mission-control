@@ -843,6 +843,13 @@ export function canViewComplianceWorkspace(auth: Pick<AuthUser, "authorityTier" 
   );
 }
 
+// Manager cockpit / owner command: aggregates company-wide payroll and compliance
+// review queues, so dashboard.read alone is not enough — the caller needs
+// manager-level time review or compliance workspace authority.
+export function canViewManagerCockpit(auth: Pick<AuthUser, "authorityTier" | "permissions" | "roles">) {
+  return canReviewTeamTime(auth) || canViewComplianceWorkspace(auth);
+}
+
 export function canViewCustomerServiceMetrics(auth: Pick<AuthUser, "authorityTier" | "permissions">) {
   return hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin", "read_only_viewer"]) || hasPermissionCode(auth, "customer_service_metrics.view");
 }

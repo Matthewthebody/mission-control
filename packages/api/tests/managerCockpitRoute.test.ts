@@ -7,10 +7,16 @@ import { devLogin } from "./helpers.js";
 const app = createApp();
 
 let adminToken = "";
+let leadershipToken = "";
+let officeToken = "";
+let photographerToken = "";
 let queueDate = "";
 
 beforeAll(async () => {
   adminToken = (await devLogin(app, "admin@example.com")).body.token;
+  leadershipToken = (await devLogin(app, "leadership@example.com")).body.token;
+  officeToken = (await devLogin(app, "office@example.com")).body.token;
+  photographerToken = (await devLogin(app, "photo@example.com")).body.token;
   queueDate =
     (
       await pool.query(
@@ -98,5 +104,52 @@ describe("manager cockpit route", () => {
     );
     expect(ownerCommandResponse.body.summary).toEqual(managerCockpitResponse.body.summary);
     expect(ownerCommandResponse.body.queues).toEqual(managerCockpitResponse.body.queues);
+  }, 15000);
+});
+
+describe("manager cockpit authorization (MC-AUDIT-002 regression)", () => {
+  it("allows leadership to load the cockpit and owner-command alias", async () => {
+    const [cockpit, ownerCommand] = await Promise.all([
+      request(app).get(`/api/dashboard/manager-cockpit?date=${queueDate}`).set("Authorization", `Bearer ${leadershipToken}`),
+      request(app).get(`/api/dashboard/owner-command?date=${queueDate}`).set("Authorization", `Bearer ${leadershipToken}`)
+    ]);
+    expect(cockpit.status).toBe(200);
+    expect(ownerCommand.status).toBe(200);
+  }, 15000);
+
+  it("denies office/customer-service users the company-wide cockpit", async () => {
+    const [cockpit, ownerCommand] = await Promise.all([
+      request(app).get(`/api/dashboard/manager-cockpit?date=${queueDate}`).set("Authorization", `Bearer ${officeToken}`),
+      request(app).get(`/api/dashboard/owner-command?date=${queueDate}`).set("Authorization", `Bearer ${officeToken}`)
+    ]);
+    expect(cockpit.status).toBe(403);
+    expect(ownerCommand.status).toBe(403);
+  }, 15000);
+
+  it("denies photographers the company-wide cockpit", async () => {
+    const [cockpit, ownerCommand] = await Promise.all([
+      request(app).get(`/api/dashboard/manager-cockpit?date=${queueDate}`).set("Authorization", `Bearer ${photographerToken}`),
+      request(app).get(`/api/dashboard/owner-command?date=${queueDate}`).set("Authorization", `Bearer ${photographerToken}`)
+    ]);
+    expect(cockpit.status).toBe(403);
+    expect(ownerCommand.status).toBe(403);
+  }, 15000);
+
+  it("keeps the home dashboard working for office users without leaking payroll/compliance queues", async () => {
+    const response = await request(app)
+      .get(`/api/dashboard/home?date=${queueDate}`)
+      .set("Authorization", `Bearer ${officeToken}`);
+    expect(response.status).toBe(200);
+    const serialized = JSON.stringify(response.body);
+    expect(serialized).not.toContain("needs_payroll_compliance_review");
+    expect(serialized).not.toContain("Payroll blocking");
+    expect(serialized).not.toContain("Resolve payroll blockers");
+  }, 20000);
+
+  it("keeps the direct payroll-review route closed to office users", async () => {
+    const response = await request(app)
+      .get(`/api/attendance/payroll-review`)
+      .set("Authorization", `Bearer ${officeToken}`);
+    expect(response.status).toBe(403);
   }, 15000);
 });

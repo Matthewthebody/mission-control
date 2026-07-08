@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { ApiError } from "../errors/apiError.js";
-import { canEditHours, hasJobFunctionProfile } from "../authz/authority.js";
+import { canEditHours, canReviewTeamTime, canViewLaborCost, hasJobFunctionProfile } from "../authz/authority.js";
 import { assertShiftAccess, shouldRestrictShiftList } from "./shiftAccess.js";
 import { createAuditLog } from "./audit.js";
 import { createTimeClockExceptionRequest } from "./timeClockRuntime.js";
@@ -315,6 +315,13 @@ function getPayPeriod(filters: PayrollSummaryFilters) {
   return getWeekBounds(getLocalDateString());
 }
 
+// Company-wide payroll rows require manager time-review or labor-cost authority.
+// Every other caller is forced to their own row — payroll listings must never
+// fail open to all employees for roles that are merely not own-only (MC-AUDIT-002).
+function restrictPayrollListToSelf(auth: AuthUser) {
+  return shouldRestrictShiftList(auth) || !(canReviewTeamTime(auth) || canViewLaborCost(auth));
+}
+
 async function loadLegacyTimeEntryPayrollComparison(
   client: PoolClient,
   auth: AuthUser,
@@ -325,7 +332,7 @@ async function loadLegacyTimeEntryPayrollComparison(
     userId?: string | null;
   }
 ) {
-  const effectiveUserId = shouldRestrictShiftList(auth) ? auth.id : input.userId ?? null;
+  const effectiveUserId = restrictPayrollListToSelf(auth) ? auth.id : input.userId ?? null;
   const startBound = getLocalDayBounds(input.payPeriodStart).start.toISOString();
   const endBound = getLocalDayBounds(input.payPeriodEnd).endExclusive.toISOString();
   const { rows } = await client.query<LegacyPayrollComparisonRow>(
@@ -1803,7 +1810,7 @@ async function listEmployeesForPayrollPeriod(
     userId?: string | null;
   }
 ) {
-  const effectiveUserId = shouldRestrictShiftList(auth) ? auth.id : input.userId ?? null;
+  const effectiveUserId = restrictPayrollListToSelf(auth) ? auth.id : input.userId ?? null;
   const { rows } = await client.query<EmployeePeriodRow>(
     `
       WITH employee_source AS (

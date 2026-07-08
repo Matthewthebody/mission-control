@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import type { AuthUser } from "../types/auth.js";
+import { canViewComplianceWorkspace } from "../authz/authority.js";
 import { getLocalDateString, getLocalDayBounds } from "../utils/localDate.js";
 import { listAttendanceExceptions, listMissedPunchRequests } from "./attendance.js";
 import { shouldRestrictShiftList } from "./shiftAccess.js";
@@ -1597,12 +1598,15 @@ export async function listComplianceWorkspaceItems(
   } = {}
 ): Promise<ComplianceWorkspaceListPayload> {
   const anchorDate = filters.date ?? getLocalDateString();
+  // Callers without compliance-workspace authority only ever see their own items —
+  // this list must never fail open to the company-wide queue (MC-AUDIT-002).
+  const scopedEmployeeId = canViewComplianceWorkspace(auth) ? filters.employeeId : auth.id;
   const allItems = await listComplianceWorkspaceSourceRows(client, auth, { shootId: filters.shootId });
   const filteredItems = filterComplianceWorkspaceItems(allItems, {
     anchorDate,
     window: filters.window ?? "all",
     status: filters.status ?? "all",
-    employeeId: filters.employeeId,
+    employeeId: scopedEmployeeId,
     organizationId: filters.organizationId,
     shootId: filters.shootId,
     issueType: filters.issueType

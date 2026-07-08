@@ -1,6 +1,7 @@
 import { Router } from "express";
-import type { NextFunction, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
+import { canViewManagerCockpit } from "../authz/authority.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireOperatingSystemModuleView } from "../middleware/operatingSystemAccess.js";
 import { requireAction } from "../middleware/rbac.js";
@@ -351,13 +352,40 @@ async function handleManagerCockpitRoute(
   }
 }
 
-router.get("/manager-cockpit", requireAuth, requireAction("dashboard.read"), validateQuery(managerCockpitQuerySchema), async (req, res, next) => {
-  return handleManagerCockpitRoute(req as AuthenticatedRequest, res, next, "/api/dashboard/manager-cockpit");
-});
+// The cockpit aggregates company-wide payroll and compliance review queues, so
+// dashboard.read is not a sufficient gate on its own (MC-AUDIT-002).
+function requireManagerCockpitAccess(req: Request, res: Response, next: NextFunction) {
+  const auth = (req as AuthenticatedRequest).auth;
+  if (!auth) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (!canViewManagerCockpit(auth)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  return next();
+}
 
-router.get("/owner-command", requireAuth, requireAction("dashboard.read"), validateQuery(managerCockpitQuerySchema), async (req, res, next) => {
-  return handleManagerCockpitRoute(req as AuthenticatedRequest, res, next, "/api/dashboard/owner-command");
-});
+router.get(
+  "/manager-cockpit",
+  requireAuth,
+  requireAction("dashboard.read"),
+  requireManagerCockpitAccess,
+  validateQuery(managerCockpitQuerySchema),
+  async (req, res, next) => {
+    return handleManagerCockpitRoute(req as AuthenticatedRequest, res, next, "/api/dashboard/manager-cockpit");
+  }
+);
+
+router.get(
+  "/owner-command",
+  requireAuth,
+  requireAction("dashboard.read"),
+  requireManagerCockpitAccess,
+  validateQuery(managerCockpitQuerySchema),
+  async (req, res, next) => {
+    return handleManagerCockpitRoute(req as AuthenticatedRequest, res, next, "/api/dashboard/owner-command");
+  }
+);
 
 router.get(
   "/reports",

@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { config } from "../config.js";
-import { canViewCustomerServiceMetrics, canViewLaborCost, canViewSchoolsHub, hasAuthorityTier } from "../authz/authority.js";
+import { canViewCustomerServiceMetrics, canViewLaborCost, canViewManagerCockpit, canViewSchoolsHub, hasAuthorityTier } from "../authz/authority.js";
 import type { AuthUser } from "../types/auth.js";
 import type { HomeDashboardDefaultsConfig } from "../types/adminConfiguration.js";
 import { listShootLocations } from "./locations.js";
@@ -633,7 +633,9 @@ export async function getHomeDashboard(
     homeLayout === "manager" &&
     accessProfile.module_access.production.can_view &&
     !hiddenSections.has("production_snapshot");
-  const shouldLoadManagerCockpit = options.mode !== "tv" && homeLayout === "manager";
+  // The cockpit carries company-wide payroll/compliance queues — manager layout
+  // alone (e.g. office/CSR shells) must not load it (MC-AUDIT-002).
+  const shouldLoadManagerCockpit = options.mode !== "tv" && homeLayout === "manager" && canViewManagerCockpit(auth);
   const shouldLoadEmployeeMyWork = options.mode !== "tv" && homeLayout === "employee";
   const shouldLoadEmployeeTimeClockState =
     options.mode !== "tv" && homeLayout === "employee" && auth.permissions.includes("time.clock") && !hiddenSections.has("time_band");
