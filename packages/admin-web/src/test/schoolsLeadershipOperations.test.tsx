@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SchoolsLeadershipOperations } from "../pages/SchoolsLeadershipOperations";
+import { CATEGORY_ROW_LIMIT, SchoolsLeadershipOperations } from "../pages/SchoolsLeadershipOperations";
 import type {
   LeadershipIssue,
   SchoolsLeadershipOperations as OperationsPayload
@@ -212,6 +212,35 @@ describe("SchoolsLeadershipOperations", () => {
       "href",
       "#directory/organizations/sc9?tab=profile"
     );
+  });
+
+  it("caps a large category at the row limit and honestly discloses the remainder", async () => {
+    const total = CATEGORY_ROW_LIMIT + 8;
+    const many = Array.from({ length: total }, (_, i) =>
+      issue({
+        issue_id: `shoots_this_week:s${i}`,
+        category: "shoots_this_week",
+        source_id: `s${i}`,
+        school_name: `Big School ${i}`,
+        severity: "warning"
+      })
+    );
+    const big = payload();
+    big.sections.current_season = big.sections.current_season.map((c) =>
+      c.category === "shoots_this_week"
+        ? { category: "shoots_this_week", section: "current_season", available: true, count: total, issues: many }
+        : c
+    );
+    getSchoolsLeadershipOperationsMock.mockResolvedValue(big);
+    render(<SchoolsLeadershipOperations token="t" />);
+    await screen.findByText("Current season");
+    // only the first CATEGORY_ROW_LIMIT rows render; the rest are withheld but the true count is disclosed
+    expect(screen.getByText("Big School 0")).toBeInTheDocument();
+    expect(screen.getByText(`Big School ${CATEGORY_ROW_LIMIT - 1}`)).toBeInTheDocument();
+    expect(screen.queryByText(`Big School ${CATEGORY_ROW_LIMIT}`)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`Showing the first ${CATEGORY_ROW_LIMIT} of ${total}`))
+    ).toBeInTheDocument();
   });
 
   it("shows the scope badge from the server payload", async () => {

@@ -1908,7 +1908,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   home: [],
   "my-work": ["dashboard-my-day", "dashboard-my-tasks"],
   "needs-attention": [],
-  schools: ["schools-jobs", "schools-tasks", "schools-exceptions"],
+  schools: ["schools-jobs", "schools-tasks", "schools-exceptions", "schools-leadership"],
   sports: ["sports-shoots", "sports-accounts", "sports-contacts", "sports-graphics", "sports-exceptions"],
   photography: [
     "studios-shoots",
@@ -2237,6 +2237,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "schools/exceptions") {
     return pickVisibleRoute("schools-exceptions", availableTabs, employeeOnlyMode);
+  }
+  if (path === "schools/leadership") {
+    return pickVisibleRoute("schools-leadership", availableTabs, employeeOnlyMode);
   }
   if (path === "schools/jobs/new") {
     return pickVisibleRoute("schools-job-new", availableTabs, employeeOnlyMode);

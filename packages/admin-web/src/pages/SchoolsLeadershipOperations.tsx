@@ -28,6 +28,12 @@ type Props = { token: string };
 
 const SECTION_ORDER: LeadershipSection[] = ["current_season", "building_next_season"];
 
+// A category can carry hundreds of issues (e.g. every school shoot this week). Rendering all of them
+// makes one enormous unusable table, so each category shows a bounded window of rows. This never fakes
+// the total — the category count pill always shows the true server count, and a disclosure line states
+// exactly how many are shown vs the total.
+export const CATEGORY_ROW_LIMIT = 12;
+
 function maxSeverity(issues: LeadershipIssue[]): LeadershipSeverity {
   if (issues.some((i) => i.severity === "critical")) return "critical";
   if (issues.some((i) => i.severity === "warning")) return "warning";
@@ -159,7 +165,7 @@ function LeadershipCategoryBlock({ category }: { category: LeadershipCategory })
             </tr>
           </thead>
           <tbody>
-            {category.issues.map((issue) => (
+            {category.issues.slice(0, CATEGORY_ROW_LIMIT).map((issue) => (
               <tr key={issue.issue_id} className="production-operations__row">
                 <td>{issue.school_name ?? "School"}</td>
                 <td>{issue.district_name ?? "—"}</td>
@@ -180,6 +186,11 @@ function LeadershipCategoryBlock({ category }: { category: LeadershipCategory })
           </tbody>
         </table>
       )}
+      {category.available && category.count > CATEGORY_ROW_LIMIT ? (
+        <p className="section-subtitle">
+          Showing the first {CATEGORY_ROW_LIMIT} of {category.count}. Open a record to act on it.
+        </p>
+      ) : null}
     </div>
   );
 }
