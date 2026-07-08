@@ -79,6 +79,9 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
   const [mileagePrompt, setMileagePrompt] = useState<"hidden" | "asking" | "submitting" | "answered" | "error">("hidden");
   const [mileageAnswer, setMileageAnswer] = useState<MileageEligibilityResponse | null>(null);
   const [mileageError, setMileageError] = useState("");
+  // Held until the user finishes the mileage prompt (or dismisses): calling onSubmitted
+  // immediately closes this modal in the parent, which would unmount the prompt unseen.
+  const [pendingSubmittedMessage, setPendingSubmittedMessage] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [overallStatus, setOverallStatus] = useState<PostShootOverallStatus>("successful");
@@ -105,6 +108,12 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
     setOpenComment("");
     setSubmitForMileage(false);
     setVehicleType("personal_vehicle");
+    // The modal stays mounted across opens (only `visible` toggles), so the mileage prompt
+    // state MUST reset here or a prior shift's prompt leaks into the next shift's sheet.
+    setMileagePrompt("hidden");
+    setMileageAnswer(null);
+    setMileageError("");
+    setPendingSubmittedMessage(null);
 
     void fetchPostShootEvaluationContext(token, shift.id)
       .then((payload) => {
@@ -157,9 +166,11 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
       );
       setNotice(message);
       // SSA-3: the evaluation is now safely persisted — ask the mileage eligibility question.
-      // Whatever happens to the answer call, the evaluation submission above is never affected.
+      // onSubmitted is deliberately DEFERRED (the parent closes this modal on it); it fires when
+      // the user answers or dismisses. Whatever happens to the answer call, the evaluation
+      // submission above is never affected.
       setMileagePrompt("asking");
-      onSubmitted(message);
+      setPendingSubmittedMessage(message);
     } catch (submitError) {
       setError(humanizePostShootEvaluationError(submitError, "We couldn't submit that Post-Shoot Evaluation."));
     } finally {
@@ -193,6 +204,20 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
     }
   }
 
+  // Single exit point: if an eval was submitted this session, notify the parent now (the parent
+  // closes the sheet and refreshes on onSubmitted); otherwise a plain close. Dismissing without
+  // answering the mileage question is allowed — the eval is already saved and the answer can be
+  // given later; nothing is fabricated as answered.
+  function handleDismiss() {
+    if (pendingSubmittedMessage) {
+      const message = pendingSubmittedMessage;
+      setPendingSubmittedMessage(null);
+      onSubmitted(message);
+      return;
+    }
+    onClose();
+  }
+
   if (!visible) {
     return null;
   }
@@ -202,7 +227,7 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
   const submittedEvaluation = compliance?.last_post_shoot_evaluation ?? null;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleDismiss}>
       <View style={{ flex: 1, backgroundColor: "#f4f7fb" }}>
         <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
           <View style={sheetHeader}>
@@ -212,7 +237,7 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
                 Keep this short. Once submitted, standard users cannot edit it.
               </Text>
             </View>
-            <Pressable onPress={onClose} style={closeButton}>
+            <Pressable onPress={handleDismiss} style={closeButton}>
               <Text style={{ color: "#0f4a87", fontWeight: "700" }}>Close</Text>
             </Pressable>
           </View>
@@ -230,11 +255,24 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
           {mileagePrompt !== "hidden" ? (
             <View style={{ gap: 8 }}>
               {mileagePrompt === "answered" && mileageAnswer ? (
-                <Text style={infoText}>
-                  {mileageAnswer.recorded === "eligible"
-                    ? `Mileage answer recorded: eligible (${(mileageAnswer.vehicle_type ?? "personal_vehicle").replace(/_/g, " ")}). It now goes through the normal mileage review.`
-                    : "Mileage answer recorded: no mileage reimbursement for this shoot."}
-                </Text>
+                <View style={{ gap: 8 }}>
+                  <Text style={infoText}>
+                    {mileageAnswer.recorded === "eligible"
+                      ? `Mileage answer recorded: eligible (${(mileageAnswer.vehicle_type ?? "personal_vehicle").replace(/_/g, " ")}). It now goes through the normal mileage review.`
+                      : "Mileage answer recorded: no mileage reimbursement for this shoot."}
+                  </Text>
+                  <Pressable
+                    onPress={handleDismiss}
+                    style={({ pressed }) => ({
+                      borderRadius: 14,
+                      paddingVertical: 12,
+                      alignItems: "center" as const,
+                      backgroundColor: pressed ? "#0f4a87" : "#166fcb"
+                    })}
+                  >
+                    <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "700" }}>Done</Text>
+                  </Pressable>
+                </View>
               ) : (
                 <>
                   <Text style={fieldLabel}>Are you eligible for mileage reimbursement for this shoot?</Text>

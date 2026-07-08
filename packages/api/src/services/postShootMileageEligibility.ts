@@ -75,6 +75,26 @@ export async function recordMileageEligibilityResponse(
     );
   }
 
+  // G3 boundary, ENFORCED (not just documented): once payroll has approved or exported the
+  // mileage for this date, a photographer's answer must not silently recompute it back down —
+  // the recalc's upsert would otherwise overwrite the payable status unconditionally.
+  const existing = await client.query<{ status: string }>(
+    `
+      SELECT status::text AS status
+      FROM mileage_reimbursement
+      WHERE tenant_id = $1 AND employee_id = $2 AND work_date = $3::date
+    `,
+    [auth.tenantId, auth.id, evaluation.shoot_date]
+  );
+  const existingStatus = existing.rows[0]?.status ?? null;
+  if (existingStatus === "approved" || existingStatus === "exported") {
+    throw new ApiError(
+      409,
+      "Mileage for this date has already been approved or processed by payroll. Contact payroll to change it.",
+      { code: "mileage_already_processed", status: existingStatus }
+    );
+  }
+
   // Idempotent by construction: the same answer rewrites the same fields; a changed answer is a
   // legitimate correction and simply recalculates.
   await client.query(

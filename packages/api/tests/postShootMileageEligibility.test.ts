@@ -208,6 +208,24 @@ describe("mileage eligibility response", () => {
     expect(neither.status).toBe(400);
   });
 
+  it("refuses to touch approved/exported (payable) mileage — the G3 boundary is enforced", async () => {
+    // Simulate payroll having approved this date's mileage (no product writer exists yet — G3).
+    await pool.query(
+      `UPDATE mileage_reimbursement SET status = 'approved' WHERE tenant_id = $1 AND employee_id = $2 AND work_date = $3::date`,
+      [tenantId, photographerId, shootDate]
+    );
+    const res = await post(photographerToken, { shoot_id: shootId, eligible: false });
+    expect(res.status).toBe(409);
+    expect(res.body.details?.code ?? res.body.code).toBe("mileage_already_processed");
+    // The payable status was NOT overwritten.
+    const after = await pool.query<{ status: string }>(
+      `SELECT status::text AS status FROM mileage_reimbursement WHERE tenant_id = $1 AND employee_id = $2 AND work_date = $3::date`,
+      [tenantId, photographerId, shootDate]
+    );
+    expect(after.rows[0].status).toBe("approved");
+    // afterAll's restoreMileage recalc returns the row to its derived state.
+  });
+
   it("requires auth", async () => {
     const res = await post(null, { shoot_id: shootId, eligible: false });
     expect(res.status).toBe(401);
