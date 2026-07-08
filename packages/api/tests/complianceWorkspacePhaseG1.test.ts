@@ -691,3 +691,95 @@ async function cleanupCreatedRecords() {
 function toLocalDateString(value: Date) {
   return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
+
+// G1 Part 2 — leadership summary counts (count==rows invariant), linked labor categories, and
+// the SSA-3 mileage label nuance. These assert over whatever rows the workspace returns, so they
+// hold on any dataset — the invariant is the contract.
+describe("compliance workspace G1 part 2", () => {
+  async function fetchWorkspace(query = "") {
+    const res = await request(app)
+      .get(`/api/compliance/workspace${query}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    return res.body as {
+      summary: Record<string, number> & { counts_by_issue_type: Record<string, number> };
+      linked_categories: Array<Record<string, unknown>>;
+      rows: Array<{
+        status_bucket: string;
+        issue_type: string;
+        resolved_at: string | null;
+        payroll_blocking: boolean;
+        mileage_blocking: boolean;
+      }>;
+    };
+  }
+
+  const EMPLOYEE_TYPES = new Set([
+    "missing_setup_photo",
+    "missing_post_shoot_evaluation",
+    "mileage_blocked_missing_post_shoot_evaluation",
+    "unresolved_end_of_day_confirmation"
+  ]);
+  const MANAGER_TYPES = new Set([
+    "no_lunch_challenge",
+    "missed_clock_in_request",
+    "upload_while_off_clock",
+    "likely_present_missing_clock_in",
+    "assigned_but_missing"
+  ]);
+
+  it("keeps every leadership summary count equal to its matching returned rows", async () => {
+    const body = await fetchWorkspace("?status=all&window=all");
+    const unresolved = body.rows.filter((row) => row.status_bucket === "unresolved");
+    expect(body.summary.needs_employee_correction_count).toBe(
+      unresolved.filter((row) => EMPLOYEE_TYPES.has(row.issue_type)).length
+    );
+    expect(body.summary.needs_manager_review_count).toBe(
+      unresolved.filter((row) => MANAGER_TYPES.has(row.issue_type)).length
+    );
+    // the two triage buckets partition the issue-type space: together they cover every unresolved row
+    expect(
+      body.summary.needs_employee_correction_count + body.summary.needs_manager_review_count
+    ).toBe(unresolved.length);
+    expect(body.summary.payroll_blocking_count).toBe(unresolved.filter((row) => row.payroll_blocking).length);
+    expect(body.summary.mileage_blocking_count).toBe(unresolved.filter((row) => row.mileage_blocking).length);
+    expect(body.summary.overdue_count).toBeLessThanOrEqual(unresolved.length);
+  });
+
+  it("counts resolved_today only from RETURNED resolved rows (0 when the filter excludes them)", async () => {
+    const unresolvedOnly = await fetchWorkspace("?status=unresolved&window=all");
+    expect(unresolvedOnly.summary.resolved_today_count).toBe(0);
+    const all = await fetchWorkspace("?status=all&window=all");
+    const today = toLocalDateString(new Date());
+    const resolvedToday = all.rows.filter(
+      (row) => row.status_bucket === "resolved" && row.resolved_at && toLocalDateString(new Date(row.resolved_at)) === today
+    );
+    expect(all.summary.resolved_today_count).toBe(resolvedToday.length);
+  });
+
+  it("returns live linked labor categories with exact destinations, never fake zeros for absent sources", async () => {
+    const body = await fetchWorkspace();
+    expect(body.linked_categories).toHaveLength(2);
+    const byKey = new Map(body.linked_categories.map((cat) => [cat.key, cat]));
+    const labor = byKey.get("labor_command_center") as Record<string, unknown>;
+    const selfCheck = byKey.get("payroll_self_check") as Record<string, unknown>;
+    expect(labor.destination_hash).toBe("#labor/command-center");
+    expect(selfCheck.destination_hash).toBe("#my-work/payroll-self-check");
+    for (const category of [labor, selfCheck]) {
+      if (category.available === true) {
+        // live counts must be real numbers with a human detail line
+        const counts = category.counts as Record<string, number>;
+        for (const value of Object.values(counts)) {
+          expect(typeof value).toBe("number");
+          expect(value).toBeGreaterThanOrEqual(0);
+        }
+        expect(typeof category.detail).toBe("string");
+      } else {
+        // an unavailable source must carry a reason and no counts at all
+        expect(category.available).toBe(false);
+        expect(typeof category.reason).toBe("string");
+        expect(category).not.toHaveProperty("counts");
+      }
+    }
+  });
+});

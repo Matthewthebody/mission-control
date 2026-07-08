@@ -121,6 +121,26 @@ export type ComplianceWorkspaceMileageImpact = {
   submit_for_mileage: boolean | null;
 };
 
+// G1 Part 2 — linked labor/payroll categories. These are LINKS into the workspaces that own the
+// records (Labor Command Center / Payroll Self-Check), never re-implemented compliance items:
+// live counts + an exact destination, or available:false with a reason if the source is absent.
+export type ComplianceWorkspaceLinkedCategory =
+  | {
+      key: "labor_command_center" | "payroll_self_check";
+      label: string;
+      available: true;
+      destination_hash: string;
+      counts: Record<string, number>;
+      detail: string;
+    }
+  | {
+      key: "labor_command_center" | "payroll_self_check";
+      label: string;
+      available: false;
+      destination_hash: string;
+      reason: string;
+    };
+
 export type ComplianceWorkspaceListPayload = {
   summary: {
     open_count: number;
@@ -132,9 +152,17 @@ export type ComplianceWorkspaceListPayload = {
     no_lunch_review_count: number;
     off_clock_upload_review_count: number;
     presence_incident_review_count: number;
+    // G1 Part 2 leadership counts — every count equals the number of matching rows in the
+    // RETURNED item set (the count==rows invariant; resolved_today_count matches returned
+    // resolved rows, so it is 0 when the status filter excludes resolved items).
+    needs_manager_review_count: number;
+    needs_employee_correction_count: number;
+    overdue_count: number;
+    resolved_today_count: number;
     counts_by_issue_type: Record<ComplianceWorkspaceIssueType, number>;
     counts_by_urgency: Record<ComplianceWorkspaceUrgency, number>;
   };
+  linked_categories: ComplianceWorkspaceLinkedCategory[];
   freshness: {
     generated_at: string;
     latest_item_updated_at: string | null;
@@ -864,6 +892,97 @@ async function loadAttendanceExceptionContexts(client: PoolClient, tenantId: str
   return new Map(rows.map((row) => [row.shift_id, row]));
 }
 
+// G1 Part 2 — leadership triage classification. Who must act next for each issue type:
+// employee-correction = the employee owes an artifact/confirmation; manager-review = a
+// manager/leadership decision clears it. Declared explicitly so the summary counts are
+// auditable rather than implied.
+const EMPLOYEE_CORRECTION_ISSUE_TYPES = new Set<ComplianceWorkspaceIssueType>([
+  "missing_setup_photo",
+  "missing_post_shoot_evaluation",
+  "mileage_blocked_missing_post_shoot_evaluation",
+  "unresolved_end_of_day_confirmation"
+]);
+const MANAGER_REVIEW_ISSUE_TYPES = new Set<ComplianceWorkspaceIssueType>([
+  "no_lunch_challenge",
+  "missed_clock_in_request",
+  "upload_while_off_clock",
+  "likely_present_missing_clock_in",
+  "assigned_but_missing"
+]);
+
+// G1 Part 2 — live links into the labor/payroll workspaces (landed migrations 165/166). Counts
+// are read directly from the canonical tables those workspaces own; if a query fails because the
+// source is genuinely absent, the category degrades to available:false with the reason — never a
+// fabricated zero.
+async function loadLinkedLaborCategories(client: PoolClient, tenantId: string): Promise<ComplianceWorkspaceLinkedCategory[]> {
+  try {
+    const [warnings, selfChecks, period] = await Promise.all([
+      client.query<{ n: string }>(
+        `SELECT COUNT(*)::text AS n FROM overtime_warning WHERE tenant_id = $1 AND status = 'active'`,
+        [tenantId]
+      ),
+      client.query<{ n: string }>(
+        `
+          SELECT COUNT(*)::text AS n
+          FROM payroll_self_check sc
+          JOIN payroll_period p ON p.id = sc.payroll_period_id AND p.tenant_id = sc.tenant_id
+          WHERE sc.tenant_id = $1
+            AND sc.status = 'pending'
+            AND p.status NOT IN ('exported', 'synced')
+        `,
+        [tenantId]
+      ),
+      client.query<{ status: string }>(
+        `SELECT status::text AS status FROM payroll_period WHERE tenant_id = $1 ORDER BY period_start DESC LIMIT 1`,
+        [tenantId]
+      )
+    ]);
+    const activeWarnings = Number(warnings.rows[0]?.n ?? 0);
+    const pendingSelfChecks = Number(selfChecks.rows[0]?.n ?? 0);
+    const periodStatus = period.rows[0]?.status ?? null;
+    return [
+      {
+        key: "labor_command_center",
+        label: "Labor Command Center",
+        available: true,
+        destination_hash: "#labor/command-center",
+        counts: { active_overtime_warnings: activeWarnings },
+        detail: periodStatus
+          ? `Current pay period is in ${periodStatus.replace(/_/g, " ")}.`
+          : "No pay period has been created yet."
+      },
+      {
+        key: "payroll_self_check",
+        label: "Payroll Self-Check",
+        available: true,
+        destination_hash: "#my-work/payroll-self-check",
+        counts: { pending_self_checks: pendingSelfChecks },
+        detail: pendingSelfChecks
+          ? `${pendingSelfChecks} employee self-check${pendingSelfChecks === 1 ? "" : "s"} still pending.`
+          : "No employee self-checks are pending."
+      }
+    ];
+  } catch {
+    // Source tables missing/unreachable — report honestly instead of zeros.
+    return [
+      {
+        key: "labor_command_center",
+        label: "Labor Command Center",
+        available: false,
+        destination_hash: "#labor/command-center",
+        reason: "Labor Command Center data is not reachable right now."
+      },
+      {
+        key: "payroll_self_check",
+        label: "Payroll Self-Check",
+        available: false,
+        destination_hash: "#my-work/payroll-self-check",
+        reason: "Payroll self-check data is not reachable right now."
+      }
+    ];
+  }
+}
+
 async function listComplianceWorkspaceSourceRows(client: PoolClient, auth: AuthUser, filters: { shootId?: string } = {}) {
   const complianceFlags = await listTimeClockComplianceFlags(client, auth, { status: "all", shootId: filters.shootId });
   const attendanceExceptions = await listAttendanceExceptions(client, auth, { shootId: filters.shootId });
@@ -1258,6 +1377,9 @@ export async function listComplianceWorkspaceItems(
     countsByUrgency[item.urgency] += 1;
   }
 
+  const { start: anchorDayStart, endExclusive: anchorDayEndExclusive } = getLocalDayBounds(anchorDate);
+  const linkedCategories = await loadLinkedLaborCategories(client, auth.tenantId);
+
   return {
     summary: {
       open_count: unresolvedItems.length,
@@ -1271,9 +1393,20 @@ export async function listComplianceWorkspaceItems(
       presence_incident_review_count: unresolvedItems.filter(
         (item) => item.issue_type === "likely_present_missing_clock_in" || item.issue_type === "assigned_but_missing"
       ).length,
+      needs_manager_review_count: unresolvedItems.filter((item) => MANAGER_REVIEW_ISSUE_TYPES.has(item.issue_type)).length,
+      needs_employee_correction_count: unresolvedItems.filter((item) => EMPLOYEE_CORRECTION_ISSUE_TYPES.has(item.issue_type)).length,
+      overdue_count: unresolvedItems.filter((item) => occursWithinWindow(item, anchorDate, "overdue")).length,
+      resolved_today_count: filteredItems.filter((item) => {
+        if (item.status_bucket !== "resolved" || !item.resolved_at) {
+          return false;
+        }
+        const resolvedAt = new Date(item.resolved_at);
+        return resolvedAt >= anchorDayStart && resolvedAt < anchorDayEndExclusive;
+      }).length,
       counts_by_issue_type: countsByIssue,
       counts_by_urgency: countsByUrgency
     },
+    linked_categories: linkedCategories,
     freshness: {
       generated_at: new Date().toISOString(),
       latest_item_updated_at: buildLatestTimestamp(filteredItems),
@@ -1740,19 +1873,37 @@ function buildComplianceWorkspacePayrollImpact(
   };
 }
 
+// SSA-3 nuance: a photographer's explicit "not eligible" answer (status ineligible, reason
+// submit_declined — set in-form or via POST /api/post-shoot/mileage-eligibility) must read as a
+// DECISION, not as a problem to chase. NOTE: a true "eval submitted, answer still pending" state
+// does not exist in canonical data today — the eval form always records an answer at submission
+// (submit_for_mileage defaults to false); making the answer deferrable is the mobile UI slice.
+function mileageReasonLabel(row: ComplianceWorkspaceMileageImpactRow): string | null {
+  if (!row.review_reason_code) {
+    return null;
+  }
+  if (row.review_reason_code === "submit_declined") {
+    return "Mileage declined by the photographer for this shoot";
+  }
+  if (row.review_reason_code === "missing_post_shoot_evaluation") {
+    return "Blocked — post-shoot evaluation not submitted";
+  }
+  return humanizeLabel(row.review_reason_code);
+}
+
 function buildComplianceWorkspaceMileageImpact(
   item: ComplianceWorkspaceItem,
   mileageImpact: ComplianceWorkspaceMileageImpactRow | null
 ): ComplianceWorkspaceMileageImpact {
   return {
     blocked: item.mileage_blocking,
-    reason: item.mileage_blocking ? mileageImpact?.review_reason_code ? humanizeLabel(mileageImpact.review_reason_code) : item.blocker.summary : null,
+    reason: item.mileage_blocking ? (mileageImpact ? mileageReasonLabel(mileageImpact) : null) ?? item.blocker.summary : null,
     reimbursement_id: mileageImpact?.id ?? null,
     work_date: mileageImpact?.work_date ?? null,
     status: mileageImpact?.status ?? null,
     review_reason_code: mileageImpact?.review_reason_code ?? null,
-    review_reason_label: mileageImpact?.review_reason_code ? humanizeLabel(mileageImpact.review_reason_code) : null,
-    issue_label: mileageImpact?.review_reason_code ? humanizeLabel(mileageImpact.review_reason_code) : null,
+    review_reason_label: mileageImpact ? mileageReasonLabel(mileageImpact) : null,
+    issue_label: mileageImpact ? mileageReasonLabel(mileageImpact) : null,
     reimbursement_amount: mileageImpact?.reimbursement_amount ?? null,
     zone_name: mileageImpact?.zone_name ?? null,
     vehicle_type: mileageImpact?.vehicle_type ?? null,
