@@ -39,11 +39,15 @@ router.get("/evaluation-obligations", validateQuery(obligationsQuerySchema), asy
 
 const mileageEligibilitySchema = z
   .object({
-    shoot_id: z.string().uuid(),
+    shoot_id: z.string().uuid().optional(),
+    shift_id: z.string().uuid().optional(),
     eligible: z.boolean(),
     vehicle_type: z.enum(["personal_vehicle", "carpool_passenger", "company_vehicle", "other_needs_review"]).optional()
   })
-  .strict();
+  .strict()
+  .refine((body) => Boolean(body.shoot_id) !== Boolean(body.shift_id), {
+    message: "Provide exactly one of shoot_id or shift_id."
+  });
 
 router.post("/mileage-eligibility", validateBody(mileageEligibilitySchema), async (req, res, next) => {
   try {
@@ -51,7 +55,8 @@ router.post("/mileage-eligibility", validateBody(mileageEligibilitySchema), asyn
     const body = req.body as z.infer<typeof mileageEligibilitySchema>;
     const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
       recordMileageEligibilityResponse(client, auth, {
-        shootId: body.shoot_id,
+        shootId: body.shoot_id ?? null,
+        shiftId: body.shift_id ?? null,
         eligible: body.eligible,
         vehicleType: body.vehicle_type ?? null
       })

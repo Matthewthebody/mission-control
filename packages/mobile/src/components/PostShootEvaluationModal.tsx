@@ -13,7 +13,9 @@ import type { ShiftRecord } from "../screens/Shoot";
 import {
   fetchPostShootEvaluationContext,
   humanizePostShootEvaluationError,
+  respondMileageEligibility,
   submitPostShootEvaluation,
+  type MileageEligibilityResponse,
   type MileageVehicleType,
   type PostShootEvaluationContext,
   type PostShootOverallStatus
@@ -72,6 +74,11 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
   const [context, setContext] = useState<PostShootEvaluationContext | null>(null);
   const [loadingContext, setLoadingContext] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // SSA-3 post-submit mileage prompt. "hidden" until the eval persists; the answer writes to the
+  // canonical model (the eval's own mileage fields + server recalc) — no local-only truth.
+  const [mileagePrompt, setMileagePrompt] = useState<"hidden" | "asking" | "submitting" | "answered" | "error">("hidden");
+  const [mileageAnswer, setMileageAnswer] = useState<MileageEligibilityResponse | null>(null);
+  const [mileageError, setMileageError] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [overallStatus, setOverallStatus] = useState<PostShootOverallStatus>("successful");
@@ -149,11 +156,40 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
           : current
       );
       setNotice(message);
+      // SSA-3: the evaluation is now safely persisted — ask the mileage eligibility question.
+      // Whatever happens to the answer call, the evaluation submission above is never affected.
+      setMileagePrompt("asking");
       onSubmitted(message);
     } catch (submitError) {
       setError(humanizePostShootEvaluationError(submitError, "We couldn't submit that Post-Shoot Evaluation."));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function answerMileageEligibility(eligible: boolean) {
+    if (!shift) {
+      return;
+    }
+    setMileagePrompt("submitting");
+    setMileageError("");
+    try {
+      const result = await respondMileageEligibility(token, {
+        shiftId: shift.id,
+        eligible,
+        vehicleType: eligible ? vehicleType : null
+      });
+      setMileageAnswer(result);
+      setMileagePrompt("answered");
+    } catch (answerError) {
+      // The evaluation is already saved; only the mileage answer needs attention.
+      setMileageError(
+        humanizePostShootEvaluationError(
+          answerError,
+          "We couldn't record your mileage answer. Your evaluation is saved — try the mileage question again."
+        )
+      );
+      setMileagePrompt("error");
     }
   }
 
@@ -190,6 +226,58 @@ export function PostShootEvaluationModal({ visible, token, shift, onClose, onSub
 
           {error ? <Text style={errorText}>{error}</Text> : null}
           {notice ? <Text style={infoText}>{notice}</Text> : null}
+
+          {mileagePrompt !== "hidden" ? (
+            <View style={{ gap: 8 }}>
+              {mileagePrompt === "answered" && mileageAnswer ? (
+                <Text style={infoText}>
+                  {mileageAnswer.recorded === "eligible"
+                    ? `Mileage answer recorded: eligible (${(mileageAnswer.vehicle_type ?? "personal_vehicle").replace(/_/g, " ")}). It now goes through the normal mileage review.`
+                    : "Mileage answer recorded: no mileage reimbursement for this shoot."}
+                </Text>
+              ) : (
+                <>
+                  <Text style={fieldLabel}>Are you eligible for mileage reimbursement for this shoot?</Text>
+                  <Text style={mutedText}>
+                    Your evaluation is already saved. Answering here updates your mileage answer for this shoot.
+                  </Text>
+                  {mileagePrompt === "error" && mileageError ? <Text style={errorText}>{mileageError}</Text> : null}
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <Pressable
+                      onPress={() => void answerMileageEligibility(true)}
+                      disabled={mileagePrompt === "submitting"}
+                      style={({ pressed }) => ({
+                        flex: 1,
+                        borderRadius: 14,
+                        paddingVertical: 12,
+                        alignItems: "center" as const,
+                        backgroundColor: mileagePrompt === "submitting" ? "#94a3b8" : pressed ? "#0f4a87" : "#166fcb"
+                      })}
+                    >
+                      <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "700" }}>
+                        {mileagePrompt === "submitting" ? "Saving…" : "Yes"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void answerMileageEligibility(false)}
+                      disabled={mileagePrompt === "submitting"}
+                      style={({ pressed }) => ({
+                        flex: 1,
+                        borderRadius: 14,
+                        paddingVertical: 12,
+                        alignItems: "center" as const,
+                        borderWidth: 1,
+                        borderColor: "#94a3b8",
+                        backgroundColor: pressed ? "#e2e8f0" : "transparent"
+                      })}
+                    >
+                      <Text style={{ color: "#0f172a", fontSize: 15, fontWeight: "700" }}>No</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : null}
 
           {context ? (
             <View style={panelStyle}>

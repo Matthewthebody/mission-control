@@ -32,25 +32,39 @@ export type MileageEligibilityResponseResult = {
 export async function recordMileageEligibilityResponse(
   client: PoolClient,
   auth: AuthUser,
-  input: { shootId: string; eligible: boolean; vehicleType?: MileageVehicleTypeInput | null }
+  input: { shootId?: string | null; shiftId?: string | null; eligible: boolean; vehicleType?: MileageVehicleTypeInput | null }
 ): Promise<MileageEligibilityResponseResult> {
   // Self-only by construction: the employee identity is ALWAYS the authenticated user. Answering
   // on behalf of another photographer is deliberately unsupported in this slice.
   if (input.eligible && !input.vehicleType) {
     throw new ApiError(400, "vehicle_type is required when you are eligible for mileage reimbursement.");
   }
+  // shift_id is the PRECISE key (the eval is unique per shift+photographer); shoot_id remains
+  // supported for shoot-context callers and resolves to the caller's latest eval on that shoot.
+  if (!input.shootId && !input.shiftId) {
+    throw new ApiError(400, "Provide shoot_id or shift_id.");
+  }
 
-  const { rows } = await client.query<{ id: string; shoot_date: string }>(
+  const params: unknown[] = [auth.tenantId, auth.id];
+  let recordFilter: string;
+  if (input.shiftId) {
+    params.push(input.shiftId);
+    recordFilter = `AND shift_id = $${params.length}`;
+  } else {
+    params.push(input.shootId);
+    recordFilter = `AND shoot_id = $${params.length}`;
+  }
+  const { rows } = await client.query<{ id: string; shoot_date: string; shoot_id: string | null }>(
     `
-      SELECT id, shoot_date::text AS shoot_date
+      SELECT id, shoot_date::text AS shoot_date, shoot_id
       FROM post_shoot_evaluation
       WHERE tenant_id = $1
-        AND shoot_id = $2
-        AND photographer_user_id = $3
+        AND photographer_user_id = $2
+        ${recordFilter}
       ORDER BY created_at DESC
       LIMIT 1
     `,
-    [auth.tenantId, input.shootId, auth.id]
+    params
   );
   const evaluation = rows[0];
   if (!evaluation) {
@@ -93,7 +107,7 @@ export async function recordMileageEligibilityResponse(
   return {
     recorded: input.eligible ? "eligible" : "declined",
     evaluation_id: evaluation.id,
-    shoot_id: input.shootId,
+    shoot_id: input.shootId ?? evaluation.shoot_id ?? "",
     employee_id: auth.id,
     work_date: evaluation.shoot_date,
     vehicle_type: input.eligible ? (input.vehicleType ?? null) : null,

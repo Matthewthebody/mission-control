@@ -21,6 +21,7 @@ let photographerId = "";
 let seniorId = "";
 let shootId = "";
 let shootDate = "";
+let photographerShiftId = "";
 
 function post(token: string | null, body: Record<string, unknown>) {
   const req = request(app).post("/api/post-shoot/mileage-eligibility").send(body);
@@ -105,6 +106,7 @@ beforeAll(async () => {
     `SELECT id FROM work_shift WHERE tenant_id = $1 AND title = $2 AND assigned_user_id = $3 LIMIT 1`,
     [tenantId, SHIFT_MARKER, photographerId]
   );
+  photographerShiftId = shiftRow.rows[0].id;
   await pool.query(
     `INSERT INTO post_shoot_evaluation
        (tenant_id, location_id, shoot_id, shift_id, photographer_user_id, shoot_name, shoot_date, photographer_name, shoot_type, on_time, easy_access, overall_rating, photos_uploaded)
@@ -184,6 +186,26 @@ describe("mileage eligibility response", () => {
       employee_id: seniorId
     });
     expect(foreign.status).toBe(400);
+  });
+
+  it("accepts shift_id as the precise identifier (the mobile modal's key)", async () => {
+    const res = await post(photographerToken, {
+      shift_id: photographerShiftId,
+      eligible: true,
+      vehicle_type: "personal_vehicle"
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.recorded).toBe("eligible");
+    expect(res.body.shoot_id).toBe(shootId);
+    // exactly one identifier is required
+    const both = await post(photographerToken, {
+      shoot_id: shootId,
+      shift_id: photographerShiftId,
+      eligible: false
+    });
+    expect(both.status).toBe(400);
+    const neither = await post(photographerToken, { eligible: false });
+    expect(neither.status).toBe(400);
   });
 
   it("requires auth", async () => {

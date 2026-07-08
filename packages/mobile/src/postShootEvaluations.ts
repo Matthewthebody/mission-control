@@ -87,6 +87,32 @@ export async function fetchPostShootEvaluationContext(token: string, shiftId: st
   return mobileFetch<PostShootEvaluationContext>(`/api/employee/shifts/${shiftId}`, token);
 }
 
+// SSA-3 — the post-submit mileage eligibility answer. Writes to the canonical home (the caller's
+// own evaluation) and re-runs the canonical mileage recalc server-side. shift_id is the precise
+// key for this modal; failure NEVER affects the already-persisted evaluation.
+export type MileageEligibilityResponse = {
+  recorded: "eligible" | "declined";
+  evaluation_id: string;
+  shoot_id: string;
+  work_date: string;
+  vehicle_type: MileageVehicleType | null;
+  mileage: { status: string; review_reason_code: string | null } | null;
+};
+
+export async function respondMileageEligibility(
+  token: string,
+  input: { shiftId: string; eligible: boolean; vehicleType?: MileageVehicleType | null }
+) {
+  return mobileFetch<MileageEligibilityResponse>("/api/post-shoot/mileage-eligibility", token, {
+    method: "POST",
+    body: JSON.stringify({
+      shift_id: input.shiftId,
+      eligible: input.eligible,
+      ...(input.eligible && input.vehicleType ? { vehicle_type: input.vehicleType } : {})
+    })
+  });
+}
+
 export async function submitPostShootEvaluation(
   token: string,
   shiftId: string,
