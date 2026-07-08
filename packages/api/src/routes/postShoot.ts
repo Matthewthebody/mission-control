@@ -2,12 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 import { withClientTransaction } from "../db/tx.js";
 import { requireAuth } from "../middleware/auth.js";
-import { validateQuery } from "../middleware/validate.js";
+import { validateBody, validateQuery } from "../middleware/validate.js";
 import { getPostShootEvaluationObligations } from "../services/postShootEvaluationObligations.js";
+import { recordMileageEligibilityResponse } from "../services/postShootMileageEligibility.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
-// SSA-2 — post-shoot evaluation obligations (read model only). Team-review scope is enforced
-// in the service (canReviewTeamTime → 403); auth itself comes from the app-level requireAuth.
+// SSA-2/SSA-3 — post-shoot evaluation obligations (read model) + the mileage-eligibility
+// response recorded after eval submission. Scope rules live in the services.
 const router = Router();
 router.use(requireAuth);
 
@@ -28,6 +29,31 @@ router.get("/evaluation-obligations", validateQuery(obligationsQuerySchema), asy
         shootId: query.shoot_id ?? null,
         windowDays: query.window_days,
         limit: query.limit
+      })
+    );
+    return res.json(payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const mileageEligibilitySchema = z
+  .object({
+    shoot_id: z.string().uuid(),
+    eligible: z.boolean(),
+    vehicle_type: z.enum(["personal_vehicle", "carpool_passenger", "company_vehicle", "other_needs_review"]).optional()
+  })
+  .strict();
+
+router.post("/mileage-eligibility", validateBody(mileageEligibilitySchema), async (req, res, next) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const body = req.body as z.infer<typeof mileageEligibilitySchema>;
+    const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      recordMileageEligibilityResponse(client, auth, {
+        shootId: body.shoot_id,
+        eligible: body.eligible,
+        vehicleType: body.vehicle_type ?? null
       })
     );
     return res.json(payload);
