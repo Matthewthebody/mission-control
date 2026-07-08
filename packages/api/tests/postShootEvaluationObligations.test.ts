@@ -146,11 +146,23 @@ describe("post-shoot evaluation obligations", () => {
     expect(res.body.items_total).toBe(items.length);
   });
 
-  it("enforces access: no token 401; non-manager employee 403", async () => {
+  it("enforces access: no token 401; non-manager employee gets OWN scope only", async () => {
     const anon = await request(app).get("/api/post-shoot/evaluation-obligations");
     expect(anon.status).toBe(401);
-    const employee = await authed("/api/post-shoot/evaluation-obligations", employeeToken);
-    expect(employee.status).toBe(403);
+    // SSA-3: an employee is never 403'd out of their own obligations — they get server-derived
+    // "own" scope, containing only their rows and never another photographer's.
+    const employee = await authed(`/api/post-shoot/evaluation-obligations?shoot_id=${shootId}`, employeeToken);
+    expect(employee.status).toBe(200);
+    expect(employee.body.scope).toBe("own");
+    const shiftIds = employee.body.items.map((item: { shift_id: string }) => item.shift_id);
+    expect(shiftIds).toContain(standardShiftId);
+    expect(shiftIds).not.toContain(leadShiftId);
+    for (const item of employee.body.items) {
+      expect(item.employee_id).toBe(photographerId);
+    }
+    // manager view remains team scope
+    const manager = await authed(`/api/post-shoot/evaluation-obligations?shoot_id=${shootId}`, leadershipToken);
+    expect(manager.body.scope).toBe("team");
   });
 
   it("rejects malformed queries honestly", async () => {

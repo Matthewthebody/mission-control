@@ -1,7 +1,6 @@
 import type { PoolClient } from "pg";
 import type { AuthUser } from "../types/auth.js";
 import { canReviewTeamTime } from "../authz/authority.js";
-import { ApiError } from "../errors/apiError.js";
 
 // SSA-2 — Post-shoot evaluation obligations (read model only, no writes).
 // Matthew's rule: EVERY photographer assigned to a shoot owes a post-shoot evaluation, and
@@ -45,7 +44,7 @@ export type EvaluationObligation = {
 
 export type EvaluationObligationsResult = {
   as_of: string;
-  scope: "team";
+  scope: "team" | "own";
   window_days: number;
   shoot_id: string | null;
   summary: {
@@ -101,9 +100,10 @@ export async function getPostShootEvaluationObligations(
   auth: AuthUser,
   input: { shootId?: string | null; windowDays?: number; limit?: number } = {}
 ): Promise<EvaluationObligationsResult> {
-  if (!canReviewTeamTime(auth)) {
-    throw new ApiError(403, "You do not have access to the team evaluation obligations view.");
-  }
+  // Server-derived scope (never client-asserted): team reviewers see everyone; every other
+  // authenticated employee sees ONLY their own obligations — a photographer can always answer
+  // "what evals do I owe?" without seeing anyone else's.
+  const scope: "team" | "own" = canReviewTeamTime(auth) ? "team" : "own";
   const windowDays = Math.min(Math.max(input.windowDays ?? 14, 1), 60);
   const limit = Math.min(Math.max(input.limit ?? 200, 1), 500);
   const params: unknown[] = [auth.tenantId, windowDays];
@@ -111,6 +111,11 @@ export async function getPostShootEvaluationObligations(
   if (input.shootId) {
     params.push(input.shootId);
     shootFilter = `AND ws.shoot_id = $${params.length}`;
+  }
+  let scopeFilter = "";
+  if (scope === "own") {
+    params.push(auth.id);
+    scopeFilter = `AND ws.assigned_user_id = $${params.length}`;
   }
 
   const { rows } = await client.query<ObligationRow>(
@@ -152,6 +157,7 @@ export async function getPostShootEvaluationObligations(
         AND COALESCE(s.shoot_date, ws.starts_at::date) <= CURRENT_DATE
         AND COALESCE(s.shoot_date, ws.starts_at::date) >= CURRENT_DATE - ($2 * INTERVAL '1 day')
         ${shootFilter}
+        ${scopeFilter}
       ORDER BY COALESCE(s.shoot_date, ws.starts_at::date) DESC, s.id, au.full_name NULLS LAST, ws.id
     `,
     params
@@ -192,7 +198,7 @@ export async function getPostShootEvaluationObligations(
   const outstanding = items.filter((item) => item.status === "required");
   return {
     as_of: new Date().toISOString(),
-    scope: "team",
+    scope,
     window_days: windowDays,
     shoot_id: input.shootId ?? null,
     summary: {
