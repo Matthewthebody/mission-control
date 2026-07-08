@@ -107,6 +107,13 @@ const OPERATIONAL_ALERT_DEFINITIONS: OperationalAlertDefinition[] = [
     summary: "Summarizes backlog, overdue items, and escalations for the secure client intake workflow.",
     recommended_severity: "medium",
     recommended_throttle_minutes: 1440
+  },
+  {
+    type: "payroll_alert",
+    label: "Payroll Alert",
+    summary: "Owner-level payroll signals: ready for final review, blockers before close, QuickBooks sync results, and post-lock corrections.",
+    recommended_severity: "high",
+    recommended_throttle_minutes: 60
   }
 ];
 

@@ -18,6 +18,7 @@ import zendeskIntegrationRoutes from "./routes/zendeskIntegration.js";
 import zendeskRoutes from "./routes/zendesk.js";
 import shiftRoutes from "./routes/shifts.js";
 import attendanceRoutes from "./routes/attendance.js";
+import laborRoutes from "./routes/labor.js";
 import complianceRoutes from "./routes/compliance.js";
 import approvalRoutes from "./routes/approvals.js";
 import exceptionRoutes from "./routes/exceptions.js";
@@ -201,6 +202,7 @@ export function createApp() {
   app.use("/api/integrations/zendesk", zendeskIntegrationRoutes);
   app.use("/api/shifts", shiftRoutes);
   app.use("/api/attendance", attendanceRoutes);
+  app.use("/api/labor", laborRoutes);
   app.use("/api/compliance", complianceRoutes);
   app.use("/api/approvals", approvalRoutes);
   app.use("/api/exceptions", exceptionRoutes);

@@ -43,6 +43,7 @@ import {
   humanizeOperationalLocation
 } from "./attendanceAwareness.js";
 import { deriveTimeReviewSummary, isFinalizedTimeSessionStatus } from "./timeClockReview.js";
+import { guardSessionMutationForPayroll } from "./payrollPeriods.js";
 import type { AttendanceState, PunchTimingStatus } from "../types/domain.js";
 import type { TimeSegmentReviewStatus, TimeSegmentSourceType, TimeSessionStatus, TimeWorkState } from "../types/timeClock.js";
 
@@ -1415,8 +1416,16 @@ async function insertTimeSegmentCorrection(
     reviewStatus: TimeSegmentReviewStatus;
     supersedesSegmentId?: string | null;
     reportingFlags?: string[];
+    actorUserId?: string | null;
   }
 ) {
+  // Single choke point for correction segments: refuse writes into locked payroll
+  // periods and flag (edited_after_payroll_review) writes into reviewed periods.
+  await guardSessionMutationForPayroll(client, input.tenantId, {
+    sessionId: input.sessionId,
+    actorUserId: input.actorUserId ?? null,
+    reason: `time_segment_correction:${input.sourceType}`
+  });
   const { rows } = await client.query<TimeSegmentRow>(
     `
       INSERT INTO time_segment (
@@ -1763,7 +1772,8 @@ async function applyApprovedMissedPunch(
       endTime: timeClockRequest?.requested_end_time ?? null,
       sourceType: "manual_correction",
       reviewStatus: "approved",
-      reportingFlags
+      reportingFlags,
+      actorUserId: auth.id
     });
 
     if (correctionSegment) {
@@ -1884,7 +1894,8 @@ async function applyApprovedMissedPunch(
         endTime: timeClockRequest?.requested_end_time ?? correctedTime,
         sourceType: "manual_correction",
         reviewStatus: "approved",
-        reportingFlags
+        reportingFlags,
+        actorUserId: auth.id
       });
 
       if (correctionSegment) {
@@ -3606,7 +3617,8 @@ export async function createLeadershipTimeAdjustment(
       sourceType: "admin_override",
       reviewStatus: "approved",
       supersedesSegmentId: originalSegment?.id ?? null,
-      reportingFlags: ["manual_adjustment", "admin_override", "edited_by_leadership"]
+      reportingFlags: ["manual_adjustment", "admin_override", "edited_by_leadership"],
+      actorUserId: auth.id
     });
 
     const approvalRecord = await insertTimeClockApprovalRecord(client, {

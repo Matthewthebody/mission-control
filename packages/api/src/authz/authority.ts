@@ -799,6 +799,36 @@ export function canViewLaborCost(auth: Pick<AuthUser, "authorityTier" | "permiss
   return hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin", "read_only_viewer"]) || hasPermissionCode(auth, "labor_cost.view");
 }
 
+// Labor Command Center: full pay-period lifecycle control (transition, lock, export,
+// mappings). Payroll/admin scope — intentionally narrower than canReviewTeamTime.
+export function canManagePayrollPeriods(auth: Pick<AuthUser, "authorityTier" | "permissions" | "roles">) {
+  return (
+    canFinalizePayroll(auth) ||
+    hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin"]) ||
+    hasPermissionCode(auth, "attendance.manage")
+  );
+}
+
+// Labor Command Center: final payroll approval — locking a period, exporting it,
+// and sending approved time to QuickBooks. Owner only (Matthew): super_admin tier
+// or the legacy owner_admin role. Payroll admins prepare; the owner approves.
+export function canFinalizePayroll(auth: Pick<AuthUser, "authorityTier" | "roles">) {
+  return hasAuthorityTier(auth, "super_admin") || auth.roles.includes("owner_admin");
+}
+
+// Labor Command Center: manager-level review of team time — self-check board,
+// overtime warnings, resolving employee discrepancy reports. Includes supervisors
+// and anyone who can already approve time exceptions.
+export function canReviewTeamTime(auth: Pick<AuthUser, "authorityTier" | "permissions" | "roles">) {
+  return (
+    canFinalizePayroll(auth) ||
+    hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin", "supervisor"]) ||
+    hasPermissionCode(auth, "attendance.manage") ||
+    hasPermissionCode(auth, "attendance_exceptions.approve") ||
+    hasPermissionCode(auth, "missed_punches.approve")
+  );
+}
+
 export function canViewAttendanceExceptions(auth: Pick<AuthUser, "authorityTier" | "permissions">) {
   return hasAuthorityTier(auth, ["super_admin", "leadership", "director_admin", "read_only_viewer"]) || hasPermissionCode(auth, "attendance_exceptions.view");
 }

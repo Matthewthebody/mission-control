@@ -11,7 +11,8 @@ export type OperationalAlertType =
   | "gallery_job_completed"
   | "client_intake_review_overdue"
   | "client_intake_escalated"
-  | "client_intake_daily_digest";
+  | "client_intake_daily_digest"
+  | "payroll_alert";
 
 export type OperationalAlertDeliveryChannel = "teams_webhook" | "email" | "sms" | "push";
 
