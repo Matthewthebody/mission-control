@@ -725,7 +725,9 @@ describe("compliance workspace G1 part 2", () => {
     "missed_clock_in_request",
     "upload_while_off_clock",
     "likely_present_missing_clock_in",
-    "assigned_but_missing"
+    "assigned_but_missing",
+    "manual_time_adjustment",
+    "mileage_review_required"
   ]);
 
   it("keeps every leadership summary count equal to its matching returned rows", async () => {
@@ -755,6 +757,95 @@ describe("compliance workspace G1 part 2", () => {
       (row) => row.status_bucket === "resolved" && row.resolved_at && toLocalDateString(new Date(row.resolved_at)) === today
     );
     expect(all.summary.resolved_today_count).toBe(resolvedToday.length);
+  });
+
+  // G1 Part 2b — the two new first-class item types, with working (non-dead) detail drill-ins.
+  describe("part 2b item types", () => {
+    let adjustmentRequestId = "";
+    let mileageReviewId = "";
+    let excludedMileageId = "";
+    let fixtureEmployeeId = "";
+
+    beforeAll(async () => {
+      const employee = await pool.query<{ id: string; tenant_id: string }>(
+        `SELECT id, tenant_id FROM app_user WHERE lower(email) = lower('senior@example.com') LIMIT 1`
+      );
+      fixtureEmployeeId = employee.rows[0].id;
+      const fixtureTenantId = employee.rows[0].tenant_id;
+
+      const adjustment = await pool.query<{ id: string }>(
+        `INSERT INTO exception_request (tenant_id, employee_id, request_type, status, note)
+         VALUES ($1, $2, 'time_segment_correction', 'submitted', 'G1P2B-TEST manual adjustment')
+         RETURNING id`,
+        [fixtureTenantId, fixtureEmployeeId]
+      );
+      adjustmentRequestId = adjustment.rows[0].id;
+
+      // review_required with a NON-eval reason -> must appear as mileage_review_required.
+      const review = await pool.query<{ id: string }>(
+        `INSERT INTO mileage_reimbursement (tenant_id, employee_id, work_date, status, review_reason_code)
+         VALUES ($1, $2, CURRENT_DATE - 100, 'review_required', 'missing_zone_match')
+         RETURNING id`,
+        [fixtureTenantId, fixtureEmployeeId]
+      );
+      mileageReviewId = review.rows[0].id;
+
+      // review_required with the EVAL reason -> owned by the compliance flag type, must be excluded.
+      const excluded = await pool.query<{ id: string }>(
+        `INSERT INTO mileage_reimbursement (tenant_id, employee_id, work_date, status, review_reason_code)
+         VALUES ($1, $2, CURRENT_DATE - 101, 'review_required', 'missing_post_shoot_evaluation')
+         RETURNING id`,
+        [fixtureTenantId, fixtureEmployeeId]
+      );
+      excludedMileageId = excluded.rows[0].id;
+    });
+
+    afterAll(async () => {
+      await pool.query(`DELETE FROM exception_request WHERE id = $1`, [adjustmentRequestId]);
+      await pool.query(`DELETE FROM mileage_reimbursement WHERE id = ANY($1::uuid[])`, [[mileageReviewId, excludedMileageId]]);
+    });
+
+    it("emits manual_time_adjustment items with count==rows and a working detail drill-in", async () => {
+      const body = await fetchWorkspace("?status=all&window=all&issue_type=manual_time_adjustment");
+      const mine = body.rows.filter(
+        (row) => (row as Record<string, unknown>).source_id === adjustmentRequestId
+      );
+      expect(mine).toHaveLength(1);
+      const item = mine[0] as Record<string, unknown>;
+      expect(item.issue_type).toBe("manual_time_adjustment");
+      expect(item.payroll_blocking).toBe(true);
+      expect(body.summary.counts_by_issue_type.manual_time_adjustment).toBe(
+        body.rows.filter((row) => row.issue_type === "manual_time_adjustment" && row.status_bucket === "unresolved").length
+      );
+      // detail drill-in works (no dead rows)
+      const detail = await request(app)
+        .get(`/api/compliance/workspace/exception_request/${adjustmentRequestId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.item.issue_type).toBe("manual_time_adjustment");
+      expect(detail.body.payroll_impact.blocked).toBe(true);
+    });
+
+    it("emits mileage_review_required items, excludes eval-reason rows, and drills into detail", async () => {
+      const body = await fetchWorkspace("?status=all&window=all&issue_type=mileage_review_required");
+      const ids = body.rows.map((row) => (row as Record<string, unknown>).source_id);
+      expect(ids).toContain(mileageReviewId);
+      // the eval-reason row is owned by the compliance-flag type — never duplicated here
+      expect(ids).not.toContain(excludedMileageId);
+      const item = body.rows.find(
+        (row) => (row as Record<string, unknown>).source_id === mileageReviewId
+      ) as Record<string, unknown>;
+      expect(item.mileage_blocking).toBe(true);
+      expect(body.summary.counts_by_issue_type.mileage_review_required).toBe(
+        body.rows.filter((row) => row.issue_type === "mileage_review_required" && row.status_bucket === "unresolved").length
+      );
+      const detail = await request(app)
+        .get(`/api/compliance/workspace/mileage_reimbursement/${mileageReviewId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.item.issue_type).toBe("mileage_review_required");
+      expect(detail.body.mileage_impact.blocked).toBe(true);
+    });
   });
 
   it("returns live linked labor categories with exact destinations, never fake zeros for absent sources", async () => {

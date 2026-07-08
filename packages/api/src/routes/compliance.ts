@@ -49,7 +49,9 @@ router.get(
           "no_lunch_challenge",
           "missed_clock_in_request",
           "likely_present_missing_clock_in",
-          "assigned_but_missing"
+          "assigned_but_missing",
+          "manual_time_adjustment",
+          "mileage_review_required"
         ])
         .optional()
     })
@@ -75,7 +77,9 @@ router.get(
                 | "no_lunch_challenge"
                 | "missed_clock_in_request"
                 | "likely_present_missing_clock_in"
-                | "assigned_but_missing")
+                | "assigned_but_missing"
+                | "manual_time_adjustment"
+                | "mileage_review_required")
             : undefined
         })
       );
@@ -95,13 +99,22 @@ router.get(
       const auth = (req as AuthenticatedRequest).auth;
       const sourceKind = String(req.params.sourceKind);
       const sourceId = String(req.params.sourceId);
-      if (!["compliance_flag", "attendance_exception", "presence_incident"].includes(sourceKind)) {
+      if (
+        !["compliance_flag", "attendance_exception", "presence_incident", "exception_request", "mileage_reimbursement"].includes(
+          sourceKind
+        )
+      ) {
         return res.status(400).json({ error: "Unsupported compliance source kind." });
       }
 
       const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
         getComplianceWorkspaceItemDetail(client, auth, {
-          sourceKind: sourceKind as "compliance_flag" | "attendance_exception" | "presence_incident",
+          sourceKind: sourceKind as
+            | "compliance_flag"
+            | "attendance_exception"
+            | "presence_incident"
+            | "exception_request"
+            | "mileage_reimbursement",
           sourceId
         })
       );

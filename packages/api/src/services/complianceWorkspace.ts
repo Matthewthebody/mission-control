@@ -8,7 +8,12 @@ import {
   type TimeClockCompliancePreview
 } from "./timeClockCompliance.js";
 
-export type ComplianceWorkspaceSourceKind = "compliance_flag" | "attendance_exception" | "presence_incident";
+export type ComplianceWorkspaceSourceKind =
+  | "compliance_flag"
+  | "attendance_exception"
+  | "presence_incident"
+  | "exception_request"
+  | "mileage_reimbursement";
 export type ComplianceWorkspaceUrgency = "urgent" | "important" | "watch";
 export type ComplianceWorkspaceStatusBucket = "unresolved" | "resolved";
 export type ComplianceWorkspaceWindow = "today" | "this_week" | "overdue" | "all";
@@ -28,7 +33,9 @@ export type ComplianceWorkspaceIssueType =
   | "no_lunch_challenge"
   | "missed_clock_in_request"
   | "likely_present_missing_clock_in"
-  | "assigned_but_missing";
+  | "assigned_but_missing"
+  | "manual_time_adjustment"
+  | "mileage_review_required";
 
 export type ComplianceWorkspaceItem = {
   id: string;
@@ -410,7 +417,9 @@ const ISSUE_LABELS: Record<ComplianceWorkspaceIssueType, string> = {
   no_lunch_challenge: "No-Lunch Challenge",
   missed_clock_in_request: "Missed Clock-In Request",
   likely_present_missing_clock_in: "Likely Present, Missing Clock-In",
-  assigned_but_missing: "Assigned but Missing"
+  assigned_but_missing: "Assigned but Missing",
+  manual_time_adjustment: "Manual Time Adjustment",
+  mileage_review_required: "Mileage Review Required"
 };
 
 function emptyIssueCounts(): Record<ComplianceWorkspaceIssueType, number> {
@@ -423,7 +432,9 @@ function emptyIssueCounts(): Record<ComplianceWorkspaceIssueType, number> {
     no_lunch_challenge: 0,
     missed_clock_in_request: 0,
     likely_present_missing_clock_in: 0,
-    assigned_but_missing: 0
+    assigned_but_missing: 0,
+    manual_time_adjustment: 0,
+    mileage_review_required: 0
   };
 }
 
@@ -501,6 +512,15 @@ function buildComplianceBlocker(item: ComplianceWorkspaceItemBase): ComplianceWo
   }
 
   if (item.payroll_blocking) {
+    if (item.issue_type === "manual_time_adjustment") {
+      return {
+        state: "payroll_blocked",
+        label: "Payroll Blocked",
+        summary: "Payroll confidence is blocked until the manual time adjustment request is approved or rejected.",
+        owning_workspace_label: "Attendance",
+        owning_workspace_hash: "#operations/attendance"
+      };
+    }
     if (item.issue_type === "unresolved_end_of_day_confirmation") {
       return {
         state: "payroll_blocked",
@@ -538,6 +558,15 @@ function buildComplianceBlocker(item: ComplianceWorkspaceItemBase): ComplianceWo
   }
 
   if (item.mileage_blocking) {
+    if (item.issue_type === "mileage_review_required") {
+      return {
+        state: "mileage_blocked",
+        label: "Mileage Review Required",
+        summary: "This mileage reimbursement needs manager review before it can move forward.",
+        owning_workspace_label: "Payroll Review",
+        owning_workspace_hash: "#employees/payroll"
+      };
+    }
     return {
       state: "mileage_blocked",
       label: "Mileage Blocked",
@@ -907,7 +936,9 @@ const MANAGER_REVIEW_ISSUE_TYPES = new Set<ComplianceWorkspaceIssueType>([
   "missed_clock_in_request",
   "upload_while_off_clock",
   "likely_present_missing_clock_in",
-  "assigned_but_missing"
+  "assigned_but_missing",
+  "manual_time_adjustment",
+  "mileage_review_required"
 ]);
 
 // G1 Part 2 — live links into the labor/payroll workspaces (landed migrations 165/166). Counts
@@ -983,11 +1014,217 @@ async function loadLinkedLaborCategories(client: PoolClient, tenantId: string): 
   }
 }
 
+// G1 Part 2b — manual time adjustments as first-class compliance items, derived from the canonical
+// exception_request correction types (time_segment_correction / work_state_change). Unresolved
+// (submitted / under_review) requests block payroll confidence until reviewed.
+async function listManualTimeAdjustmentItems(
+  client: PoolClient,
+  tenantId: string,
+  filters: { shootId?: string } = {}
+): Promise<ComplianceWorkspaceItem[]> {
+  const params: unknown[] = [tenantId];
+  let shootFilter = "";
+  if (filters.shootId) {
+    params.push(filters.shootId);
+    shootFilter = `AND er.linked_shoot_id = $${params.length}`;
+  }
+  const { rows } = await client.query<{
+    id: string;
+    request_type: string;
+    status: string;
+    note: string | null;
+    employee_id: string;
+    employee_name: string | null;
+    shift_id: string | null;
+    shift_title: string | null;
+    session_id: string | null;
+    shoot_id: string | null;
+    shoot_code: string | null;
+    shoot_title: string | null;
+    organization_id: string | null;
+    organization_display_name: string | null;
+    location_id: string | null;
+    location_name: string | null;
+    submitted_at: string;
+    reviewed_at: string | null;
+  }>(
+    `
+      SELECT
+        er.id,
+        er.request_type::text AS request_type,
+        er.status::text AS status,
+        er.note,
+        er.employee_id,
+        au.full_name AS employee_name,
+        er.linked_shift_id AS shift_id,
+        ws.title AS shift_title,
+        er.linked_session_id AS session_id,
+        er.linked_shoot_id AS shoot_id,
+        s.shoot_code,
+        s.title AS shoot_title,
+        s.organization_id,
+        o.display_name AS organization_display_name,
+        s.location_id,
+        s.location_name,
+        er.submitted_at::text AS submitted_at,
+        er.reviewed_at::text AS reviewed_at
+      FROM exception_request er
+      LEFT JOIN app_user au ON au.id = er.employee_id
+      LEFT JOIN work_shift ws ON ws.id = er.linked_shift_id AND ws.tenant_id = er.tenant_id
+      LEFT JOIN shoot s ON s.id = er.linked_shoot_id AND s.tenant_id = er.tenant_id
+      LEFT JOIN organization o ON o.id = s.organization_id AND o.tenant_id = er.tenant_id
+      WHERE er.tenant_id = $1
+        AND er.request_type IN ('time_segment_correction', 'work_state_change')
+        ${shootFilter}
+    `,
+    params
+  );
+  return rows.map((row) =>
+    withComplianceBlocker({
+      id: `exception_request:${row.id}`,
+      source_kind: "exception_request",
+      source_id: row.id,
+      issue_type: "manual_time_adjustment",
+      issue_label: ISSUE_LABELS.manual_time_adjustment,
+      urgency: "important",
+      source_status: row.status,
+      status_bucket: normalizeStatusBucket(row.status),
+      message: row.note?.trim()
+        ? row.note.trim()
+        : `A manual ${row.request_type === "work_state_change" ? "work-state change" : "time segment correction"} needs payroll review.`,
+      employee_id: row.employee_id,
+      employee_name: row.employee_name,
+      shift_id: row.shift_id,
+      shift_title: row.shift_title,
+      session_id: row.session_id,
+      shoot_id: row.shoot_id,
+      shoot_code: row.shoot_code,
+      shoot_title: row.shoot_title,
+      organization_id: row.organization_id,
+      organization_display_name: row.organization_display_name,
+      location_id: row.location_id,
+      location_name: row.location_name,
+      linked_exception_request_id: row.id,
+      linked_attendance_exception_id: null,
+      payroll_blocking: normalizeStatusBucket(row.status) === "unresolved",
+      mileage_blocking: false,
+      missing_closeout: false,
+      unresolved_end_of_day_confirmation: false,
+      occurred_at: row.submitted_at,
+      updated_at: row.reviewed_at ?? row.submitted_at,
+      resolved_at: normalizeStatusBucket(row.status) === "resolved" ? row.reviewed_at : null,
+      resolution_note: null
+    })
+  );
+}
+
+// G1 Part 2b — mileage rows needing manager review as first-class compliance items. Rows whose
+// reason is missing_post_shoot_evaluation are deliberately EXCLUDED: that state is already owned
+// by the mileage_blocked_missing_post_shoot_evaluation compliance flag (no duplicate items).
+async function listMileageReviewRequiredItems(
+  client: PoolClient,
+  tenantId: string,
+  filters: { shootId?: string } = {}
+): Promise<ComplianceWorkspaceItem[]> {
+  const params: unknown[] = [tenantId];
+  let shootFilter = "";
+  if (filters.shootId) {
+    params.push(filters.shootId);
+    shootFilter = `AND mr.linked_shoot_id = $${params.length}`;
+  }
+  const { rows } = await client.query<{
+    id: string;
+    work_date: string;
+    review_reason_code: string | null;
+    employee_id: string;
+    employee_name: string | null;
+    shift_id: string | null;
+    shift_title: string | null;
+    shoot_id: string | null;
+    shoot_code: string | null;
+    shoot_title: string | null;
+    organization_id: string | null;
+    organization_display_name: string | null;
+    location_id: string | null;
+    location_name: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `
+      SELECT
+        mr.id,
+        mr.work_date::text AS work_date,
+        mr.review_reason_code::text AS review_reason_code,
+        mr.employee_id,
+        au.full_name AS employee_name,
+        mr.linked_shift_id AS shift_id,
+        ws.title AS shift_title,
+        mr.linked_shoot_id AS shoot_id,
+        s.shoot_code,
+        s.title AS shoot_title,
+        mr.organization_id,
+        o.display_name AS organization_display_name,
+        mr.location_id,
+        s.location_name,
+        mr.created_at::text AS created_at,
+        mr.updated_at::text AS updated_at
+      FROM mileage_reimbursement mr
+      LEFT JOIN app_user au ON au.id = mr.employee_id
+      LEFT JOIN work_shift ws ON ws.id = mr.linked_shift_id AND ws.tenant_id = mr.tenant_id
+      LEFT JOIN shoot s ON s.id = mr.linked_shoot_id AND s.tenant_id = mr.tenant_id
+      LEFT JOIN organization o ON o.id = mr.organization_id AND o.tenant_id = mr.tenant_id
+      WHERE mr.tenant_id = $1
+        AND mr.status = 'review_required'
+        AND mr.review_reason_code IS DISTINCT FROM 'missing_post_shoot_evaluation'
+        ${shootFilter}
+    `,
+    params
+  );
+  return rows.map((row) =>
+    withComplianceBlocker({
+      id: `mileage_reimbursement:${row.id}`,
+      source_kind: "mileage_reimbursement",
+      source_id: row.id,
+      issue_type: "mileage_review_required",
+      issue_label: ISSUE_LABELS.mileage_review_required,
+      urgency: "important",
+      source_status: "review_required",
+      status_bucket: "unresolved",
+      message: mileageReasonLabel({ review_reason_code: row.review_reason_code } as ComplianceWorkspaceMileageImpactRow) ??
+        `Mileage for ${row.work_date} needs manager review.`,
+      employee_id: row.employee_id,
+      employee_name: row.employee_name,
+      shift_id: row.shift_id,
+      shift_title: row.shift_title,
+      session_id: null,
+      shoot_id: row.shoot_id,
+      shoot_code: row.shoot_code,
+      shoot_title: row.shoot_title,
+      organization_id: row.organization_id,
+      organization_display_name: row.organization_display_name,
+      location_id: row.location_id,
+      location_name: row.location_name,
+      linked_exception_request_id: null,
+      linked_attendance_exception_id: null,
+      payroll_blocking: false,
+      mileage_blocking: true,
+      missing_closeout: false,
+      unresolved_end_of_day_confirmation: false,
+      occurred_at: row.created_at,
+      updated_at: row.updated_at,
+      resolved_at: null,
+      resolution_note: null
+    })
+  );
+}
+
 async function listComplianceWorkspaceSourceRows(client: PoolClient, auth: AuthUser, filters: { shootId?: string } = {}) {
   const complianceFlags = await listTimeClockComplianceFlags(client, auth, { status: "all", shootId: filters.shootId });
   const attendanceExceptions = await listAttendanceExceptions(client, auth, { shootId: filters.shootId });
   const missedPunches = await listMissedPunchRequests(client, auth, { shootId: filters.shootId });
   const presenceIncidents = await listPresenceIncidents(client, auth, { shootId: filters.shootId });
+  const manualAdjustments = await listManualTimeAdjustmentItems(client, auth.tenantId, { shootId: filters.shootId });
+  const mileageReviews = await listMileageReviewRequiredItems(client, auth.tenantId, { shootId: filters.shootId });
 
   const noLunchChallenges = (attendanceExceptions as unknown as AttendanceExceptionLike[]).filter(
     (row) => row.exception_type === "NO_LUNCH_CHALLENGE"
@@ -1009,7 +1246,9 @@ async function listComplianceWorkspaceSourceRows(client: PoolClient, auth: AuthU
     ...missedClockIns.map((row) =>
       buildAttendanceExceptionItem(row, "missed_clock_in_request", row.shift_id ? exceptionContexts.get(row.shift_id) ?? null : null)
     ),
-    ...presenceIncidents.map((row) => buildPresenceIncidentItem(row))
+    ...presenceIncidents.map((row) => buildPresenceIncidentItem(row)),
+    ...manualAdjustments,
+    ...mileageReviews
   ];
 
   return items.sort((left, right) => {
