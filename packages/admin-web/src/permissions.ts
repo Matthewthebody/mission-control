@@ -2151,6 +2151,7 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
     case "schools-job-detail":
     case "schools-tasks":
     case "schools-exceptions":
+    case "schools-leadership":
       return canAccessSchoolsHub(user);
     case "schools-production":
     case "schools-watchlist":

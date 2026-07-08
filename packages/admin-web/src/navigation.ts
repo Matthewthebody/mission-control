@@ -107,6 +107,7 @@ type RouteRender =
   | { kind: "staffing-capacity-planning" }
   | { kind: "schedule-workspace" }
   | { kind: "schools-hub" }
+  | { kind: "schools-leadership-operations" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -820,6 +821,17 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: true,
     render: { kind: "schools-hub" }
+  },
+  {
+    id: "schools-leadership",
+    label: "Leadership",
+    sectionKey: "schools",
+    description: "Schools leadership & CSR operating view — canonical current-season and next-season attention items with exact record deep-links.",
+    canonicalHash: "#schools/leadership",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "schools-leadership-operations" }
   },
   {
     id: "sports",

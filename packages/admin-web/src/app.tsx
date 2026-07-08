@@ -240,6 +240,9 @@ const LazyProductionHub = lazy(() =>
 const LazyProductionOperationsView = lazy(() =>
   import("./pages/ProductionOperationsView").then((module) => ({ default: module.ProductionOperationsView }))
 );
+const LazySchoolsLeadershipOperations = lazy(() =>
+  import("./pages/SchoolsLeadershipOperations").then((module) => ({ default: module.SchoolsLeadershipOperations }))
+);
 const LazyWorkflowTemplateBuilderPage = lazy(() =>
   import("./pages/WorkflowTemplateBuilderPage").then((module) => ({ default: module.WorkflowTemplateBuilderPage }))
 );
@@ -1575,6 +1578,14 @@ function renderRouteContent({
       <LazyProductionOperationsView token={token} />,
       "Loading Production Queue",
       "Opening the canonical Production operating queue."
+    );
+  }
+
+  if (route.render.kind === "schools-leadership-operations") {
+    return withRouteSuspense(
+      <LazySchoolsLeadershipOperations token={token} />,
+      "Loading Schools Leadership",
+      "Opening the canonical Schools leadership operating view."
     );
   }
 
