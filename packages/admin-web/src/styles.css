@@ -23486,3 +23486,104 @@ html[data-theme="light"] .help-tooltip__bubble {
 .canonical-contacts-panel__unlink { margin-left: auto; padding: 2px 10px; font-size: 0.78rem; }
 .canonical-contacts-panel__edit { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
 .canonical-contacts-panel__edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
+
+/* ---------------------------------------------------------------------------
+   Labor Command Center + Payroll Self-Check
+   --------------------------------------------------------------------------- */
+
+.payroll-self-check .panel + .panel {
+  margin-top: 12px;
+}
+
+.payroll-self-check__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.payroll-self-check__day-actions,
+.payroll-self-check__problem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.payroll-self-check__problem-form {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.labor-command-center .panel + .panel {
+  margin-top: 12px;
+}
+
+.labor-command-center__stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.labor-command-center__blockers,
+.labor-command-center__warnings,
+.labor-command-center__open-items,
+.labor-command-center__events {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.labor-command-center__table-wrap {
+  overflow-x: auto;
+}
+
+.labor-command-center__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.labor-command-center__table th,
+.labor-command-center__table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+  vertical-align: top;
+}
+
+.labor-command-center__lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.labor-command-center__correction {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.labor-command-center__schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  margin-top: 12px;
+}
+
+.my-work-self-check-card {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .labor-command-center__correction {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -1314,6 +1314,19 @@ export function canViewLabor(user: SessionUser) {
   return canAccessFinanceSensitiveData(user) && (hasPermission(user, "labor.read") || hasCapability(user, "reports.view"));
 }
 
+// Labor Command Center: manager-level review of team time (self-check board,
+// overtime warnings, payroll blockers). Mirrors the API-side canReviewTeamTime gate.
+// Deliberately does NOT require finance-sensitive access — the surface shows hours
+// and exceptions, never pay rates or labor cost.
+export function canAccessLaborCommandCenter(user: SessionUser) {
+  return (
+    hasAuthorityTier(user, ["super_admin", "leadership", "director_admin", "supervisor"]) ||
+    hasCapability(user, "attendance.manage") ||
+    hasPermission(user, "attendance_exceptions.approve") ||
+    hasPermission(user, "missed_punches.approve")
+  );
+}
+
 export function canViewLeadershipReports(user: SessionUser) {
   return (
     hasCapability(user, "reports.view") ||
@@ -2275,6 +2288,10 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
       return canAccessOperatingSystemModule(user, "reports");
     case "business-health-labor":
       return canViewLabor(user);
+    case "labor-command-center":
+      return canAccessLaborCommandCenter(user);
+    case "dashboard-payroll-self-check":
+      return canAccessEmployeeMyWork(user);
     case "business-health-profitability":
     case "business-health-executive-summary":
       return canViewProfitabilityLeadership(user) || canViewLeadershipReports(user);

@@ -108,6 +108,8 @@ type RouteRender =
   | { kind: "schedule-workspace" }
   | { kind: "schools-hub" }
   | { kind: "schools-leadership-operations" }
+  | { kind: "labor-command-center" }
+  | { kind: "payroll-self-check" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -284,6 +286,18 @@ const ROUTES: RouteDefinition[] = [
     showInSectionNav: false,
     utility: true,
     render: { kind: "tab", tab: "my-work" }
+  },
+  {
+    id: "dashboard-payroll-self-check",
+    label: "Payroll Self-Check",
+    sectionKey: "my-work",
+    description: "Review each day in the pay period, confirm your hours, or report a problem before payroll locks.",
+    canonicalHash: "#my-work/payroll-self-check",
+    visibleTabs: ["my-work"],
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "payroll-self-check" }
   },
   {
     id: "dashboard-my-schedule",
@@ -1566,6 +1580,17 @@ const ROUTES: RouteDefinition[] = [
     render: { kind: "tab", tab: "labor" }
   },
   {
+    id: "labor-command-center",
+    label: "Labor Command",
+    sectionKey: "leadership",
+    description: "Pay-period lifecycle, payroll self-check progress, overtime warnings, and export readiness over canonical labor truth.",
+    canonicalHash: "#labor/command-center",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "labor-command-center" }
+  },
+  {
     id: "business-health-profitability",
     label: "Finance",
     sectionKey: "leadership",
@@ -1906,7 +1931,7 @@ const ROUTES: RouteDefinition[] = [
 const ROUTE_BY_ID = new Map(ROUTES.map((route) => [route.id, route]));
 const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   home: [],
-  "my-work": ["dashboard-my-day", "dashboard-my-tasks"],
+  "my-work": ["dashboard-my-day", "dashboard-my-tasks", "dashboard-payroll-self-check"],
   "needs-attention": [],
   schools: ["schools-jobs", "schools-tasks", "schools-exceptions", "schools-leadership"],
   sports: ["sports-shoots", "sports-accounts", "sports-contacts", "sports-graphics", "sports-exceptions"],
@@ -1943,6 +1968,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "business-health-reports",
     "business-health-kpis",
     "business-health-labor",
+    "labor-command-center",
     "business-health-profitability",
     "business-health-customer-service",
     "business-health-trends",
@@ -2038,6 +2064,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "communications") {
     return pickVisibleRoute("communications", availableTabs, employeeOnlyMode);
+  }
+  if (path === "my-work/payroll-self-check" || path === "payroll-self-check") {
+    return pickVisibleRoute("dashboard-payroll-self-check", availableTabs, employeeOnlyMode);
   }
   if (path === "dashboard/my-day" || path === "my-work" || path === "work" || path === "my-shifts") {
     return pickVisibleRoute("dashboard-my-day", availableTabs, employeeOnlyMode);
@@ -2518,6 +2547,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "reports/labor") {
     return pickVisibleRoute("business-health-labor", availableTabs, employeeOnlyMode);
+  }
+  if (path === "labor/command-center") {
+    return pickVisibleRoute("labor-command-center", availableTabs, employeeOnlyMode);
   }
   if (path === "reports/finance") {
     return pickVisibleRoute("business-health-profitability", availableTabs, employeeOnlyMode);

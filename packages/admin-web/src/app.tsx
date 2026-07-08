@@ -243,6 +243,12 @@ const LazyProductionOperationsView = lazy(() =>
 const LazySchoolsLeadershipOperations = lazy(() =>
   import("./pages/SchoolsLeadershipOperations").then((module) => ({ default: module.SchoolsLeadershipOperations }))
 );
+const LazyLaborCommandCenter = lazy(() =>
+  import("./pages/LaborCommandCenter").then((module) => ({ default: module.LaborCommandCenter }))
+);
+const LazyPayrollSelfCheck = lazy(() =>
+  import("./pages/PayrollSelfCheck").then((module) => ({ default: module.PayrollSelfCheck }))
+);
 const LazyWorkflowTemplateBuilderPage = lazy(() =>
   import("./pages/WorkflowTemplateBuilderPage").then((module) => ({ default: module.WorkflowTemplateBuilderPage }))
 );
@@ -1586,6 +1592,22 @@ function renderRouteContent({
       <LazySchoolsLeadershipOperations token={token} />,
       "Loading Schools Leadership",
       "Opening the canonical Schools leadership operating view."
+    );
+  }
+
+  if (route.render.kind === "labor-command-center") {
+    return withRouteSuspense(
+      <LazyLaborCommandCenter token={token} />,
+      "Loading Labor Command Center",
+      "Opening the payroll period, self-check, and overtime command surface."
+    );
+  }
+
+  if (route.render.kind === "payroll-self-check") {
+    return withRouteSuspense(
+      <LazyPayrollSelfCheck token={token} />,
+      "Loading Payroll Self-Check",
+      "Opening your pay period review."
     );
   }
 

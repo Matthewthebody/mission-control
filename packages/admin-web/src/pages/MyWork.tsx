@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Socket } from "socket.io-client";
 import { EmployeeShiftDetailPanel } from "../components/EmployeeShiftDetailPanel";
 import { EmployeeStaffingConfirmations } from "../components/EmployeeStaffingConfirmations";
+import { PayrollSelfCheckCard } from "../components/PayrollSelfCheckCard";
 import { QuickWorkflowNextStepMover } from "../components/projectTracking/QuickWorkflowNextStepMover";
 import {
   fetchEmployeeMyWork,
@@ -199,6 +200,8 @@ export function MyWork({ token, currentUser, socket }: Props) {
 
       {notice ? <div className="success-banner">{notice}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
+
+      <PayrollSelfCheckCard token={token} />
 
       <EmployeeStaffingConfirmations token={token} focusShootId={focusShootId} />
 
