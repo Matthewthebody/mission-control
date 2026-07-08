@@ -2145,6 +2145,10 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
       return canAccessProjectTracking(user) || canAccessClientCommandCenter(user);
     case "production-workflow-queue":
       return canAccessProjectTracking(user) || canAccessGraphicsWorkspace(user);
+    case "production-operations":
+      // Same audience as the workflow queue — the route previously had NO case (default deny),
+      // which sent the resolved route through the guarded fallback to Home.
+      return canAccessProjectTracking(user) || canAccessGraphicsWorkspace(user);
     case "workflow-template-builder":
       return canManageWorkflowTemplates(user);
     case "client-command-center":

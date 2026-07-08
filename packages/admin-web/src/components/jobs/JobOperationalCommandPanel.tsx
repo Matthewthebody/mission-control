@@ -161,7 +161,9 @@ function useJobWorkflowState(token: string, jobId: string) {
     setLoading(true);
     setError("");
 
-    void getProjectWorkflowCommandCenter(token, { view: "global", limit: 250 })
+    // The command-center query schema caps limit at 200 (routes/workflows.ts) — 250 was rejected
+    // with a zod 400, silently breaking this panel for every role.
+    void getProjectWorkflowCommandCenter(token, { view: "global", limit: 200 })
       .then(async (commandCenter) => {
         const row = commandCenter.job_rows.find((jobRow) => jobRow.job_id === jobId) ?? null;
         const workflow = row?.workflow_run_id ? await getProjectWorkflowInstance(token, row.workflow_run_id) : null;

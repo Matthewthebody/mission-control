@@ -2378,6 +2378,10 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "production-queue" || path === "production/workflow-queue" || path === "production/handoffs") {
     return pickVisibleRoute("production-workflow-queue", availableTabs, employeeOnlyMode);
   }
+  if (path === "production/operations") {
+    // The Home "Production Load" action target — had no resolver case, so it fell through to Home.
+    return pickVisibleRoute("production-operations", availableTabs, employeeOnlyMode);
+  }
   if (path === "production") {
     return pickVisibleRoute("production", availableTabs, employeeOnlyMode);
   }
@@ -2526,7 +2530,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
     return pickVisibleRoute(path === "sales" ? "growth-pipeline" : "growth", availableTabs, employeeOnlyMode);
   }
   if (path.startsWith("growth/")) {
-    return resolveSimpleChildPath(path, "directory", availableTabs, employeeOnlyMode);
+    // Growth routes live under the leadership section — matching on "directory" made every
+    // #growth/* deep-link (pipeline/renewals/proposals CTAs) silently fall through to Home.
+    return resolveSimpleChildPath(path, "leadership", availableTabs, employeeOnlyMode);
   }
   if (path === "business-health") {
     return pickVisibleRoute("business-health", availableTabs, employeeOnlyMode);
@@ -2622,6 +2628,11 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (/^admin\/trace\/[^/]+\/[^/]+$/i.test(path)) {
     return pickVisibleRoute("admin-system-trace", availableTabs, employeeOnlyMode);
+  }
+  if (path === "admin/review-tools") {
+    // Lives in the hr-admin section despite the #admin/ hash prefix, so the generic
+    // admin-section matcher below can never find it.
+    return pickVisibleRoute("admin-review-tools", availableTabs, employeeOnlyMode);
   }
   if (path.startsWith("admin/")) {
     return resolveSimpleChildPath(path, "admin", availableTabs, employeeOnlyMode);
