@@ -17,7 +17,15 @@ const createdLocationIds: string[] = [];
 const createdWorkDates = new Set<string>();
 
 let adminToken = "";
-let seniorToken = "";
+// Dedicated per-run employee that OWNS every shift in this file. The mileage service
+// derives day status from ALL of an employee's worked shifts, so sharing senior@example.com
+// let other suites' shifts (created on the same relative future dates) land on this
+// employee's "worked day" without a Post-Shoot Evaluation, flipping candidate ->
+// review_required. Isolating to a unique employee makes loadWorkedShootShifts see only
+// this file's shifts. (Root cause: cross-suite pollution on a shared user, not a product change.)
+let mileageEmployeeId = "";
+let mileageEmployeeEmail = "";
+let mileageToken = "";
 let leadershipToken = "";
 let tenantId = "";
 let studioId = "";
@@ -45,7 +53,6 @@ type ShootFixture = {
 
 beforeAll(async () => {
   adminToken = (await devLogin(app, "admin@example.com")).body.token;
-  seniorToken = (await devLogin(app, "senior@example.com")).body.token;
   leadershipToken = (await devLogin(app, "leadership@example.com")).body.token;
 
   const seedContext = await pool.query(
@@ -88,7 +95,71 @@ beforeAll(async () => {
   leadershipUserId = context.leadership_user_id;
   organizationId = context.organization_id;
   primaryContactId = context.primary_contact_id;
+
+  await cloneMileageEmployee();
+  mileageToken = (await devLogin(app, mileageEmployeeEmail)).body.token;
 });
+
+// Clone senior@example.com (supervisor / senior_photographer / schools, mileage-eligible)
+// into a unique per-run employee so this file's worked-day is not shared with any other suite.
+async function cloneMileageEmployee() {
+  mileageEmployeeEmail = `mileage-phase5-${crypto.randomUUID().slice(0, 8)}@example.com`;
+  const cloned = await pool.query<{ id: string }>(
+    `
+      INSERT INTO app_user (tenant_id, email, full_name, is_active, department, status, approved_at)
+      SELECT tenant_id, $2, 'Mileage Phase 5 Employee', true, department, 'active', now()
+      FROM app_user
+      WHERE id = $1
+      RETURNING id
+    `,
+    [seniorUserId, mileageEmployeeEmail]
+  );
+  mileageEmployeeId = cloned.rows[0].id;
+
+  await pool.query(
+    `
+      INSERT INTO user_authority_assignment (
+        tenant_id, user_id, authority_tier, primary_job_function_profile,
+        scope_department, scope_overrides, assigned_by_user_id
+      )
+      SELECT tenant_id, $2, authority_tier, primary_job_function_profile, scope_department, scope_overrides, assigned_by_user_id
+      FROM user_authority_assignment
+      WHERE tenant_id = $1 AND user_id = $3
+    `,
+    [tenantId, mileageEmployeeId, seniorUserId]
+  );
+
+  await pool.query(
+    `
+      INSERT INTO user_job_function_profile (tenant_id, user_id, job_function_profile)
+      SELECT tenant_id, $2, job_function_profile
+      FROM user_job_function_profile
+      WHERE tenant_id = $1 AND user_id = $3
+    `,
+    [tenantId, mileageEmployeeId, seniorUserId]
+  );
+
+  await pool.query(
+    `
+      INSERT INTO user_role (tenant_id, user_id, role_id)
+      SELECT tenant_id, $2, role_id
+      FROM user_role
+      WHERE tenant_id = $1 AND user_id = $3
+    `,
+    [tenantId, mileageEmployeeId, seniorUserId]
+  );
+
+  await pool.query(
+    `
+      INSERT INTO employee_pay_profile (
+        tenant_id, employee_id, office_rate, photography_rate,
+        overtime_eligible, mileage_eligible, active_status, effective_date
+      )
+      VALUES ($1,$2,26.00,34.00,true,true,true,'2026-01-01'::date)
+    `,
+    [tenantId, mileageEmployeeId]
+  );
+}
 
 afterAll(async () => {
   const workDates = [...createdWorkDates];
@@ -104,7 +175,7 @@ afterAll(async () => {
             AND work_date = ANY($3::date[])
         )
       `,
-      [tenantId, [seniorUserId, leadershipUserId], workDates]
+      [tenantId, [mileageEmployeeId, leadershipUserId], workDates]
     );
     await pool.query(
       `
@@ -113,7 +184,7 @@ afterAll(async () => {
           AND employee_id = ANY($2::uuid[])
           AND work_date = ANY($3::date[])
       `,
-      [tenantId, [seniorUserId, leadershipUserId], workDates]
+      [tenantId, [mileageEmployeeId, leadershipUserId], workDates]
     );
   }
 
@@ -143,6 +214,15 @@ afterAll(async () => {
   if (createdLocationIds.length) {
     await pool.query("DELETE FROM shoot_location WHERE id = ANY($1::uuid[])", [createdLocationIds]);
   }
+
+  if (mileageEmployeeId) {
+    await pool.query("DELETE FROM employee_pay_profile WHERE tenant_id = $1 AND employee_id = $2", [tenantId, mileageEmployeeId]);
+    await pool.query("DELETE FROM auth_session WHERE tenant_id = $1 AND user_id = $2", [tenantId, mileageEmployeeId]);
+    await pool.query("DELETE FROM user_role WHERE tenant_id = $1 AND user_id = $2", [tenantId, mileageEmployeeId]);
+    await pool.query("DELETE FROM user_job_function_profile WHERE tenant_id = $1 AND user_id = $2", [tenantId, mileageEmployeeId]);
+    await pool.query("DELETE FROM user_authority_assignment WHERE tenant_id = $1 AND user_id = $2", [tenantId, mileageEmployeeId]);
+    await pool.query("DELETE FROM app_user WHERE tenant_id = $1 AND id = $2", [tenantId, mileageEmployeeId]);
+  }
 });
 
 describe("time clock mileage reimbursement phase 5", () => {
@@ -156,7 +236,7 @@ describe("time clock mileage reimbursement phase 5", () => {
       await client.query("BEGIN");
       await syncMileageReviewForShiftCloseout(client, {
         tenantId,
-        employeeId: seniorUserId,
+        employeeId: mileageEmployeeId,
         workDate,
         actorUserId: adminUserId
       });
@@ -176,7 +256,7 @@ describe("time clock mileage reimbursement phase 5", () => {
           AND employee_id = $2
           AND work_date = $3::date
       `,
-      [tenantId, seniorUserId, workDate]
+      [tenantId, mileageEmployeeId, workDate]
     );
 
     expect(reimbursement.rows[0]?.status).toBe("review_required");
@@ -194,7 +274,7 @@ describe("time clock mileage reimbursement phase 5", () => {
 
     const submitResponse = await request(app)
       .post(`/api/employee/shifts/${fixture.shiftId}/post-shoot-evaluation`)
-      .set("Authorization", `Bearer ${seniorToken}`)
+      .set("Authorization", `Bearer ${mileageToken}`)
       .send({
         overall_shoot_status: "successful",
         went_well: "Setup went smoothly.",
@@ -224,10 +304,10 @@ describe("time clock mileage reimbursement phase 5", () => {
           AND employee_id = $2
           AND work_date = $3::date
       `,
-      [tenantId, seniorUserId, workDate]
+      [tenantId, mileageEmployeeId, workDate]
     );
 
-    expect(reimbursement.rows[0]?.employee_id).toBe(seniorUserId);
+    expect(reimbursement.rows[0]?.employee_id).toBe(mileageEmployeeId);
     expect(reimbursement.rows[0]?.linked_shoot_id).toBe(fixture.shootId);
     expect(reimbursement.rows[0]?.zone_name).toBe("Zone 1");
     expect(reimbursement.rows[0]?.reimbursement_amount).toBe("15.00");
@@ -235,7 +315,7 @@ describe("time clock mileage reimbursement phase 5", () => {
     expect(reimbursement.rows[0]?.vehicle_type).toBe("personal_vehicle");
 
     const reviewList = await request(app)
-      .get(`/api/attendance/mileage-reimbursements?date=${workDate}&user_id=${seniorUserId}`)
+      .get(`/api/attendance/mileage-reimbursements?date=${workDate}&user_id=${mileageEmployeeId}`)
       .set("Authorization", `Bearer ${leadershipToken}`);
 
     expect(reviewList.status).toBe(200);
@@ -260,7 +340,7 @@ describe("time clock mileage reimbursement phase 5", () => {
     for (const fixture of [nearFixture, farFixture]) {
       const response = await request(app)
         .post(`/api/employee/shifts/${fixture.shiftId}/post-shoot-evaluation`)
-        .set("Authorization", `Bearer ${seniorToken}`)
+        .set("Authorization", `Bearer ${mileageToken}`)
         .send({
           overall_shoot_status: "successful",
           went_well: "Stayed on schedule.",
@@ -288,7 +368,7 @@ describe("time clock mileage reimbursement phase 5", () => {
           AND employee_id = $2
           AND work_date = $3::date
       `,
-      [tenantId, seniorUserId, workDate]
+      [tenantId, mileageEmployeeId, workDate]
     );
 
     expect(reimbursement.rows[0]?.linked_shoot_id).toBe(farFixture.shootId);
@@ -312,7 +392,7 @@ describe("time clock mileage reimbursement phase 5", () => {
           )
         ORDER BY reimbursement_amount ASC
       `,
-      [tenantId, seniorUserId, workDate]
+      [tenantId, mileageEmployeeId, workDate]
     );
 
     expect(sources.rows).toEqual([
@@ -365,7 +445,7 @@ describe("time clock mileage reimbursement phase 5", () => {
       [tenantId, fixture.shiftId]
     );
 
-    expect(evaluation.rows[0]?.photographer_user_id).toBe(seniorUserId);
+    expect(evaluation.rows[0]?.photographer_user_id).toBe(mileageEmployeeId);
     expect(evaluation.rows[0]?.submitted_by_user_id).toBe(leadershipUserId);
 
     const photographerMileage = await pool.query(
@@ -376,7 +456,7 @@ describe("time clock mileage reimbursement phase 5", () => {
           AND employee_id = $2
           AND work_date = $3::date
       `,
-      [tenantId, seniorUserId, workDate]
+      [tenantId, mileageEmployeeId, workDate]
     );
     const leadershipMileage = await pool.query(
       `
@@ -389,7 +469,7 @@ describe("time clock mileage reimbursement phase 5", () => {
       [tenantId, leadershipUserId, workDate]
     );
 
-    expect(photographerMileage.rows[0]?.employee_id).toBe(seniorUserId);
+    expect(photographerMileage.rows[0]?.employee_id).toBe(mileageEmployeeId);
     expect(photographerMileage.rows[0]?.status).toBe("candidate");
     expect(leadershipMileage.rows).toHaveLength(0);
   });
@@ -520,7 +600,7 @@ async function createShootFixture(
       tenantId,
       shootId,
       studioId,
-      seniorUserId,
+      mileageEmployeeId,
       leadershipUserId,
       adminUserId,
       `${shootCode} Senior Coverage`,
