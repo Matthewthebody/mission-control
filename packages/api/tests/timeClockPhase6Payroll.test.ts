@@ -375,6 +375,12 @@ describe("time clock phase 6 payroll structures", () => {
       });
 
     expect(submitResponse.status).toBe(201);
+    // Approve THIS session's own challenge by its returned id. The leadership exceptions
+    // list is company-wide, so `.find(first NO_LUNCH_CHALLENGE)` would grab a different
+    // employee's challenge whenever a DB-sharing suite runs concurrently (the historical
+    // non-hermetic failure). Scope everything to this exception id instead.
+    const challengeExceptionId = submitResponse.body.attendance_exception_id as string;
+    expect(challengeExceptionId).toBeTruthy();
 
     const pendingSummary = await pool.query(
       `
@@ -394,11 +400,12 @@ describe("time clock phase 6 payroll structures", () => {
       .set("Authorization", `Bearer ${leadershipToken}`);
 
     expect(leadershipList.status).toBe(200);
-    const challenge = leadershipList.body.find((row: { exception_type: string }) => row.exception_type === "NO_LUNCH_CHALLENGE");
+    const challenge = leadershipList.body.find((row: { id: string }) => row.id === challengeExceptionId);
     expect(challenge).toBeTruthy();
+    expect(challenge.exception_type).toBe("NO_LUNCH_CHALLENGE");
 
     const approveResponse = await request(app)
-      .post(`/api/attendance/exceptions/${challenge.id}/review`)
+      .post(`/api/attendance/exceptions/${challengeExceptionId}/review`)
       .set("Authorization", `Bearer ${leadershipToken}`)
       .send({
         status: "approved",
