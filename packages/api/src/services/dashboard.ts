@@ -54,6 +54,8 @@ function sanitizeShiftRows(
     ...row,
     scheduled_hours: options.includeLabor ? row.scheduled_hours : 0,
     actual_hours: options.includeLabor ? row.actual_hours : 0,
+    actual_hours_canonical: options.includeLabor ? (row.actual_hours_canonical ?? null) : null,
+    hours_source_delta: options.includeLabor ? (row.hours_source_delta ?? null) : null,
     open_exception_count: options.includeAttendanceExceptions ? row.open_exception_count : 0,
     latest_approval_state: options.includeAttendanceExceptions ? row.latest_approval_state : null
   }));
@@ -172,6 +174,19 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
           ),
           0
         ) AS actual_hours,
+        -- G2 Slice D: canonical payroll-truth hours ALONGSIDE the legacy time_entry-derived
+        -- actual_hours above. Source = time_session_payroll_summary.payable_minutes (the
+        -- single-writer canonical rollup), linked strictly via time_session.source_shift_id.
+        -- NULL (not zero) when no linked session/summary exists — honest unavailable.
+        (
+          SELECT SUM(ps.payable_minutes) / 60.0
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        ) AS actual_hours_canonical,
         (
           SELECT COUNT(*)
           FROM shift_punch sp
@@ -517,7 +532,39 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
     ]
   );
 
-  const rows = shifts.rows;
+  // G2 Slice D: per-shift delta between legacy (time_entry-derived) and canonical
+  // (payroll-summary) hours, plus a payload-level reconciliation block. Additive only —
+  // legacy actual_hours is untouched; canonical NULL means honestly unavailable (no linked
+  // session/summary), never a fabricated zero.
+  const rows = shifts.rows.map((row) => {
+    const canonical = row.actual_hours_canonical == null ? null : Number(row.actual_hours_canonical);
+    return {
+      ...row,
+      actual_hours_canonical: canonical,
+      hours_source_delta:
+        canonical == null ? null : Number((Number(row.actual_hours ?? 0) - canonical).toFixed(2))
+    };
+  });
+  const comparableRows = rows.filter((row) => row.actual_hours_canonical != null);
+  const hoursReconciliation = {
+    legacy_hours_total: Number(rows.reduce((sum, row) => sum + Number(row.actual_hours ?? 0), 0).toFixed(2)),
+    canonical_hours_total: Number(
+      comparableRows.reduce((sum, row) => sum + Number(row.actual_hours_canonical ?? 0), 0).toFixed(2)
+    ),
+    comparable_shift_count: comparableRows.length,
+    mismatch_shift_count: comparableRows.filter((row) => Math.abs(Number(row.hours_source_delta ?? 0)) > 0.01).length,
+    canonical_unavailable_shift_count: rows.length - comparableRows.length,
+    status:
+      comparableRows.length === 0
+        ? ("canonical_unavailable" as const)
+        : comparableRows.some((row) => Math.abs(Number(row.hours_source_delta ?? 0)) > 0.01)
+          ? ("mismatch" as const)
+          : ("matched" as const),
+    source: {
+      legacy: "time_entry (shift_punch fallback)",
+      canonical: "time_session_payroll_summary.payable_minutes"
+    }
+  };
   const shootMetrics = byShoot.rows.map((row) => ({
     ...row,
     rigorous_shoot_score:
@@ -633,6 +680,8 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
 
   return {
     summary: sanitizeDashboardSummary(summary, { includeLabor, includeAttendanceExceptions }),
+    // Labor-gated like every other hours field: non-labor viewers get no reconciliation data.
+    hours_reconciliation: includeLabor ? hoursReconciliation : null,
     shoots: sanitizeShootMetrics(shootMetrics, includeLabor),
     shifts: sanitizeShiftRows(rows, { includeLabor, includeAttendanceExceptions }),
     reporting: {
