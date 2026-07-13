@@ -2359,7 +2359,9 @@ describe("organizations workflow surface", () => {
     expect(screen.queryByLabelText("Organization portal")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open full details" }));
 
-    const portal = await screen.findByLabelText("Organization portal");
+    // Under full-suite load the detail fetch + render can exceed the default 1s
+    // findBy timeout — this was the suite's only intermittent red.
+    const portal = await screen.findByLabelText("Organization portal", undefined, { timeout: 5000 });
 
     expect(within(portal).getByText("Organization Overview")).toBeInTheDocument();
     expect(within(portal).getByText("Contacts")).toBeInTheDocument();
@@ -2396,7 +2398,9 @@ describe("organizations workflow surface", () => {
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Open full details" }));
-    const portal = await screen.findByLabelText("Organization portal");
+    // Under full-suite load the detail fetch + render can exceed the default 1s
+    // findBy timeout — this was the suite's only intermittent red.
+    const portal = await screen.findByLabelText("Organization portal", undefined, { timeout: 5000 });
 
     expect(within(portal).getAllByText(status).length).toBeGreaterThan(0);
     expect(within(portal).getByText(expectedCopy)).toBeInTheDocument();
@@ -2408,7 +2412,9 @@ describe("organizations workflow surface", () => {
     render(<Organizations token="token" currentUser={leadershipUser} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Open full details" }));
-    const portal = await screen.findByLabelText("Organization portal");
+    // Under full-suite load the detail fetch + render can exceed the default 1s
+    // findBy timeout — this was the suite's only intermittent red.
+    const portal = await screen.findByLabelText("Organization portal", undefined, { timeout: 5000 });
 
     expect(within(portal).getByText("No contacts connected yet.")).toBeInTheDocument();
     expect(within(portal).getByText("No jobs linked to this organization yet.")).toBeInTheDocument();
