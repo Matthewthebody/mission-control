@@ -509,6 +509,16 @@ async function seedMembership(
   const role = (await client.query("SELECT id FROM role WHERE code = $1", [user.role])).rows[0];
   await client.query("DELETE FROM user_role WHERE tenant_id = $1 AND user_id = $2", [tenantId, membership.id]);
   await client.query("INSERT INTO user_role (tenant_id, user_id, role_id) VALUES ($1,$2,$3)", [tenantId, membership.id, role.id]);
+  // The policy engine reads user_role_assignment (NOT the legacy user_role
+  // table) when hydrating policyGrants — without this row, every
+  // canViewRecords/canSharedPolicy-gated surface (record resources,
+  // communications, approvals, record threads) 403s for seeded users. This was
+  // the root cause behind the audit's unexplained G5 403s.
+  await client.query("DELETE FROM user_role_assignment WHERE tenant_id = $1 AND user_id = $2", [tenantId, membership.id]);
+  await client.query(
+    "INSERT INTO user_role_assignment (tenant_id, user_id, role_id, scope_type) VALUES ($1,$2,$3,'global'::policy_scope_type)",
+    [tenantId, membership.id, role.id]
+  );
 
   const authorityAssignment = getDefaultAuthorityAssignmentForLegacyRole(user.role, user.department);
   await syncUserAuthorityAssignment(client, {
@@ -2030,6 +2040,11 @@ async function run() {
     const officeRole = (await client.query("SELECT id FROM role WHERE code = 'office_employee'")).rows[0];
     await client.query("DELETE FROM user_role WHERE tenant_id = $1 AND user_id = $2", [tenant.id, invited.id]);
     await client.query("INSERT INTO user_role (tenant_id, user_id, role_id) VALUES ($1,$2,$3)", [tenant.id, invited.id, officeRole.id]);
+    await client.query("DELETE FROM user_role_assignment WHERE tenant_id = $1 AND user_id = $2", [tenant.id, invited.id]);
+    await client.query(
+      "INSERT INTO user_role_assignment (tenant_id, user_id, role_id, scope_type) VALUES ($1,$2,$3,'global'::policy_scope_type)",
+      [tenant.id, invited.id, officeRole.id]
+    );
     await client.query("UPDATE user_invite SET revoked_at = now() WHERE app_user_id = $1 AND accepted_at IS NULL AND revoked_at IS NULL", [invited.id]);
     await client.query(
       `
