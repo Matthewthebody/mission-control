@@ -29,6 +29,7 @@ import { CommunicationHistoryPanel } from "../components/CommunicationHistoryPan
 import { PreCallContextPanel } from "../components/PreCallContextPanel";
 import { TeamsCommunicationPanel } from "../components/TeamsCommunicationPanel";
 import { TeamsMeetingPanel } from "../components/TeamsMeetingPanel";
+import { RecordThreadPanel } from "../components/RecordThreadPanel";
 import { LocationHistorySurface } from "../components/location/LocationHistorySurface";
 import {
   DayExecutionConsole,
@@ -885,6 +886,7 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
           objectId={detail.job.id}
           summary="Show the latest Teams messaging and meeting activity tied to this job without turning the record into a conversation transcript."
         />
+        <RecordThreadPanel token={token} objectType="job" objectId={detail.job.id} title="Job Thread" />
         <OperationalApprovalRequestPanel
           token={token}
           sourceModule="jobs"

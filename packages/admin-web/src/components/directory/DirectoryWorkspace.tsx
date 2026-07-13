@@ -51,6 +51,7 @@ import { LogoHistoryPanel } from "./LogoHistoryPanel";
 import { CommunicationHistoryPanel } from "../CommunicationHistoryPanel";
 import { PreCallContextPanel } from "../PreCallContextPanel";
 import { RecordResourcesPanel } from "../RecordResourcesPanel";
+import { RecordThreadPanel } from "../RecordThreadPanel";
 import { buildLocationPreCallContext, buildOrganizationPreCallContext } from "../../services/preCallContextBuilders";
 import { TeamsCommunicationPanel } from "../TeamsCommunicationPanel";
 import { TeamsMeetingPanel } from "../TeamsMeetingPanel";
@@ -426,6 +427,10 @@ export function DirectoryWorkspace({
               title="Organization Communication History"
               summary="Show the latest Teams messaging and meeting metadata tied to this organization without mixing it into client-facing touchpoint history."
             />
+          ) : null}
+
+          {view === "organizations" ? (
+            <RecordThreadPanel token={token} objectType="organization" objectId={detail.organization.id} title="Organization Thread" />
           ) : null}
 
           {view === "locations" && selectedLocation ? (

@@ -45,6 +45,7 @@ import adminSettingsRoutes from "./routes/adminSettings.js";
 import adminSystemRoutes from "./routes/adminSystem.js";
 import resourceLibraryRoutes from "./routes/resourceLibrary.js";
 import recordResourcesRoutes from "./routes/recordResources.js";
+import recordThreadsRoutes from "./routes/recordThreads.js";
 import profitabilityRoutes from "./routes/profitability.js";
 import productionProjectRoutes from "./routes/productionProjects.js";
 import productionAssetRoutes from "./routes/productionAssets.js";
@@ -229,6 +230,7 @@ export function createApp() {
   app.use("/api/communications", communicationRoutes);
   app.use("/api/resource-library", resourceLibraryRoutes);
   app.use("/api/record-resources", recordResourcesRoutes);
+  app.use("/api/record-threads", recordThreadsRoutes);
   app.use("/api/projects", productionProjectRoutes);
   app.use("/api/production-assets", productionAssetRoutes);
   app.use("/api/client-command-center", clientCommandCenterRoutes);
