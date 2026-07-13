@@ -7,7 +7,9 @@ import {
 } from "./urgentWindow";
 import { HomePill, HomeSectionHeader, navigateToHash } from "./homeShared";
 
-// Live Needs Attention. Fed by the SAME canonical exception read model
+// Live Urgent Watch panel (renamed from "Needs Attention" — that name belongs
+// to the Compliance Workspace, where #needs-attention routes; two features must
+// not share it). Fed by the SAME canonical exception read model
 // (GET /api/exceptions → urgent_watch_item) that powers the "On Fire" card and
 // the Urgent Window page, so the header count, the card count, and the
 // destination page can never disagree. No demo rows, ever: loading, error, and
@@ -71,9 +73,9 @@ export function CompanyNeedsAttention({ token }: { token?: string }) {
 
   const openRows = panel.state === "ready" ? panel.rows : [];
   return (
-    <section className="panel home-needs-attention" aria-label="Company needs attention">
+    <section className="panel home-needs-attention" aria-label="Company urgent watch">
       <HomeSectionHeader
-        title="Needs Attention"
+        title="Urgent Watch"
         count={panel.state === "ready" ? openRows.length : undefined}
         help="Live, tracked operational issues from the canonical exception feed — the same records the Urgent Window works. Resolving the source record clears it here."
       />

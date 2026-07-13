@@ -145,7 +145,7 @@ describe("role-aware Home", () => {
     for (const label of LOCKED_CARDS) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(screen.getByRole("heading", { name: /Needs Attention/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Urgent Watch/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Operating Areas/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /People \/ Attendance Risk/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Weather Impact/i })).toBeInTheDocument();
@@ -161,14 +161,14 @@ describe("role-aware Home", () => {
     expect(calledUrls.every((url) => /exceptions|status-counts|production\/operations/.test(url))).toBe(true);
   });
 
-  it("renders the LIVE exception feed in Needs Attention — no fabricated incidents", async () => {
+  it("renders the LIVE exception feed in Urgent Watch — no fabricated incidents", async () => {
     renderHome(leadershipUser);
     expect(
       await screen.findByText("Central High picture day is short one photographer")
     ).toBeInTheDocument();
     // The Needs Attention panel itself carries only live rows — the fabricated
     // incident set (e.g. the infamous fake Edina Soccer clock-in) is gone from it.
-    const panel = screen.getByLabelText("Company needs attention");
+    const panel = screen.getByLabelText("Company urgent watch");
     expect(panel.textContent).not.toMatch(/Edina Soccer/i);
     expect(panel.textContent).toContain("Central High picture day is short one photographer");
   });

@@ -5085,7 +5085,7 @@ describe("admin operations regressions", () => {
     expect(screen.getByText("On Fire")).toBeInTheDocument();
     expect(screen.getByText("Shoots Today")).toBeInTheDocument();
     expect(screen.getByText("Client Issues")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Needs Attention/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Urgent Watch/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Preview seat")).toBeInTheDocument();
     expect(screen.queryByText("This Week's Operational Priorities")).not.toBeInTheDocument();
     expect(screen.queryByText("Today at a glance")).not.toBeInTheDocument();
