@@ -11,17 +11,28 @@ import { getRequestMeta } from "../utils/requestMeta.js";
 
 const router = Router();
 
-router.get("/", requireAuth, requirePermission("alerts.read"), validateQuery(z.object({ status: z.enum(["open", "all"]).optional() })), async (req, res, next) => {
-  try {
-    const auth = (req as AuthenticatedRequest).auth;
-    const alerts = await withClientTransaction(auth.tenantId, auth.id, (client) =>
-      listAlerts(client, auth.tenantId, (req.query.status as "open" | "all" | undefined) ?? "open")
-    );
-    return res.json(alerts);
-  } catch (error) {
-    return next(error);
+router.get(
+  "/",
+  requireAuth,
+  requirePermission("alerts.read"),
+  validateQuery(z.object({ status: z.enum(["open", "all"]).optional(), limit: z.coerce.number().int().min(1).max(500).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const alerts = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        listAlerts(
+          client,
+          auth.tenantId,
+          (req.query.status as "open" | "all" | undefined) ?? "open",
+          req.query.limit ? Number(req.query.limit) : undefined
+        )
+      );
+      return res.json(alerts);
+    } catch (error) {
+      return next(error);
+    }
   }
-});
+);
 
 router.post("/:id/resolve", requireAuth, requirePermission("alerts.resolve"), async (req, res, next) => {
   try {

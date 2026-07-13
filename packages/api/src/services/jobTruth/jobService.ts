@@ -3471,7 +3471,10 @@ export async function listProductionQueue(
     run_automation?: boolean;
   } = {}
 ) {
-  if (filters.run_automation !== false) {
+  // Automation is OPT-IN (audit F5): a list read must never silently become a
+  // read-modify-write sweep. Every current caller passes false explicitly; a
+  // future caller that wants the sweep must say run_automation: true.
+  if (filters.run_automation === true) {
     await sweepProductionBoardAutomation(client, auth.tenantId, auth.id, {
       departmentType: filters.department_type ?? null
     });

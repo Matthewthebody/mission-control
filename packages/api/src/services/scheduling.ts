@@ -677,6 +677,11 @@ async function getCoworkersForShift(client: PoolClient, shift: ShiftCoworkerCont
   return rows as ShiftCoworker[];
 }
 
+// Default lookback when a caller gives no dateFrom: shifts append across
+// seasons and an unwindowed list grows forever (audit §11 F10). Future shifts
+// stay fully visible; only the unbounded past is windowed by default.
+const SHIFT_LIST_DEFAULT_LOOKBACK_DAYS = 90;
+
 export async function listShifts(client: PoolClient, auth: AuthUser, filters: ShiftListFilters = {}) {
   const values: unknown[] = [];
   const where: string[] = ["ws.cancelled_at IS NULL"];
@@ -684,6 +689,8 @@ export async function listShifts(client: PoolClient, auth: AuthUser, filters: Sh
   if (filters.dateFrom) {
     values.push(filters.dateFrom);
     where.push(`ws.ends_at::date >= $${values.length}::date`);
+  } else {
+    where.push(`ws.ends_at::date >= CURRENT_DATE - ${SHIFT_LIST_DEFAULT_LOOKBACK_DAYS}`);
   }
   if (filters.dateTo) {
     values.push(filters.dateTo);
@@ -2359,6 +2366,7 @@ export async function listTradeRequests(client: PoolClient, auth: AuthUser, stat
       LEFT JOIN app_user approver ON approver.id = str.approver_user_id
       WHERE ${where.join(" AND ")}
       ORDER BY str.created_at DESC
+      LIMIT 500
     `,
     values
   );
@@ -2389,6 +2397,7 @@ export async function listPTORequests(client: PoolClient, auth: AuthUser, status
       LEFT JOIN app_user approver ON approver.id = pto.approver_user_id
       WHERE ${where.join(" AND ")}
       ORDER BY pto.created_at DESC
+      LIMIT 500
     `,
     values
   );

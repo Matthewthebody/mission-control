@@ -72,6 +72,19 @@ describe("alerts API", () => {
     expect(response.body.some((alert: { alert_type: string }) => alert.alert_type === "TEST_ALERT_RESOLVED")).toBe(true);
   });
 
+  it("is bounded: default page cap, explicit limit honored, over-cap rejected (audit §11)", async () => {
+    const defaulted = await request(app).get("/api/alerts").set("Authorization", `Bearer ${token}`);
+    expect(defaulted.status).toBe(200);
+    expect(defaulted.body.length).toBeLessThanOrEqual(200);
+
+    const single = await request(app).get("/api/alerts?limit=1").set("Authorization", `Bearer ${token}`);
+    expect(single.status).toBe(200);
+    expect(single.body).toHaveLength(1);
+
+    const overCap = await request(app).get("/api/alerts?limit=1000").set("Authorization", `Bearer ${token}`);
+    expect(overCap.status).toBe(400);
+  });
+
   it("resolves an alert and removes it from the default open list", async () => {
     const resolveResponse = await request(app)
       .post(`/api/alerts/${resolveAlertId}/resolve`)

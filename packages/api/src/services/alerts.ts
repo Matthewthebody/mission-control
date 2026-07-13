@@ -2,13 +2,26 @@ import type { PoolClient } from "pg";
 import type { AuthUser } from "../types/auth.js";
 import { beginDangerousAction, completeDangerousAction, failDangerousAction } from "./dangerousActions.js";
 
-export async function listAlerts(client: PoolClient, tenantId: string, status: "open" | "all" = "open") {
-  const values: string[] = [tenantId];
+// Bounded by contract (audit §11): the alert table grows append-only (5,500+
+// open rows in the dev DB) and this endpoint shipped every row (~1MB+) per
+// poll. Callers now get the newest page.
+export const ALERTS_DEFAULT_LIMIT = 200;
+export const ALERTS_MAX_LIMIT = 500;
+
+export async function listAlerts(
+  client: PoolClient,
+  tenantId: string,
+  status: "open" | "all" = "open",
+  limit: number = ALERTS_DEFAULT_LIMIT
+) {
+  const boundedLimit = Math.min(Math.max(1, Math.trunc(limit) || ALERTS_DEFAULT_LIMIT), ALERTS_MAX_LIMIT);
+  const values: (string | number)[] = [tenantId];
   let filter = "WHERE a.tenant_id = $1";
   if (status === "open") {
     values.push("open");
     filter += " AND a.status = $2";
   }
+  values.push(boundedLimit);
   const { rows } = await client.query(
     `
       SELECT a.*, s.shoot_code, s.title
@@ -16,6 +29,7 @@ export async function listAlerts(client: PoolClient, tenantId: string, status: "
       LEFT JOIN shoot s ON s.id = a.shoot_id AND s.tenant_id = a.tenant_id
       ${filter}
       ORDER BY a.created_at DESC
+      LIMIT $${values.length}
     `,
     values
   );
