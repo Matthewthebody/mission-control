@@ -672,9 +672,16 @@ export function QuickCreateJobDrawer({
                   unresolvedLabel="Room / area or placeholder venue"
                   unresolvedPlaceholder="e.g. East gym, auditorium, loading dock (does not create a Location)"
                   emptyOptionsText={
-                    selectedOrganization
-                      ? "This organization has no approved Locations yet. Open it in Directory to add or link a canonical Location — your intake entries here are preserved. You can keep a room/area placeholder for now."
-                      : undefined
+                    selectedOrganization ? (
+                      <>
+                        This organization has no approved Locations yet — your intake entries here are
+                        preserved, and a room/area placeholder is fine for now.{" "}
+                        <a href={`#directory/organizations/${selectedOrganization.id}`}>
+                          Open {selectedOrganization.display_name} in Directory
+                        </a>{" "}
+                        to add or link a canonical Location.
+                      </>
+                    ) : undefined
                   }
                   errors={[...(fieldErrors.location_id ?? []), ...(fieldErrors.unresolved_location_name ?? [])]}
                 />
@@ -692,9 +699,15 @@ export function QuickCreateJobDrawer({
                     handleFormChange((current) => ({ ...current, primary_contact_id: value }))
                   }
                   emptyOptionsText={
-                    selectedOrganization
-                      ? "This organization has no contacts yet. Open it in Directory to add a contact or link an existing canonical identity — your intake entries here are preserved."
-                      : undefined
+                    selectedOrganization ? (
+                      <>
+                        This organization has no contacts yet — your intake entries here are preserved.{" "}
+                        <a href={`#directory/organizations/${selectedOrganization.id}`}>
+                          Open {selectedOrganization.display_name} in Directory
+                        </a>{" "}
+                        to add a contact or link an existing canonical identity.
+                      </>
+                    ) : undefined
                   }
                   errors={[
                     ...(fieldErrors.primary_contact_id ?? []),

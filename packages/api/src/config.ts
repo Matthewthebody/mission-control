@@ -334,10 +334,12 @@ const configSchema = z.object({
     .optional()
     .transform((value) => value === undefined ? false : value === "true"),
   COMMUNICATION_DIAGNOSTICS_LOOKBACK_DAYS: z.coerce.number().int().min(1).default(14),
+  // ON by default since 2026-07-13 (owner-ratified E21): the intake cascade is
+  // the ONE front door. Opt out with CENTRAL_JOB_INTAKE_V1_ENABLED=false.
   CENTRAL_JOB_INTAKE_V1_ENABLED: z
     .string()
     .optional()
-    .transform((value) => value === "true"),
+    .transform((value) => value === undefined ? true : value === "true"),
   JOB_CLOSEOUT_V1_ENABLED: z
     .string()
     .optional()

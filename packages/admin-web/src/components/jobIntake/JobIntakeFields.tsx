@@ -80,7 +80,7 @@ type LocationLookupFieldProps = SharedLookupProps & {
   showUnresolvedField?: boolean;
   noSingleLocationLabel?: string;
   onNoSingleLocation?: () => void;
-  emptyOptionsText?: string;
+  emptyOptionsText?: ReactNode;
   idleHelperText?: string;
   requireSavedOption?: boolean;
   options: OrganizationLocation[];
@@ -92,7 +92,7 @@ type ContactLookupFieldProps = SharedLookupProps & {
   options: OrganizationContact[];
   selectedContactId: string;
   onSelectContact: (value: string) => void;
-  emptyOptionsText?: string;
+  emptyOptionsText?: ReactNode;
 };
 
 type ScheduleSectionProps = {
