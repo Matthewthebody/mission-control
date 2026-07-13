@@ -111,7 +111,9 @@ function messageFor(error: unknown, fallback: string) {
 function toJobHash(item: { department_type: string | null; job_id?: string | null; id?: string | null }) {
   const jobId = item.job_id ?? item.id ?? null;
   if (!jobId) {
-    return "#dashboard";
+    // MC-AUDIT-018: a job affordance without a job id goes to the Jobs list —
+    // never to the dashboard as if the click had worked.
+    return "#jobs";
   }
   if (item.department_type === "schools") {
     return `#schools/jobs/${jobId}`;
@@ -1374,7 +1376,18 @@ export function SharedExceptionsPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [filters, setFilters] = useState<SharedWatchlistQuery>({ department_type: departmentType ?? "all" });
+  // MC-AUDIT-018: honor the filters a deep link carries — the "Open Watchlist"
+  // affordances emit #exceptions?critical_high_only=yes, which used to be
+  // silently dropped here.
+  const [filters, setFilters] = useState<SharedWatchlistQuery>(() => {
+    const hash = typeof window === "undefined" ? "" : window.location.hash;
+    const queryIndex = hash.indexOf("?");
+    const params = new URLSearchParams(queryIndex === -1 ? "" : hash.slice(queryIndex + 1));
+    return {
+      department_type: departmentType ?? "all",
+      ...(params.get("critical_high_only") === "yes" ? { critical_high_only: true } : {})
+    };
+  });
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [resolveMode, setResolveMode] = useState<"resolve" | "dismiss" | null>(null);
   const [escalateOpen, setEscalateOpen] = useState(false);

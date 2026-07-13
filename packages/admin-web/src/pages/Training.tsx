@@ -891,8 +891,12 @@ function pickRecommendedModule(profile: EmployeeTrainingProfile | null) {
 }
 
 function getTrainingHashParams() {
-  const raw = window.location.hash.replace(/^#(?:people-ops\/training|training)\??/, "");
-  const params = new URLSearchParams(raw);
+  // MC-AUDIT-018: parse the query generically. The old prefix-stripping regex
+  // didn't accept #employees/training — the exact hash syncHash() writes — so
+  // Training broke its own deep links on refresh/share.
+  const hash = window.location.hash;
+  const queryIndex = hash.indexOf("?");
+  const params = new URLSearchParams(queryIndex === -1 ? "" : hash.slice(queryIndex + 1));
   return {
     employee: params.get("employee"),
     module: params.get("module")

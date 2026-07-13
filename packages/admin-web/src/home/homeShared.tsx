@@ -41,17 +41,6 @@ export function HomePill({ tone, children }: { tone: string; children: ReactNode
   return <span className={`home-pill home-pill--${tone}`}>{children}</span>;
 }
 
-// Demo jobs are not real records, so a related-job affordance links to the real
-// Jobs database rather than a dead per-job hash. Keeps the no-fake-UI discipline.
-export function RelatedJobLink({ jobName }: { jobName: string }) {
-  return (
-    <a className="home-related-job" href="#jobs">
-      {jobName}
-      <span aria-hidden="true"> →</span>
-    </a>
-  );
-}
-
 const RELATED_AREAS: Partial<Record<OperatingArea, OperatingArea[]>> = {
   schools: ["production"],
   sports: ["weather", "staffing"],

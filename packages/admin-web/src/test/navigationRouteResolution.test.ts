@@ -35,4 +35,15 @@ describe("resolveRouteId regression guards", () => {
     expect(resolve("#schools/leadership")).toBe("schools-leadership");
     expect(resolve("#employees/compliance")).toBe("people-ops-compliance");
   });
+
+  it("sends an unknown non-empty hash to the explicit not-found route, never silently to the dashboard (MC-AUDIT-018)", () => {
+    expect(resolve("#does/not/exist")).toBe("route-not-found");
+    expect(resolve("#zzz-unknown?with=params")).toBe("route-not-found");
+    expect(resolve("#not-found")).toBe("route-not-found");
+  });
+
+  it("still opens the default route for an empty hash", () => {
+    expect(resolveRouteId("", ["dashboard"], false)).toBe("dashboard");
+    expect(resolveRouteId("#", ["dashboard"], false)).toBe("dashboard");
+  });
 });

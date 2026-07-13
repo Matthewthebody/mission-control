@@ -128,7 +128,8 @@ type RouteRender =
       view: "overview" | "foundation" | "communications" | "diagnostics" | "audit" | "sync" | "repairs" | "access-debug" | "imports" | "exports" | "trace";
     }
   | { kind: "hidden-redirect"; targetHash: string; summary: string }
-  | { kind: "urgent-window" };
+  | { kind: "urgent-window" }
+  | { kind: "not-found" };
 
 type RouteDefinition = {
   id: ShellRouteId;
@@ -348,6 +349,20 @@ const ROUTES: RouteDefinition[] = [
     showInSectionNav: false,
     utility: true,
     render: { kind: "global-search" }
+  },
+  {
+    // MC-AUDIT-018: an unknown deep link must say so, never silently land on
+    // the dashboard as if the link had worked.
+    id: "route-not-found",
+    label: "Page Not Found",
+    sectionKey: null,
+    description: "The link you followed does not match any page in Mission Control.",
+    canonicalHash: "#not-found",
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    utility: true,
+    render: { kind: "not-found" }
   },
   {
     id: "exceptions",
@@ -1047,7 +1062,7 @@ const ROUTES: RouteDefinition[] = [
     label: "Queue",
     sectionKey: "production",
     description: "Newly funneled or unowned graphics work that still needs kickoff and ownership.",
-    canonicalHash: "#graphics/queue?queue=team_queue&stage=ready_for_production",
+    canonicalHash: "#graphics/queue?saved_view=all_open",
     visibleTabs: ["projects"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -1071,7 +1086,7 @@ const ROUTES: RouteDefinition[] = [
     label: "QA",
     sectionKey: "production",
     description: "Peer review, correction, and final QC pressure inside the canonical production workflow.",
-    canonicalHash: "#graphics/qa?queue=qa_queue&stage=ready_for_qa",
+    canonicalHash: "#graphics/qa?saved_view=ready_for_qa",
     visibleTabs: ["projects"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -1083,7 +1098,7 @@ const ROUTES: RouteDefinition[] = [
     label: "Release",
     sectionKey: "production",
     description: "Final QC, ready-to-send, and controlled release work that is close to delivery.",
-    canonicalHash: "#graphics/release?queue=ready_to_release_queue&stage=ready_to_release",
+    canonicalHash: "#graphics/release?saved_view=ready_for_release",
     visibleTabs: ["projects"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -1095,7 +1110,7 @@ const ROUTES: RouteDefinition[] = [
     label: "Workload View",
     sectionKey: "production",
     description: "Ownership and workload pressure across active production work.",
-    canonicalHash: "#graphics/workload?queue=active",
+    canonicalHash: "#graphics/workload",
     visibleTabs: ["projects"],
     visibleForEmployeeOnly: false,
     visibleForFullShell: true,
@@ -2658,8 +2673,15 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
     // to the dashboard shell.
     return pickVisibleRoute("dashboard-my-day", availableTabs, employeeOnlyMode);
   }
+  if (path === "not-found") {
+    return "route-not-found";
+  }
 
-  return getDefaultRouteId(availableTabs, employeeOnlyMode);
+  // MC-AUDIT-018: every known hash and alias is handled above, so anything left
+  // is an unknown deep link. Say so explicitly — landing on the dashboard as if
+  // the link had worked is how broken links go unreported. (The empty hash is
+  // handled at the top and still opens the default route.)
+  return "route-not-found";
 }
 
 export function collectRouteTabs(route: RouteDefinition): TabKey[] {

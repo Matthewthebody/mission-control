@@ -1321,6 +1321,39 @@ function renderRouteContent({
     );
   }
 
+  if (route.render.kind === "not-found") {
+    // MC-AUDIT-018: an unknown deep link says so instead of silently opening
+    // the dashboard as if it had worked.
+    return (
+      <section className="panel" aria-label="Page not found">
+        <div className="page-intro page-intro--compact">
+          <div>
+            <div className="eyebrow">Not Found</div>
+            <h2>This link doesn't match any page</h2>
+            <p>
+              {window.location.hash && window.location.hash !== "#not-found" ? (
+                <>
+                  <code>{window.location.hash}</code> isn't a Mission Control destination. The link may be
+                  outdated, or the record it pointed to may have moved.
+                </>
+              ) : (
+                <>The link you followed isn't a Mission Control destination.</>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="page-intro-actions">
+          <a className="secondary-button" href="#home">
+            Go to Home
+          </a>
+          <a className="secondary-button" href="#search">
+            Search instead
+          </a>
+        </div>
+      </section>
+    );
+  }
+
   if (route.render.kind === "directory") {
     return withRouteSuspense(
       <LazyOrganizations

@@ -75,12 +75,12 @@ export function ProductionHub({ token, currentUser }: Props) {
   const openFirstCards: DepartmentHubCard[] = [
     { label: "Ready", value: waitingCount, detail: "Needs ingest or owner.", href: "#production-queue", tone: waitingCount ? "warning" : "success" },
     { label: "QA", value: readyForQaCount, detail: "Review color, crop, roster, upload, or release readiness.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" },
-    { label: "At Risk", value: blockedCount, detail: "Blocked, ownerless, overdue, or missing production inputs.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
+    { label: "At Risk", value: blockedCount, detail: "Blocked, ownerless, overdue, or missing production inputs.", href: "#production/qa?saved_view=blocked", tone: blockedCount ? "danger" : "success" },
     { label: "Release", value: summary?.awaiting_approval_count ?? 0, detail: "Uploads, approvals, and final delivery checks.", href: "#production/release", tone: (summary?.awaiting_approval_count ?? 0) ? "warning" : "success" }
   ];
   const attentionCards: DepartmentHubCard[] = [
-    { label: "Blocked", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker." : "No blocked production work is visible.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: blockedCount ? "danger" : "success" },
-    { label: "Overdue", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
+    { label: "Blocked", value: blockedCount, detail: blockedCount ? "Clear missing files, roster data, owner, or blocker." : "No blocked production work is visible.", href: "#production/qa?saved_view=blocked", tone: blockedCount ? "danger" : "success" },
+    { label: "Overdue", value: summary?.overdue_count ?? 0, detail: (summary?.overdue_count ?? 0) ? "Past due work needs a release or escalation decision." : "No overdue production work in this queue.", href: "#production/qa?saved_view=blocked", tone: (summary?.overdue_count ?? 0) ? "danger" : "success" },
     { label: "QA Hold", value: readyForQaCount, detail: readyForQaCount ? "QA is the next action before release can move." : "QA queue is clear right now.", href: "#production/qa", tone: readyForQaCount ? "warning" : "success" }
   ];
   const weeklyCards: DepartmentHubCard[] = [
@@ -92,7 +92,7 @@ export function ProductionHub({ token, currentUser }: Props) {
     { label: "Queue", detail: "Open production jobs that need processing.", href: "#production-queue", tone: "info" },
     { label: "QA", detail: "Review color, crop, roster, upload, and release readiness.", href: "#production/qa", tone: "warning" },
     { label: "Release", detail: "Final uploads, release, and delivery confirmation.", href: "#production/release", tone: "info" },
-    { label: "At Risk", detail: "Blocked work that needs escalation.", href: "#production/qa?queue=blocked_queue&stage=blocked", tone: urgentCount ? "danger" : "success" }
+    { label: "At Risk", detail: "Blocked work that needs escalation.", href: "#production/qa?saved_view=blocked", tone: urgentCount ? "danger" : "success" }
   ];
 
   return (
@@ -297,7 +297,7 @@ function buildAtRisk(items: SharedProductionQueueItem[]): HubSectionItem[] {
       return item.blocker_count > 0 || item.blocking_issue_count > 0 || item.risk_flag || healthState === "BLOCKED" || healthState === "AT_RISK" || (item.days_past_due ?? 0) > 0 || item.file_receipt_state === "missing_receipt" || item.file_receipt_state === "partial_receipt" || !item.roster_received || !item.assigned_to_user_id;
     })
     .sort((left, right) => riskRank(right) - riskRank(left))
-    .map((item) => toHubItem(item, "Blocked or at risk", buildRiskDetail(item), "#production/qa?queue=blocked_queue&stage=blocked", item.blocker_count || item.blocking_issue_count ? "danger" : "watch"));
+    .map((item) => toHubItem(item, "Blocked or at risk", buildRiskDetail(item), "#production/qa?saved_view=blocked", item.blocker_count || item.blocking_issue_count ? "danger" : "watch"));
 }
 
 function buildRecentlyCompleted(items: SharedProductionQueueItem[]): HubSectionItem[] {
