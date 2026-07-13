@@ -7,6 +7,13 @@ import type {
   SharedJobDraftInput,
   SharedJobListItem
 } from "../../jobTruthTypes";
+import {
+  JOB_PRODUCTION_STATUSES,
+  JOB_READINESS_STATUSES,
+  JOB_RISK_STATUSES,
+  JOB_STAFFING_STATUSES,
+  JOB_STATUSES
+} from "../../jobTruthTypes";
 import { RiskBadge, StatusPill, formatDate, formatDateTime, formatTimeRange, humanizeToken, statusTone } from "../sports/SportsPrimitives";
 import type { SessionUser } from "../../types";
 
@@ -288,42 +295,15 @@ export const BASELINE_FILTER_STATE: SharedJobListFilterState = {
   revenueShareEnabled: ""
 };
 
-const JOB_STATUS_OPTIONS = [
-  "",
-  "draft",
-  "pending_confirmation",
-  "confirmed",
-  "ready_to_staff",
-  "staffed",
-  "ready_to_execute",
-  "in_progress",
-  "execution_complete",
-  "postponed",
-  "weather_hold",
-  "cancelled",
-  "archived"
-];
-
-const PRODUCTION_STATUS_OPTIONS = [
-  "",
-  "queued",
-  "awaiting_ingest",
-  "editing",
-  "proof_build",
-  "proof_sent",
-  "awaiting_approval",
-  "revisions_requested",
-  "approved_for_production",
-  "ordered_or_printed",
-  "packaged",
-  "delivered",
-  "complete",
-  "blocked"
-];
-
-const STAFFING_STATUS_OPTIONS = ["", "unassigned", "partially_staffed", "staffed", "checked_in", "ready_confirmed", "gap_flagged"];
-const READINESS_STATUS_OPTIONS = ["", "off_track", "at_risk", "on_track", "ready"];
-const RISK_STATUS_OPTIONS = ["", "none", "low", "medium", "high", "critical"];
+// One vocabulary (audit prompt 7): the filter options come from the canonical
+// arrays in jobTruthTypes — the old local copies had drifted (missing
+// intake_blocked and 7 of 20 production statuses, so users could not filter by
+// statuses the system actually emits). "" = the no-filter option.
+const JOB_STATUS_OPTIONS = ["", ...JOB_STATUSES];
+const PRODUCTION_STATUS_OPTIONS = ["", ...JOB_PRODUCTION_STATUSES];
+const STAFFING_STATUS_OPTIONS = ["", ...JOB_STAFFING_STATUSES];
+const READINESS_STATUS_OPTIONS = ["", ...JOB_READINESS_STATUSES];
+const RISK_STATUS_OPTIONS = ["", ...JOB_RISK_STATUSES];
 
 const DATE_RANGE_OPTIONS = [
   { value: "all", label: "All dates" },

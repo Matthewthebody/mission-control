@@ -1,43 +1,58 @@
-export type JobDepartmentType = "schools" | "sports" | "corporate" | "headshots" | "other";
+// ─── The ONE frontend job-status vocabulary (audit prompt 7 / MC-AUDIT-007) ───
+// These runtime arrays mirror the server's canonical source
+// (packages/api/src/domain/jobTruth/index.ts) value-for-value; the union types
+// below are DERIVED from them. Every filter dropdown, badge map, and stage
+// cascade must import from here — never re-declare a status list locally.
+// (Five drifted local copies were deleted in favor of these on 2026-07-13; the
+// worst was missing intake_blocked and 7 of 20 production statuses.)
+export const JOB_DEPARTMENT_TYPES = ["schools", "sports", "corporate", "headshots", "other"] as const;
+export type JobDepartmentType = (typeof JOB_DEPARTMENT_TYPES)[number];
 export type JobCategory = "photo_day" | "makeup_day" | "reshoot" | "media_day" | "event" | "banner_day" | "specialty" | "delivery_only" | "other";
-export type JobStatus =
-  | "draft"
-  | "intake_blocked"
-  | "pending_confirmation"
-  | "confirmed"
-  | "ready_to_staff"
-  | "staffed"
-  | "ready_to_execute"
-  | "in_progress"
-  | "execution_complete"
-  | "postponed"
-  | "weather_hold"
-  | "cancelled"
-  | "archived";
-export type JobReadinessStatus = "off_track" | "at_risk" | "on_track" | "ready";
-export type JobProductionStatus =
-  | "not_created"
-  | "queued"
-  | "awaiting_ingest"
-  | "ingest_complete"
-  | "editing"
-  | "awaiting_internal_review"
-  | "proof_build"
-  | "proof_sent"
-  | "awaiting_approval"
-  | "revisions_requested"
-  | "approved_for_production"
-  | "approved_for_final"
-  | "in_final_production"
-  | "ordered_or_printed"
-  | "ordered_or_sent"
-  | "packaged"
-  | "delivered"
-  | "complete"
-  | "blocked"
-  | "cancelled";
-export type JobStaffingStatus = "unassigned" | "partially_staffed" | "staffed" | "checked_in" | "ready_confirmed" | "gap_flagged";
-export type JobRiskStatus = "none" | "low" | "medium" | "high" | "critical";
+export const JOB_STATUSES = [
+  "draft",
+  "intake_blocked",
+  "pending_confirmation",
+  "confirmed",
+  "ready_to_staff",
+  "staffed",
+  "ready_to_execute",
+  "in_progress",
+  "execution_complete",
+  "postponed",
+  "weather_hold",
+  "cancelled",
+  "archived"
+] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+export const JOB_READINESS_STATUSES = ["off_track", "at_risk", "on_track", "ready"] as const;
+export type JobReadinessStatus = (typeof JOB_READINESS_STATUSES)[number];
+export const JOB_PRODUCTION_STATUSES = [
+  "not_created",
+  "queued",
+  "awaiting_ingest",
+  "ingest_complete",
+  "editing",
+  "awaiting_internal_review",
+  "proof_build",
+  "proof_sent",
+  "awaiting_approval",
+  "revisions_requested",
+  "approved_for_production",
+  "approved_for_final",
+  "in_final_production",
+  "ordered_or_printed",
+  "ordered_or_sent",
+  "packaged",
+  "delivered",
+  "complete",
+  "blocked",
+  "cancelled"
+] as const;
+export type JobProductionStatus = (typeof JOB_PRODUCTION_STATUSES)[number];
+export const JOB_STAFFING_STATUSES = ["unassigned", "partially_staffed", "staffed", "checked_in", "ready_confirmed", "gap_flagged"] as const;
+export type JobStaffingStatus = (typeof JOB_STAFFING_STATUSES)[number];
+export const JOB_RISK_STATUSES = ["none", "low", "medium", "high", "critical"] as const;
+export type JobRiskStatus = (typeof JOB_RISK_STATUSES)[number];
 export type SharedVisibilityState = "hidden" | "masked" | "readonly" | "editable";
 
 export type SharedResourcePolicySnapshot = {

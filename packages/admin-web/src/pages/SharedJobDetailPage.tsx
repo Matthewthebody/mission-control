@@ -91,7 +91,8 @@ import {
   canManageSportsWorkspace,
   canViewSportsFinance
 } from "../permissions";
-import type { SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
+import type { JobProductionStatus, JobStatus, SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
+import { JOB_PRODUCTION_STATUSES } from "../jobTruthTypes";
 import type { DirectoryOwnerOption, SessionUser } from "../types";
 import {
   getWorkflowChangeNoticesForJob,
@@ -185,31 +186,38 @@ const COMPLETION_STAGES = [
 // shown as explanatory targets rather than tracked Mission Control state.
 const COMPLETION_TRACKED_MAX_INDEX = 3;
 
-const COMPLETION_PRODUCTION_ACTIVE = new Set<string>([
-  "awaiting_ingest",
-  "ingest_complete",
-  "editing",
-  "awaiting_internal_review",
-  "proof_build",
-  "proof_sent",
-  "awaiting_approval",
-  "revisions_requested",
-  "approved_for_production",
-  "approved_for_final",
-  "in_final_production",
-  "ordered_or_printed",
-  "ordered_or_sent",
-  "packaged"
+// One vocabulary (audit prompt 7): the active-production set derives from the
+// canonical array by EXCLUDING terminal/absent states, so a new production
+// status can never silently fall out of the completion meter.
+const COMPLETION_PRODUCTION_INACTIVE = new Set<JobProductionStatus>([
+  "not_created",
+  "queued",
+  "delivered",
+  "complete",
+  "blocked",
+  "cancelled"
 ]);
+const COMPLETION_PRODUCTION_ACTIVE = new Set<JobProductionStatus>(
+  JOB_PRODUCTION_STATUSES.filter((status) => !COMPLETION_PRODUCTION_INACTIVE.has(status))
+);
+
+const COMPLETION_DONE_STATUSES: JobStatus[] = ["execution_complete", "archived"];
+const COMPLETION_DONE_PRODUCTION: JobProductionStatus[] = ["delivered", "complete"];
 
 function deriveCompletionStageIndex(
   detail: SharedJobDetailResponse,
   calendarReadiness: ReturnType<typeof buildJobCalendarReadiness> | null
 ): number {
-  if (["complete", "delivered", "closed"].includes(detail.job.job_status)) {
+  // (Fixed with the vocabulary unification: this used to test job_status
+  // against "complete"/"delivered"/"closed" — none of which are JobStatus
+  // values — so the Done stage was unreachable from job state.)
+  if (
+    COMPLETION_DONE_STATUSES.includes(detail.job.job_status as JobStatus) ||
+    (detail.job.production_status && COMPLETION_DONE_PRODUCTION.includes(detail.job.production_status as JobProductionStatus))
+  ) {
     return 6;
   }
-  if (detail.job.production_status && COMPLETION_PRODUCTION_ACTIVE.has(detail.job.production_status)) {
+  if (detail.job.production_status && COMPLETION_PRODUCTION_ACTIVE.has(detail.job.production_status as JobProductionStatus)) {
     return 3;
   }
   if (["ready", "on_track"].includes(detail.job.readiness_status)) {

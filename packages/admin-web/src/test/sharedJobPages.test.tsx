@@ -2317,7 +2317,7 @@ beforeEach(() => {
         organization_id: isSports ? "org-sports" : "org-school",
         organization_name: isSports ? "Metro Athletics" : "North High",
         job_category: isSports ? "media_day" : "photo_day",
-        job_status: index % 3 === 0 ? "confirmed" : "planning",
+        job_status: index % 3 === 0 ? "confirmed" : "pending_confirmation",
         production_status: index === 2 ? "awaiting_approval" : isSports ? "proof_build" : "queued",
         proof_status: index === 2 ? "awaiting_approval" : isSports ? "proof_build" : null,
         staffing_status: index === 1 ? "gap_flagged" : "staffed",
