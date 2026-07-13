@@ -1694,18 +1694,18 @@ function buildBusinessPulse(
   ];
 
   if (laborSnapshot && config.HOME_LABOR_WIDGET_ENABLED) {
+    // G2: the tile uses the SAME resolved actual as the labor band (canonical
+    // when time sessions cover today, legacy-with-label otherwise) — the tile
+    // and the band can never disagree.
+    const tileActual = resolveLaborActualHours(laborSnapshot);
+    const tileScheduled = Number(laborSnapshot.summary.scheduled_labor_hours ?? 0);
     tiles.push({
       id: "labor_today",
       label: "Labor Today",
-      value: Math.round(Number(laborSnapshot.summary.actual_labor_hours ?? 0)),
-      context_label: Number(laborSnapshot.summary.actual_labor_hours ?? 0) <= Number(laborSnapshot.summary.scheduled_labor_hours ?? 0)
-        ? "On track"
-        : "Variance rising",
-      tone:
-        Number(laborSnapshot.summary.actual_labor_hours ?? 0) - Number(laborSnapshot.summary.scheduled_labor_hours ?? 0) > 2
-          ? "heads_up"
-          : "neutral",
-      trend_label: `${Number(laborSnapshot.summary.scheduled_labor_hours ?? 0).toFixed(1)}h scheduled`,
+      value: Math.round(tileActual.actual_hours),
+      context_label: tileActual.actual_hours <= tileScheduled ? "On track" : "Variance rising",
+      tone: tileActual.actual_hours - tileScheduled > 2 ? "heads_up" : "neutral",
+      trend_label: `${tileScheduled.toFixed(1)}h scheduled · ${tileActual.hours_source === "canonical" ? "canonical hours" : "legacy hours"}`,
       source_mode: "live"
     });
   }
@@ -2243,13 +2243,46 @@ function normalizeText(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+// G2 retirement step 1 (2026-07-13): the Home labor band is the FIRST consumer
+// to opt into canonical hours (time_session_payroll_summary via the Slice-D
+// hours_reconciliation block) instead of legacy time_entry hours. Honest by
+// construction: when no canonical session covers today's shifts, the band keeps
+// the legacy figure and SAYS so — it never fabricates a canonical number.
+// Department/shoot rollups still read legacy insights (no canonical
+// per-department rollup exists yet); they move in a later opt-in.
+function resolveLaborActualHours(laborSnapshot: Awaited<ReturnType<typeof getOperationsDashboard>>) {
+  const legacyActual = Number(laborSnapshot.summary.actual_labor_hours ?? 0);
+  const reconciliation = laborSnapshot.hours_reconciliation ?? null;
+  if (!reconciliation || reconciliation.status === "canonical_unavailable") {
+    return {
+      actual_hours: legacyActual,
+      actual_hours_canonical: null,
+      hours_source: "legacy" as const,
+      hours_source_label: "Legacy hours — no canonical time sessions cover today's shifts yet."
+    };
+  }
+  const canonical = Number(reconciliation.canonical_hours_total ?? 0);
+  const uncovered = Number(reconciliation.canonical_unavailable_shift_count ?? 0);
+  const comparable = Number(reconciliation.comparable_shift_count ?? 0);
+  return {
+    actual_hours: canonical,
+    actual_hours_canonical: canonical,
+    hours_source: "canonical" as const,
+    hours_source_label:
+      uncovered > 0
+        ? `Canonical payroll hours — ${comparable} of ${comparable + uncovered} shifts covered by time sessions.`
+        : "Canonical payroll hours (time sessions)."
+  };
+}
+
 function buildLaborSnapshot(laborSnapshot: Awaited<ReturnType<typeof getOperationsDashboard>> | null) {
   if (!laborSnapshot || !config.HOME_LABOR_WIDGET_ENABLED) {
     return null;
   }
 
   const scheduledHours = Number(laborSnapshot.summary.scheduled_labor_hours ?? 0);
-  const actualHours = Number(laborSnapshot.summary.actual_labor_hours ?? 0);
+  const actualResolution = resolveLaborActualHours(laborSnapshot);
+  const actualHours = actualResolution.actual_hours;
   const delta = actualHours - scheduledHours;
   return {
     visible: true,
@@ -2263,6 +2296,9 @@ function buildLaborSnapshot(laborSnapshot: Awaited<ReturnType<typeof getOperatio
           : "Labor is tracking close to plan.",
     scheduled_hours: scheduledHours,
     actual_hours: actualHours,
+    actual_hours_canonical: actualResolution.actual_hours_canonical,
+    hours_source: actualResolution.hours_source,
+    hours_source_label: actualResolution.hours_source_label,
     overtime_risk_count: Number(laborSnapshot.summary.overtime_risk_count ?? 0),
     department_rollup: (laborSnapshot.insights?.hours_by_department ?? []).slice(0, 4).map((row) => ({
       label: row.department,

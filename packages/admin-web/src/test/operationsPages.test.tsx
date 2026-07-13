@@ -4422,6 +4422,9 @@ const homeDashboardApp: HomeDashboardResponse = {
       summary_line: "Labor is tracking close to plan.",
       scheduled_hours: 16,
       actual_hours: 12.5,
+      actual_hours_canonical: 12.5,
+      hours_source: "canonical",
+      hours_source_label: "Canonical payroll hours (time sessions).",
       overtime_risk_count: 1,
       department_rollup: [{ label: "schools", scheduled_hours: 12, actual_hours: 10.5 }],
       shoot_rollup: [{ label: "DEMO-001", scheduled_hours: 8, actual_hours: 6.5 }]
@@ -4892,6 +4895,9 @@ const calmHomeDashboardApp: HomeDashboardResponse = {
     },
     labor_snapshot_today: {
       ...homeDashboardApp.widgets.labor_snapshot_today!,
+      actual_hours_canonical: null,
+      hours_source: "legacy",
+      hours_source_label: "Legacy hours — no canonical time sessions cover today's shifts yet.",
       overtime_risk_count: 0
     },
     attendance_awareness: {

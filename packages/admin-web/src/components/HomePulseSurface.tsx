@@ -1987,7 +1987,7 @@ function LaborSnapshotWidget({
           <strong>{formatHours(data.scheduled_hours)}</strong>
         </div>
         <div>
-          <span>Actual</span>
+          <span>Actual{data.hours_source === "canonical" ? "" : " (legacy)"}</span>
           <strong>{formatHours(data.actual_hours)}</strong>
         </div>
         <div>
@@ -1995,6 +1995,8 @@ function LaborSnapshotWidget({
           <strong>{data.overtime_risk_count}</strong>
         </div>
       </div>
+      {/* G2 honesty: say WHICH truth the Actual figure comes from. */}
+      {data.hours_source_label ? <p className="muted home-widget__footnote">{data.hours_source_label}</p> : null}
       {interactive ? (
         <button className="secondary-button home-widget__footer-button" onClick={onOpen}>
           Open Labor Summary

@@ -4782,6 +4782,11 @@ export type HomeDashboardResponse = {
       summary_line: string;
       scheduled_hours: number;
       actual_hours: number;
+      // G2: actual_hours is canonical (time sessions) when coverage exists,
+      // legacy otherwise — hours_source/label say which, honestly.
+      actual_hours_canonical: number | null;
+      hours_source: "canonical" | "legacy";
+      hours_source_label: string;
       overtime_risk_count: number;
       department_rollup: HomeLaborRollup[];
       shoot_rollup: HomeLaborRollup[];

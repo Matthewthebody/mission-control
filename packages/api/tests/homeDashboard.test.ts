@@ -227,4 +227,40 @@ describe("home dashboard command surface", () => {
     },
     15_000
   );
+  it(
+    "labor band declares its hours source honestly (G2 canonical opt-in)",
+    async () => {
+      const response = await request(app)
+        .get(`/api/dashboard/home?mode=app&date=${localDate}`)
+        .set("Authorization", `Bearer ${leadershipToken}`);
+
+      expect(response.status).toBe(200);
+      const band = response.body.widgets.labor_snapshot_today;
+      if (band === null) {
+        // Labor widget disabled or viewer lacks labor visibility — nothing to assert.
+        return;
+      }
+      // Invariants that hold on ANY dataset: the band always says which truth
+      // its Actual figure comes from, and the two representations agree.
+      expect(["canonical", "legacy"]).toContain(band.hours_source);
+      expect(typeof band.hours_source_label).toBe("string");
+      expect(band.hours_source_label.length).toBeGreaterThan(0);
+      if (band.hours_source === "canonical") {
+        expect(band.actual_hours_canonical).toBe(band.actual_hours);
+        expect(band.hours_source_label).toMatch(/canonical/i);
+      } else {
+        expect(band.actual_hours_canonical).toBeNull();
+        expect(band.hours_source_label).toMatch(/legacy/i);
+      }
+      // The pulse tile uses the SAME resolved figure and names the source.
+      const tile = (response.body.business_pulse?.tiles ?? []).find(
+        (entry: { id: string }) => entry.id === "labor_today"
+      );
+      if (tile) {
+        expect(tile.value).toBe(Math.round(band.actual_hours));
+        expect(tile.trend_label).toMatch(band.hours_source === "canonical" ? /canonical hours/ : /legacy hours/);
+      }
+    },
+    15_000
+  );
 });
