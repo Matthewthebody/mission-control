@@ -10,7 +10,6 @@ import type {
   PayrollReviewRow
 } from "../payrollReviewTypes";
 import {
-  downloadPayrollExportCsv,
   getPayrollExportPayload,
   getPayrollReview,
   getPayrollReviewDetail
@@ -38,7 +37,6 @@ export function PayrollReview({ token, currentUser, socket }: Props) {
   const [loadingReview, setLoadingReview] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingExportPreview, setLoadingExportPreview] = useState(false);
-  const [exportingCsv, setExportingCsv] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [liveMessage, setLiveMessage] = useState("");
@@ -165,18 +163,6 @@ export function PayrollReview({ token, currentUser, socket }: Props) {
     }
   }
 
-  async function downloadExport() {
-    setExportingCsv(true);
-    try {
-      await downloadPayrollExportCsv(token, filters);
-      setNotice("Payroll export CSV downloaded from canonical payroll aggregates.");
-      setError("");
-    } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "We couldn't download the payroll export CSV.");
-    } finally {
-      setExportingCsv(false);
-    }
-  }
 
   if (!canAccess) {
     return (
@@ -223,9 +209,12 @@ export function PayrollReview({ token, currentUser, socket }: Props) {
             <button className="secondary-button" onClick={() => void previewExportPayload()} disabled={loadingExportPreview}>
               {loadingExportPreview ? "Loading Export..." : "Preview Export Payload"}
             </button>
-            <button className="secondary-button" onClick={() => void downloadExport()} disabled={exportingCsv}>
-              {exportingCsv ? "Downloading..." : "Download Payroll CSV"}
-            </button>
+            {/* D19 (owner-ratified 2026-07-13): the ungated payroll CSV is gone.
+                Payroll leaves Mission Control ONLY through the Labor Command
+                Center's owner-review-gated export. */}
+            <a className="secondary-button" href="#labor/command-center">
+              Export via Labor Command Center
+            </a>
           </div>
         </div>
 

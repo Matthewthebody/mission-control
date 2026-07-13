@@ -5619,7 +5619,10 @@ describe("admin operations regressions", () => {
     expect(await screen.findByText("Labor Review And Payroll Integrity")).toBeInTheDocument();
     expect(screen.getByText("Reliability By Employee")).toBeInTheDocument();
     expect(screen.getByText("Hours By Shoot")).toBeInTheDocument();
-    expect(screen.getAllByText("Export CSV").length).toBeGreaterThan(0);
+    // D19 (owner-ratified): ungated CSVs are gone from this surface — payroll
+    // leaves only through the Labor Command Center's gated export.
+    expect(screen.queryByText("Export CSV")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Open Labor Command Center").length).toBeGreaterThan(0);
   });
 
   it("renders attendance detail and lets the operator switch review focus", async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Socket } from "socket.io-client";
-import { apiFetch, apiUrl } from "../api";
+import { apiFetch } from "../api";
 import { OperationalDetailSection } from "../components/OperationalDetailSection";
 import { OperationalPreviewCard } from "../components/OperationalPreviewCard";
 import type { OperationsDashboard, SessionUser, ShiftRecord } from "../types";
@@ -23,7 +23,6 @@ export function Labor({ token, currentUser, socket }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [liveMessage, setLiveMessage] = useState("");
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (rangePreset === "custom") {
@@ -85,32 +84,6 @@ export function Labor({ token, currentUser, socket }: Props) {
     };
   }, [query, socket, token]);
 
-  async function downloadReport(kind: "labor" | "punches" | "exceptions" | "payroll") {
-    setExporting(true);
-    try {
-      const response = await fetch(`${apiUrl}/api/dashboard/operations/export.csv?${query}&report=${kind}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`Export failed with ${response.status}`);
-      }
-      const blob = await response.blob();
-      const href = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = href;
-      link.download = `mission-control-${kind}-${dateFrom}-to-${dateTo}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(href);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't export that report.");
-    } finally {
-      setExporting(false);
-    }
-  }
 
   const summary = dashboard?.summary;
   const laborRows = dashboard?.reporting.labor ?? [];
@@ -179,9 +152,9 @@ export function Labor({ token, currentUser, socket }: Props) {
           <a className="secondary-button" href="#employees/payroll">
             Open Payroll Review
           </a>
-          <button className="secondary-button" disabled={exporting} onClick={() => void downloadReport("labor")}>
-            {exporting ? "Exporting..." : "Export CSV"}
-          </button>
+          <a className="secondary-button" href="#labor/command-center">
+            Open Labor Command Center
+          </a>
         </div>
       </section>
 
@@ -479,11 +452,13 @@ export function Labor({ token, currentUser, socket }: Props) {
 
           <section className="sidebar-section">
             <div className="section-title">Exports</div>
+            <p className="muted">
+              Payroll data leaves Mission Control through ONE door: the Labor Command
+              Center's owner-review-gated export. The ungated CSVs that used to live
+              here are gone so an unreviewed export can never reach QuickBooks.
+            </p>
             <div className="schedule-sidebar-actions">
-              <button className="secondary-button" disabled={exporting} onClick={() => void downloadReport("labor")}>Labor CSV</button>
-              <button className="secondary-button" disabled={exporting} onClick={() => void downloadReport("exceptions")}>Exceptions CSV</button>
-              <button className="secondary-button" disabled={exporting} onClick={() => void downloadReport("punches")}>Punches CSV</button>
-              <button className="secondary-button" disabled={exporting} onClick={() => void downloadReport("payroll")}>Payroll View CSV</button>
+              <a className="secondary-button" href="#labor/command-center">Open Labor Command Center</a>
             </div>
           </section>
         </aside>
