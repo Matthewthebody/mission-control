@@ -41,6 +41,26 @@ function localDateString(offsetDays = 0) {
   return value.toISOString().slice(0, 10);
 }
 
+// A near-future date is routinely occupied in the shared demo DB (office@ carries
+// 18 shifts on some days), which makes trade acceptance 409 on shift_overlap even
+// though the trade itself is valid. For flows that must accept cleanly, pick a far
+// date where none of the participants has any shift.
+async function dateWithNoShiftsFor(userIds: string[]) {
+  const result = await pool.query(
+    `SELECT (CURRENT_DATE + off)::text AS day
+     FROM generate_series(40, 120) AS off
+     WHERE NOT EXISTS (
+       SELECT 1 FROM work_shift ws
+       WHERE ws.tenant_id = $1 AND ws.assigned_user_id = ANY($2::uuid[])
+         AND ws.starts_at::date = (CURRENT_DATE + off)
+     )
+     ORDER BY off LIMIT 1`,
+    [tenantId, userIds]
+  );
+  expect(result.rows.length).toBe(1);
+  return result.rows[0].day as string;
+}
+
 function isoAt(date: string, time: string) {
   return new Date(`${date}T${time}:00`).toISOString();
 }
@@ -962,7 +982,7 @@ describe("trade approval protections", () => {
   });
 
   it("does not allow a trade participant to approve their own trade", async () => {
-    const date = localDateString(6);
+    const date = await dateWithNoShiftsFor([photoId, officeId]);
     const createdShoot = await createShoot(`TRD-${randomUUID().slice(0, 8)}`, "Participant Review Guard", date);
     const createdShift = await createShift({
       shootId: createdShoot.id,

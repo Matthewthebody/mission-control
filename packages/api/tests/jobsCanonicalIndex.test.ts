@@ -33,6 +33,20 @@ async function index(query: string, token = leadershipToken) {
   return response;
 }
 
+let ownerUserId = "";
+
+// The default operating view hides archived, cancelled, demo/test-fixture, and
+// historical-completed Jobs. Any raw count compared against page.total must mirror
+// that predicate exactly, or demo-DB drift makes the assertion environmental.
+// Keep in sync with jobsCanonicalIndex.ts (NOT_HIDDEN + NOT HISTORICAL) and
+// JOBS_RECENT_COMPLETION_DAYS (jobsLifecycle.ts).
+const ACTIVE_VIEW_SQL = `
+  f.archived_at IS NULL
+  AND NOT (f.job_status='cancelled' OR f.cancelled_at IS NOT NULL)
+  AND (f.data_origin IS NULL OR f.data_origin NOT IN ('seed_demo','test_fixture'))
+  AND NOT ((f.job_status='execution_complete' OR f.production_status IN ('delivered','complete') OR f.completed_at IS NOT NULL)
+           AND COALESCE(f.completed_at, f.updated_at) < now() - interval '30 days')`;
+
 beforeAll(async () => {
   const { createApp } = await import("../src/app.js");
   const { pool } = await import("../src/db/pool.js");
@@ -42,20 +56,46 @@ beforeAll(async () => {
   photographerToken = await login("photo@example.com");
   const me = await request(app).get("/auth/me").set("Authorization", `Bearer ${leadershipToken}`);
   tenantId = me.body.user.tenantId as string;
+  ownerUserId = (
+    await dbPool.query(`SELECT id::text FROM app_user WHERE tenant_id=$1 AND email='leadership@example.com'`, [tenantId])
+  ).rows[0].id;
 
-  const linked = await dbPool.query(
-    `SELECT id::text, legacy_shoot_id::text FROM jobs WHERE tenant_id=$1 AND legacy_shoot_id IS NOT NULL LIMIT 1`,
-    [tenantId]
-  );
-  linkedJobId = linked.rows[0].id;
-  linkedShootId = linked.rows[0].legacy_shoot_id;
-  unlinkedWorkflowJobId = (
+  // All Job fixtures are created by this file, never picked from shared data: an
+  // arbitrary existing Job can be archived, cancelled, demo-marked, or historical-
+  // completed — all hidden from the default view, which made these tests
+  // environmental (red or green depending on demo-DB state).
+  // Link target: a live shoot no Job links yet (legacy_shoot_id is UNIQUE).
+  linkedShootId = (
     await dbPool.query(
-      `SELECT j.id::text FROM jobs j WHERE j.tenant_id=$1 AND j.legacy_shoot_id IS NULL
-         AND EXISTS(SELECT 1 FROM workflow_run wr WHERE wr.tenant_id=j.tenant_id AND wr.job_id=j.id) LIMIT 1`,
+      `SELECT s.id::text FROM shoot s WHERE s.tenant_id=$1 AND s.deleted_at IS NULL
+         AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.legacy_shoot_id = s.id)
+         AND NOT EXISTS(SELECT 1 FROM jobs j2 WHERE j2.id = s.id) LIMIT 1`,
       [tenantId]
     )
   ).rows[0].id;
+  linkedJobId = (
+    await dbPool.query(
+      `INSERT INTO jobs (tenant_id, department_type, title, job_status, scheduled_start_at, legacy_shoot_id, account_owner_user_id)
+       VALUES ($1,'sports','linked-legacy-fixture-3c1','ready_to_staff', now() + interval '3 days', $2, $3)
+       RETURNING id::text`,
+      [tenantId, linkedShootId, ownerUserId]
+    )
+  ).rows[0].id;
+  unlinkedWorkflowJobId = (
+    await dbPool.query(
+      `INSERT INTO jobs (tenant_id, department_type, title, job_status, scheduled_start_at)
+       VALUES ($1,'schools','workflow-linked-fixture-3c1','ready_to_staff', now() + interval '3 days')
+       RETURNING id::text`,
+      [tenantId]
+    )
+  ).rows[0].id;
+  // Give it a canonical workflow_run by cloning template refs from any existing run.
+  await dbPool.query(
+    `INSERT INTO workflow_run (tenant_id, job_id, template_id, template_version_id, template_key, workflow_family, status)
+     SELECT $1, $2, wr.template_id, wr.template_version_id, wr.template_key, wr.workflow_family, 'active'
+     FROM workflow_run wr WHERE wr.tenant_id=$1 LIMIT 1`,
+    [tenantId, unlinkedWorkflowJobId]
+  );
   // A controlled, genuinely unlinked + no-workflow + active Job with a unique title, so
   // tests 11/15/16 find it by search (one row, no pagination/ordering fragility — a bare
   // LIMIT 1 over shared data could otherwise pick a linked or off-page row).
@@ -77,7 +117,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (unlinkedNoWorkflowJobId) await dbPool.query(`DELETE FROM jobs WHERE id=$1`, [unlinkedNoWorkflowJobId]);
+  if (unlinkedWorkflowJobId) await dbPool.query(`DELETE FROM workflow_run WHERE tenant_id=$1 AND job_id=$2`, [tenantId, unlinkedWorkflowJobId]);
+  const fixtureIds = [linkedJobId, unlinkedWorkflowJobId, unlinkedNoWorkflowJobId].filter(Boolean);
+  if (fixtureIds.length > 0) await dbPool.query(`DELETE FROM jobs WHERE id = ANY($1::uuid[])`, [fixtureIds]);
 });
 
 function rowById(rows: any[], id: string) {
@@ -140,19 +182,15 @@ describe("GET /api/jobs/index — filters, sort, pagination", () => {
     const overdue = (await index("date_window=overdue&limit=100")).body;
     expect(overdue.rows.every((r: any) => r.job_date && new Date(r.job_date) < new Date())).toBe(true);
 
-    const owner = (await dbPool.query(
-      `SELECT account_owner_user_id::text AS id FROM jobs WHERE tenant_id=$1 AND account_owner_user_id IS NOT NULL LIMIT 1`,
-      [tenantId]
-    )).rows[0].id;
-    const byOwner = (await index(`owner_user_id=${owner}&limit=100`)).body;
-    expect(byOwner.rows.length).toBeGreaterThan(0);
-    expect(byOwner.rows.every((r: any) => r.account_owner_user_id === owner)).toBe(true);
+    // Owner filter proven against this file's own fixture (an owner picked from an
+    // arbitrary row can belong only to hidden jobs, returning an empty page).
+    const byOwner = (await index(`owner_user_id=${ownerUserId}&limit=100`)).body;
+    expect(byOwner.rows.some((r: any) => r.id === linkedJobId)).toBe(true);
+    expect(byOwner.rows.every((r: any) => r.account_owner_user_id === ownerUserId)).toBe(true);
 
-    const sample = (await dbPool.query(
-      `SELECT lower(split_part(title,' ',1)) AS term FROM jobs WHERE tenant_id=$1 AND title IS NOT NULL LIMIT 1`,
-      [tenantId]
-    )).rows[0].term;
+    const sample = "linked-legacy-fixture-3c1";
     const search = (await index(`search=${encodeURIComponent(sample)}&limit=100`)).body;
+    expect(search.rows.some((r: any) => r.id === linkedJobId)).toBe(true);
     expect(search.rows.every((r: any) => `${r.title} ${r.event_name ?? ""} ${r.job_number ?? ""}`.toLowerCase().includes(sample))).toBe(true);
   });
 
@@ -174,13 +212,13 @@ describe("GET /api/jobs/index — scope, identity, tenancy", () => {
   it("(7) scopes rows AND counts to the tenant and readable departments", async () => {
     const all = (await index("")).body;
     const dbTotal = (await dbPool.query(
-      `SELECT count(*)::int AS n FROM jobs WHERE tenant_id=$1 AND archived_at IS NULL`,
+      `SELECT count(*)::int AS n FROM jobs f WHERE f.tenant_id=$1 AND ${ACTIVE_VIEW_SQL}`,
       [tenantId]
     )).rows[0].n;
     expect(all.page.total).toBe(dbTotal); // leadership reads all departments
     const schools = (await index("department_type=schools")).body;
     const dbSchools = (await dbPool.query(
-      `SELECT count(*)::int AS n FROM jobs WHERE tenant_id=$1 AND archived_at IS NULL AND department_type='schools'`,
+      `SELECT count(*)::int AS n FROM jobs f WHERE f.tenant_id=$1 AND f.department_type='schools' AND ${ACTIVE_VIEW_SQL}`,
       [tenantId]
     )).rows[0].n;
     expect(schools.page.total).toBe(dbSchools);
@@ -219,7 +257,7 @@ describe("GET /api/jobs/index — scope, identity, tenancy", () => {
 
 describe("GET /api/jobs/index — confirmed links and capabilities", () => {
   it("(10) deduplicates the same (job, shoot) pair across legacy + relationship-table links", async () => {
-    const before = rowById((await index(`search=&limit=100&shoot_link_status=linked`)).body.rows, linkedJobId);
+    const before = rowById((await index(`search=linked-legacy-fixture-3c1&limit=100&shoot_link_status=linked`)).body.rows, linkedJobId);
     expect(before.linked_shoot_count).toBe(1);
     // Add a relationship-table row duplicating the legacy link for the SAME pair.
     await dbPool.query(
@@ -228,7 +266,7 @@ describe("GET /api/jobs/index — confirmed links and capabilities", () => {
       [tenantId, linkedJobId, linkedShootId]
     );
     try {
-      const after = rowById((await index(`limit=100&shoot_link_status=linked`)).body.rows, linkedJobId);
+      const after = rowById((await index(`search=linked-legacy-fixture-3c1&limit=100&shoot_link_status=linked`)).body.rows, linkedJobId);
       expect(after.linked_shoot_count).toBe(1); // still 1 — deduped, not 2
       expect(after.linked_shoot_ids).toEqual([linkedShootId]);
       expect(after.link_sources.sort()).toEqual(["job_shoot_links", "legacy_shoot_id"].sort());
@@ -262,7 +300,7 @@ describe("GET /api/jobs/index — confirmed links and capabilities", () => {
   });
 
   it("(13) a confirmed-linked Job exposes labeled related-Shoot data", async () => {
-    const row = rowById((await index("shoot_link_status=linked&limit=100")).body.rows, linkedJobId);
+    const row = rowById((await index("search=linked-legacy-fixture-3c1&shoot_link_status=linked&limit=100")).body.rows, linkedJobId);
     expect(row.shoot_link_status).toBe("linked");
     expect(row.shoot_data_available).toBe(true);
     expect(row.linked_shoot_ids).toContain(linkedShootId);
@@ -271,7 +309,7 @@ describe("GET /api/jobs/index — confirmed links and capabilities", () => {
   });
 
   it("(14) a Job with a canonical workflow_run exposes workflow data without a Shoot link", async () => {
-    const row = rowById((await index(`limit=100&workflow_link_status=linked`)).body.rows, unlinkedWorkflowJobId);
+    const row = rowById((await index(`search=workflow-linked-fixture-3c1&limit=100&workflow_link_status=linked`)).body.rows, unlinkedWorkflowJobId);
     expect(row.shoot_link_status).toBe("unlinked");
     expect(row.workflow_data_available).toBe(true);
     expect(row.workflow_run_count).toBeGreaterThan(0);
@@ -294,8 +332,8 @@ describe("GET /api/jobs/index — confirmed links and capabilities", () => {
   it("(17) candidate (org+date) matches never appear as confirmed links", async () => {
     const linkedTotal = (await index("shoot_link_status=linked")).body.page.total;
     const dbConfirmed = (await dbPool.query(
-      `SELECT count(*)::int AS n FROM jobs j WHERE j.tenant_id=$1 AND j.archived_at IS NULL AND (
-         j.legacy_shoot_id IS NOT NULL OR EXISTS(SELECT 1 FROM job_shoot_links l WHERE l.tenant_id=j.tenant_id AND l.job_id=j.id))`,
+      `SELECT count(*)::int AS n FROM jobs f WHERE f.tenant_id=$1 AND ${ACTIVE_VIEW_SQL} AND (
+         f.legacy_shoot_id IS NOT NULL OR EXISTS(SELECT 1 FROM job_shoot_links l WHERE l.tenant_id=f.tenant_id AND l.job_id=f.id))`,
       [tenantId]
     )).rows[0].n;
     expect(linkedTotal).toBe(dbConfirmed); // only confirmed links — the 46 org+date candidates are NOT linked
@@ -323,14 +361,26 @@ describe("GET /api/jobs/index — attention provenance, scale", () => {
   it("(20) caps page size and stays bounded at realistic scale (no per-row N+1)", async () => {
     // Bounded by contract: an over-cap page size is rejected outright.
     expect((await index("limit=1000")).status).toBe(400);
-    const t0 = process.hrtime.bigint();
-    const body = (await index("limit=100")).body; // the maximum allowed page
-    const elapsedMs = Number(process.hrtime.bigint() - t0) / 1e6;
-    expect(body.page.limit).toBe(100);
-    expect(body.rows.length).toBeLessThanOrEqual(100);
-    expect(body.page.total).toBeGreaterThan(100); // dataset larger than one page
-    // Fixed query count (summary + rows + link projection), so it stays fast over 300 jobs.
-    expect(elapsedMs).toBeLessThan(4000);
+    // Own multi-page dataset: 105 test_fixture Jobs (hidden from every operating
+    // view, visible only under demo_view=all) — the demo DB's live job count is not
+    // a stable quantity to assert scale against.
+    await dbPool.query(
+      `INSERT INTO jobs (tenant_id, department_type, title, job_status, data_origin)
+       SELECT $1, 'sports', 'scale-fixture-3c1-' || g, 'draft', 'test_fixture' FROM generate_series(1, 105) g`,
+      [tenantId]
+    );
+    try {
+      const t0 = process.hrtime.bigint();
+      const body = (await index("demo_view=all&limit=100")).body; // the maximum allowed page
+      const elapsedMs = Number(process.hrtime.bigint() - t0) / 1e6;
+      expect(body.page.limit).toBe(100);
+      expect(body.rows.length).toBeLessThanOrEqual(100);
+      expect(body.page.total).toBeGreaterThan(100); // dataset larger than one page
+      // Fixed query count (summary + rows + link projection), so it stays fast over 300 jobs.
+      expect(elapsedMs).toBeLessThan(4000);
+    } finally {
+      await dbPool.query(`DELETE FROM jobs WHERE tenant_id=$1 AND title LIKE 'scale-fixture-3c1-%'`, [tenantId]);
+    }
   });
 });
 
