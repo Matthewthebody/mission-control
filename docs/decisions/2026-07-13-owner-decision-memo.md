@@ -1,5 +1,10 @@
 # Owner Decision Memo — 2026-07-13
 
+> **RATIFIED 2026-07-13 (same day):** Matthew approved **all recommended defaults** ("Move forward with all your recommendations"). Every ⬜ below whose recommendation states a default is now a ratified decision; implementation began immediately (convergence slice 1 first). **Still awaiting owner input — no default was safe:**
+> - **B1** — the three payroll calendar facts (real period anchor date, close day, lock/export day for the QuickBooks run).
+> - **B4** — which Teams channel receives payroll alerts.
+> Sequenced-by-design items (C6 approve/export=G3, C7 answer-pending after G2, C8 legacy mileage retirement next season, D2 unified registry in Phase 3) are ratified as direction and will land in their stated order.
+
 **For:** Matthew Kemmetmueller
 **Purpose:** every open product/policy decision currently blocking engineering, in one place. Each item has context, the question, a recommended default, and what your answer unblocks. Answer inline (check a box or write a line) — a single pass through this memo unblocks Phase 1 convergence, G2/G3 labor consolidation, and the remaining Season Autopilot slices.
 
