@@ -248,10 +248,6 @@ type TriggerTemplateRow = {
   trigger_type: ChecklistTriggerType;
 };
 
-type ChecklistAttentionCandidate = {
-  id: string;
-};
-
 function normalizeText(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -268,7 +264,7 @@ function isChecklistAttentionClosed(status: ChecklistInstanceStatus) {
   return status === "approved" || status === "waived";
 }
 
-function buildChecklistAttentionState(detail: ChecklistInstanceDetailInternal): ChecklistAttentionState {
+function buildChecklistAttentionState(detail: Pick<ChecklistInstanceDetailInternal, "instance" | "progress">): ChecklistAttentionState {
   if (detail.instance.status === "overdue") {
     return "overdue";
   }
@@ -1180,12 +1176,14 @@ function mapChecklistSeverityToNotificationPriority(severity: JobWatchFlagSeveri
   }
 }
 
-async function loadScopeContext(client: PoolClient, tenantId: string, scopeType: ChecklistScopeType, scopeId: string): Promise<ScopeContext> {
+// One SQL source per scope type, written batch-first (= ANY($2::uuid[])) so the
+// attention path can resolve every candidate's target in ONE query per scope
+// type instead of one per instance (MC-AUDIT-008). Single-record callers go
+// through the same SQL with a one-element array.
+function scopeContextSql(scopeType: ChecklistScopeType): string {
   switch (scopeType) {
-    case "job": {
-      const row = (
-        await client.query<ScopeContext>(
-          `
+    case "job":
+      return `
             SELECT
               job.tenant_id::text,
               'job'::text AS scope_type,
@@ -1224,21 +1222,10 @@ async function loadScopeContext(client: PoolClient, tenantId: string, scopeType:
             LEFT JOIN organization org ON org.id = job.organization_id
             LEFT JOIN app_user owner ON owner.id = job.account_owner_user_id
             WHERE job.tenant_id = $1
-              AND job.id = $2
-            LIMIT 1
-          `,
-          [tenantId, scopeId]
-        )
-      ).rows[0];
-      if (!row) {
-        throw new ApiError(404, "Checklist target not found.");
-      }
-      return row;
-    }
-    case "production_item": {
-      const row = (
-        await client.query<ScopeContext>(
-          `
+              AND job.id = ANY($2::uuid[])
+          `;
+    case "production_item":
+      return `
             SELECT
               item.tenant_id::text,
               'production_item'::text AS scope_type,
@@ -1288,21 +1275,10 @@ async function loadScopeContext(client: PoolClient, tenantId: string, scopeType:
             LEFT JOIN app_user reviewer ON reviewer.id = item.assigned_peer_reviewer_user_id
             LEFT JOIN app_user approver ON approver.id = item.assigned_release_reviewer_user_id
             WHERE item.tenant_id = $1
-              AND item.id = $2
-            LIMIT 1
-          `,
-          [tenantId, scopeId]
-        )
-      ).rows[0];
-      if (!row) {
-        throw new ApiError(404, "Checklist target not found.");
-      }
-      return row;
-    }
-    case "shoot": {
-      const row = (
-        await client.query<ScopeContext>(
-          `
+              AND item.id = ANY($2::uuid[])
+          `;
+    case "shoot":
+      return `
             SELECT
               shoot.tenant_id::text,
               'shoot'::text AS scope_type,
@@ -1353,23 +1329,12 @@ async function loadScopeContext(client: PoolClient, tenantId: string, scopeType:
             LEFT JOIN organization org ON org.id = shoot.organization_id
             LEFT JOIN app_user owner ON owner.id = shoot.account_owner_user_id
             WHERE shoot.tenant_id = $1
-              AND shoot.id = $2
+              AND shoot.id = ANY($2::uuid[])
               AND shoot.deleted_at IS NULL
-            LIMIT 1
-          `,
-          [tenantId, scopeId]
-        )
-      ).rows[0];
-      if (!row) {
-        throw new ApiError(404, "Checklist target not found.");
-      }
-      return row;
-    }
+          `;
     case "location":
-    default: {
-      const row = (
-        await client.query<ScopeContext>(
-          `
+    default:
+      return `
             SELECT
               location.tenant_id::text,
               'location'::text AS scope_type,
@@ -1408,18 +1373,31 @@ async function loadScopeContext(client: PoolClient, tenantId: string, scopeType:
             LEFT JOIN organization org ON org.id = location.organization_id
             LEFT JOIN app_user owner ON owner.id = location.primary_owner_user_id
             WHERE location.tenant_id = $1
-              AND location.id = $2
-            LIMIT 1
-          `,
-          [tenantId, scopeId]
-        )
-      ).rows[0];
-      if (!row) {
-        throw new ApiError(404, "Checklist target not found.");
-      }
-      return row;
-    }
+              AND location.id = ANY($2::uuid[])
+          `;
   }
+}
+
+async function loadScopeContextsBatch(
+  client: PoolClient,
+  tenantId: string,
+  scopeType: ChecklistScopeType,
+  scopeIds: string[]
+): Promise<Map<string, ScopeContext>> {
+  if (!scopeIds.length) {
+    return new Map();
+  }
+  const { rows } = await client.query<ScopeContext>(scopeContextSql(scopeType), [tenantId, scopeIds]);
+  return new Map(rows.map((row) => [row.scope_id, row]));
+}
+
+async function loadScopeContext(client: PoolClient, tenantId: string, scopeType: ChecklistScopeType, scopeId: string): Promise<ScopeContext> {
+  const contexts = await loadScopeContextsBatch(client, tenantId, scopeType, [scopeId]);
+  const row = contexts.get(scopeId);
+  if (!row) {
+    throw new ApiError(404, "Checklist target not found.");
+  }
+  return row;
 }
 
 async function resolveChecklistScopedRoleUserId(client: PoolClient, tenantId: string, context: ScopeContext, roleCode: string) {
@@ -2948,7 +2926,41 @@ export async function listChecklistAttention(
   const limit = Math.max(1, Math.min(query.limit ?? 160, 250));
   const params: unknown[] = [auth.tenantId, limit];
   let sql = `
-    SELECT instance.id::text AS id
+    SELECT
+      instance.id::text,
+      instance.tenant_id::text,
+      instance.template_id::text,
+      instance.template_version_id::text,
+      instance.scope_type::text,
+      instance.job_id::text,
+      instance.shoot_id::text,
+      instance.production_item_id::text,
+      instance.location_id::text,
+      instance.department_type::text,
+      instance.title,
+      instance.trigger_type::text,
+      instance.status::text,
+      instance.approval_required,
+      instance.blocking_level::text,
+      instance.owner_user_id::text,
+      instance.reviewer_user_id::text,
+      instance.approver_user_id::text,
+      instance.due_at::text,
+      instance.submitted_at::text,
+      instance.approved_at::text,
+      instance.rejected_at::text,
+      instance.waived_at::text,
+      instance.rejection_note,
+      instance.waiver_note,
+      instance.progress_percent,
+      instance.created_from_trigger_key,
+      instance.source_metadata_json,
+      instance.last_reminded_at::text,
+      instance.escalated_at::text,
+      instance.created_by_user_id::text,
+      instance.updated_by_user_id::text,
+      instance.created_at::text,
+      instance.updated_at::text
     FROM checklist_instances instance
     WHERE instance.tenant_id = $1
       AND instance.status <> ALL($3::checklist_instance_status_type[])
@@ -2974,7 +2986,7 @@ export async function listChecklistAttention(
     LIMIT $2
   `;
 
-  const candidateRows = await listRows<ChecklistAttentionCandidate>(client, sql, params);
+  const candidateRows = await listRows<ChecklistInstanceRecord>(client, sql, params);
   if (!candidateRows.length) {
     return {
       items: [],
@@ -2982,56 +2994,301 @@ export async function listChecklistAttention(
     };
   }
 
-  const items: ChecklistAttentionItem[] = [];
+  // MC-AUDIT-008: the old loop called loadInstanceDetailInternal per candidate
+  // (~14 queries each — ~1,350 queries per dashboard render at limit 96). The
+  // attention item needs only a small slice of the detail, so everything is
+  // fetched in a FIXED set of batched queries (<= 13 regardless of candidate
+  // count) and assembled in memory with the same progress/approval logic.
+  const instanceIds = candidateRows.map((row) => row.id);
+  const templateIds = [...new Set(candidateRows.map((row) => row.template_id))];
+  const versionIds = [...new Set(candidateRows.map((row) => row.template_version_id))];
+
+  const templateNameById = new Map(
+    (
+      await client.query<{ id: string; name: string }>(
+        `SELECT id::text, name FROM checklist_templates WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+        [auth.tenantId, templateIds]
+      )
+    ).rows.map((row) => [row.id, row.name])
+  );
+
+  const versionById = new Map(
+    (
+      await listRows<ChecklistTemplateVersionRecord>(
+        client,
+        `
+          SELECT
+            id::text,
+            tenant_id::text,
+            template_id::text,
+            version_number,
+            status::text,
+            trigger_type::text,
+            due_rule_json,
+            approval_required,
+            blocking_level::text,
+            assignment_defaults_json,
+            summary,
+            created_by_user_id::text,
+            published_by_user_id::text,
+            published_at::text,
+            created_at::text,
+            updated_at::text
+          FROM checklist_template_versions
+          WHERE tenant_id = $1
+            AND id = ANY($2::uuid[])
+        `,
+        [auth.tenantId, versionIds]
+      )
+    ).map((row) => [row.id, { ...row, assignment_defaults_json: sanitizeChecklistAssignmentDefaults(row.assignment_defaults_json) }])
+  );
+
+  const sectionRows = await listRows<ChecklistSectionBundle>(
+    client,
+    `
+      SELECT
+        id::text,
+        tenant_id::text,
+        template_version_id::text,
+        section_key,
+        title,
+        description,
+        sort_order,
+        created_at::text,
+        updated_at::text
+      FROM checklist_sections
+      WHERE tenant_id = $1
+        AND template_version_id = ANY($2::uuid[])
+      ORDER BY template_version_id, sort_order, created_at
+    `,
+    [auth.tenantId, versionIds]
+  );
+  const itemRows = await listRows<ChecklistItemBundle>(
+    client,
+    `
+      SELECT
+        id::text,
+        tenant_id::text,
+        template_version_id::text,
+        section_id::text,
+        item_key,
+        label,
+        help_text,
+        item_type::text,
+        required,
+        proof_required,
+        validation_json,
+        options_json,
+        sort_order,
+        created_at::text,
+        updated_at::text
+      FROM checklist_items
+      WHERE tenant_id = $1
+        AND template_version_id = ANY($2::uuid[])
+      ORDER BY template_version_id, section_id, sort_order, created_at
+    `,
+    [auth.tenantId, versionIds]
+  );
+  const itemIdList = itemRows.map((item) => item.id);
+  const conditionRows = itemIdList.length
+    ? await listRows<ChecklistItemConditionRecord>(
+        client,
+        `
+          SELECT
+            id::text,
+            tenant_id::text,
+            template_version_id::text,
+            checklist_item_id::text,
+            condition_group_key,
+            logic_operator::text,
+            source_item_key,
+            comparison_operator,
+            expected_value_json,
+            effect::text,
+            sort_order,
+            created_at::text
+          FROM checklist_item_conditions
+          WHERE tenant_id = $1
+            AND checklist_item_id = ANY($2::uuid[])
+          ORDER BY checklist_item_id, condition_group_key, sort_order, created_at
+        `,
+        [auth.tenantId, itemIdList]
+      )
+    : [];
+  const conditionsByItem = new Map<string, ChecklistItemConditionRecord[]>();
+  for (const condition of conditionRows) {
+    const bucket = conditionsByItem.get(condition.checklist_item_id) ?? [];
+    bucket.push(condition);
+    conditionsByItem.set(condition.checklist_item_id, bucket);
+  }
+  const itemsBySection = new Map<string, ChecklistItemBundle[]>();
+  for (const item of itemRows) {
+    const bucket = itemsBySection.get(item.section_id) ?? [];
+    bucket.push({ ...item, conditions: conditionsByItem.get(item.id) ?? [] });
+    itemsBySection.set(item.section_id, bucket);
+  }
+  const sectionsByVersion = new Map<string, ChecklistSectionBundle[]>();
+  for (const section of sectionRows) {
+    const bucket = sectionsByVersion.get(section.template_version_id) ?? [];
+    bucket.push({ ...section, items: itemsBySection.get(section.id) ?? [] });
+    sectionsByVersion.set(section.template_version_id, bucket);
+  }
+
+  const responsesByInstance = new Map<string, ChecklistResponseRecord[]>();
+  for (const response of await listRows<ChecklistResponseRecord>(
+    client,
+    `
+      SELECT
+        id::text,
+        tenant_id::text,
+        checklist_instance_id::text,
+        checklist_item_id::text,
+        checklist_section_id::text,
+        response_json,
+        is_complete,
+        answered_by_user_id::text,
+        answered_at::text,
+        created_at::text,
+        updated_at::text
+      FROM checklist_responses
+      WHERE tenant_id = $1
+        AND checklist_instance_id = ANY($2::uuid[])
+      ORDER BY checklist_instance_id, created_at
+    `,
+    [auth.tenantId, instanceIds]
+  )) {
+    const bucket = responsesByInstance.get(response.checklist_instance_id) ?? [];
+    bucket.push(response);
+    responsesByInstance.set(response.checklist_instance_id, bucket);
+  }
+  const attachmentsByInstance = new Map<string, ChecklistAttachmentRecord[]>();
+  for (const attachment of await listRows<ChecklistAttachmentRecord>(
+    client,
+    `
+      SELECT
+        id::text,
+        tenant_id::text,
+        checklist_instance_id::text,
+        checklist_response_id::text,
+        attachment_type,
+        file_name,
+        content_type,
+        storage_key,
+        object_url,
+        uploaded_by_user_id::text,
+        created_at::text
+      FROM checklist_attachments
+      WHERE tenant_id = $1
+        AND checklist_instance_id = ANY($2::uuid[])
+      ORDER BY checklist_instance_id, created_at DESC
+    `,
+    [auth.tenantId, instanceIds]
+  )) {
+    const bucket = attachmentsByInstance.get(attachment.checklist_instance_id) ?? [];
+    bucket.push(attachment);
+    attachmentsByInstance.set(attachment.checklist_instance_id, bucket);
+  }
+  const approvalsByInstance = new Map<string, ChecklistApprovalRecord[]>();
+  for (const approval of await listRows<ChecklistApprovalRecord>(
+    client,
+    `
+      SELECT
+        id::text,
+        tenant_id::text,
+        checklist_instance_id::text,
+        decision::text,
+        actor_user_id::text,
+        note,
+        metadata_json,
+        created_at::text
+      FROM checklist_approvals
+      WHERE tenant_id = $1
+        AND checklist_instance_id = ANY($2::uuid[])
+      ORDER BY checklist_instance_id, created_at DESC
+    `,
+    [auth.tenantId, instanceIds]
+  )) {
+    const bucket = approvalsByInstance.get(approval.checklist_instance_id) ?? [];
+    bucket.push(approval);
+    approvalsByInstance.set(approval.checklist_instance_id, bucket);
+  }
+
+  // Scope contexts: one batched query per scope TYPE present (<= 4).
+  const scopeIdsByType = new Map<ChecklistScopeType, string[]>();
   for (const candidate of candidateRows) {
-    let detail: ChecklistInstanceDetailInternal;
-    try {
-      detail = await loadInstanceDetailInternal(client, auth.tenantId, candidate.id);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        continue;
-      }
-      throw error;
+    const scopeId = resolveChecklistScopeId(candidate.scope_type, candidate);
+    if (!scopeId) continue;
+    const bucket = scopeIdsByType.get(candidate.scope_type) ?? [];
+    bucket.push(scopeId);
+    scopeIdsByType.set(candidate.scope_type, bucket);
+  }
+  const contextsByType = new Map<ChecklistScopeType, Map<string, ScopeContext>>();
+  for (const [scopeType, ids] of scopeIdsByType) {
+    contextsByType.set(scopeType, await loadScopeContextsBatch(client, auth.tenantId, scopeType, [...new Set(ids)]));
+  }
+
+  const items: ChecklistAttentionItem[] = [];
+  for (const instance of candidateRows) {
+    const templateName = templateNameById.get(instance.template_id);
+    const version = versionById.get(instance.template_version_id);
+    const scopeId = resolveChecklistScopeId(instance.scope_type, instance);
+    const target = scopeId ? contextsByType.get(instance.scope_type)?.get(scopeId) : undefined;
+    if (!templateName || !version || !target) {
+      // Mirrors the old 404-skip: a candidate whose template/version/target no
+      // longer resolves is dropped, never fabricated.
+      continue;
     }
     try {
-      await assertCanReadChecklistScope(client, auth, detail.target, detail.instance);
+      await assertCanReadChecklistScope(client, auth, target, instance);
     } catch {
       continue;
     }
-    if (isChecklistAttentionClosed(detail.instance.status)) {
+    if (isChecklistAttentionClosed(instance.status)) {
       continue;
     }
+    const sections = sectionsByVersion.get(version.id) ?? [];
+    const responses = responsesByInstance.get(instance.id) ?? [];
+    const attachments = attachmentsByInstance.get(instance.id) ?? [];
+    const approvals = approvalsByInstance.get(instance.id) ?? [];
+    const progress = buildChecklistProgressSummary(version, sections, responses, attachments);
+    // The detail path also treats approved/waived instance statuses as
+    // approval-complete; the candidate SQL excludes both statuses here, so
+    // those branches are provably dead (TS narrows them away).
+    progress.approval_complete =
+      !version.approval_required || approvals.some((approval) => approval.decision === "approved");
+    progress.missing_approval = Boolean(version.approval_required && !progress.approval_complete);
+
     const blockedTransition =
-      detail.instance.blocking_level !== "none" &&
-      (detail.progress.missing_item_ids.length > 0 || detail.progress.missing_proof_item_ids.length > 0 || detail.progress.missing_approval);
+      instance.blocking_level !== "none" &&
+      (progress.missing_item_ids.length > 0 || progress.missing_proof_item_ids.length > 0 || progress.missing_approval);
     const item: ChecklistAttentionItem = {
-      instance_id: detail.instance.id,
-      scope_type: detail.target.scope_type,
-      scope_id: detail.target.scope_id,
-      department_type: detail.target.department_type,
-      job_id: detail.target.job_id,
-      shoot_id: detail.target.shoot_id,
-      production_item_id: detail.target.production_item_id,
-      title: detail.instance.title,
-      template_name: detail.template.name,
-      target_title: detail.target.title,
-      organization_name: detail.target.organization_name,
-      owner_user_id: detail.instance.owner_user_id,
-      owner_name: detail.target.owner_name,
-      reviewer_user_id: detail.instance.reviewer_user_id,
-      approver_user_id: detail.instance.approver_user_id,
-      status: detail.instance.status,
-      attention_state: buildChecklistAttentionState(detail),
-      blocking_level: detail.instance.blocking_level,
-      due_at: normalizeTimestamp(detail.instance.due_at),
-      progress_percent: detail.progress.progress_percent,
-      missing_required_count: detail.progress.missing_item_ids.length,
-      missing_proof_count: detail.progress.missing_proof_item_ids.length,
-      missing_approval: detail.progress.missing_approval,
+      instance_id: instance.id,
+      scope_type: target.scope_type,
+      scope_id: target.scope_id,
+      department_type: target.department_type,
+      job_id: target.job_id,
+      shoot_id: target.shoot_id,
+      production_item_id: target.production_item_id,
+      title: instance.title,
+      template_name: templateName,
+      target_title: target.title,
+      organization_name: target.organization_name,
+      owner_user_id: instance.owner_user_id,
+      owner_name: target.owner_name,
+      reviewer_user_id: instance.reviewer_user_id,
+      approver_user_id: instance.approver_user_id,
+      status: instance.status,
+      attention_state: buildChecklistAttentionState({ instance, progress }),
+      blocking_level: instance.blocking_level,
+      due_at: normalizeTimestamp(instance.due_at),
+      progress_percent: progress.progress_percent,
+      missing_required_count: progress.missing_item_ids.length,
+      missing_proof_count: progress.missing_proof_item_ids.length,
+      missing_approval: progress.missing_approval,
       blocked_transition: blockedTransition,
-      awaiting_approval: detail.progress.approval_required && detail.progress.missing_approval && detail.instance.status === "submitted",
-      rejected: detail.instance.status === "rejected",
-      overdue: detail.instance.status === "overdue"
+      awaiting_approval: progress.approval_required && progress.missing_approval && instance.status === "submitted",
+      rejected: instance.status === "rejected",
+      overdue: instance.status === "overdue"
     };
     if (!matchesChecklistAttentionQuery(item, auth, query)) {
       continue;
