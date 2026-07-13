@@ -102,6 +102,8 @@ Today two disjoint intake paths exist: the shoot-spine QuickCreate cascade (`cen
 
 ## E. Smaller intent decisions (cheap to answer, each blocks one slice)
 
+> **E1 implementation finding (2026-07-13):** on inspection the premise doesn't hold — `director_admin` is an authority *tier*, not a role, and the tier's demo user holds the `admin` role, which already carries every `communication.*` permission. The 403 is the OTHER condition the sprint doc named: `can_use` requires a **linked Teams identity** (plus Graph credentials) — a provisioning step, not a code change. To clear it: link the user's Teams identity in the communications identity-linking flow and set the Graph env credentials. No migration shipped (it would have been a silent no-op).
+
 ### E1 ⬜ **Teams access for `director_admin`.** Job Detail's communications panel 403s for director_admin — the migration-131 grant list omits the role, and use requires a linked Teams identity. Bug or intent?
 **Recommended: grant it** (add director_admin + `communication.configure`) — the omission looks accidental.
 
