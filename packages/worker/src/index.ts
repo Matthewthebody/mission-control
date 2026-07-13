@@ -7,6 +7,7 @@ import {
   exceptionReconcileWorker,
   gearWorker,
   laborWorker,
+  knowledgeIngestionWorker,
   productionBoardWorker,
   outboxWorker,
   projectTrackingSlaWorker,
@@ -30,6 +31,7 @@ async function main() {
   exceptionReconcileWorker.on("completed", () => {});
   gearWorker.on("completed", () => {});
   laborWorker.on("completed", () => {});
+  knowledgeIngestionWorker.on("completed", () => {});
   productionBoardWorker.on("completed", () => {});
   projectTrackingSlaWorker.on("completed", () => {});
   salesPipelineWorker.on("completed", () => {});

@@ -20,6 +20,7 @@ import shiftRoutes from "./routes/shifts.js";
 import attendanceRoutes from "./routes/attendance.js";
 import laborRoutes from "./routes/labor.js";
 import productionBoardInternalRoutes from "./routes/productionBoardInternal.js";
+import knowledgeRoutes from "./routes/knowledge.js";
 import postShootRoutes from "./routes/postShoot.js";
 import complianceRoutes from "./routes/compliance.js";
 import approvalRoutes from "./routes/approvals.js";
@@ -207,6 +208,7 @@ export function createApp() {
   app.use("/api/attendance", attendanceRoutes);
   app.use("/api/labor", laborRoutes);
   app.use("/api/production-board", productionBoardInternalRoutes);
+  app.use("/api/knowledge", knowledgeRoutes);
   app.use("/api/post-shoot", postShootRoutes);
   app.use("/api/compliance", complianceRoutes);
   app.use("/api/approvals", approvalRoutes);

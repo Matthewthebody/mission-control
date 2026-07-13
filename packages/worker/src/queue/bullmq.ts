@@ -14,6 +14,7 @@ import { monitorExceptionReconcile } from "../jobs/exceptionReconcileMonitor.js"
 import { monitorGear } from "../jobs/gearMonitor.js";
 import { monitorLabor } from "../jobs/laborMonitor.js";
 import { monitorProductionBoard } from "../jobs/productionBoardMonitor.js";
+import { monitorKnowledgeIngestion } from "../jobs/knowledgeIngestionMonitor.js";
 import { monitorProjectTrackingSla } from "../jobs/projectTrackingSlaMonitor.js";
 import { monitorSalesPipeline } from "../jobs/salesPipelineMonitor.js";
 import { monitorSchoolsHub } from "../jobs/schoolsHubAutomation.js";
@@ -37,6 +38,7 @@ export const clientIntakeQueue = new Queue("client-intake", { connection });
 export const exceptionReconcileQueue = new Queue("exception-reconcile", { connection });
 export const gearQueue = new Queue("gear", { connection });
 export const laborQueue = new Queue("labor", { connection });
+export const knowledgeIngestionQueue = new Queue("knowledge-ingestion", { connection });
 export const productionBoardQueue = new Queue("production-board", { connection });
 export const projectTrackingSlaQueue = new Queue("project-tracking-sla", { connection });
 export const salesPipelineQueue = new Queue("sales-pipeline", { connection });
@@ -108,6 +110,14 @@ export const laborWorker = new Worker(
   { connection }
 );
 
+export const knowledgeIngestionWorker = new Worker(
+  "knowledge-ingestion",
+  async () => {
+    await monitorKnowledgeIngestion();
+  },
+  { connection }
+);
+
 export const productionBoardWorker = new Worker(
   "production-board",
   async () => {
@@ -149,6 +159,7 @@ export async function scheduleJobs() {
   await exceptionReconcileQueue.upsertJobScheduler("exception-reconcile-repeat", { every: 60000 }, { name: "monitor-exception-reconcile", data: {} });
   await gearQueue.upsertJobScheduler("gear-repeat", { every: 60000 }, { name: "monitor-gear", data: {} });
   await laborQueue.upsertJobScheduler("labor-repeat", { every: 60000 }, { name: "monitor-labor", data: {} });
+  await knowledgeIngestionQueue.upsertJobScheduler("knowledge-ingestion-repeat", { every: 60000 }, { name: "monitor-knowledge-ingestion", data: {} });
   await productionBoardQueue.upsertJobScheduler("production-board-repeat", { every: 60000 }, { name: "monitor-production-board", data: {} });
   await projectTrackingSlaQueue.upsertJobScheduler("project-tracking-sla-repeat", { every: 60000 }, { name: "monitor-project-tracking-sla", data: {} });
   await salesPipelineQueue.upsertJobScheduler("sales-pipeline-repeat", { every: 60000 }, { name: "monitor-sales-pipeline", data: {} });

@@ -357,6 +357,17 @@ const configSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === undefined ? true : value === "true"),
+  // Ask Bailey (docs/ask-bailey/2026-07-13-ask-bailey-architecture.md, D4/D7).
+  // Providers are server-env configured and replaceable; the deterministic
+  // adapters are the honest default with no external dependency or secret.
+  ASK_BAILEY_LLM_PROVIDER: z.string().default("deterministic"),
+  ASK_BAILEY_LLM_BASE_URL: z.string().default(""),
+  ASK_BAILEY_LLM_API_KEY: z.string().default(""),
+  ASK_BAILEY_LLM_MODEL: z.string().default(""),
+  ASK_BAILEY_TRANSCRIPTION_PROVIDER: z.string().default("deterministic"),
+  ASK_BAILEY_MAX_RETRIEVED_SEGMENTS: z.coerce.number().int().min(1).max(24).default(8),
+  ASK_BAILEY_MAX_ANSWER_CHARS: z.coerce.number().int().min(200).max(20000).default(4000),
+  ASK_BAILEY_ASK_RATE_MAX_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(12),
   JOB_CLOSEOUT_DAILY_REPORT_TIME: z.string().default("06:00"),
   JOB_CLOSEOUT_WEEKLY_REPORT_TIME: z.string().default("Monday 06:00"),
   JOB_CLOSEOUT_TIMEZONE: z.string().default("America/Chicago"),
