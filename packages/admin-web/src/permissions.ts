@@ -2331,6 +2331,12 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
         return canAccessAdminWorkspace(user) && canViewLabor(user);
     case "account":
       return true;
+    // MC-AUDIT-018: the not-found page is honest feedback about a broken link —
+    // every role may see it (it renders no data). Without this case the access
+    // guard silently swapped it for the dashboard, recreating the exact bug the
+    // route exists to fix.
+    case "route-not-found":
+      return true;
     default:
       return false;
   }
