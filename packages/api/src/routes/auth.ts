@@ -83,6 +83,16 @@ const resetRateLimit = createRateLimiter({
   key: (req) => `${req.ip}:${String(req.body?.email ?? "")}`
 });
 
+// MC-016 defense-in-depth: dev-login is passwordless, so even in development it
+// must not be an unmetered account-enumeration oracle. The cap is generous because
+// the test suite legitimately logs in the same fixture emails repeatedly in-process.
+const devLoginRateLimit = createRateLimiter({
+  bucket: "auth-dev-login",
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  key: (req) => `${req.ip}:${String(req.body?.email ?? "")}`
+});
+
 router.get("/options", (_req, res) => {
   setNoStore(res);
   return res.json({
@@ -93,7 +103,7 @@ router.get("/options", (_req, res) => {
   });
 });
 
-router.post("/dev-login", validateBody(devLoginSchema), async (req, res, next) => {
+router.post("/dev-login", devLoginRateLimit, validateBody(devLoginSchema), async (req, res, next) => {
   try {
     if (config.NODE_ENV === "production" || !config.ALLOW_DEV_LOGIN) {
       throw new ApiError(404, "Not found");

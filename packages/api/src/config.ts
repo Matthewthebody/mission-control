@@ -23,12 +23,21 @@ function parseStringMap(value: string | undefined, fallback: Record<string, stri
   }
 }
 
+// MC-016: passwordless dev-login must FAIL CLOSED when the runtime environment is
+// ambiguous. A deploy that forgets to set NODE_ENV lands on the "development"
+// default above — that must never silently enable dev-login. The default is true
+// ONLY for an explicitly non-production NODE_ENV (the repo .env sets development;
+// vitest sets test); an unset NODE_ENV means dev-login requires ALLOW_DEV_LOGIN=true.
+export function devLoginDefaultFor(nodeEnvRaw: string | undefined) {
+  return nodeEnvRaw !== undefined && nodeEnvRaw !== "production";
+}
+
 const configSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   ALLOW_DEV_LOGIN: z
     .string()
     .optional()
-    .transform((value) => value === undefined ? process.env.NODE_ENV !== "production" : value === "true"),
+    .transform((value) => value === undefined ? devLoginDefaultFor(process.env.NODE_ENV) : value === "true"),
   ALLOW_PASSWORD_LOGIN: z
     .string()
     .optional()
