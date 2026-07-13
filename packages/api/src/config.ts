@@ -349,10 +349,12 @@ const configSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === undefined ? true : value === "true"),
+  // Owner rule #1 (ratified 2026-07-13): EVERYONE who works a shoot owes a
+  // post-shoot evaluation — associates included. Default ON; opt out per env.
   JOB_CLOSEOUT_REQUIRE_ASSOCIATE_EVALUATION: z
     .string()
     .optional()
-    .transform((value) => value === undefined ? false : value === "true"),
+    .transform((value) => value === undefined ? true : value === "true"),
   JOB_CLOSEOUT_DAILY_REPORT_TIME: z.string().default("06:00"),
   JOB_CLOSEOUT_WEEKLY_REPORT_TIME: z.string().default("Monday 06:00"),
   JOB_CLOSEOUT_TIMEZONE: z.string().default("America/Chicago"),

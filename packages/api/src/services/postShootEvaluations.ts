@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { config } from "../config.js";
 import { ApiError } from "../errors/apiError.js";
 import { hasAuthorityTier } from "../authz/authority.js";
 import type { AuthUser } from "../types/auth.js";
@@ -956,7 +957,13 @@ export async function getShiftCloseoutCompliance(
   }
 
   const setupPhotoRequired = requiresLeadCloseout(shift);
-  const postShootEvaluationRequired = requiresLeadCloseout(shift);
+  // Owner rule #1 (ratified 2026-07-13): every worker on a shoot owes an eval,
+  // not just leads/seniors. The flag existed but never reached this gate — the
+  // obligations read model already counted associates as owing; the enforcement
+  // gate and the read model now agree. Setup photos stay a lead duty.
+  const postShootEvaluationRequired =
+    requiresLeadCloseout(shift) ||
+    (shift.shift_kind === "shoot" && Boolean(shift.shoot_id) && config.JOB_CLOSEOUT_REQUIRE_ASSOCIATE_EVALUATION);
   const setupPhotoRecord = await hasSetupPhotoForShoot(client, input.tenantId, shift.shoot_id);
   const latestEvaluation = await loadLatestPostShootEvaluation(client, input.tenantId, shift.id, input.submitterUserId);
   const latestPunch = await loadLatestClockState(client, shift.id, input.submitterUserId);
