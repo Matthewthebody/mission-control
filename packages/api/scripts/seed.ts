@@ -9,6 +9,7 @@ import { hashOpaqueToken, hashPassword } from "../src/services/auth.js";
 import { syncUserAuthorityAssignment } from "../src/services/authority.js";
 import { buildGoogleMapsLink, estimateDriveMinutesFromStudio, getStudioLocation } from "../src/services/maps.js";
 import { seedTrainingState } from "../src/services/training.js";
+import { seedLaborCommandCenter } from "./seed-labor-command-center.js";
 
 const LOCAL_DEMO_PASSWORD = "LocalDemo123!";
 const REDACT_SENSITIVE_OUTPUT = process.argv.includes("--redact-sensitive-output");
@@ -3638,11 +3639,18 @@ async function run() {
 
     await seedTrainingState(client, tenant.id);
 
+    // Canonical labor stack (MC-AUDIT-017): time sessions for this week's shifts,
+    // an open payroll period with a self-check window, mileage + overtime stories.
+    // Runs last so every seeded shift above is visible to it. Never writes legacy
+    // shift_punch/time_entry.
+    const laborSeedSummary = await seedLaborCommandCenter(client, tenant.id);
+
     await client.query("COMMIT");
     console.log(
       JSON.stringify(
         {
           tenant,
+          labor_command_center: laborSeedSummary,
           seed_reused_existing_demo_tenant: existingDemoTenants.rows.length > 0,
           duplicate_demo_tenants_detected: Math.max(existingDemoTenants.rows.length - 1, 0),
           studio,

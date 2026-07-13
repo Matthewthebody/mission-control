@@ -1191,7 +1191,10 @@ export async function seedMissionControlDemoData(argv = process.argv) {
     photography_today: photographyToday,
     wayzata_location_intel: wayzataLocationIntel,
     counts,
-    seeded_areas: ["client_command_center", "project_tracking", "workflow_templates", "job_closeout", "sports_peer_qa", "photography_today", "wayzata_location_intel"],
+    // labor_command_center is seeded by the base seed (scripts/seed.ts →
+    // seed-labor-command-center.ts), which owns the tenant-context client and
+    // runs after every shift exists. Recorded here so the demo summary is honest.
+    seeded_areas: ["client_command_center", "project_tracking", "workflow_templates", "job_closeout", "sports_peer_qa", "photography_today", "wayzata_location_intel", "labor_command_center"],
     reference_areas: ["checklist_template_defaults"],
     deferred_areas: ["compliance_workspace_specific_story"]
   };

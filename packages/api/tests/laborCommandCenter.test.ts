@@ -22,6 +22,7 @@ let leadershipId = "";
 let periodStart = "";
 let periodEnd = "";
 let periodId = "";
+let syntheticSessionId = "";
 let noBreakExceptionRequestId: string | null = null;
 // Pre-existing demo blockers neutralized for the clean-lock step (restored in afterAll):
 // the seeded demo tenant carries open exception requests and pending geofence punches
@@ -103,6 +104,7 @@ beforeAll(async () => {
     `INSERT INTO time_session (tenant_id, employee_id, work_date, status) VALUES ($1, $2, $3::date, 'closed') RETURNING id`,
     [tenantId, employeeId, periodStart]
   );
+  syntheticSessionId = sessionRow.rows[0].id;
   const startTime = new Date(`${periodStart}T09:00:00`).toISOString();
   const endTime = new Date(`${periodStart}T17:30:00`).toISOString();
   await pool.query(
@@ -202,7 +204,10 @@ describe("Labor Command Center", () => {
     expect(mine.status).toBe(200);
     expect(mine.body.window_state).toBe("open");
     expect(mine.body.period.id).toBe(periodId);
-    const day = mine.body.days.find((entry: { work_date: string }) => entry.work_date === periodStart);
+    // Locate THIS suite's synthetic session by id — the shared demo DB (punch
+    // bridge, labor seed, other suites) legitimately holds other sessions for
+    // this employee on the same date, so first-row-for-the-date is not stable.
+    const day = mine.body.days.find((entry: { session_id: string }) => entry.session_id === syntheticSessionId);
     expect(day).toBeTruthy();
     expect(day.total_worked_minutes).toBeGreaterThanOrEqual(500);
     expect(day.clock_in_at).toBeTruthy();
