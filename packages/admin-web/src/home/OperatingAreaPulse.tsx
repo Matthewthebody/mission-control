@@ -47,7 +47,8 @@ export function OperatingAreaPulse({ emphasizedArea }: { emphasizedArea: Operati
     <section className="panel home-pulse" aria-label="Operating area pulse">
       <HomeSectionHeader
         title="Operating Areas"
-        help="Each area shows status, the top issues, who owns the next action, and how it depends on other areas. The company is connected, not siloed."
+        badge="Sample data"
+        help="Illustrative sample content — not live operational status. Each area shows what this panel WILL look like: status, top issues, next-action owner, and cross-area dependencies."
       />
       <div className="home-pulse__grid">
         {cards.map((card) => (

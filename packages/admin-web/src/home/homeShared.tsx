@@ -10,12 +10,15 @@ export function HomeSectionHeader({
   title,
   help,
   count,
-  eyebrow
+  eyebrow,
+  badge
 }: {
   title: string;
   help?: string;
   count?: number;
   eyebrow?: string;
+  /** Honest-contract label, e.g. "Sample data" — a panel without a live source must say so. */
+  badge?: string;
 }) {
   return (
     <div className="home-section__head">
@@ -25,6 +28,9 @@ export function HomeSectionHeader({
           {title}
           {typeof count === "number" ? <span className="home-section__count">{count}</span> : null}
         </h3>
+        {badge ? (
+          <span className="home-command-card__badge home-command-card__badge--sample">{badge}</span>
+        ) : null}
       </div>
       {help ? <HelpTooltip text={help} label={`About ${title}`} /> : null}
     </div>

@@ -8,7 +8,10 @@ describe("resolveActionTarget (actionability contract)", () => {
       available: true,
       hash: "#project-tracking"
     });
-    expect(resolveActionTarget({ sourceType: "production" })).toEqual({ available: true, hash: "#production" });
+    // #production/operations is the canonical, reachable production-queue route;
+    // the bare #production hash is a resolver alias to it (SSA-1 fix). Contract
+    // aligned intentionally per the 2026-07-08 audit (MC-AUDIT-018).
+    expect(resolveActionTarget({ sourceType: "production" })).toEqual({ available: true, hash: "#production/operations" });
     expect(resolveActionTarget({ sourceType: "attendance" })).toEqual({
       available: true,
       hash: "#employees/attendance"

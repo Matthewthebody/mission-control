@@ -6,7 +6,8 @@ import {
   DEMO_WORKFLOW_CHANGE_NOTICES,
   WorkflowChangeNoticePanel,
   buildHomeUrgentItemsFromWorkflowChangeNotices,
-  getWorkflowChangeNoticesForUser
+  getWorkflowChangeNoticesForUser,
+  type WorkflowChangeNotice
 } from "../workflowChangeNotices";
 import type { SessionUser } from "../types";
 
@@ -45,6 +46,30 @@ const userPhoto: SessionUser = {
   }
 };
 
+// A locally-constructed notice keeps the PANEL behavior covered without any
+// fabricated operational data shipping in the app bundle.
+const testNotice: WorkflowChangeNotice = {
+  id: "test-location-change",
+  level: "urgent",
+  changeKind: "location",
+  changeLabel: "Location changed",
+  title: "Location changed: Test Media Day",
+  summary: "The shoot moved to the backup gym.",
+  jobTitle: "Test Media Day",
+  department: "schools",
+  updatedBy: "Test Coordinator",
+  updatedAt: "2026-07-13T14:00:00.000Z",
+  audienceLabel: "Assigned photographers",
+  audienceUserIds: ["user-photo"],
+  audienceDepartments: ["schools"],
+  affectedTeams: ["Photography"],
+  actionNeeded: "Confirm you saw the new location before call time.",
+  actionLabel: "Open schedule",
+  actionHash: "#my-work",
+  requiresAcknowledgement: true,
+  surfaces: ["my-work"]
+};
+
 describe("workflow change notices", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -55,73 +80,33 @@ describe("workflow change notices", () => {
     window.localStorage.clear();
   });
 
-  it("renders FYI, Important, and Urgent notices without fake push language", () => {
-    render(<WorkflowChangeNoticePanel notices={DEMO_WORKFLOW_CHANGE_NOTICES} title="Test Change Notices" />);
+  it("ships ZERO fabricated notices — the demo array is empty by contract (MC-AUDIT-003/015)", () => {
+    expect(DEMO_WORKFLOW_CHANGE_NOTICES).toEqual([]);
+    expect(getWorkflowChangeNoticesForUser(userPhoto, { includeAcknowledged: true })).toEqual([]);
+    expect(buildHomeUrgentItemsFromWorkflowChangeNotices(DEMO_WORKFLOW_CHANGE_NOTICES)).toEqual([]);
+  });
+
+  it("renders nothing (not an empty shell) when there are no notices", () => {
+    const { container } = render(<WorkflowChangeNoticePanel notices={[]} title="Test Change Notices" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders a real notice with plain operational language when one is provided", () => {
+    render(<WorkflowChangeNoticePanel notices={[testNotice]} title="Test Change Notices" />);
 
     expect(screen.getByRole("heading", { name: "Test Change Notices" })).toBeInTheDocument();
-    expect(screen.getAllByText("FYI").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Important").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Urgent").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Who needs to know:").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Next action:").length).toBeGreaterThan(0);
+    expect(screen.getByText("Location changed: Test Media Day")).toBeInTheDocument();
+    expect(screen.getByText("Who needs to know:")).toBeInTheDocument();
+    expect(screen.getByText("Next action:")).toBeInTheDocument();
     expect(screen.queryByText(/push pipeline|entity watcher|notification contract|mutation event/i)).not.toBeInTheDocument();
   });
 
-  it("covers the core demo change notice examples with plain operational language", () => {
-    const labels = DEMO_WORKFLOW_CHANGE_NOTICES.map((notice) => notice.changeLabel);
-    expect(labels).toEqual(
-      expect.arrayContaining([
-        "Shoot date changed",
-        "Call time changed",
-        "Location changed",
-        "Roster received",
-        "Roster still missing",
-        "Priority changed",
-        "Blocker added",
-        "Blocker resolved",
-        "Job launched",
-        "Gallery deadline changed",
-        "Shoot manager assigned",
-        "Shoot manager still needed"
-      ])
-    );
-    expect(DEMO_WORKFLOW_CHANGE_NOTICES.some((notice) => notice.requiresAcknowledgement && notice.level === "urgent")).toBe(true);
-    expect(DEMO_WORKFLOW_CHANGE_NOTICES.every((notice) => notice.actionNeeded && notice.audienceLabel)).toBe(true);
-  });
-
   it("keeps urgent acknowledgement local and visible", () => {
-    render(<WorkflowChangeNoticePanel notices={[DEMO_WORKFLOW_CHANGE_NOTICES[0]]} title="Test Change Notices" />);
+    render(<WorkflowChangeNoticePanel notices={[testNotice]} title="Test Change Notices" />);
 
-    expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
     const acknowledgeButton = screen.getByRole("button", { name: "Acknowledge" });
     fireEvent.click(acknowledgeButton);
 
     expect(screen.getByRole("button", { name: "Acknowledged" })).toBeDisabled();
-  });
-
-  it("targets affected users without blasting unrelated employees", () => {
-    expect(getWorkflowChangeNoticesForUser(userPhoto).map((notice) => notice.id)).toContain("maple-grove-location-change");
-    expect(getWorkflowChangeNoticesForUser({ ...userPhoto, id: "employee-1", department: "operations" })).toHaveLength(0);
-  });
-
-  it("converts unacknowledged urgent notices into Home urgent issue items", () => {
-    const homeItems = buildHomeUrgentItemsFromWorkflowChangeNotices(getWorkflowChangeNoticesForUser(userPhoto));
-
-    expect(homeItems.length).toBeGreaterThanOrEqual(3);
-    expect(homeItems).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-      title: "Location changed: Maple Grove Baseball Media Day",
-      urgency_label: "Urgent",
-      action_hash: "#studios/travel?job=job-sports-1"
-      }),
-      expect.objectContaining({
-        title: "Roster still missing: Lakeview Elementary Picture Day",
-        urgency_label: "Urgent"
-      }),
-      expect.objectContaining({
-        title: "Blocker added: assistant coverage missing",
-        urgency_label: "Urgent"
-      })
-    ]));
   });
 });

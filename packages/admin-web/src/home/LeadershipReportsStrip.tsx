@@ -7,7 +7,8 @@ export function LeadershipReportsStrip() {
       <HomeSectionHeader
         title="Reports"
         eyebrow="Lower priority than live operations"
-        help="Trends and performance for context. These stay below On Fire, staffing, clock-in, jobs-behind, and weather on purpose."
+        badge="Sample data"
+        help="Illustrative sample report cards — not live numbers. Live reporting lives in the Reports section."
       />
       <div className="home-reports__grid">
         {DEMO_LEADERSHIP_REPORTS.map((report) => (

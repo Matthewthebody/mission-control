@@ -662,7 +662,14 @@ describe("app auth bootstrap", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "My Work", level: 2 })).toBeInTheDocument();
+    // The My Work chunk is reachable both lazily (shell route) and statically
+    // (employee Home) since MC-AUDIT-003, so the page can mount, suspend, and
+    // remount — wait for it to settle, then assert on a fresh query (a node
+    // captured mid-remount can be detached by assertion time).
+    await screen.findByRole("heading", { name: "My Work", level: 2 }, { timeout: 3000 });
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "My Work", level: 2 })).toBeInTheDocument();
+    });
     expect(screen.queryByRole("heading", { name: "My Work", level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByText("Quick Access")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Quick Access" })).not.toBeInTheDocument();
@@ -1670,6 +1677,8 @@ describe("app auth bootstrap", () => {
         return { user: fieldEmployee };
       }
       if (typeof path === "string" && path.startsWith("/api/employee/my-work?anchor_date=")) {
+        // Employee Home IS live My Work now (MC-AUDIT-003), so the payload must
+        // carry the full contract shape — the page reads every list below.
         return {
           anchor_date: "2026-03-30",
           window_end_date: "2026-04-06",
@@ -1683,10 +1692,25 @@ describe("app auth bootstrap", () => {
             closeout_due_count: 0,
             late_or_exception_count: 0,
             mileage_review_count: 0,
-            next_shift_label: "Next call at 8:00 AM"
+            next_shift_label: "Next call at 8:00 AM",
+            assigned_task_count: 0,
+            live_workflow_step_count: 0,
+            acknowledgement_count: 0,
+            owned_exception_count: 0,
+            approval_waiting_count: 0,
+            recent_change_count: 0,
+            next_event_label: null
           },
           shifts: [],
-          notifications: []
+          notifications: [],
+          jobs: [],
+          live_workflow_steps: [],
+          events: [],
+          tasks: [],
+          acknowledgements: [],
+          exceptions: [],
+          approvals: [],
+          recent_changes: []
         };
       }
       throw new Error(`Unexpected app call: ${path}`);
@@ -1697,7 +1721,7 @@ describe("app auth bootstrap", () => {
     render(<App />);
 
     expect(await screen.findByRole("navigation", { name: "Mobile navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "My Work" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Schedule" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Requests" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "More" }));

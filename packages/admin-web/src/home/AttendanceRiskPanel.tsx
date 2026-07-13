@@ -13,7 +13,8 @@ export function AttendanceRiskPanel({ emphasizedArea }: { emphasizedArea: Operat
       <HomeSectionHeader
         title="People / Attendance Risk"
         count={rows.length}
-        help="Who is not clocked in, late, called out, missing a shift, assigned-but-not-acknowledged, or short a crew. Overtime and early clock-out are intentionally not front-and-center."
+        badge="Sample data"
+        help="Illustrative sample content — these are not real employees or live attendance states. Live attendance truth lives in the attendance and compliance surfaces this panel links to."
       />
       <div className="home-attendance__table" role="table">
         <div className="home-attendance__row home-attendance__row--head" role="row">

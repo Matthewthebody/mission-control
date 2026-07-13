@@ -255,7 +255,7 @@ export function CompanyCommandHome({ role, token }: { role: HomeRole; token?: st
         </div>
       </section>
 
-      <CompanyNeedsAttention emphasizedArea={role.emphasizedArea} />
+      <CompanyNeedsAttention token={token} />
       <OperatingAreaPulse emphasizedArea={role.emphasizedArea} />
       <AttendanceRiskPanel emphasizedArea={role.emphasizedArea} />
       <WeatherImpactPanel emphasizedArea={role.emphasizedArea} />

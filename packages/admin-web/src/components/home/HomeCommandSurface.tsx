@@ -10,9 +10,7 @@ import {
 } from "../../home/homeRoles";
 import { RolePreviewSwitcher } from "../../home/RolePreviewSwitcher";
 import { CompanyCommandHome } from "../../home/CompanyCommandHome";
-import { MyWorkspaceHome } from "../../home/MyWorkspaceHome";
-import { SportsCommandCenter } from "../../home/SportsCommandCenter";
-import { SamSportsWorkspace } from "../../home/SamSportsWorkspace";
+import { MyWork } from "../../pages/MyWork";
 
 type Props = {
   token: string;
@@ -23,7 +21,7 @@ type Props = {
 
 const HOME_ROLE_STORAGE_KEY = "pmc-home-demo-role";
 
-function readInitialHomeRole(user: SessionUser): HomeRoleId {
+function readStoredPreviewRole(): HomeRoleId | null {
   try {
     const stored = window.localStorage.getItem(HOME_ROLE_STORAGE_KEY);
     if (isHomeRoleId(stored)) {
@@ -32,42 +30,45 @@ function readInitialHomeRole(user: SessionUser): HomeRoleId {
   } catch {
     // ignore storage access issues
   }
-  return defaultHomeRoleForUser(user);
+  return null;
 }
 
-// Role-aware Home. Leadership and department leads land on Company Command;
-// associates land on My Workspace. The single page header carries the role-aware
-// title and the demo role-preview switcher so there is never a duplicate header.
-export function HomeCommandSurface({ token, currentUser, onOpenConcierge }: Props) {
-  const [homeRoleId, setHomeRoleId] = useState<HomeRoleId>(() => readInitialHomeRole(currentUser));
+// Role-aware Home. The rendered experience is derived from the REAL session role:
+// leadership lands on Company Command; everyone else lands on their live My Work
+// page (never a fabricated persona workspace). Leadership additionally gets a
+// clearly-labeled Preview switcher to walk the operating model — the preview can
+// only ever show live-or-labeled surfaces, so previewing is safe by construction.
+export function HomeCommandSurface({ token, currentUser, socket, onOpenConcierge }: Props) {
+  const realRoleId = defaultHomeRoleForUser(currentUser);
+  const realRole = getHomeRole(realRoleId);
+  const canPreview = realRole.leadership;
+
+  const [previewRoleId, setPreviewRoleId] = useState<HomeRoleId>(() =>
+    canPreview ? (readStoredPreviewRole() ?? realRoleId) : realRoleId
+  );
   const [conciergeQuery, setConciergeQuery] = useState("");
-  const homeRole = getHomeRole(homeRoleId);
 
   useEffect(() => {
+    if (!canPreview) return;
     try {
-      window.localStorage.setItem(HOME_ROLE_STORAGE_KEY, homeRoleId);
+      window.localStorage.setItem(HOME_ROLE_STORAGE_KEY, previewRoleId);
     } catch {
       // ignore storage access issues
     }
-  }, [homeRoleId]);
+  }, [canPreview, previewRoleId]);
 
+  // Non-leadership users' home IS their live work surface — no shell, no persona.
+  if (!canPreview) {
+    return <MyWork token={token} currentUser={currentUser} socket={socket} />;
+  }
+
+  const homeRole = getHomeRole(previewRoleId);
   const isCommand = homeRole.mode === "company_command";
-  const isSportsCommand = homeRole.id === "josh";
-  const isSamWorkspace = homeRole.id === "sam";
-  const title = isSportsCommand
-    ? "Sports Command Center"
-    : isSamWorkspace
-      ? "My Sports Work"
-      : isCommand
-        ? "Company Command"
-        : "My Workspace";
-  const summary = isSportsCommand
-    ? "What changed, what is at risk, what needs approval, and what to rebook — for sports."
-    : isSamWorkspace
-      ? "Your groups, your next actions, and what you are waiting on."
-      : isCommand
-        ? "What is happening across the company, what is on fire, and who needs help."
-        : "What you need to do today — your shift, your queue, and your next action.";
+  const isPreviewingOtherSeat = previewRoleId !== realRoleId;
+  const title = isCommand ? "Company Command" : "My Workspace (Preview)";
+  const summary = isCommand
+    ? "What is happening across the company, what is on fire, and who needs help."
+    : "Employees land directly on their live My Work page. This preview shows YOUR live My Work data, not a simulated employee.";
 
   function submitConcierge(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,7 +78,7 @@ export function HomeCommandSurface({ token, currentUser, onOpenConcierge }: Prop
   return (
     <div className="home-operational home-operational--role-aware">
       <WorkspacePageHeader
-        eyebrow={homeRole.title}
+        eyebrow={isPreviewingOtherSeat ? `Preview · ${homeRole.title}` : homeRole.title}
         title={title}
         summary={summary}
         summaryAsHelp
@@ -85,7 +86,7 @@ export function HomeCommandSurface({ token, currentUser, onOpenConcierge }: Prop
         className="home-operational__header"
         actions={
           <div className="home-operational__header-actions">
-            <RolePreviewSwitcher value={homeRoleId} onChange={setHomeRoleId} />
+            <RolePreviewSwitcher value={previewRoleId} onChange={setPreviewRoleId} />
             <form className="home-concierge" role="search" onSubmit={submitConcierge}>
               <input
                 className="home-concierge__input"
@@ -102,14 +103,10 @@ export function HomeCommandSurface({ token, currentUser, onOpenConcierge }: Prop
           </div>
         }
       />
-      {isSportsCommand ? (
-        <SportsCommandCenter currentUser={currentUser} />
-      ) : isSamWorkspace ? (
-        <SamSportsWorkspace />
-      ) : isCommand ? (
+      {isCommand ? (
         <CompanyCommandHome role={homeRole} token={token} />
       ) : (
-        <MyWorkspaceHome role={homeRole} />
+        <MyWork token={token} currentUser={currentUser} socket={socket} />
       )}
     </div>
   );

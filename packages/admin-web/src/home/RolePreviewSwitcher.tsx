@@ -1,7 +1,8 @@
 import { HOME_ROLES, type HomeRoleId } from "./homeRoles";
 
-// Demo-safe role preview. Lets anyone walk the operating model from each seat
-// without real authentication. Persistence is handled by the Home shell.
+// Leadership-only preview of the operating model. The Home shell mounts this
+// ONLY for leadership sessions and every previewed surface is live-or-labeled,
+// so the switcher can never place a real employee on a fabricated workspace.
 export function RolePreviewSwitcher({
   value,
   onChange
@@ -11,10 +12,10 @@ export function RolePreviewSwitcher({
 }) {
   return (
     <label className="home-role-switcher">
-      <span className="home-role-switcher__label">Viewing as</span>
+      <span className="home-role-switcher__label">Preview seat</span>
       <select
         className="home-role-switcher__select"
-        aria-label="Viewing as"
+        aria-label="Preview seat"
         value={value}
         onChange={(event) => onChange(event.target.value as HomeRoleId)}
       >

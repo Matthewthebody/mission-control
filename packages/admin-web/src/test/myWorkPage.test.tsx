@@ -795,18 +795,15 @@ describe("My Work page", () => {
 
     fireEvent.click(headsUpLaunchpadButton);
     expect(document.getElementById("my-work-heads-up")).toBeInTheDocument();
-    expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
-    expect(screen.getByText("Assigned photographers and the shoot lead")).toBeInTheDocument();
-    const locationChangeNotice = screen.getByText("Location changed: Maple Grove Baseball Media Day").closest("article");
-    expect(locationChangeNotice).not.toBeNull();
-    const acknowledgeChangeButton = within(locationChangeNotice as HTMLElement).getByRole("button", {
-      name: "Acknowledge"
-    });
-    fireEvent.click(acknowledgeChangeButton);
-    expect(within(locationChangeNotice as HTMLElement).getByRole("button", { name: "Acknowledged" })).toBeDisabled();
-    expect(screen.getByText("Roster still missing: Lakeview Elementary Picture Day")).toBeInTheDocument();
-    expect(screen.getByText("Blocker added: assistant coverage missing")).toBeInTheDocument();
-    expect(screen.queryByText(/Acknowledge notes/i)).not.toBeInTheDocument();
+    // Heads Up carries ONLY live payload items now — the fabricated demo change
+    // notices (Maple Grove / Lakeview / blocker) are gone (MC-AUDIT-003/015) and
+    // must never interleave with real work again.
+    expect(screen.queryByText("Location changed: Maple Grove Baseball Media Day")).not.toBeInTheDocument();
+    expect(screen.queryByText("Roster still missing: Lakeview Elementary Picture Day")).not.toBeInTheDocument();
+    expect(screen.queryByText("Blocker added: assistant coverage missing")).not.toBeInTheDocument();
+    // The live, server-backed acknowledgement from the payload now surfaces —
+    // the fabricated notices used to crowd it out of the Heads Up list.
+    expect(screen.getAllByText(/Acknowledge notes/i).length).toBeGreaterThan(0);
 
     expect(screen.queryByText("My Shifts")).not.toBeInTheDocument();
     expect(screen.queryByText("Attendance Risk")).not.toBeInTheDocument();

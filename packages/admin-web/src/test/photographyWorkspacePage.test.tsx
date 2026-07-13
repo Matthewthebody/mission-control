@@ -699,9 +699,10 @@ describe("StudiosWorkspace", () => {
     expect(screen.getByText("Closeout")).toBeInTheDocument();
     expect(screen.getAllByText("Reference Photos").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Senior Review").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { level: 3, name: "Photography Change Notices" })).toBeInTheDocument();
-    expect(screen.getByText("Location changed: Maple Grove Baseball Media Day")).toBeInTheDocument();
-    expect(screen.getByText(/Review travel and parking notes before leaving for the shoot/i)).toBeInTheDocument();
+    // The fabricated demo change notices are gone (MC-AUDIT-003/015): with no real
+    // notices the panel renders nothing rather than fiction.
+    expect(screen.queryByRole("heading", { level: 3, name: "Photography Change Notices" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Location changed: Maple Grove Baseball Media Day")).not.toBeInTheDocument();
     expect(screen.queryByText("Attention Needed")).not.toBeInTheDocument();
     expect(screen.queryByText("Photography Command Hub")).not.toBeInTheDocument();
     expect(screen.queryByText("Work Spine")).not.toBeInTheDocument();
@@ -1019,29 +1020,38 @@ describe("StudiosWorkspace", () => {
         return [{ id: currentUser.id, full_name: currentUser.fullName, department: currentUser.department, roles: currentUser.roles }];
       }
       if (path.startsWith("/api/schedule/calendar?")) {
+        // The 30-day month grid anchors to TODAY, so fixture dates must live in
+        // the current month — the original fixed June dates turned this test red
+        // the moment the calendar rolled into July (hermetic-date discipline).
+        const now = new Date();
+        const monthDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-10`;
         return {
-          range: { start_date: "2026-06-01", end_date: "2026-06-30" },
+          range: { start_date: `${monthDay.slice(0, 8)}01`, end_date: `${monthDay.slice(0, 8)}28` },
           items: [
-            buildScheduleShoot(),
+            buildScheduleShoot({
+              date_key: monthDay,
+              starts_at: `${monthDay}T08:30:00.000Z`,
+              ends_at: `${monthDay}T12:00:00.000Z`
+            }),
             buildScheduleShoot({
               id: "schedule-shoot-2",
               shoot_id: "schedule-shoot-2",
-              date_key: "2026-06-10",
+              date_key: monthDay,
               title: "Senior Banner Session",
               shoot_code: "SCH-102",
-              starts_at: "2026-06-10T13:00:00.000Z",
-              ends_at: "2026-06-10T15:00:00.000Z",
+              starts_at: `${monthDay}T13:00:00.000Z`,
+              ends_at: `${monthDay}T15:00:00.000Z`,
               open_alert_count: 1,
               staffing_health_state: "watch"
             }),
             buildScheduleShoot({
               id: "schedule-shoot-3",
               shoot_id: "schedule-shoot-3",
-              date_key: "2026-06-10",
+              date_key: monthDay,
               title: "Makeup Portraits",
               shoot_code: "SCH-103",
-              starts_at: "2026-06-10T16:00:00.000Z",
-              ends_at: "2026-06-10T17:00:00.000Z"
+              starts_at: `${monthDay}T16:00:00.000Z`,
+              ends_at: `${monthDay}T17:00:00.000Z`
             })
           ],
           sync: {

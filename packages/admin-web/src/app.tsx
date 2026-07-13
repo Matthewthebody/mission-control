@@ -2117,7 +2117,9 @@ function shouldUseMobileBottomNav(user: SessionUser, mobileShell: boolean) {
 
 function buildMobileBottomNavItems(user: SessionUser): MobileBottomNavItem[] {
   return [
-    { id: "mobile-home", label: "My Dashboard", kind: "route", routeId: "dashboard" },
+    // Employees' home is their LIVE work surface (#my-work), never the leadership
+    // dashboard shell — this nav only renders for employee-worksurface users.
+    { id: "mobile-home", label: "My Work", kind: "route", routeId: resolveMobileRoute(user, ["dashboard-my-day", "dashboard"]) },
     {
       id: "mobile-schedule",
       label: "Schedule",

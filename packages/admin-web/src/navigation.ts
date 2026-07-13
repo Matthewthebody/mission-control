@@ -2649,11 +2649,14 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   if (path === "account") {
     return pickVisibleRoute("account", availableTabs, employeeOnlyMode);
   }
-  if (path === "needs-attention" || path === "employees/compliance" || path === "compliance") {
-    return pickVisibleRoute("people-ops-compliance", availableTabs, employeeOnlyMode);
-  }
-  if (path === "review-desk") {
-    return pickVisibleRoute("people-ops-compliance", availableTabs, employeeOnlyMode);
+  if (path === "needs-attention" || path === "employees/compliance" || path === "compliance" || path === "review-desk") {
+    if (isRouteVisible(getRouteById("people-ops-compliance"), availableTabs, employeeOnlyMode)) {
+      return "people-ops-compliance";
+    }
+    // Smoke finding F1: a role without the compliance workspace must land on its
+    // own honest attention surface (live My Work), never silently fall through
+    // to the dashboard shell.
+    return pickVisibleRoute("dashboard-my-day", availableTabs, employeeOnlyMode);
   }
 
   return getDefaultRouteId(availableTabs, employeeOnlyMode);
