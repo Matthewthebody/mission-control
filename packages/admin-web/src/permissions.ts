@@ -2296,6 +2296,10 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
       return canAccessLaborCommandCenter(user);
     case "dashboard-payroll-self-check":
       return canAccessEmployeeMyWork(user);
+    case "ask-bailey":
+      // Every authenticated employee may ask; source-level authorization is
+      // enforced server-side inside the retrieval query.
+      return true;
     case "business-health-profitability":
     case "business-health-executive-summary":
       return canViewProfitabilityLeadership(user) || canViewLeadershipReports(user);

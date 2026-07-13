@@ -191,7 +191,10 @@ afterAll(async () => {
 
 describe("question-to-search conversion", () => {
   it("reduces a natural question to OR'd content terms", () => {
-    expect(questionToSearchQuery("What do I do if the tether feed drops?", null)).toBe("tether OR feed OR drops");
+    expect(questionToSearchQuery("What do I do if the tether feed drops?", null)).toEqual({
+      query: "tether OR feed OR drops",
+      terms: ["tether", "feed", "drops"]
+    });
   });
   it("returns null when nothing searchable remains", () => {
     expect(questionToSearchQuery("do i ??", null)).toBeNull();
@@ -288,12 +291,19 @@ describe("ask pipeline — honest exclusions", () => {
     expect(unresolved.rows[0].occurrence_count).toBeGreaterThanOrEqual(2);
   });
 
+  it("a single shared word does not turn an unrelated question into a supported answer", async () => {
+    // "gauge" appears in the fogline SOP, but nothing else in this question
+    // does — one incidental word must not produce an operational answer.
+    const response = await ask(leadershipToken, { question: "ab-test parental gauge arrangements" });
+    expect(response.body.status).toBe("no_approved_answer");
+  });
+
   it("a confidential source is excluded for a non-leadership user but supports leadership answers", async () => {
-    const associate = await ask(associateToken, { question: "ab-test obsidianfloor negotiability" });
+    const associate = await ask(associateToken, { question: "ab-test obsidianfloor pricing threshold" });
     expect(associate.status).toBe(200);
     expect(associate.body.status).toBe("no_approved_answer");
 
-    const leadership = await ask(leadershipToken, { question: "ab-test obsidianfloor negotiability" });
+    const leadership = await ask(leadershipToken, { question: "ab-test obsidianfloor pricing threshold" });
     expect(leadership.body.status).toBe("supported");
     expect(leadership.body.citations.map((citation: { title: string }) => citation.title)).toContain(
       `${PREFIX}Confidential Policy`

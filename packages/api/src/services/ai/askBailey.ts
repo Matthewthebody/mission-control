@@ -90,6 +90,7 @@ type RetrievedRow = {
   resource_library_item_id: string | null;
   media_url: string | null;
   rank: number;
+  matched_terms: number;
 };
 
 const AUTHORITY_RANK: Record<string, number> = {
@@ -185,7 +186,10 @@ const QUESTION_STOPWORDS = new Set([
   "this", "that", "these", "those", "there", "here", "not", "no", "so", "as", "about", "into"
 ]);
 
-export function questionToSearchQuery(question: string, contextLabel: string | null): string | null {
+export function questionToSearchQuery(
+  question: string,
+  contextLabel: string | null
+): { query: string; terms: string[] } | null {
   const terms = [
     ...new Set(
       `${question} ${contextLabel ?? ""}`
@@ -196,7 +200,7 @@ export function questionToSearchQuery(question: string, contextLabel: string | n
     )
   ];
   if (terms.length === 0) return null;
-  return terms.join(" OR ");
+  return { query: terms.join(" OR "), terms };
 }
 
 async function retrieveSegments(
@@ -210,8 +214,15 @@ async function retrieveSegments(
   if (!searchQuery) return [];
   const params: unknown[] = [auth.tenantId];
   const eligibility = buildVersionEligibilitySql(auth, mode, params);
-  params.push(searchQuery);
+  params.push(searchQuery.query);
   const queryParam = params.length;
+  params.push(searchQuery.terms);
+  const termsParam = params.length;
+  // A single shared word ("leave", "floor") must not turn an unrelated
+  // question into a "supported" answer: when the question has 2+ content
+  // terms, a segment must match at least 2 distinct terms to qualify.
+  params.push(Math.min(2, searchQuery.terms.length));
+  const minMatchedParam = params.length;
   params.push(config.ASK_BAILEY_MAX_RETRIEVED_SEGMENTS);
   const limitParam = params.length;
 
@@ -231,7 +242,11 @@ async function retrieveSegments(
         seg.end_seconds::float AS end_seconds,
         s.resource_library_item_id::text,
         item.file_url AS media_url,
-        ts_rank_cd(seg.search_document, websearch_to_tsquery('simple', $${queryParam}))::float AS rank
+        ts_rank_cd(seg.search_document, websearch_to_tsquery('simple', $${queryParam}))::float AS rank,
+        (
+          SELECT count(*)::int FROM unnest($${termsParam}::text[]) AS term
+          WHERE seg.search_document @@ plainto_tsquery('simple', term)
+        ) AS matched_terms
       FROM knowledge_segment seg
       JOIN knowledge_source_version v ON v.id = seg.source_version_id AND v.tenant_id = seg.tenant_id
       JOIN knowledge_source s ON s.id = v.source_id AND s.tenant_id = v.tenant_id
@@ -240,7 +255,16 @@ async function retrieveSegments(
         AND ${eligibility}
         AND ${SEGMENT_ELIGIBILITY_SQL}
         AND seg.search_document @@ websearch_to_tsquery('simple', $${queryParam})
-      ORDER BY ts_rank_cd(seg.search_document, websearch_to_tsquery('simple', $${queryParam})) DESC
+        AND (
+          SELECT count(*) FROM unnest($${termsParam}::text[]) AS term
+          WHERE seg.search_document @@ plainto_tsquery('simple', term)
+        ) >= $${minMatchedParam}
+      ORDER BY
+        (
+          SELECT count(*) FROM unnest($${termsParam}::text[]) AS term
+          WHERE seg.search_document @@ plainto_tsquery('simple', term)
+        ) DESC,
+        ts_rank_cd(seg.search_document, websearch_to_tsquery('simple', $${queryParam})) DESC
       LIMIT $${limitParam}
     `,
     params

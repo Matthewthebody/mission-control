@@ -249,6 +249,7 @@ const LazyLaborCommandCenter = lazy(() =>
 const LazyPayrollSelfCheck = lazy(() =>
   import("./pages/PayrollSelfCheck").then((module) => ({ default: module.PayrollSelfCheck }))
 );
+const LazyAskBailey = lazy(() => import("./pages/AskBailey"));
 const LazyWorkflowTemplateBuilderPage = lazy(() =>
   import("./pages/WorkflowTemplateBuilderPage").then((module) => ({ default: module.WorkflowTemplateBuilderPage }))
 );
@@ -1641,6 +1642,14 @@ function renderRouteContent({
       <LazyPayrollSelfCheck token={token} />,
       "Loading Payroll Self-Check",
       "Opening your pay period review."
+    );
+  }
+
+  if (route.render.kind === "ask-bailey") {
+    return withRouteSuspense(
+      <LazyAskBailey token={token} />,
+      "Loading Ask Bailey",
+      "Bailey is checking the playbook…"
     );
   }
 

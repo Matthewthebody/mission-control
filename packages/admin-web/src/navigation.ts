@@ -110,6 +110,7 @@ type RouteRender =
   | { kind: "schools-leadership-operations" }
   | { kind: "labor-command-center" }
   | { kind: "payroll-self-check" }
+  | { kind: "ask-bailey" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -299,6 +300,17 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: true,
     render: { kind: "payroll-self-check" }
+  },
+  {
+    id: "ask-bailey",
+    label: "Ask Bailey",
+    sectionKey: "my-work",
+    description: "Your guide to how we do things at Kemmetmueller Photography — answers grounded in approved sources, with citations.",
+    canonicalHash: "#ask-bailey",
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "ask-bailey" }
   },
   {
     id: "dashboard-my-schedule",
@@ -1946,7 +1958,7 @@ const ROUTES: RouteDefinition[] = [
 const ROUTE_BY_ID = new Map(ROUTES.map((route) => [route.id, route]));
 const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   home: [],
-  "my-work": ["dashboard-my-day", "dashboard-my-tasks", "dashboard-payroll-self-check"],
+  "my-work": ["dashboard-my-day", "dashboard-my-tasks", "dashboard-payroll-self-check", "ask-bailey"],
   "needs-attention": [],
   schools: ["schools-jobs", "schools-tasks", "schools-exceptions", "schools-leadership"],
   sports: ["sports-shoots", "sports-accounts", "sports-contacts", "sports-graphics", "sports-exceptions"],
@@ -2082,6 +2094,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "my-work/payroll-self-check" || path === "payroll-self-check") {
     return pickVisibleRoute("dashboard-payroll-self-check", availableTabs, employeeOnlyMode);
+  }
+  if (path === "ask-bailey") {
+    return pickVisibleRoute("ask-bailey", availableTabs, employeeOnlyMode);
   }
   if (path === "dashboard/my-day" || path === "my-work" || path === "work" || path === "my-shifts") {
     return pickVisibleRoute("dashboard-my-day", availableTabs, employeeOnlyMode);
