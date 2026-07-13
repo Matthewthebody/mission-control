@@ -85,6 +85,11 @@ import {
   updatePublishedJob,
   updateWatchlistSavedView
 } from "../services/jobTruth/index.js";
+import {
+  confirmJobShootLink,
+  listJobShootLinkReview,
+  rejectJobShootLink
+} from "../services/jobTruth/jobShootLinkReview.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
 const router = Router();
@@ -158,6 +163,9 @@ const jobDraftSchema = z
   .object({
     department_type: z.enum(JOB_DEPARTMENT_TYPES),
     job_category: z.enum(JOB_CATEGORIES).nullable().optional(),
+    // Convergence slice 1: create a Job against a known Shoot; the confirmed
+    // job_shoot_links row is recorded in the same transaction.
+    legacy_shoot_id: nullableUuid,
     organization_id: nullableUuid,
     primary_location_id: nullableUuid,
     primary_contact_id: nullableUuid,
@@ -1030,6 +1038,49 @@ router.get("/quick-view/:jobId", async (req, res, next) => {
     } finally {
       client.release();
     }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Convergence slice 1 — the reviewed Job↔Shoot bridge. The review queue lists
+// script-proposed links; only a human confirm produces operational truth.
+// (Literal paths — must stay registered before the /:jobId catch-all.)
+const linkReviewNoteSchema = z.object({ note: z.string().max(1000).optional() });
+
+router.get("/link-review", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const client = await connectGuardedClient();
+    try {
+      return res.json(await listJobShootLinkReview(client, auth));
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/link-review/:linkId/confirm", validateBody(linkReviewNoteSchema), async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const link = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      confirmJobShootLink(client, auth, singleParam(req.params.linkId), req.body?.note ?? null)
+    );
+    return res.json({ link });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/link-review/:linkId/reject", validateBody(linkReviewNoteSchema), async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const link = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      rejectJobShootLink(client, auth, singleParam(req.params.linkId), req.body?.note ?? null)
+    );
+    return res.json({ link });
   } catch (error) {
     return next(error);
   }

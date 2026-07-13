@@ -1771,9 +1771,12 @@ async function loadJobAggregate(client: PoolClient, tenantId: string, jobId: str
     `SELECT * FROM job_readiness_items WHERE tenant_id = $1 AND job_id = $2 ORDER BY section_key ASC, sort_order ASC, created_at ASC`,
     [tenantId, jobId]
   );
+  // Reviewed-link model (167): job detail derives operational truth (linked
+  // shoots, schedule, staffing) ONLY from confirmed links. Proposals live in
+  // the link-review queue, never on the detail contract.
   const jobShootLinks = await listRows<JobShootLinkRecord>(
     client,
-    `SELECT * FROM job_shoot_links WHERE tenant_id = $1 AND job_id = $2 ORDER BY created_at ASC`,
+    `SELECT * FROM job_shoot_links WHERE tenant_id = $1 AND job_id = $2 AND status = 'confirmed' ORDER BY created_at ASC`,
     [tenantId, jobId]
   );
   const productionItems = await listRows<ProductionItemRecord>(
@@ -2118,7 +2121,8 @@ async function upsertJobCore(
         location_override_note,
         contact_override_note,
         created_by_user_id,
-        updated_by_user_id
+        updated_by_user_id,
+        legacy_shoot_id
       )
       VALUES (
         COALESCE($1::uuid, gen_random_uuid()),
@@ -2146,10 +2150,13 @@ async function upsertJobCore(
         $23,
         $24,
         $25,
-        $25
+        $25,
+        $26::uuid
       )
       ON CONFLICT (id)
       DO UPDATE SET
+        -- legacy_shoot_id is deliberately NOT updated on conflict: the Shoot
+        -- identity of an existing Job never silently changes from a draft edit.
         department_type = EXCLUDED.department_type,
         job_category = EXCLUDED.job_category,
         organization_id = EXCLUDED.organization_id,
@@ -2201,11 +2208,48 @@ async function upsertJobCore(
       input.production_required ?? true,
       normalizeNullableText(input.location_override_note),
       normalizeNullableText(input.contact_override_note),
-      actorUserId
+      actorUserId,
+      input.legacy_shoot_id ?? null
     ]
   );
 
   return rows[0];
+}
+
+// Convergence slice 1: a Job created against a known Shoot records the
+// confirmed relationship in the same transaction — never an implicit,
+// column-only link.
+async function ensureConfirmedShootLink(
+  client: PoolClient,
+  tenantId: string,
+  actorUserId: string,
+  jobId: string,
+  shootId: string,
+  source: "intake" | "manual"
+) {
+  const linkResult = await client.query<{ id: string; created: boolean }>(
+    `
+      INSERT INTO job_shoot_links (
+        tenant_id, job_id, shoot_id, link_reason, relationship_type, source, status,
+        linked_by_user_id, linked_at, reason
+      )
+      VALUES ($1, $2, $3, 'primary', 'primary', $4, 'confirmed', $5, now(),
+              'Job created with an explicit Shoot reference')
+      ON CONFLICT (tenant_id, job_id, shoot_id) DO UPDATE SET
+        status = 'confirmed',
+        linked_at = COALESCE(job_shoot_links.linked_at, now()),
+        updated_at = now()
+      RETURNING id, (xmax = 0) AS created
+    `,
+    [tenantId, jobId, shootId, source, actorUserId]
+  );
+  if (linkResult.rows[0]?.created) {
+    await client.query(
+      `INSERT INTO job_shoot_link_event (tenant_id, link_id, event_type, to_status, actor_user_id, metadata)
+       VALUES ($1, $2, 'confirmed', 'confirmed', $3, $4::jsonb)`,
+      [tenantId, linkResult.rows[0].id, actorUserId, JSON.stringify({ source, shoot_id: shootId, job_id: jobId })]
+    );
+  }
 }
 
 async function replaceJobDays(client: PoolClient, tenantId: string, jobId: string, days: JobDraftInput["days"]) {
@@ -3816,6 +3860,9 @@ export async function getJobDetail(client: PoolClient, auth: AuthUser, jobId: st
 export async function createDraftJob(client: PoolClient, auth: AuthUser, input: JobDraftInput) {
   requireWriteAccess(auth, input.department_type);
   const job = await upsertJobCore(client, auth.tenantId, auth.id, input);
+  if (input.legacy_shoot_id) {
+    await ensureConfirmedShootLink(client, auth.tenantId, auth.id, job.id, input.legacy_shoot_id, "manual");
+  }
   const adapter = getDepartmentJobAdapter(input.department_type);
   await adapter.upsertProfile(client, auth.tenantId, job.id, input);
   await replaceJobDays(client, auth.tenantId, job.id, input.days ?? null);

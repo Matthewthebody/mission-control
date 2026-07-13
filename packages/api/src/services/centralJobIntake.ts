@@ -2986,6 +2986,91 @@ async function rebuildStaffingShells(
   return insertedIds;
 }
 
+// Convergence slice 1 (MC-AUDIT-001, owner-ratified 2026-07-13): the central
+// intake is THE one front door, so publishing a Shoot also creates its Job
+// engagement row and the CONFIRMED job_shoot_links row in the same transaction.
+// New work can never be born spine-orphaned again. Idempotent on re-publish via
+// the jobs.legacy_shoot_id unique key.
+function mapIntakeDepartmentToJobDepartment(department: string | null | undefined): string {
+  if (department === "schools") return "schools";
+  if (department === "sports") return "sports";
+  if (department === "office") return "corporate";
+  return "other";
+}
+
+async function ensureEngagementJobForShoot(
+  client: PoolClient,
+  auth: AuthUser,
+  input: {
+    shootId: string;
+    jobNumber: string;
+    title: string;
+    normalized: CentralJobNormalizedPayload;
+    effectiveDate: string;
+  }
+): Promise<{ job_id: string; link_id: string; created: boolean }> {
+  const departmentType = mapIntakeDepartmentToJobDepartment(input.normalized.department);
+  const jobResult = await client.query<{ id: string; created: boolean }>(
+    `
+      INSERT INTO jobs (
+        tenant_id, department_type, title, job_status, job_number, legacy_shoot_id,
+        organization_id, primary_location_id, primary_contact_id, scheduled_start_at,
+        account_owner_user_id
+      )
+      VALUES ($1, $2::job_department_type, $3, 'confirmed', $4, $5, $6, $7, $8, ($9::date)::timestamptz, $10)
+      ON CONFLICT (legacy_shoot_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        job_number = COALESCE(jobs.job_number, EXCLUDED.job_number),
+        organization_id = COALESCE(EXCLUDED.organization_id, jobs.organization_id),
+        primary_location_id = COALESCE(EXCLUDED.primary_location_id, jobs.primary_location_id),
+        primary_contact_id = COALESCE(EXCLUDED.primary_contact_id, jobs.primary_contact_id),
+        scheduled_start_at = EXCLUDED.scheduled_start_at,
+        updated_at = now()
+      RETURNING id, (xmax = 0) AS created
+    `,
+    [
+      auth.tenantId,
+      departmentType,
+      input.title,
+      input.jobNumber,
+      input.shootId,
+      input.normalized.organization_id,
+      input.normalized.location_id,
+      input.normalized.primary_contact_id,
+      input.effectiveDate,
+      input.normalized.account_owner_user_id
+    ]
+  );
+  const jobId = jobResult.rows[0].id;
+  const created = jobResult.rows[0].created;
+
+  const linkResult = await client.query<{ id: string; created: boolean }>(
+    `
+      INSERT INTO job_shoot_links (
+        tenant_id, job_id, shoot_id, link_reason, relationship_type, source, status,
+        linked_by_user_id, linked_at, reason
+      )
+      VALUES ($1, $2, $3, 'intake_primary', 'primary', 'intake', 'confirmed', $4, now(),
+              'Job and Shoot created together by central intake publish')
+      ON CONFLICT (tenant_id, job_id, shoot_id) DO UPDATE SET
+        status = 'confirmed',
+        linked_at = COALESCE(job_shoot_links.linked_at, now()),
+        updated_at = now()
+      RETURNING id, (xmax = 0) AS created
+    `,
+    [auth.tenantId, jobId, input.shootId, auth.id]
+  );
+  const linkId = linkResult.rows[0].id;
+  if (linkResult.rows[0].created) {
+    await client.query(
+      `INSERT INTO job_shoot_link_event (tenant_id, link_id, event_type, to_status, actor_user_id, metadata)
+       VALUES ($1, $2, 'confirmed', 'confirmed', $3, $4::jsonb)`,
+      [auth.tenantId, linkId, auth.id, JSON.stringify({ source: "intake", shoot_id: input.shootId, job_id: jobId })]
+    );
+  }
+  return { job_id: jobId, link_id: linkId, created };
+}
+
 async function ensureProductionShells(
   client: PoolClient,
   auth: AuthUser,
@@ -3414,6 +3499,21 @@ export async function publishDraftJob(
     }),
     staffing_requirement_ids: await rebuildStaffingShells(client, auth, shootId, normalized)
   };
+
+  // Convergence slice 1: the engagement Job + confirmed link ride the same
+  // transaction as the publish — new work is never spine-orphaned.
+  const engagement = await ensureEngagementJobForShoot(client, auth, {
+    shootId,
+    jobNumber,
+    title: refreshedAfterReadiness.job.title,
+    normalized,
+    effectiveDate
+  });
+  await writeActivityLog(client, auth, shootId, "engagement_job_linked", {
+    job_id: engagement.job_id,
+    link_id: engagement.link_id,
+    engagement_created: engagement.created
+  });
 
   if (downstream.production_project_ids.length > 0) {
     await writeActivityLog(client, auth, shootId, "production_shells_created", {

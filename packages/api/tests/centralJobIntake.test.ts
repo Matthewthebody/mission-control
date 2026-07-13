@@ -940,6 +940,31 @@ describe("central job intake publish pipeline", () => {
 
     expect(Number(persistedDownstream.rows[0].production_count)).toBeGreaterThan(0);
     expect(Number(persistedDownstream.rows[0].staffing_count)).toBeGreaterThan(0);
+
+    // Convergence slice 1 (owner-ratified 2026-07-13): publish also creates the
+    // Job engagement row and the CONFIRMED job_shoot_links row in the same
+    // transaction — new work is never spine-orphaned.
+    const engagement = await dbPool.query<{
+      job_id: string;
+      job_status: string;
+      job_number: string | null;
+      link_status: string;
+      link_source: string;
+    }>(
+      `
+        SELECT j.id::text AS job_id, j.job_status::text, j.job_number,
+               l.status AS link_status, l.source AS link_source
+        FROM jobs j
+        JOIN job_shoot_links l ON l.tenant_id = j.tenant_id AND l.job_id = j.id AND l.shoot_id = $2::uuid
+        WHERE j.tenant_id = $1 AND j.legacy_shoot_id = $2::uuid
+      `,
+      [leadershipAuth.tenantId, draftId]
+    );
+    expect(engagement.rows).toHaveLength(1);
+    expect(engagement.rows[0].job_status).toBe("confirmed");
+    expect(engagement.rows[0].job_number).toBe(publishResponse.body.intake.job.job_number);
+    expect(engagement.rows[0].link_status).toBe("confirmed");
+    expect(engagement.rows[0].link_source).toBe("intake");
   });
 
   it("captures a dated-commitment snapshot at publish that stays stable when the contact is later edited", async () => {

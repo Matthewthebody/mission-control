@@ -1308,6 +1308,12 @@ export interface DepartmentPublishContext {
 export interface JobDraftInput {
   department_type: JobDepartmentType;
   job_category?: JobCategory | null;
+  /**
+   * Convergence slice 1: creating a Job against a known Shoot records the
+   * confirmed link transactionally (jobs.legacy_shoot_id is UNIQUE — one Job
+   * per Shoot via this column; multi-Shoot uses job_shoot_links).
+   */
+  legacy_shoot_id?: string | null;
   organization_id?: string | null;
   primary_location_id?: string | null;
   primary_contact_id?: string | null;

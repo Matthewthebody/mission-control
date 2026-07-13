@@ -276,7 +276,9 @@ const FILTERED_CTE = `
         SELECT count(DISTINCT shoot_id) FROM (
           SELECT j.legacy_shoot_id AS shoot_id WHERE j.legacy_shoot_id IS NOT NULL
           UNION
-          SELECT l.shoot_id FROM job_shoot_links l WHERE l.tenant_id=j.tenant_id AND l.job_id=j.id
+          -- Reviewed-link model (167): only CONFIRMED links are operational truth;
+          -- proposed/rejected rows never count a Job as linked.
+          SELECT l.shoot_id FROM job_shoot_links l WHERE l.tenant_id=j.tenant_id AND l.job_id=j.id AND l.status='confirmed'
         ) u WHERE shoot_id IS NOT NULL
       ), 0)::int AS linked_shoot_count
     FROM jobs j
@@ -325,7 +327,7 @@ async function attachConfirmedLinks(client: PoolClient, tenantId: string, rawRow
           `SELECT job_id, shoot_id, source FROM (
              SELECT id AS job_id, legacy_shoot_id AS shoot_id, 'legacy_shoot_id' AS source FROM jobs WHERE tenant_id=$1 AND id = ANY($2::uuid[]) AND legacy_shoot_id IS NOT NULL
              UNION
-             SELECT job_id, shoot_id, 'job_shoot_links' AS source FROM job_shoot_links WHERE tenant_id=$1 AND job_id = ANY($2::uuid[])
+             SELECT job_id, shoot_id, 'job_shoot_links' AS source FROM job_shoot_links WHERE tenant_id=$1 AND job_id = ANY($2::uuid[]) AND status='confirmed'
            ) u`,
           [tenantId, pageIds]
         )
