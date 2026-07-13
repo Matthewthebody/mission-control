@@ -20,6 +20,7 @@
     "project-tracking:seed-demo": "tsx scripts/seed-project-tracking-demo.ts --allow-demo-data",
     "project-tracking:reset-demo": "tsx scripts/seed-project-tracking-demo.ts --allow-demo-data --reset",
     "client-command-center:seed-demo": "tsx scripts/seed-client-command-center-demo.ts --allow-demo-data",
+    "ask-bailey:seed-demo": "tsx scripts/seed-ask-bailey-demo.ts --allow-demo-data",
     "client-command-center:reset-demo": "tsx scripts/seed-client-command-center-demo.ts --allow-demo-data --reset",
     "test": "node scripts/run-vitest-chunks.mjs",
     "test:smoke:jobs": "npm run test -- jobTruthLayer.test.ts",
