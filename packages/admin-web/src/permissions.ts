@@ -2294,6 +2294,9 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
       return canViewLabor(user);
     case "labor-command-center":
       return canAccessLaborCommandCenter(user);
+    case "knowledge-review":
+      // Mirrors the API's isKnowledgeReviewer gate.
+      return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
     case "dashboard-payroll-self-check":
       return canAccessEmployeeMyWork(user);
     case "ask-bailey":

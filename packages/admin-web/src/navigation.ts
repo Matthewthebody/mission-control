@@ -111,6 +111,7 @@ type RouteRender =
   | { kind: "labor-command-center" }
   | { kind: "payroll-self-check" }
   | { kind: "ask-bailey" }
+  | { kind: "knowledge-review" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -1607,6 +1608,17 @@ const ROUTES: RouteDefinition[] = [
     render: { kind: "tab", tab: "labor" }
   },
   {
+    id: "knowledge-review",
+    label: "Knowledge Review",
+    sectionKey: "leadership",
+    description: "Approve knowledge sources, resolve conflicts, answer unresolved questions, and review reported Ask Bailey answers.",
+    canonicalHash: "#knowledge/review",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "knowledge-review" }
+  },
+  {
     id: "labor-command-center",
     label: "Labor Command",
     sectionKey: "leadership",
@@ -1996,6 +2008,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "business-health-kpis",
     "business-health-labor",
     "labor-command-center",
+    "knowledge-review",
     "business-health-profitability",
     "business-health-customer-service",
     "business-health-trends",
@@ -2586,6 +2599,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "labor/command-center") {
     return pickVisibleRoute("labor-command-center", availableTabs, employeeOnlyMode);
+  }
+  if (path === "knowledge/review") {
+    return pickVisibleRoute("knowledge-review", availableTabs, employeeOnlyMode);
   }
   if (path === "reports/finance") {
     return pickVisibleRoute("business-health-profitability", availableTabs, employeeOnlyMode);

@@ -338,6 +338,62 @@ export async function resolveKnowledgeConflict(
   return rows[0];
 }
 
+export async function reviewAnswerReport(
+  client: PoolClient,
+  auth: AuthUser,
+  feedbackId: string,
+  input: { resolution: "reviewed" | "dismissed" }
+) {
+  requireKnowledgeReviewer(auth);
+  const { rows } = await client.query(
+    `UPDATE ai_message_feedback
+     SET review_status = $3, reviewed_by_user_id = $4, reviewed_at = now()
+     WHERE tenant_id = $1 AND id = $2 AND review_status = 'open'
+     RETURNING id::text, feedback_kind, review_status`,
+    [auth.tenantId, feedbackId, input.resolution, auth.id]
+  );
+  if (!rows[0]) {
+    throw new ApiError(404, "Open answer report not found");
+  }
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    action: "knowledge.answer_report_reviewed",
+    entityType: "ai_message_feedback",
+    entityId: feedbackId,
+    metadata: { resolution: input.resolution, feedback_kind: rows[0].feedback_kind }
+  });
+  return rows[0];
+}
+
+export async function resolveUnresolvedQuestion(
+  client: PoolClient,
+  auth: AuthUser,
+  questionId: string,
+  input: { resolution: "answered" | "dismissed"; note?: string | null }
+) {
+  requireKnowledgeReviewer(auth);
+  const { rows } = await client.query(
+    `UPDATE ai_unresolved_question
+     SET status = $3, resolved_at = now(), updated_at = now()
+     WHERE tenant_id = $1 AND id = $2 AND status IN ('open', 'assigned')
+     RETURNING id::text, normalized_question, status`,
+    [auth.tenantId, questionId, input.resolution]
+  );
+  if (!rows[0]) {
+    throw new ApiError(404, "Open unresolved question not found");
+  }
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    action: "knowledge.unresolved_question_resolved",
+    entityType: "ai_unresolved_question",
+    entityId: questionId,
+    metadata: { resolution: input.resolution, note: input.note ?? null }
+  });
+  return rows[0];
+}
+
 // ---------------------------------------------------------------------------
 // Review queues (Phase E read models live on these).
 // ---------------------------------------------------------------------------

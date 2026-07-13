@@ -250,6 +250,7 @@ const LazyPayrollSelfCheck = lazy(() =>
   import("./pages/PayrollSelfCheck").then((module) => ({ default: module.PayrollSelfCheck }))
 );
 const LazyAskBailey = lazy(() => import("./pages/AskBailey"));
+const LazyKnowledgeReview = lazy(() => import("./pages/KnowledgeReview"));
 const LazyWorkflowTemplateBuilderPage = lazy(() =>
   import("./pages/WorkflowTemplateBuilderPage").then((module) => ({ default: module.WorkflowTemplateBuilderPage }))
 );
@@ -1650,6 +1651,14 @@ function renderRouteContent({
       <LazyAskBailey token={token} />,
       "Loading Ask Bailey",
       "Bailey is checking the playbook…"
+    );
+  }
+
+  if (route.render.kind === "knowledge-review") {
+    return withRouteSuspense(
+      <LazyKnowledgeReview token={token} />,
+      "Loading Knowledge Review",
+      "Opening the knowledge-owner review queues."
     );
   }
 

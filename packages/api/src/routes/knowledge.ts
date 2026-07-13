@@ -14,7 +14,9 @@ import {
   rejectKnowledgeVersion,
   requireKnowledgeReviewer,
   resolveKnowledgeConflict,
+  resolveUnresolvedQuestion,
   retireKnowledgeVersion,
+  reviewAnswerReport,
   submitKnowledgeVersionForReview
 } from "../services/knowledge/knowledgeGovernance.js";
 import { processQueuedIngestionJobs, queueIngestionJob, retryIngestionJob } from "../services/knowledge/knowledgeIngestion.js";
@@ -223,6 +225,41 @@ router.post(
         })
       );
       return res.json({ conflict });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/reports/:feedbackId/review",
+  validateBody(z.object({ resolution: z.enum(["reviewed", "dismissed"]) })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const report = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        reviewAnswerReport(client, auth, String(req.params.feedbackId), { resolution: req.body.resolution })
+      );
+      return res.json({ report });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/unresolved-questions/:questionId/resolve",
+  validateBody(z.object({ resolution: z.enum(["answered", "dismissed"]), note: z.string().max(2000).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const question = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        resolveUnresolvedQuestion(client, auth, String(req.params.questionId), {
+          resolution: req.body.resolution,
+          note: req.body.note ?? null
+        })
+      );
+      return res.json({ question });
     } catch (error) {
       return next(error);
     }
