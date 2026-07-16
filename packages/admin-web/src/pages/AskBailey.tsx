@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   askBailey,
   authorityLabel,
@@ -6,6 +6,7 @@ import {
   getConversation,
   listConversations,
   submitAskBaileyFeedback,
+  type AnswerBlock,
   type AskBaileyAnswer,
   type AskBaileyCitation,
   type ConversationDetail,
@@ -29,6 +30,24 @@ const MODE_OPTIONS: Array<{ value: KnowledgeMode; label: string }> = [
   { value: "planning", label: "Future plans & designs" },
   { value: "historical", label: "Historical" }
 ];
+
+// Safe progress states (H2-E): the answer itself never streams — these
+// stages describe the server's real pipeline while the request is in flight,
+// and the validated answer renders only once it arrives whole.
+const PROGRESS_STAGES = [
+  "Bailey is checking the approved playbook…",
+  "Bailey found authorized sources…",
+  "Bailey is comparing the current versions…",
+  "Bailey is validating the answer…"
+];
+
+const BLOCK_KIND_LABELS: Record<AnswerBlock["kind"], string | null> = {
+  direct_answer: null,
+  steps: "Steps",
+  warning: "Watch out",
+  escalation: "Escalation",
+  detail: null
+};
 
 const FEEDBACK_OPTIONS: Array<{ kind: FeedbackKind; label: string }> = [
   { kind: "helpful", label: "Helpful" },
@@ -90,6 +109,27 @@ function AnswerText({ text }: { text: string }) {
   );
 }
 
+function AnswerBlocks({ blocks }: { blocks: AnswerBlock[] }) {
+  // Each block was independently validated server-side; render as plain text.
+  return (
+    <div style={{ display: "grid", gap: "0.6rem" }}>
+      {blocks.map((block, index) => {
+        const label = BLOCK_KIND_LABELS[block.kind];
+        return (
+          <div key={index}>
+            {label ? (
+              <span className="badge-pill" style={{ marginBottom: "0.25rem", display: "inline-block" }}>
+                {label}
+              </span>
+            ) : null}
+            <AnswerText text={block.text} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SourceCard({ citation }: { citation: AskBaileyCitation }) {
   const hasTimestamp = citation.start_seconds != null;
   return (
@@ -127,6 +167,9 @@ export default function AskBailey({ token }: Props) {
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState<KnowledgeMode>("operational");
   const [load, setLoad] = useState<LoadState>({ state: "idle" });
+  const [progressStage, setProgressStage] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [history, setHistory] = useState<ConversationDetail | null>(null);
@@ -154,22 +197,54 @@ export default function AskBailey({ token }: Props) {
       }
       setLoad({ state: "asking" });
       setHistory(null);
+      setProgressStage(0);
+      // Safe progress states only — no unvalidated prose ever streams in.
+      progressTimerRef.current = setInterval(() => {
+        setProgressStage((stage) => Math.min(stage + 1, PROGRESS_STAGES.length - 1));
+      }, 900);
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
-        const answer = await askBailey(token, {
-          question: trimmed,
-          mode,
-          conversation_id: conversationId ?? undefined
-        });
+        const answer = await askBailey(
+          token,
+          {
+            question: trimmed,
+            mode,
+            conversation_id: conversationId ?? undefined
+          },
+          controller.signal
+        );
         setConversationId(answer.conversation_id);
         setLoad({ state: "answered", answer });
         void refreshConversations();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "The request failed.";
-        setLoad({ state: "failed", message });
+        if (controller.signal.aborted) {
+          setLoad({ state: "idle" });
+        } else {
+          const message = error instanceof Error ? error.message : "The request failed.";
+          setLoad({ state: "failed", message });
+        }
+      } finally {
+        if (progressTimerRef.current) {
+          clearInterval(progressTimerRef.current);
+          progressTimerRef.current = null;
+        }
+        abortRef.current = null;
       }
     },
     [question, mode, conversationId, token, refreshConversations]
   );
+
+  const cancelAsk = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const sendFeedback = useCallback(
     async (messageId: string, kind: FeedbackKind) => {
@@ -271,14 +346,24 @@ export default function AskBailey({ token }: Props) {
               ))}
             </select>
             <button type="submit" className="primary-button" disabled={load.state === "asking" || !question.trim()}>
-              {load.state === "asking" ? "Bailey is checking the playbook…" : "Ask Bailey"}
+              {load.state === "asking" ? "Asking…" : "Ask Bailey"}
             </button>
-            {conversationId ? (
+            {load.state === "asking" ? (
+              <button type="button" className="secondary-button" onClick={cancelAsk}>
+                Cancel
+              </button>
+            ) : null}
+            {conversationId && load.state !== "asking" ? (
               <button type="button" className="secondary-button" onClick={startNewConversation}>
                 New conversation
               </button>
             ) : null}
           </div>
+          {load.state === "asking" ? (
+            <p className="section-subtitle" role="status" aria-live="polite" style={{ margin: "0.25rem 0 0" }}>
+              {PROGRESS_STAGES[progressStage]}
+            </p>
+          ) : null}
         </form>
       </section>
 
@@ -311,7 +396,11 @@ export default function AskBailey({ token }: Props) {
             </div>
           ) : null}
 
-          {answer.answer_markdown ? (
+          {answer.answer_blocks && answer.answer_blocks.length > 0 ? (
+            <div style={{ marginTop: "0.75rem" }}>
+              <AnswerBlocks blocks={answer.answer_blocks} />
+            </div>
+          ) : answer.answer_markdown ? (
             <div style={{ marginTop: "0.75rem" }}>
               <AnswerText text={answer.answer_markdown} />
             </div>
@@ -375,7 +464,11 @@ export default function AskBailey({ token }: Props) {
             <div key={message.id} style={{ marginBottom: "1rem" }}>
               <p style={{ fontWeight: 600, margin: "0 0 0.25rem" }}>{message.question}</p>
               <StatusBadge status={message.status} />
-              {message.answer_markdown ? (
+              {message.answer_blocks && message.answer_blocks.length > 0 ? (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <AnswerBlocks blocks={message.answer_blocks} />
+                </div>
+              ) : message.answer_markdown ? (
                 <div style={{ marginTop: "0.5rem" }}>
                   <AnswerText text={message.answer_markdown} />
                 </div>

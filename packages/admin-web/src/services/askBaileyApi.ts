@@ -38,11 +38,21 @@ export type AskBaileyConflict = {
   note: string | null;
 };
 
+export type AnswerBlockKind = "direct_answer" | "steps" | "warning" | "escalation" | "detail";
+
+/** One server-validated claim block: every segment id survived validation. */
+export type AnswerBlock = {
+  kind: AnswerBlockKind;
+  text: string;
+  segment_ids: string[];
+};
+
 export type AskBaileyAnswer = {
   status: AskBaileyStatus;
   conversation_id: string;
   message_id: string;
   answer_markdown: string | null;
+  answer_blocks: AnswerBlock[];
   citations: AskBaileyCitation[];
   warnings: string[];
   conflicts: AskBaileyConflict[];
@@ -68,6 +78,7 @@ export type ConversationMessage = {
   question: string;
   status: AskBaileyStatus;
   answer_markdown: string | null;
+  answer_blocks?: AnswerBlock[];
   warnings: string[];
   knowledge_mode: KnowledgeMode;
   context_envelope: Record<string, unknown>;
@@ -86,11 +97,13 @@ export type FeedbackKind = "helpful" | "not_helpful" | "report_incorrect" | "mis
 
 export function askBailey(
   token: string,
-  input: { question: string; mode?: KnowledgeMode; conversation_id?: string; context?: AskBaileyContext }
+  input: { question: string; mode?: KnowledgeMode; conversation_id?: string; context?: AskBaileyContext },
+  signal?: AbortSignal
 ) {
   return apiFetch<AskBaileyAnswer>("/api/ask-bailey/ask", token, {
     method: "POST",
-    body: JSON.stringify(input)
+    body: JSON.stringify(input),
+    signal
   });
 }
 

@@ -29,6 +29,7 @@ function answerFixture(overrides: Partial<AskBaileyAnswer> = {}): AskBaileyAnswe
     conversation_id: "conv-1",
     message_id: "msg-1",
     answer_markdown: "Here's what the approved SOP — Tether SOP (Section: Recovery) — says:\n\nReseat the cable.",
+    answer_blocks: [],
     citations: [
       {
         segment_id: "seg-1",
@@ -191,6 +192,58 @@ describe("Ask Bailey page", () => {
     // The markup is rendered as literal text, not parsed into elements.
     expect(container.querySelector("img")).toBeNull();
     expect((window as unknown as { __pwned?: boolean }).__pwned).toBeUndefined();
+  });
+
+  it("shows safe progress states while asking and never streams prose", async () => {
+    let resolveAnswer: (value: AskBaileyAnswer) => void = () => {};
+    askBaileyMock.mockReturnValue(new Promise((resolve) => (resolveAnswer = resolve)));
+    render(<AskBailey token="token" />);
+    fireEvent.change(screen.getByLabelText("What are you working on?"), { target: { value: "pending question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask Bailey" }));
+    // The first safe progress state appears; no answer content exists yet.
+    expect(await screen.findByRole("status")).toHaveTextContent("Bailey is checking the approved playbook…");
+    expect(screen.queryByText("Bailey’s answer")).not.toBeInTheDocument();
+    resolveAnswer(answerFixture());
+    expect(await screen.findByText("Supported by approved sources")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("supports cancelling an in-flight ask", async () => {
+    askBaileyMock.mockImplementation(
+      (_token: unknown, _input: unknown, signal?: AbortSignal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        })
+    );
+    render(<AskBailey token="token" />);
+    fireEvent.change(screen.getByLabelText("What are you working on?"), { target: { value: "slow question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask Bailey" }));
+    const cancel = await screen.findByRole("button", { name: "Cancel" });
+    fireEvent.click(cancel);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    // Back to idle: no error panel, ask button ready again.
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask Bailey" })).toBeInTheDocument();
+  });
+
+  it("renders validated answer blocks with kind labels", async () => {
+    askBaileyMock.mockResolvedValue(
+      answerFixture({
+        status: "partially_supported",
+        answer_blocks: [
+          { kind: "direct_answer", text: "Reseat the cable at the camera end first.", segment_ids: ["seg-1"] },
+          { kind: "warning", text: "Do not restart the workstation without a trainer.", segment_ids: ["seg-1"] },
+          { kind: "escalation", text: "Two failed recoveries means you call the shoot lead.", segment_ids: ["seg-1"] }
+        ]
+      })
+    );
+    render(<AskBailey token="token" />);
+    await askQuestion("blocks question");
+    expect(await screen.findByText("Partially supported")).toBeInTheDocument();
+    expect(screen.getByText("Reseat the cable at the camera end first.")).toBeInTheDocument();
+    expect(screen.getByText("Watch out")).toBeInTheDocument();
+    expect(screen.getByText("Escalation")).toBeInTheDocument();
+    expect(screen.getByText("Two failed recoveries means you call the shoot lead.")).toBeInTheDocument();
   });
 
   it("submits with the Enter key for keyboard users", async () => {

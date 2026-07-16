@@ -140,6 +140,8 @@ type CaseResult = {
   pass: boolean;
   failure_reason: string | null;
   leaked_titles: string[];
+  /** H2: answer blocks citing ids outside the retrieved authorized set. */
+  grounding_violations: number;
 };
 
 function buildCases(context: { namingV2Id: string }): EvalCase[] {
@@ -659,6 +661,18 @@ async function runCase(
     failureReason = `${failureReason ? failureReason + "; " : ""}LEAK: ${leakedTitles.join(", ")}`;
   }
 
+  // H2 grounding gate: every rendered block may cite only ids that entered
+  // the provider request from the authorized retrieved set.
+  const capturedIds = new Set(captured.map((segment) => segment.segmentId));
+  const groundingViolations = (answer.answer_blocks ?? []).reduce(
+    (sum, block) => sum + block.segment_ids.filter((id) => !capturedIds.has(id)).length,
+    0
+  );
+  if (groundingViolations > 0) {
+    pass = false;
+    failureReason = `${failureReason ? failureReason + "; " : ""}GROUNDING: ${groundingViolations} block citation(s) outside the retrieved set`;
+  }
+
   return {
     id: evalCase.id,
     category: evalCase.category,
@@ -672,8 +686,131 @@ async function runCase(
     target_in_candidates: targetInCandidates,
     pass,
     failure_reason: failureReason,
-    leaked_titles: leakedTitles
+    leaked_titles: leakedTitles,
+    grounding_violations: groundingViolations
   };
+}
+
+// ---------------------------------------------------------------------------
+// H2 generation probes — hostile/failing providers against the REAL pipeline,
+// proving the grounding validator and the deterministic fallback matrix.
+// ---------------------------------------------------------------------------
+async function runGroundingProbes(ids: Identities, conversationIds: string[]): Promise<CaseResult[]> {
+  const auth = reviewerAuth(ids);
+  const results: CaseResult[] = [];
+
+  const probes: Array<{
+    id: string;
+    makeProvider: () => import("../src/services/ai/providers/types.js").LanguageModelProvider;
+    check: (answer: Awaited<ReturnType<typeof askBailey>>) => string | null;
+  }> = [
+    {
+      id: "grounding-invented-segment-id",
+      makeProvider: () => ({
+        name: "hostile-eval",
+        async generateAnswer() {
+          return {
+            status: "ok",
+            answerMarkdown: "FABRICATED",
+            blocks: [{ kind: "direct_answer", text: "FABRICATED PROCEDURE", segmentIds: ["99999999-9999-9999-9999-999999999999"] }],
+            usedSegmentIds: ["99999999-9999-9999-9999-999999999999"],
+            promptTokens: null,
+            completionTokens: null,
+            model: "hostile"
+          };
+        }
+      }),
+      check: (answer) => {
+        if (answer.status !== "supported") return `expected fallback supported, got ${answer.status}`;
+        if ((answer.answer_markdown ?? "").includes("FABRICATED")) return "fabricated text was shown";
+        if (!answer.warnings.join(" ").includes("direct extract")) return "missing fallback notice";
+        return null;
+      }
+    },
+    {
+      id: "grounding-unsupported-claim-removed",
+      makeProvider: () => ({
+        name: "hostile-eval",
+        async generateAnswer(input) {
+          return {
+            status: "ok",
+            answerMarkdown: "unused",
+            blocks: [
+              { kind: "direct_answer", text: "Check the Smart Shooter session export first.", segmentIds: [input.segments[0].segmentId] },
+              { kind: "steps", text: "UNSUPPORTED: then wipe the payroll database.", segmentIds: ["99999999-9999-9999-9999-999999999999"] }
+            ],
+            usedSegmentIds: [input.segments[0].segmentId],
+            promptTokens: null,
+            completionTokens: null,
+            model: "hostile"
+          };
+        }
+      }),
+      check: (answer) => {
+        if (answer.status !== "partially_supported") return `expected partially_supported, got ${answer.status}`;
+        if ((answer.answer_markdown ?? "").includes("payroll")) return "unsupported claim was shown";
+        if (answer.answer_blocks.length !== 1) return "expected exactly the supported block";
+        return null;
+      }
+    },
+    {
+      id: "grounding-provider-timeout-fallback",
+      makeProvider: () => ({
+        name: "hosted-eval",
+        async generateAnswer() {
+          return { status: "failed", reason: "Hosted provider timed out." };
+        }
+      }),
+      check: (answer) => {
+        if (answer.status !== "supported") return `expected fallback supported, got ${answer.status}`;
+        if (!answer.warnings.join(" ").includes("direct extract")) return "missing fallback notice";
+        if (answer.answer_blocks.length === 0) return "fallback produced no grounded blocks";
+        return null;
+      }
+    },
+    {
+      id: "grounding-invalid-schema-fallback",
+      makeProvider: () => ({
+        name: "hosted-eval",
+        async generateAnswer() {
+          return { status: "failed", reason: "Hosted provider returned output that failed schema validation." };
+        }
+      }),
+      check: (answer) => {
+        if (answer.status !== "supported") return `expected fallback supported, got ${answer.status}`;
+        if (!answer.warnings.join(" ").includes("direct extract")) return "missing fallback notice";
+        return null;
+      }
+    }
+  ];
+
+  for (const probe of probes) {
+    const answer = await withClientTransaction(ids.tenantId, ids.leadershipId, (client) =>
+      askBailey(client, auth, {
+        question: "What do I do if Captura stops receiving images?",
+        providerOverride: probe.makeProvider()
+      })
+    );
+    conversationIds.push(answer.conversation_id);
+    const failure = probe.check(answer);
+    results.push({
+      id: probe.id,
+      category: "grounding",
+      question: "What do I do if Captura stops receiving images? (generation probe)",
+      as_user: "leadership",
+      mode: "operational",
+      expected: "grounded/fallback behavior",
+      actual_status: answer.status,
+      cited_titles: [...new Set(answer.citations.map((citation) => citation.title))],
+      retrieved_candidate_count: answer.citations.length,
+      target_in_candidates: null,
+      pass: failure === null,
+      failure_reason: failure,
+      leaked_titles: [],
+      grounding_violations: 0
+    });
+  }
+  return results;
 }
 
 // ---------------------------------------------------------------------------
@@ -727,7 +864,8 @@ When Captura stops receiving images, restart the relay bridge service FIRST (upd
     target_in_candidates: null,
     pass,
     failure_reason: pass ? null : "answer did not reflect the updated content exclusively",
-    leaked_titles: []
+    leaked_titles: [],
+    grounding_violations: 0
   };
 }
 
@@ -759,6 +897,7 @@ async function main() {
     for (const evalCase of cases) {
       results.push(await runCase(ids, evalCase, conversationIds));
     }
+    results.push(...(await runGroundingProbes(ids, conversationIds)));
     results.push(await runUpdateInvalidationProbe(ids, conversationIds));
   } finally {
     await cleanupFixtures(ids, conversationIds, cases.map((c) => c.question));
@@ -777,7 +916,8 @@ async function main() {
     no_answer_correct: results.filter((result) => result.expected === "no_answer" && result.pass).length,
     no_answer_expected: results.filter((result) => result.expected === "no_answer").length,
     conflict_correct: results.filter((result) => result.expected === "conflict" && result.pass).length,
-    permission_or_status_leaks: results.reduce((sum, result) => sum + result.leaked_titles.length, 0)
+    permission_or_status_leaks: results.reduce((sum, result) => sum + result.leaked_titles.length, 0),
+    grounding_violations: results.reduce((sum, result) => sum + result.grounding_violations, 0)
   };
 
   const here = dirname(fileURLToPath(import.meta.url));
@@ -794,7 +934,8 @@ async function main() {
   console.log("─".repeat(72));
   console.log(
     `passed ${metrics.passed}/${metrics.total} · recall@candidates ${metrics.recall_at_candidates} · ` +
-      `false-supported ${metrics.false_supported_answers} · leaks ${metrics.permission_or_status_leaks}`
+      `false-supported ${metrics.false_supported_answers} · leaks ${metrics.permission_or_status_leaks} · ` +
+      `grounding-violations ${metrics.grounding_violations}`
   );
   console.log(`results written to ${outPath}`);
 }
