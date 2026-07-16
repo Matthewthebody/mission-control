@@ -116,6 +116,7 @@ type RouteRender =
   | { kind: "knowledge-source-detail" }
   | { kind: "my-training" }
   | { kind: "training-lessons" }
+  | { kind: "ask-bailey-observability" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -1656,6 +1657,17 @@ const ROUTES: RouteDefinition[] = [
     render: { kind: "training-lessons" }
   },
   {
+    id: "ask-bailey-observability",
+    label: "Ask Bailey Health",
+    sectionKey: "leadership",
+    description: "Reviewer-only Ask Bailey production telemetry and the release-readiness gate.",
+    canonicalHash: "#knowledge/observability",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "ask-bailey-observability" }
+  },
+  {
     // Dual-mode destination behind Ask Bailey source cards — employees get an
     // eligibility-gated read-only view, reviewers get the governance record.
     id: "knowledge-source-detail",
@@ -2061,6 +2073,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "knowledge-review",
     "knowledge-sources",
     "training-lessons",
+    "ask-bailey-observability",
     "business-health-profitability",
     "business-health-customer-service",
     "business-health-trends",
@@ -2168,6 +2181,9 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "training/lessons") {
     return pickVisibleRoute("training-lessons", availableTabs, employeeOnlyMode);
+  }
+  if (path === "knowledge/observability") {
+    return pickVisibleRoute("ask-bailey-observability", availableTabs, employeeOnlyMode);
   }
   if (path === "dashboard/my-day" || path === "my-work" || path === "work" || path === "my-shifts") {
     return pickVisibleRoute("dashboard-my-day", availableTabs, employeeOnlyMode);

@@ -13,6 +13,7 @@ import {
   submitMessageFeedback
 } from "../services/ai/askBailey.js";
 import { getPlayableMedia } from "../services/knowledge/knowledgeMedia.js";
+import { getObservabilitySummary, getReleaseGate } from "../services/ai/askBaileyObservability.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
 // Ask Bailey — read-only Q&A endpoints. All answer assembly, authorization,
@@ -140,6 +141,31 @@ router.get("/sources/:sourceId/media", async (req, res, next) => {
     }
     res.setHeader("Content-Length", body.length);
     return res.end(body);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// H7 — reviewer-gated observability + release readiness (service enforces the
+// reviewer gate; opaque 403 otherwise).
+router.get("/observability", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const windowDays = typeof req.query.window_days === "string" ? Number(req.query.window_days) : 30;
+    const summary = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      getObservabilitySummary(client, auth, Number.isFinite(windowDays) ? windowDays : 30)
+    );
+    return res.json(summary);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/release-gate", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const report = await withClientTransaction(auth.tenantId, auth.id, (client) => getReleaseGate(client, auth));
+    return res.json(report);
   } catch (error) {
     return next(error);
   }

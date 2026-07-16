@@ -256,6 +256,7 @@ const LazyKnowledgeSources = lazy(() => import("./pages/KnowledgeSources"));
 const LazyKnowledgeSourceDetail = lazy(() => import("./pages/KnowledgeSourceDetail"));
 const LazyMyTraining = lazy(() => import("./pages/MyTraining"));
 const LazyTrainingLessons = lazy(() => import("./pages/TrainingLessons"));
+const LazyAskBaileyObservability = lazy(() => import("./pages/AskBaileyObservability"));
 
 // Persistent shell entry for Ask Bailey (H4-B): opens the contextual drawer
 // in general mode without leaving the current page.
@@ -1715,6 +1716,14 @@ function renderRouteContent({
       <LazyTrainingLessons token={token} />,
       "Loading training lessons",
       "Opening the governed lesson desk."
+    );
+  }
+
+  if (route.render.kind === "ask-bailey-observability") {
+    return withRouteSuspense(
+      <LazyAskBaileyObservability token={token} />,
+      "Loading Ask Bailey health",
+      "Opening production telemetry and the release gate."
     );
   }
 

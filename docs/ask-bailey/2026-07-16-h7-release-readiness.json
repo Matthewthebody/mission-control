@@ -1,0 +1,26 @@
+{
+  "report": "Ask Bailey H7 production release-readiness gate",
+  "generated": "2026-07-16",
+  "source": "GET /api/ask-bailey/release-gate (reviewer-only), captured against the seeded pmc tenant",
+  "overall": "pass",
+  "gates": [
+    { "id": "no_invalid_citation_ids", "title": "Zero invalid citation IDs rendered", "status": "pass", "detail": "0 citations reference a non-existent segment." },
+    { "id": "no_ineligible_operational_answers", "title": "No answer cites content that was already non-approved when produced", "status": "pass", "detail": "0 answers cited a version that was retired/superseded before the answer." },
+    { "id": "provider_kill_switch", "title": "Provider kill switch available", "status": "pass", "detail": "ASK_BAILEY_LLM_KILL_SWITCH wired into the hosted provider; failure falls back deterministically." },
+    { "id": "ask_rate_limit", "title": "Per-user ask rate limit configured", "status": "pass", "detail": "12 asks/user/minute; 429 beyond (integration-tested)." },
+    { "id": "provider_timeout_retry", "title": "Provider timeout + bounded retries configured", "status": "pass", "detail": "timeout 30000ms, retries 2, concurrency 4." },
+    { "id": "protected_media", "title": "Protected media served through eligibility gate (opaque 404)", "status": "pass", "detail": "getPlayableMedia enforces the retrieval eligibility predicate; ineligible/guessed ids return an opaque 404." },
+    { "id": "regressions_and_typechecks", "title": "Official regressions + typechecks green", "status": "external", "detail": "npm run test in both packages + tsc --noEmit; results in the H7 report." },
+    { "id": "adversarial_suite", "title": "Adversarial authorization/injection suite green", "status": "external", "detail": "tests/askBaileyHardening.test.ts, 8/8." }
+  ],
+  "hard_gate_evidence": {
+    "zero_protected_source_leaks": "askBaileyHardening: confidential marker never appears in an unauthorized employee's answer.",
+    "zero_invalid_citation_ids": "Every returned citation resolves to a real segment; release gate counts 0 orphans.",
+    "zero_direct_unauthorized_media": "getPlayableMedia throws an opaque 404 for guessed/ineligible source ids.",
+    "no_ineligible_operational_answers": "Retirement purge test: retired version stops being cited by future answers.",
+    "provider_kill_switch_proven": "Failing provider override degrades to a deterministic honest state, never unsupported prose.",
+    "source_retirement_purge_proven": "Retire test asserts the retired version_id is absent from later citations.",
+    "429_path_integration_tested": "20 rapid asks include at least one 429.",
+    "timeout_fallback_proven": "Provider unavailable -> deterministic fallback with a visible notice; structured fallback telemetry emitted."
+  }
+}

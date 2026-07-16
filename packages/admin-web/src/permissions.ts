@@ -2303,6 +2303,9 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
     case "training-lessons":
       // The governed lesson desk mirrors the API's requireTrainingManager gate.
       return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
+    case "ask-bailey-observability":
+      // Reviewer-only, mirrors the API's requireKnowledgeReviewer gate.
+      return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
     case "my-training":
       // Every authenticated employee has a personal training surface; the server
       // scopes it to their own assignments.
