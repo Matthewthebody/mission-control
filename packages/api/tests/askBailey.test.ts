@@ -24,7 +24,8 @@ const {
 const { processQueuedIngestionJobs, queueIngestionJob } = await import(
   "../src/services/knowledge/knowledgeIngestion.js"
 );
-const { askBailey, questionToSearchQuery } = await import("../src/services/ai/askBailey.js");
+const { askBailey } = await import("../src/services/ai/askBailey.js");
+const { normalizeQuestionToTerms } = await import("../src/services/ai/retrieval.js");
 type AuthUser = import("../src/types/auth.js").AuthUser;
 
 const PREFIX = "ab-test-";
@@ -189,15 +190,16 @@ afterAll(async () => {
   await pool.query(`DELETE FROM resource_library_item WHERE tenant_id = $1 AND file_name = 'ab-test-fogline-video.mp4'`, [tenantId]);
 });
 
-describe("question-to-search conversion", () => {
-  it("reduces a natural question to OR'd content terms", () => {
-    expect(questionToSearchQuery("What do I do if the tether feed drops?", null)).toEqual({
-      query: "tether OR feed OR drops",
-      terms: ["tether", "feed", "drops"]
-    });
+describe("question normalization", () => {
+  it("reduces a natural question to content terms", () => {
+    expect(normalizeQuestionToTerms("What do I do if the tether feed drops?", null)).toEqual([
+      "tether",
+      "feed",
+      "drops"
+    ]);
   });
-  it("returns null when nothing searchable remains", () => {
-    expect(questionToSearchQuery("do i ??", null)).toBeNull();
+  it("returns nothing when nothing searchable remains", () => {
+    expect(normalizeQuestionToTerms("do i ??", null)).toEqual([]);
   });
 });
 
@@ -455,6 +457,57 @@ describe("citation validation against a hostile provider", () => {
     expect(result.status).toBe("provider_unavailable");
     expect(result.answer_markdown).toContain("isn't available");
     expect(result.citations.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("retrieval trace (H1-E) and synonym governance (H1-B)", () => {
+  it("returns the retrieval trace to reviewers only, without protected text", async () => {
+    const reviewer = await ask(leadershipToken, { question: "ab-test fogline rig calibration", trace: true });
+    expect(reviewer.status).toBe(200);
+    const trace = reviewer.body.retrieval_trace;
+    expect(trace).toBeDefined();
+    expect(trace.normalized_terms).toContain("fogline");
+    expect(trace.scored.length).toBeGreaterThanOrEqual(1);
+    // Ineligible diagnostics carry ids + reason codes only — never content.
+    for (const entry of trace.ineligible_matches) {
+      expect(Object.keys(entry).sort()).toEqual(["reasons", "segment_id"]);
+    }
+
+    const associate = await ask(associateToken, { question: "ab-test fogline rig calibration", trace: true });
+    expect(associate.status).toBe(200);
+    expect(associate.body.retrieval_trace).toBeUndefined();
+  });
+
+  it("synonym management is reviewer-gated, audited, and drives expansion", async () => {
+    const denied = await request(app)
+      .post("/api/knowledge/synonyms")
+      .set("Authorization", `Bearer ${associateToken}`)
+      .send({ term: "abtestfog", expansion: ["fogline"] });
+    expect(denied.status).toBe(403);
+
+    const created = await request(app)
+      .post("/api/knowledge/synonyms")
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ term: "abtestfog", expansion: ["fogline"], note: "test mapping" });
+    expect(created.status).toBe(201);
+
+    // The acronym-style term now reaches the fogline SOP through expansion.
+    const answered = await ask(leadershipToken, { question: "abtestfog rig calibration" });
+    expect(answered.body.status).toBe("supported");
+    expect(answered.body.citations.map((citation: { title: string }) => citation.title)).toContain(
+      `${PREFIX}Fogline Rig SOP`
+    );
+
+    const audit = await pool.query(
+      `SELECT 1 FROM audit_log WHERE tenant_id = $1 AND action = 'knowledge.synonym_upserted' AND metadata->>'term' = 'abtestfog'`,
+      [tenantId]
+    );
+    expect(audit.rows).toHaveLength(1);
+
+    const removed = await request(app)
+      .delete("/api/knowledge/synonyms/abtestfog")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(removed.status).toBe(200);
   });
 });
 

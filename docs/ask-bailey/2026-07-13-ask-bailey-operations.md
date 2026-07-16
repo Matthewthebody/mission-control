@@ -33,6 +33,14 @@ control, logs, or test fixtures.**
 | `ASK_BAILEY_MAX_RETRIEVED_SEGMENTS` | `8` | Retrieval bound per ask. |
 | `ASK_BAILEY_MAX_ANSWER_CHARS` | `4000` | Answer size bound. |
 | `ASK_BAILEY_ASK_RATE_MAX_PER_MINUTE` | `12` | Per-user ask rate limit (config schema caps at 120). |
+| `ASK_BAILEY_EMBEDDING_PROVIDER` | `deterministic` | `deterministic` (char-trigram hash, no credentials) \| `openai_compatible`. |
+| `ASK_BAILEY_EMBEDDING_BASE_URL` / `_API_KEY` / `_MODEL` | `""` | Hosted embeddings endpoint (OpenAI-compatible `/embeddings`). |
+| `ASK_BAILEY_SEMANTIC_TOP_K` | `8` | Semantic candidates per ask. |
+| `ASK_BAILEY_SEMANTIC_MIN_SIMILARITY` | `0.45` | Gate for semantic-only candidates. |
+| `ASK_BAILEY_MIN_MATCHED_CONCEPTS` | `2` | Lexical concept guard (multi-term questions). |
+| `ASK_BAILEY_TYPO_SIMILARITY` | `0.5` | Trigram word-similarity credit threshold. |
+| `ASK_BAILEY_MIN_EVIDENCE_SCORE` | `0.12` | Below this combined score → honest no-answer. |
+| `ASK_BAILEY_MAX_SEGMENTS_PER_SOURCE` | `3` | Source-diversity cap. |
 
 The `openai_compatible` HTTP client is **not implemented yet**: selecting it
 reports an honest unavailable state (configured or not). Implementing it means
@@ -72,7 +80,10 @@ Demo script (any authenticated employee, `#ask-bailey`):
 
 ## 5. Retrieval notes and limitations
 
-- FTS uses the repo's `simple`-config tsvector pattern: **no stemming** (“drops” ≠ “drop”) and OR-of-content-terms queries. A multi-term question requires ≥2 distinct matching terms so one incidental shared word cannot fake a supported answer. Precision improves when a real embedding provider lands behind `EmbeddingProvider` (seam only today).
+- **H1 hybrid retrieval** (`services/ai/retrieval.ts`): english-stemmed FTS (migration 170) + pg_trgm typo credit + company-owned synonym expansion (`knowledge_synonym`, reviewer-managed via `/api/knowledge/synonyms`, audited) + semantic similarity over governed vectors (`knowledge_segment_embedding`, RLS, eligibility joined into the vector query). Signals: lexical rank, matched-concept ratio, semantic cosine, exact phrase, heading match, authority, freshness. Guards: ≥2 matched concepts or the semantic gate, minimum evidence score, per-source cap, lexical-only fallback on embedding outage, no cross-auth caching. Reviewer-only retrieval trace via `trace: true` on `/ask` (ids + reason codes for ineligible matches; no protected text).
+- **Evaluation harness**: `npm run ask-bailey:eval -- --label <name>` (22 cases through the real pipeline; results in `packages/api/eval/results/`). Recorded baseline 19/22 · recall 0.769; H1 hybrid 22/22 · recall 1.0 · 0 false-supported · 0 leaks.
+- **pgvector**: not available in the current Postgres image, so vectors live in `double precision[]` and similarity is computed at pilot scale over eligibility-filtered rows. Production-scale blocker: adopt a pgvector-enabled image, then one migration adds a typed vector column + ANN index (lifecycle unchanged).
+- The deterministic embedding adapter captures word-form similarity (inflections/typos), not true paraphrase semantics — those gains land when `openai_compatible` embeddings are configured.
 - The demo video's media URL is a placeholder path — timestamp anchors are real, the file is not.
 - The contextual drawer on operational pages is not built; context ids are supported end-to-end in the API, and the dedicated page is the entry point today.
 - `partially_supported` currently triggers only on stripped citations; `access_limited` is reserved (context denials return 403 instead).

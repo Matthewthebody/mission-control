@@ -11,14 +11,18 @@ import {
   createKnowledgeSource,
   listKnowledgeReviewQueue,
   openKnowledgeConflict,
+  deleteKnowledgeSynonym,
+  listKnowledgeSynonyms,
   rejectKnowledgeVersion,
   requireKnowledgeReviewer,
   resolveKnowledgeConflict,
   resolveUnresolvedQuestion,
   retireKnowledgeVersion,
   reviewAnswerReport,
-  submitKnowledgeVersionForReview
+  submitKnowledgeVersionForReview,
+  upsertKnowledgeSynonym
 } from "../services/knowledge/knowledgeGovernance.js";
+import { processPendingEmbeddings } from "../services/knowledge/knowledgeEmbeddings.js";
 import { processQueuedIngestionJobs, queueIngestionJob, retryIngestionJob } from "../services/knowledge/knowledgeIngestion.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
@@ -42,12 +46,24 @@ router.post(
           : (
               await pool.query<{ id: string }>(`SELECT id::text AS id FROM tenant ORDER BY created_at ASC`)
             ).rows.map((row) => row.id);
-      const results: Array<{ tenant_id: string; processed: number; completed: number; failed: number; not_configured: number }> = [];
+      const results: Array<{
+        tenant_id: string;
+        processed: number;
+        completed: number;
+        failed: number;
+        not_configured: number;
+        embeddings?: unknown;
+      }> = [];
       for (const tenantId of tenantIds) {
         const outcome = await withClientTransaction(tenantId, null, (client) =>
           processQueuedIngestionJobs(client, tenantId, { limit: req.body.limit ?? 10 })
         );
-        results.push({ tenant_id: tenantId, ...outcome });
+        // Embedding lifecycle rides the same sweep (charter H1-C): ensure
+        // pending rows for approved content, then embed a bounded batch.
+        const embeddings = await withClientTransaction(tenantId, null, (client) =>
+          processPendingEmbeddings(client, tenantId, { limit: req.body.limit ?? 32 })
+        );
+        results.push({ tenant_id: tenantId, ...outcome, embeddings });
       }
       return res.json({
         tenant_count: tenantIds.length,
@@ -265,6 +281,58 @@ router.post(
     }
   }
 );
+
+router.get("/synonyms", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const client = await connectGuardedClient();
+    try {
+      return res.json({ synonyms: await listKnowledgeSynonyms(client, auth) });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post(
+  "/synonyms",
+  validateBody(
+    z.object({
+      term: z.string().min(1).max(80),
+      expansion: z.array(z.string().min(1).max(80)).min(1).max(10),
+      note: z.string().max(500).optional()
+    })
+  ),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const synonym = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        upsertKnowledgeSynonym(client, auth, {
+          term: req.body.term,
+          expansion: req.body.expansion,
+          note: req.body.note ?? null
+        })
+      );
+      return res.status(201).json({ synonym });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.delete("/synonyms/:term", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      deleteKnowledgeSynonym(client, auth, String(req.params.term))
+    );
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get("/review-queue", async (req, res, next) => {
   try {

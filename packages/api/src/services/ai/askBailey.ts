@@ -5,13 +5,15 @@ import { ApiError } from "../../errors/apiError.js";
 import type { AuthUser } from "../../types/auth.js";
 import { canViewRecords, withDepartmentContext } from "../policy/operationalAuthorization.js";
 import { assertShootAccess } from "../shootAccess.js";
-import {
-  buildVersionEligibilitySql,
-  SEGMENT_ELIGIBILITY_SQL,
-  type KnowledgeMode
-} from "../knowledge/knowledgeGovernance.js";
+import { isKnowledgeReviewer, type KnowledgeMode } from "../knowledge/knowledgeGovernance.js";
 import { resolveLanguageModelProvider } from "./providers/languageModel.js";
 import type { LanguageModelProvider, RetrievedSegmentForModel } from "./providers/types.js";
+import {
+  AUTHORITY_RANK,
+  retrieveSegmentsHybrid,
+  type RetrievalTrace,
+  type RetrievedRow
+} from "./retrieval.js";
 
 // Ask Bailey — the answer pipeline (architecture record §4, D2/D5/D6/D7).
 //
@@ -73,35 +75,8 @@ export type AskBaileyAnswer = {
   }>;
   context: { kind: string; id: string; label: string } | null;
   evidence: { source_count: number; highest_authority: string | null; conflict_detected: boolean };
-};
-
-type RetrievedRow = {
-  segment_id: string;
-  source_version_id: string;
-  source_id: string;
-  source_title: string;
-  source_type: string;
-  authority_class: string;
-  locator_label: string | null;
-  heading: string | null;
-  content: string;
-  start_seconds: number | null;
-  end_seconds: number | null;
-  resource_library_item_id: string | null;
-  media_url: string | null;
-  rank: number;
-  matched_terms: number;
-};
-
-const AUTHORITY_RANK: Record<string, number> = {
-  official_company_policy: 6,
-  approved_sop: 5,
-  approved_training: 4,
-  approved_visual_standard: 4,
-  approved_expert_guidance: 3,
-  verified_current_workflow: 2,
-  future_design_only: 1,
-  historical_only: 1
+  /** Reviewer-only retrieval diagnostics; never populated for other users. */
+  retrieval_trace?: RetrievalTrace;
 };
 
 // ---------------------------------------------------------------------------
@@ -169,115 +144,8 @@ async function buildContextEnvelope(
   return { kind: "organization", id: organization.id, label: organization.display_name, detail: null };
 }
 
-// ---------------------------------------------------------------------------
-// Retrieval — eligibility + scope filters INSIDE the SQL (D2).
-// ---------------------------------------------------------------------------
-
-// The search_document tsvector uses the 'simple' configuration (migration-106
-// pattern), which keeps stopwords and does not stem. A raw natural-language
-// question passed to websearch_to_tsquery would AND every word ("what do i
-// do if…") and match nothing, so we reduce the question to its content words
-// and OR them — ts_rank_cd then surfaces the segments that match most terms.
-const QUESTION_STOPWORDS = new Set([
-  "the", "a", "an", "and", "or", "of", "to", "in", "on", "at", "for", "with", "from", "by",
-  "is", "are", "was", "were", "be", "been", "do", "does", "did", "can", "could", "should",
-  "would", "will", "have", "has", "had", "how", "what", "when", "where", "why", "who", "which",
-  "i", "we", "you", "it", "they", "my", "our", "your", "me", "us", "if", "then", "than",
-  "this", "that", "these", "those", "there", "here", "not", "no", "so", "as", "about", "into"
-]);
-
-export function questionToSearchQuery(
-  question: string,
-  contextLabel: string | null
-): { query: string; terms: string[] } | null {
-  const terms = [
-    ...new Set(
-      `${question} ${contextLabel ?? ""}`
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, " ")
-        .split(/[\s-]+/)
-        .filter((term) => term.length >= 3 && !QUESTION_STOPWORDS.has(term))
-    )
-  ];
-  if (terms.length === 0) return null;
-  return { query: terms.join(" OR "), terms };
-}
-
-async function retrieveSegments(
-  client: PoolClient,
-  auth: AuthUser,
-  mode: KnowledgeMode,
-  question: string,
-  contextLabel: string | null
-): Promise<RetrievedRow[]> {
-  const searchQuery = questionToSearchQuery(question, contextLabel);
-  if (!searchQuery) return [];
-  const params: unknown[] = [auth.tenantId];
-  const eligibility = buildVersionEligibilitySql(auth, mode, params);
-  params.push(searchQuery.query);
-  const queryParam = params.length;
-  params.push(searchQuery.terms);
-  const termsParam = params.length;
-  // A single shared word ("leave", "floor") must not turn an unrelated
-  // question into a "supported" answer: when the question has 2+ content
-  // terms, a segment must match at least 2 distinct terms to qualify.
-  params.push(Math.min(2, searchQuery.terms.length));
-  const minMatchedParam = params.length;
-  params.push(config.ASK_BAILEY_MAX_RETRIEVED_SEGMENTS);
-  const limitParam = params.length;
-
-  const { rows } = await client.query<RetrievedRow>(
-    `
-      SELECT
-        seg.id::text AS segment_id,
-        v.id::text AS source_version_id,
-        s.id::text AS source_id,
-        s.title AS source_title,
-        v.source_type,
-        v.authority_class,
-        seg.locator_label,
-        seg.heading,
-        seg.content,
-        seg.start_seconds::float AS start_seconds,
-        seg.end_seconds::float AS end_seconds,
-        s.resource_library_item_id::text,
-        item.file_url AS media_url,
-        ts_rank_cd(seg.search_document, websearch_to_tsquery('simple', $${queryParam}))::float AS rank,
-        (
-          SELECT count(*)::int FROM unnest($${termsParam}::text[]) AS term
-          WHERE seg.search_document @@ plainto_tsquery('simple', term)
-        ) AS matched_terms
-      FROM knowledge_segment seg
-      JOIN knowledge_source_version v ON v.id = seg.source_version_id AND v.tenant_id = seg.tenant_id
-      JOIN knowledge_source s ON s.id = v.source_id AND s.tenant_id = v.tenant_id
-      LEFT JOIN resource_library_item item ON item.id = s.resource_library_item_id
-      WHERE seg.tenant_id = $1
-        AND ${eligibility}
-        AND ${SEGMENT_ELIGIBILITY_SQL}
-        AND seg.search_document @@ websearch_to_tsquery('simple', $${queryParam})
-        AND (
-          SELECT count(*) FROM unnest($${termsParam}::text[]) AS term
-          WHERE seg.search_document @@ plainto_tsquery('simple', term)
-        ) >= $${minMatchedParam}
-      ORDER BY
-        (
-          SELECT count(*) FROM unnest($${termsParam}::text[]) AS term
-          WHERE seg.search_document @@ plainto_tsquery('simple', term)
-        ) DESC,
-        ts_rank_cd(seg.search_document, websearch_to_tsquery('simple', $${queryParam})) DESC
-      LIMIT $${limitParam}
-    `,
-    params
-  );
-
-  // Blend FTS relevance with authority and stability: higher authority wins
-  // ties; ranking never hides a declared conflict (that's checked separately).
-  return rows.sort((a, b) => {
-    const authorityDelta = (AUTHORITY_RANK[b.authority_class] ?? 0) - (AUTHORITY_RANK[a.authority_class] ?? 0);
-    const rankDelta = b.rank - a.rank;
-    return Math.abs(rankDelta) > 0.05 ? (rankDelta > 0 ? 1 : -1) : authorityDelta || (rankDelta > 0 ? 1 : rankDelta < 0 ? -1 : 0);
-  });
-}
+// Retrieval lives in ./retrieval.ts (hybrid lexical + semantic, eligibility
+// composed inside every SQL path — charter H1-B/H1-D).
 
 async function findOpenConflicts(client: PoolClient, tenantId: string, versionIds: string[]) {
   if (versionIds.length < 2) return [];
@@ -356,6 +224,8 @@ export async function askBailey(
     mode?: KnowledgeMode;
     conversationId?: string | null;
     context?: AskBaileyContextInput;
+    /** Reviewer-only retrieval diagnostics (H1-E); ignored for other users. */
+    trace?: boolean;
     // Test seam only: routes never pass this. Lets citation validation and
     // provider-failure paths be exercised against a controlled provider.
     providerOverride?: LanguageModelProvider;
@@ -371,8 +241,13 @@ export async function askBailey(
   // 1-4. Context is validated server-side; only allowlisted fields survive.
   const context = await buildContextEnvelope(client, auth, input.context);
 
-  // 5-7. Eligibility + scopes are INSIDE the retrieval SQL.
-  const retrieved = await retrieveSegments(client, auth, mode, question, context?.label ?? null);
+  // 5-7. Eligibility + scopes are INSIDE the retrieval SQL (both the lexical
+  // and semantic paths — see retrieval.ts).
+  const includeTrace = Boolean(input.trace) && isKnowledgeReviewer(auth);
+  const retrieval = await retrieveSegmentsHybrid(client, auth, mode, question, context?.label ?? null, {
+    includeTrace
+  });
+  const retrieved = retrieval.rows;
   const retrievedIds = new Set(retrieved.map((row) => row.segment_id));
   const versionIds = [...new Set(retrieved.map((row) => row.source_version_id))];
 
@@ -544,7 +419,8 @@ export async function askBailey(
       source_count: new Set(supportingRows.map((row) => row.source_id)).size,
       highest_authority: highestAuthority,
       conflict_detected: conflicts.length > 0
-    }
+    },
+    ...(includeTrace ? { retrieval_trace: retrieval.trace } : {})
   };
 }
 

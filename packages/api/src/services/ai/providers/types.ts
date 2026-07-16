@@ -73,14 +73,13 @@ export interface LanguageModelProvider {
 }
 
 export type EmbeddingResult =
-  | { status: "ok"; vectors: number[][]; model: string }
-  | { status: "not_configured"; reason: string };
+  | { status: "ok"; vectors: number[][]; model: string; dimensions: number }
+  | { status: "not_configured"; reason: string }
+  | { status: "failed"; reason: string };
 
-/**
- * Seam only in the MVP: no production embedding provider is wired. Hybrid
- * retrieval plugs in behind this interface without touching the pipeline.
- */
 export interface EmbeddingProvider {
   readonly name: string;
+  /** Model identity used for embedding-compatibility bookkeeping. */
+  readonly model: string;
   embed(texts: string[]): Promise<EmbeddingResult>;
 }

@@ -395,6 +395,75 @@ export async function resolveUnresolvedQuestion(
 }
 
 // ---------------------------------------------------------------------------
+// Company-owned synonym / acronym map (charter H1-B). Reviewer-managed and
+// audited: query expansion only ever widens through approved mappings.
+// ---------------------------------------------------------------------------
+
+export async function listKnowledgeSynonyms(client: PoolClient, auth: AuthUser) {
+  requireKnowledgeReviewer(auth);
+  const { rows } = await client.query(
+    `SELECT s.id::text, s.term, s.expansion, s.note, s.created_at::text, u.full_name AS created_by_name
+     FROM knowledge_synonym s
+     LEFT JOIN app_user u ON u.id = s.created_by_user_id
+     WHERE s.tenant_id = $1
+     ORDER BY s.term
+     LIMIT 500`,
+    [auth.tenantId]
+  );
+  return rows;
+}
+
+export async function upsertKnowledgeSynonym(
+  client: PoolClient,
+  auth: AuthUser,
+  input: { term: string; expansion: string[]; note?: string | null }
+) {
+  requireKnowledgeReviewer(auth);
+  const term = input.term.trim().toLowerCase();
+  const expansion = input.expansion.map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+  if (!term || expansion.length === 0) {
+    throw new ApiError(400, "A synonym needs a term and at least one expansion.");
+  }
+  const { rows } = await client.query<{ id: string }>(
+    `INSERT INTO knowledge_synonym (tenant_id, term, expansion, note, created_by_user_id)
+     VALUES ($1, $2, $3::text[], $4, $5)
+     ON CONFLICT (tenant_id, term)
+     DO UPDATE SET expansion = EXCLUDED.expansion, note = EXCLUDED.note, updated_at = now()
+     RETURNING id::text`,
+    [auth.tenantId, term, expansion, input.note ?? null, auth.id]
+  );
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    action: "knowledge.synonym_upserted",
+    entityType: "knowledge_synonym",
+    entityId: rows[0].id,
+    metadata: { term, expansion, note: input.note ?? null }
+  });
+  return { id: rows[0].id, term, expansion };
+}
+
+export async function deleteKnowledgeSynonym(client: PoolClient, auth: AuthUser, term: string) {
+  requireKnowledgeReviewer(auth);
+  const { rows } = await client.query<{ id: string }>(
+    `DELETE FROM knowledge_synonym WHERE tenant_id = $1 AND term = $2 RETURNING id::text`,
+    [auth.tenantId, term.trim().toLowerCase()]
+  );
+  if (!rows[0]) {
+    throw new ApiError(404, "Synonym not found");
+  }
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    action: "knowledge.synonym_deleted",
+    entityType: "knowledge_synonym",
+    entityId: rows[0].id,
+    metadata: { term: term.trim().toLowerCase() }
+  });
+  return { deleted: true };
+}
+
+// ---------------------------------------------------------------------------
 // Review queues (Phase E read models live on these).
 // ---------------------------------------------------------------------------
 

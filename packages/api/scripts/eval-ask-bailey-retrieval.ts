@@ -14,6 +14,7 @@ import {
   submitKnowledgeVersionForReview
 } from "../src/services/knowledge/knowledgeGovernance.js";
 import { processQueuedIngestionJobs, queueIngestionJob } from "../src/services/knowledge/knowledgeIngestion.js";
+import { processPendingEmbeddings } from "../src/services/knowledge/knowledgeEmbeddings.js";
 import { askBailey } from "../src/services/ai/askBailey.js";
 import { deterministicLanguageModel } from "../src/services/ai/providers/languageModel.js";
 import type { RetrievedSegmentForModel } from "../src/services/ai/providers/types.js";
@@ -498,7 +499,37 @@ async function createFixtures(ids: Identities) {
       authorityClass: "approved_sop",
       body: INJECTION_BODY
     });
+
+    // Company-owned synonym/acronym mappings (knowledge_synonym lands with
+    // migration 170; skip silently against the pre-H1 schema so the recorded
+    // baseline can still be reproduced).
+    try {
+      await client.query(
+        `INSERT INTO knowledge_synonym (tenant_id, term, expansion, note, created_by_user_id)
+         VALUES
+           ($1, 'ss', ARRAY['smart shooter'], 'eval-fixture', $2),
+           ($1, 'pictures', ARRAY['images'], 'eval-fixture', $2),
+           ($1, 'pics', ARRAY['images'], 'eval-fixture', $2)
+         ON CONFLICT (tenant_id, term) DO NOTHING`,
+        [ids.tenantId, ids.leadershipId]
+      );
+    } catch {
+      // pre-170 schema — lexical-only baseline.
+    }
   });
+
+  // Embed everything approved (deterministic provider — no credentials).
+  // Loops until the sweep drains; a no-op against the pre-170 schema.
+  try {
+    for (let round = 0; round < 20; round += 1) {
+      const outcome = await withClientTransaction(ids.tenantId, ids.leadershipId, (client) =>
+        processPendingEmbeddings(client, ids.tenantId, { limit: 32 })
+      );
+      if (outcome.embedded === 0) break;
+    }
+  } catch {
+    // pre-170 schema — lexical-only baseline.
+  }
 
   return { namingV2Id, evalMediaItemId };
 }

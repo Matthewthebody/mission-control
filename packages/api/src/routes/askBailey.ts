@@ -32,6 +32,8 @@ const askRateLimiter = createRateLimiter({
 const askSchema = z.object({
   question: z.string().min(1).max(2000),
   mode: z.enum(["operational", "training", "planning", "historical"]).optional(),
+  // Reviewer-only retrieval diagnostics; silently ignored for other users.
+  trace: z.boolean().optional(),
   conversation_id: z.string().uuid().optional(),
   context: z
     .object({
@@ -49,6 +51,7 @@ router.post("/ask", askRateLimiter, validateBody(askSchema), async (req, res, ne
       askBailey(client, auth, {
         question: req.body.question,
         mode: req.body.mode,
+        trace: req.body.trace,
         conversationId: req.body.conversation_id ?? null,
         context: req.body.context
       })
