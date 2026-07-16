@@ -25,10 +25,18 @@ control, logs, or test fixtures.**
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ASK_BAILEY_LLM_PROVIDER` | `deterministic` | `deterministic` \| `openai_compatible`. Unknown values yield an honest `provider_unavailable`. |
-| `ASK_BAILEY_LLM_BASE_URL` | `""` | Hosted-provider base URL (openai_compatible). |
-| `ASK_BAILEY_LLM_API_KEY` | `""` | Hosted-provider key (secret manager only). |
-| `ASK_BAILEY_LLM_MODEL` | `""` | Hosted model name. |
+| `ASK_BAILEY_LLM_PROVIDER` | `deterministic` | `deterministic` \| `openai_compatible`. Hosted failures fall back to the deterministic extract with a visible notice. |
+| `ASK_BAILEY_LLM_BASE_URL` | `""` | Hosted chat-completions base URL. https only (http allowed for loopback stubs/local models). Never client-supplied. |
+| `ASK_BAILEY_LLM_API_KEY` | `""` | Hosted-provider key (secret manager only; sent as both Bearer and `api-key` for Azure compatibility). |
+| `ASK_BAILEY_LLM_MODEL` | `""` | Hosted model/deployment name. |
+| `ASK_BAILEY_LLM_API_VERSION` | `""` | Optional `api-version` query param (Azure). |
+| `ASK_BAILEY_LLM_TIMEOUT_MS` | `30000` | Per-request timeout (abort). |
+| `ASK_BAILEY_LLM_MAX_OUTPUT_TOKENS` | `1024` | Response bound. |
+| `ASK_BAILEY_LLM_MAX_SEGMENT_CHARS` | `2000` | Per-segment prompt bound. |
+| `ASK_BAILEY_LLM_RETRY_MAX` | `2` | Bounded retries for 429/transient 5xx/connection failures. |
+| `ASK_BAILEY_LLM_MAX_CONCURRENT` | `4` | Hosted-call concurrency cap. |
+| `ASK_BAILEY_LLM_KILL_SWITCH` | `false` | Force-disable hosted generation (deterministic fallback answers). |
+| `ASK_BAILEY_LLM_COST_PER_1M_INPUT_CENTS` / `_OUTPUT_CENTS` | `0` | Pricing for cost estimation; zero = record no cost (never fabricated). |
 | `ASK_BAILEY_TRANSCRIPTION_PROVIDER` | `deterministic` | Timed-script parser today; hosted transcription slots in behind the same interface. |
 | `ASK_BAILEY_MAX_RETRIEVED_SEGMENTS` | `8` | Retrieval bound per ask. |
 | `ASK_BAILEY_MAX_ANSWER_CHARS` | `4000` | Answer size bound. |
@@ -42,9 +50,17 @@ control, logs, or test fixtures.**
 | `ASK_BAILEY_MIN_EVIDENCE_SCORE` | `0.12` | Below this combined score → honest no-answer. |
 | `ASK_BAILEY_MAX_SEGMENTS_PER_SOURCE` | `3` | Source-diversity cap. |
 
-The `openai_compatible` HTTP client is **not implemented yet**: selecting it
-reports an honest unavailable state (configured or not). Implementing it means
-one new function behind `LanguageModelProvider` — nothing else changes.
+**H2 grounded generation:** the `openai_compatible` chat client is fully
+implemented (real transport, verified against a local HTTP stub — no live
+provider has been exercised without credentials). The server owns the entire
+prompt envelope; source text travels as fenced untrusted data; the model must
+return strict JSON claim blocks (`kind`/`text`/`segment_ids`), and the
+pipeline validates every block's segment ids against the authorized retrieved
+set: unsupported blocks are removed (→ `partially_supported`), and a fully
+ungroundable or failed hosted response falls back to the deterministic
+extractive provider with a visible notice — never model memory. Answers
+persist and render as validated blocks (migration 171); the UI shows staged
+safe progress states and supports cancellation; nothing streams unvalidated.
 
 ## 3. Demo (no credentials required)
 
