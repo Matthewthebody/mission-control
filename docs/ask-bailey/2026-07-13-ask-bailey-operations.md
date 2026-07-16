@@ -114,6 +114,14 @@ Demo script (any authenticated employee, `#ask-bailey`):
 - **Protected playback**: `GET /api/ask-bailey/sources/:sourceId/media` — same eligibility predicate as retrieval, Range streaming, opaque 404 denials, honest 503 when storage is unconfigured. Citations always carry this server-built route, never raw storage URLs.
 - **Visual boundary**: Ask Bailey has NO visual understanding of video content (lighting, crop, equipment, on-screen menus). Reviewed screenshots may be added as explicit Resource Library assets; nothing is claimed beyond the transcript.
 
+## 5b. H4 contextual experience (2026-07-16)
+
+- **One pipeline, one surface**: `components/askBailey/AskBaileyConversation.tsx` powers both the `#ask-bailey` page and the contextual drawer (`AskBaileyLauncher.tsx` provider + `useAskBailey()` hook). No second implementation exists.
+- **Shell entries**: persistent "Ask Bailey" buttons in the desktop topbar and mobile header open the drawer in general mode without leaving the page. **Launch points**: job detail ("Ask Bailey about this job"), organization + location record detail, sports shoot detail — all through the one launcher.
+- **Context security**: the client sends candidate ids only (`job_id`/`shoot_id`/`organization_id`/`location_id`/`task_id`/`source_id`); the server validates kind, record, and access (policy map or the eligibility predicate for sources), strips unknown fields, and builds the allowlisted envelope `{kind,id,label,detail}` which the answer echoes back. Chips show the removable record context, the non-removable identity line, and the answer mode; rejected context fails honestly. Switching records remounts the thread — context never silently carries over; every follow-up re-retrieves and revalidates server-side.
+- **Suggestions** are deterministic per-kind templates (no model calls). **A11y**: dialog semantics, focus trap + restoration, Escape close, live-region progress, mobile-fit panel — pinned by component tests.
+- **Context types not available canonically**: training/assignment records have no canonical entity yet (H6); contacts are deliberately excluded from Bailey context (data minimization).
+
 ## 6. Next bounded slices (Phase F/G seams)
 
 1. **Hosted provider**: implement the `openai_compatible` HTTP client + streaming + usage capture behind the existing interface; keep the deterministic provider as fallback and for tests.
