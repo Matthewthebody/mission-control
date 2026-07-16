@@ -37,7 +37,9 @@ control, logs, or test fixtures.**
 | `ASK_BAILEY_LLM_MAX_CONCURRENT` | `4` | Hosted-call concurrency cap. |
 | `ASK_BAILEY_LLM_KILL_SWITCH` | `false` | Force-disable hosted generation (deterministic fallback answers). |
 | `ASK_BAILEY_LLM_COST_PER_1M_INPUT_CENTS` / `_OUTPUT_CENTS` | `0` | Pricing for cost estimation; zero = record no cost (never fabricated). |
-| `ASK_BAILEY_TRANSCRIPTION_PROVIDER` | `deterministic` | Timed-script parser today; hosted transcription slots in behind the same interface. |
+| `ASK_BAILEY_TRANSCRIPTION_PROVIDER` | `deterministic` | `deterministic` (timed-script parser) \| `openai_compatible` (real Whisper-compatible `/audio/transcriptions` transport — segment+word timestamps, duration, raw payload preserved for audit; stub-verified, needs credentials for live use). |
+| `ASK_BAILEY_TRANSCRIPTION_BASE_URL` / `_API_KEY` / `_MODEL` | `""` | Hosted transcription endpoint credentials. |
+| `ASK_BAILEY_TRANSCRIPTION_TIMEOUT_MS` | `120000` | Per-request transcription timeout. |
 | `ASK_BAILEY_MAX_RETRIEVED_SEGMENTS` | `8` | Retrieval bound per ask. |
 | `ASK_BAILEY_MAX_ANSWER_CHARS` | `4000` | Answer size bound. |
 | `ASK_BAILEY_ASK_RATE_MAX_PER_MINUTE` | `12` | Per-user ask rate limit (config schema caps at 120). |
@@ -103,6 +105,14 @@ Demo script (any authenticated employee, `#ask-bailey`):
 - The demo video's media URL is a placeholder path — timestamp anchors are real, the file is not.
 - The contextual drawer on operational pages is not built; context ids are supported end-to-end in the API, and the dedicated page is the entry point today.
 - `partially_supported` currently triggers only on stripped citations; `access_limited` is reserved (context denials return 403 instead).
+
+## 5a. H3 media ingestion (2026-07-16)
+
+- **Document extraction from stored files** (`documentExtraction.ts`): text/markdown (section locators) and PDF via pdf-parse (page locators) are implemented and verified; DOCX/PPTX report an honest unsupported state. Storage reads go through `readStoredObject` in `s3.ts` (S3 GetObject, tenant-prefix guard, honest `not_configured` without credentials).
+- **Transcription**: `openai_compatible` Whisper-compatible transport (multipart upload of server-fetched bytes, verbose_json segment + word timestamps, duration, request id; raw payload preserved on the job for audit). Deterministic timed-script parser remains the dev default. `media_duration_seconds` is stored per version and always covers every segment — no citation timestamp can exceed it, and reviewer corrections are validated against it.
+- **Transcript review** (`#knowledge/review` → Review transcript): protected playback, per-segment text/timestamp/speaker/notes corrections (audited with before/after; provider original preserved; approved-version edits require a note), nine-way classification (approved instruction/training, verified current workflow, pain point, future-design, raw discussion, evidence only, historical, restricted) — classification drives retrieval eligibility. Job retry/cancel.
+- **Protected playback**: `GET /api/ask-bailey/sources/:sourceId/media` — same eligibility predicate as retrieval, Range streaming, opaque 404 denials, honest 503 when storage is unconfigured. Citations always carry this server-built route, never raw storage URLs.
+- **Visual boundary**: Ask Bailey has NO visual understanding of video content (lighting, crop, equipment, on-screen menus). Reviewed screenshots may be added as explicit Resource Library assets; nothing is claimed beyond the transcript.
 
 ## 6. Next bounded slices (Phase F/G seams)
 
