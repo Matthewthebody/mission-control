@@ -2300,6 +2300,13 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
     case "knowledge-sources":
       // The authoring workspace is reviewer-only, same gate as knowledge-review.
       return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
+    case "training-lessons":
+      // The governed lesson desk mirrors the API's requireTrainingManager gate.
+      return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
+    case "my-training":
+      // Every authenticated employee has a personal training surface; the server
+      // scopes it to their own assignments.
+      return true;
     case "knowledge-source-detail":
       // Dual-mode page: any authenticated employee may open it. The server
       // decides employee vs reviewer mode and answers with an opaque 404 for

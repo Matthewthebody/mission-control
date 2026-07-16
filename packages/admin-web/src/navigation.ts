@@ -114,6 +114,8 @@ type RouteRender =
   | { kind: "knowledge-review" }
   | { kind: "knowledge-sources" }
   | { kind: "knowledge-source-detail" }
+  | { kind: "my-training" }
+  | { kind: "training-lessons" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -314,6 +316,17 @@ const ROUTES: RouteDefinition[] = [
     visibleForFullShell: true,
     showInSectionNav: true,
     render: { kind: "ask-bailey" }
+  },
+  {
+    id: "my-training",
+    label: "My Training",
+    sectionKey: "my-work",
+    description: "Approved lessons assigned to you, grounded in the current company playbook, with readiness checks.",
+    canonicalHash: "#my-work/training",
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "my-training" }
   },
   {
     id: "dashboard-my-schedule",
@@ -1632,6 +1645,17 @@ const ROUTES: RouteDefinition[] = [
     render: { kind: "knowledge-sources" }
   },
   {
+    id: "training-lessons",
+    label: "Training Lessons",
+    sectionKey: "leadership",
+    description: "Author governed source-backed Fall Field Coach lessons, run the pilot cohort, and review readiness.",
+    canonicalHash: "#training/lessons",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "training-lessons" }
+  },
+  {
     // Dual-mode destination behind Ask Bailey source cards — employees get an
     // eligibility-gated read-only view, reviewers get the governance record.
     id: "knowledge-source-detail",
@@ -1996,7 +2020,7 @@ const ROUTES: RouteDefinition[] = [
 const ROUTE_BY_ID = new Map(ROUTES.map((route) => [route.id, route]));
 const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
   home: [],
-  "my-work": ["dashboard-my-day", "dashboard-my-tasks", "dashboard-payroll-self-check", "ask-bailey"],
+  "my-work": ["dashboard-my-day", "dashboard-my-tasks", "dashboard-payroll-self-check", "ask-bailey", "my-training"],
   "needs-attention": [],
   schools: ["schools-jobs", "schools-tasks", "schools-exceptions", "schools-leadership"],
   sports: ["sports-shoots", "sports-accounts", "sports-contacts", "sports-graphics", "sports-exceptions"],
@@ -2036,6 +2060,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "labor-command-center",
     "knowledge-review",
     "knowledge-sources",
+    "training-lessons",
     "business-health-profitability",
     "business-health-customer-service",
     "business-health-trends",
@@ -2137,6 +2162,12 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "ask-bailey") {
     return pickVisibleRoute("ask-bailey", availableTabs, employeeOnlyMode);
+  }
+  if (path === "my-work/training" || path === "my-training") {
+    return pickVisibleRoute("my-training", availableTabs, employeeOnlyMode);
+  }
+  if (path === "training/lessons") {
+    return pickVisibleRoute("training-lessons", availableTabs, employeeOnlyMode);
   }
   if (path === "dashboard/my-day" || path === "my-work" || path === "work" || path === "my-shifts") {
     return pickVisibleRoute("dashboard-my-day", availableTabs, employeeOnlyMode);
