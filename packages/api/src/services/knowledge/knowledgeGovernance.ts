@@ -83,10 +83,16 @@ export function buildVersionEligibilitySql(
   return clauses.join(" AND ");
 }
 
-/** Segment-level exclusions that apply in every mode. */
+/**
+ * Segment-level exclusions that apply in every mode (H3: reviewer
+ * classification drives eligibility). NULL inherits the version's
+ * classification; pain points, future-design ideas, raw discussion,
+ * evidence-only, historical, and restricted segments never support answers
+ * regardless of their version's status.
+ */
 export const SEGMENT_ELIGIBILITY_SQL = `
   (seg.reviewer_classification IS NULL OR seg.reviewer_classification IN (
-    'approved_instruction', 'current_workflow_observation'
+    'approved_instruction', 'approved_training', 'current_workflow_observation'
   ))
 `;
 

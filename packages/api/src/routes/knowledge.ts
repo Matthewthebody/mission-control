@@ -23,7 +23,17 @@ import {
   upsertKnowledgeSynonym
 } from "../services/knowledge/knowledgeGovernance.js";
 import { processPendingEmbeddings } from "../services/knowledge/knowledgeEmbeddings.js";
-import { processQueuedIngestionJobs, queueIngestionJob, retryIngestionJob } from "../services/knowledge/knowledgeIngestion.js";
+import {
+  cancelIngestionJob,
+  processQueuedIngestionJobs,
+  queueIngestionJob,
+  retryIngestionJob
+} from "../services/knowledge/knowledgeIngestion.js";
+import {
+  correctSegment,
+  listVersionSegments,
+  SEGMENT_CLASSIFICATIONS
+} from "../services/knowledge/knowledgeTranscriptReview.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
 const router = Router();
@@ -201,6 +211,63 @@ router.post("/ingestion-jobs/:jobId/retry", async (req, res, next) => {
       retryIngestionJob(client, auth, String(req.params.jobId))
     );
     return res.json({ job });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/ingestion-jobs/:jobId/cancel", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const job = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      cancelIngestionJob(client, auth, String(req.params.jobId))
+    );
+    return res.json({ job });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Transcript & segment review (H3-E) — reviewer-gated in the service layer.
+router.get("/versions/:versionId/segments", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const client = await connectGuardedClient();
+    try {
+      return res.json(await listVersionSegments(client, auth, String(req.params.versionId)));
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const correctSegmentSchema = z.object({
+  content: z.string().min(1).max(8000).optional(),
+  start_seconds: z.number().min(0).nullable().optional(),
+  end_seconds: z.number().min(0).nullable().optional(),
+  reviewer_classification: z.enum(SEGMENT_CLASSIFICATIONS).nullable().optional(),
+  speaker_label: z.string().max(120).nullable().optional(),
+  review_notes: z.string().max(2000).nullable().optional(),
+  note: z.string().max(2000).optional()
+});
+
+router.patch("/segments/:segmentId", validateBody(correctSegmentSchema), async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const segment = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      correctSegment(client, auth, String(req.params.segmentId), {
+        content: req.body.content,
+        startSeconds: req.body.start_seconds,
+        endSeconds: req.body.end_seconds,
+        reviewerClassification: req.body.reviewer_classification,
+        speakerLabel: req.body.speaker_label,
+        reviewNotes: req.body.review_notes,
+        note: req.body.note ?? null
+      })
+    );
+    return res.json({ segment });
   } catch (error) {
     return next(error);
   }

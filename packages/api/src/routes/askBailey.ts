@@ -12,6 +12,7 @@ import {
   listConversations,
   submitMessageFeedback
 } from "../services/ai/askBailey.js";
+import { getPlayableMedia } from "../services/knowledge/knowledgeMedia.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
 // Ask Bailey — read-only Q&A endpoints. All answer assembly, authorization,
@@ -85,6 +86,54 @@ router.get("/conversations/:conversationId", async (req, res, next) => {
     } finally {
       client.release();
     }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Protected media playback (H3-A/F): same eligibility predicate as
+// retrieval, bytes served through the server, Range supported for seeking.
+// Session-cookie auth lets <video>/<audio> elements stream directly.
+router.get("/sources/:sourceId/media", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const client = await connectGuardedClient();
+    let media;
+    try {
+      media = await getPlayableMedia(client, auth, String(req.params.sourceId));
+    } finally {
+      client.release();
+    }
+    if (media.read.status === "not_configured") {
+      return res.status(503).json({ error: "MEDIA_STORAGE_NOT_CONFIGURED", message: media.read.reason });
+    }
+    if (media.read.status === "not_found") {
+      return res.status(404).json({ error: "MEDIA_NOT_FOUND", message: "Source media not found." });
+    }
+    if (media.read.status === "failed") {
+      return res.status(502).json({ error: "MEDIA_READ_FAILED", message: media.read.reason });
+    }
+    const body = media.read.body;
+    const contentType = media.read.contentType ?? media.contentType ?? "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "private, no-store");
+    const range = req.headers.range;
+    const match = typeof range === "string" ? /^bytes=(\d*)-(\d*)$/.exec(range) : null;
+    if (match && (match[1] || match[2])) {
+      const start = match[1] ? Number(match[1]) : 0;
+      const end = match[2] ? Math.min(Number(match[2]), body.length - 1) : body.length - 1;
+      if (Number.isNaN(start) || start > end || start >= body.length) {
+        res.setHeader("Content-Range", `bytes */${body.length}`);
+        return res.status(416).end();
+      }
+      res.status(206);
+      res.setHeader("Content-Range", `bytes ${start}-${end}/${body.length}`);
+      res.setHeader("Content-Length", end - start + 1);
+      return res.end(body.subarray(start, end + 1));
+    }
+    res.setHeader("Content-Length", body.length);
+    return res.end(body);
   } catch (error) {
     return next(error);
   }

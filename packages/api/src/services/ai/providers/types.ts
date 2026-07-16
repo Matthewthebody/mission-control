@@ -3,16 +3,30 @@
 // one of these interfaces, configured via server env. Deterministic dev/test
 // adapters implement each interface with no network and no secrets.
 
+export type TranscriptWordTiming = { word: string; start: number; end: number };
+
 export type TranscriptSegmentDraft = {
   ordinal: number;
   content: string;
   startSeconds: number;
   endSeconds: number;
   speakerLabel?: string | null;
+  /** Word-level timings, only when the provider reliably returns them. */
+  words?: TranscriptWordTiming[] | null;
 };
 
 export type TranscriptionResult =
-  | { status: "completed"; segments: TranscriptSegmentDraft[]; provider: string }
+  | {
+      status: "completed";
+      segments: TranscriptSegmentDraft[];
+      provider: string;
+      /** Media duration when the provider reports it — never invented. */
+      durationSeconds?: number | null;
+      language?: string | null;
+      providerRequestId?: string | null;
+      /** Original provider output, preserved verbatim for audit (H3-C). */
+      rawPayload?: unknown;
+    }
   | { status: "not_configured"; provider: string; reason: string }
   | { status: "failed"; provider: string; reason: string };
 
@@ -20,15 +34,17 @@ export interface TranscriptionProvider {
   readonly name: string;
   /**
    * Transcribe a media source. The dev adapter derives deterministic timed
-   * segments from a stored timed-script; a production adapter would fetch the
-   * asset and call an external service. Implementations must never invent
-   * timestamps that cannot be traced to their input.
+   * segments from a stored timed-script; the hosted adapter uploads the
+   * stored media bytes to a Whisper-compatible endpoint. Implementations must
+   * never invent timestamps that cannot be traced to their input.
    */
   transcribe(input: {
     tenantId: string;
     sourceVersionId: string;
     /** Stored timed-script or descriptive text available for the asset. */
     scriptText: string | null;
+    /** Stored media bytes when available (server-fetched, never client-supplied). */
+    mediaBytes: Buffer | null;
     fileName: string | null;
     contentType: string | null;
   }): Promise<TranscriptionResult>;

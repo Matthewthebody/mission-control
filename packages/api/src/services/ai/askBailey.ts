@@ -6,6 +6,7 @@ import type { AuthUser } from "../../types/auth.js";
 import { canViewRecords, withDepartmentContext } from "../policy/operationalAuthorization.js";
 import { assertShootAccess } from "../shootAccess.js";
 import { isKnowledgeReviewer, type KnowledgeMode } from "../knowledge/knowledgeGovernance.js";
+import { buildProtectedMediaUrl } from "../knowledge/knowledgeMedia.js";
 import { deterministicLanguageModel, resolveLanguageModelProvider } from "./providers/languageModel.js";
 import type {
   AnswerBlockKind,
@@ -517,7 +518,9 @@ export async function askBailey(
       start_seconds: row.start_seconds,
       end_seconds: row.end_seconds,
       resource_library_item_id: row.resource_library_item_id,
-      media_url: row.start_seconds != null && row.media_url ? `${row.media_url}#t=${Math.floor(row.start_seconds)}` : row.media_url
+      // H3-F: media links are the PROTECTED route, built server-side — raw
+      // storage URLs never reach the client.
+      media_url: row.resource_library_item_id ? buildProtectedMediaUrl(row.source_id, row.start_seconds) : null
     })),
     warnings,
     conflicts,
@@ -557,20 +560,30 @@ export async function getConversation(client: PoolClient, auth: AuthUser, conver
      ORDER BY m.created_at ASC LIMIT 100`,
     [auth.tenantId, conversationId]
   );
-  const citations = await client.query(
+  const citations = await client.query<{
+    source_id: string;
+    resource_library_item_id: string | null;
+    start_seconds: number | null;
+  }>(
     `SELECT c.message_id::text, c.segment_id::text, c.source_version_id::text, s.id::text AS source_id, s.title,
             v.source_type, v.authority_class, seg.locator_label, seg.start_seconds::float, seg.end_seconds::float,
-            s.resource_library_item_id::text, item.file_url AS media_url, c.ordinal
+            s.resource_library_item_id::text, c.ordinal
      FROM ai_message_citation c
      JOIN knowledge_segment seg ON seg.id = c.segment_id
      JOIN knowledge_source_version v ON v.id = c.source_version_id
      JOIN knowledge_source s ON s.id = v.source_id
-     LEFT JOIN resource_library_item item ON item.id = s.resource_library_item_id
      WHERE c.tenant_id = $1 AND c.message_id IN (SELECT id FROM ai_message WHERE tenant_id = $1 AND conversation_id = $2)
      ORDER BY c.ordinal`,
     [auth.tenantId, conversationId]
   );
-  return { conversation: conversation.rows[0], messages: messages.rows, citations: citations.rows };
+  return {
+    conversation: conversation.rows[0],
+    messages: messages.rows,
+    citations: citations.rows.map((row) => ({
+      ...row,
+      media_url: row.resource_library_item_id ? buildProtectedMediaUrl(row.source_id, row.start_seconds) : null
+    }))
+  };
 }
 
 export async function submitMessageFeedback(

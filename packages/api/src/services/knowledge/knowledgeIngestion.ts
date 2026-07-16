@@ -5,7 +5,9 @@ import type { AuthUser } from "../../types/auth.js";
 import { createAuditLog } from "../audit.js";
 import { requireKnowledgeReviewer } from "./knowledgeGovernance.js";
 import { resolveTranscriptionProvider } from "../ai/providers/transcription.js";
-import type { TranscriptSegmentDraft } from "../ai/providers/types.js";
+import type { TranscriptSegmentDraft, TranscriptWordTiming } from "../ai/providers/types.js";
+import { readStoredObject } from "../s3.js";
+import { extractDocumentText } from "./documentExtraction.js";
 
 // Ask Bailey — ingestion foundation (Phase C).
 // Background jobs turn a knowledge source version's stored content into
@@ -138,12 +140,14 @@ type VersionContentRow = {
   asset_note: string | null;
   asset_file_name: string | null;
   asset_content_type: string | null;
+  asset_storage_key: string | null;
 };
 
 async function loadVersionContent(client: PoolClient, tenantId: string, versionId: string): Promise<VersionContentRow> {
   const { rows } = await client.query<VersionContentRow>(
     `SELECT v.id::text, v.source_id::text, v.inline_body,
-            item.note AS asset_note, item.file_name AS asset_file_name, item.content_type AS asset_content_type
+            item.note AS asset_note, item.file_name AS asset_file_name, item.content_type AS asset_content_type,
+            item.storage_key AS asset_storage_key
      FROM knowledge_source_version v
      JOIN knowledge_source s ON s.id = v.source_id AND s.tenant_id = v.tenant_id
      LEFT JOIN resource_library_item item ON item.id = s.resource_library_item_id
@@ -174,7 +178,11 @@ export async function queueIngestionJob(
 ): Promise<{ job_id: string; created: boolean }> {
   const version = await loadVersionContent(client, tenantId, versionId);
   const storedText = resolveStoredText(version);
-  const jobFingerprint = fingerprint(`${jobKind}:${storedText ?? "(no stored text)"}`);
+  // File-backed sources fingerprint by storage key: re-uploads mint a new key,
+  // so changed files queue a new job while identical retries stay idempotent.
+  const jobFingerprint = fingerprint(
+    `${jobKind}:${storedText ?? "(no stored text)"}:${version.asset_storage_key ?? "(no stored object)"}`
+  );
   const { rows } = await client.query<{ id: string; created: boolean }>(
     `INSERT INTO knowledge_ingestion_job
        (tenant_id, source_version_id, job_kind, idempotency_fingerprint, requested_by_user_id)
@@ -230,6 +238,7 @@ async function replaceSegments(
     startSeconds?: number | null;
     endSeconds?: number | null;
     speakerLabel?: string | null;
+    words?: TranscriptWordTiming[] | null;
   }>
 ) {
   await client.query(
@@ -239,8 +248,8 @@ async function replaceSegments(
   for (const draft of drafts) {
     await client.query(
       `INSERT INTO knowledge_segment
-         (tenant_id, source_version_id, ordinal, segment_kind, heading, locator_label, content, start_seconds, end_seconds, speaker_label)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+         (tenant_id, source_version_id, ordinal, segment_kind, heading, locator_label, content, start_seconds, end_seconds, speaker_label, word_timings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)`,
       [
         tenantId,
         versionId,
@@ -251,7 +260,8 @@ async function replaceSegments(
         draft.content,
         draft.startSeconds ?? null,
         draft.endSeconds ?? null,
-        draft.speakerLabel ?? null
+        draft.speakerLabel ?? null,
+        draft.words ? JSON.stringify(draft.words) : null
       ]
     );
   }
@@ -272,21 +282,64 @@ async function completeJob(
   tenantId: string,
   jobId: string,
   versionId: string,
-  outcome: { status: "completed" | "failed" | "not_configured"; provider?: string | null; error?: string | null }
+  outcome: {
+    status: "completed" | "failed" | "not_configured";
+    provider?: string | null;
+    error?: string | null;
+    providerRequestId?: string | null;
+    providerPayload?: unknown;
+    durationSeconds?: number | null;
+  }
 ) {
   await client.query(
     `UPDATE knowledge_ingestion_job
      SET status = $3, provider = COALESCE($4, provider), error_message = $5,
+         provider_request_id = COALESCE($6, provider_request_id),
+         provider_payload = COALESCE($7::jsonb, provider_payload),
          completed_at = CASE WHEN $3 = 'completed' THEN now() ELSE completed_at END, updated_at = now()
      WHERE tenant_id = $1 AND id = $2`,
-    [tenantId, jobId, outcome.status, outcome.provider ?? null, outcome.error ?? null]
+    [
+      tenantId,
+      jobId,
+      outcome.status,
+      outcome.provider ?? null,
+      outcome.error ?? null,
+      outcome.providerRequestId ?? null,
+      outcome.providerPayload !== undefined ? JSON.stringify(outcome.providerPayload) : null
+    ]
   );
   await client.query(
     `UPDATE knowledge_source_version
-     SET extraction_status = $3, last_indexed_at = CASE WHEN $3 = 'completed' THEN now() ELSE last_indexed_at END, updated_at = now()
+     SET extraction_status = $3,
+         media_duration_seconds = COALESCE($4, media_duration_seconds),
+         last_indexed_at = CASE WHEN $3 = 'completed' THEN now() ELSE last_indexed_at END, updated_at = now()
      WHERE tenant_id = $1 AND id = $2`,
-    [tenantId, versionId, outcome.status]
+    [tenantId, versionId, outcome.status, outcome.durationSeconds ?? null]
   );
+}
+
+/** Reviewer-gated cancellation for jobs that have not completed (H3-D). */
+export async function cancelIngestionJob(client: PoolClient, auth: AuthUser, jobId: string) {
+  requireKnowledgeReviewer(auth);
+  const { rows } = await client.query(
+    `UPDATE knowledge_ingestion_job
+     SET status = 'canceled', updated_at = now()
+     WHERE tenant_id = $1 AND id = $2 AND status IN ('queued', 'failed', 'not_configured', 'needs_review')
+     RETURNING id::text, source_version_id::text`,
+    [auth.tenantId, jobId]
+  );
+  if (!rows[0]) {
+    throw new ApiError(404, "Cancelable ingestion job not found");
+  }
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    action: "knowledge.ingestion_canceled",
+    entityType: "knowledge_ingestion_job",
+    entityId: jobId,
+    metadata: {}
+  });
+  return rows[0];
 }
 
 /**
@@ -320,32 +373,79 @@ export async function processQueuedIngestionJobs(
     const storedText = resolveStoredText(version);
 
     if (job.job_kind === "document_extract") {
-      if (!storedText) {
+      // Inline/authored text stays the primary path; file-backed sources read
+      // the stored asset and extract by verified format (H3-B).
+      if (storedText) {
+        const drafts = segmentDocumentText(storedText);
+        await replaceSegments(client, tenantId, job.source_version_id, "extracted_text", drafts);
+        await completeJob(client, tenantId, job.id, job.source_version_id, { status: "completed", provider: "deterministic" });
+        outcome.completed += 1;
+        continue;
+      }
+      if (!version.asset_storage_key) {
         await completeJob(client, tenantId, job.id, job.source_version_id, {
           status: "failed",
-          error:
-            "No extractable stored text: the version has no inline body and the linked asset has no text note. Binary document parsing (PDF/DOCX) requires an extraction provider — not configured."
+          error: "No extractable content: the version has no inline body, no asset text note, and no stored file."
         });
         outcome.failed += 1;
         continue;
       }
-      const drafts = segmentDocumentText(storedText);
-      await replaceSegments(client, tenantId, job.source_version_id, "extracted_text", drafts);
-      await completeJob(client, tenantId, job.id, job.source_version_id, { status: "completed", provider: "deterministic" });
+      const stored = await readStoredObject(tenantId, version.asset_storage_key);
+      if (stored.status === "not_configured") {
+        await completeJob(client, tenantId, job.id, job.source_version_id, {
+          status: "not_configured",
+          error: stored.reason
+        });
+        outcome.not_configured += 1;
+        continue;
+      }
+      if (stored.status !== "ok") {
+        await completeJob(client, tenantId, job.id, job.source_version_id, {
+          status: "failed",
+          error: stored.status === "not_found" ? "The stored document object was not found." : stored.reason
+        });
+        outcome.failed += 1;
+        continue;
+      }
+      const extraction = await extractDocumentText(stored.body, version.asset_content_type ?? stored.contentType, version.asset_file_name);
+      if (extraction.status !== "ok") {
+        await completeJob(client, tenantId, job.id, job.source_version_id, {
+          status: "failed",
+          error: extraction.reason
+        });
+        outcome.failed += 1;
+        continue;
+      }
+      await replaceSegments(client, tenantId, job.source_version_id, "extracted_text", extraction.segments);
+      await completeJob(client, tenantId, job.id, job.source_version_id, { status: "completed", provider: extraction.extractor });
       outcome.completed += 1;
       continue;
     }
 
-    // media_transcribe
+    // media_transcribe — stored media bytes are fetched server-side when the
+    // asset has a managed object; the deterministic provider still works from
+    // a stored timed-script without any storage.
+    let mediaBytes: Buffer | null = null;
+    if (version.asset_storage_key) {
+      const stored = await readStoredObject(tenantId, version.asset_storage_key);
+      if (stored.status === "ok") {
+        mediaBytes = stored.body;
+      }
+    }
     const provider = resolveTranscriptionProvider();
     const result = await provider.transcribe({
       tenantId,
       sourceVersionId: job.source_version_id,
       scriptText: storedText,
+      mediaBytes,
       fileName: version.asset_file_name,
       contentType: version.asset_content_type
     });
     if (result.status === "completed") {
+      // Duration boundary (H3): the stored duration always covers every
+      // segment, so no citation timestamp can exceed the known media length.
+      const maxEnd = result.segments.length > 0 ? Math.max(...result.segments.map((segment) => segment.endSeconds)) : 0;
+      const durationSeconds = Math.max(result.durationSeconds ?? 0, maxEnd) || null;
       await replaceSegments(
         client,
         tenantId,
@@ -357,10 +457,17 @@ export async function processQueuedIngestionJobs(
           content: segment.content,
           startSeconds: segment.startSeconds,
           endSeconds: segment.endSeconds,
-          speakerLabel: segment.speakerLabel ?? null
+          speakerLabel: segment.speakerLabel ?? null,
+          words: segment.words ?? null
         }))
       );
-      await completeJob(client, tenantId, job.id, job.source_version_id, { status: "completed", provider: result.provider });
+      await completeJob(client, tenantId, job.id, job.source_version_id, {
+        status: "completed",
+        provider: result.provider,
+        providerRequestId: result.providerRequestId ?? null,
+        providerPayload: result.rawPayload,
+        durationSeconds
+      });
       outcome.completed += 1;
     } else if (result.status === "not_configured") {
       await completeJob(client, tenantId, job.id, job.source_version_id, {

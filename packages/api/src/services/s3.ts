@@ -95,3 +95,59 @@ function isConfiguredStorageValue(value: string) {
   const normalized = value.trim().toLowerCase();
   return normalized.length > 0 && !normalized.startsWith("replace_me");
 }
+
+// ---------------------------------------------------------------------------
+// Server-side object read (Ask Bailey H3). Used by document extraction,
+// transcription, and the protected media route. Honest not_configured state
+// when storage credentials are absent; test-injectable via setStorageReader.
+// ---------------------------------------------------------------------------
+export type StoredObjectRead =
+  | { status: "ok"; body: Buffer; contentType: string | null; contentLength: number }
+  | { status: "not_configured"; reason: string }
+  | { status: "not_found" }
+  | { status: "failed"; reason: string };
+
+export type StorageReader = (tenantId: string, storageKey: string) => Promise<StoredObjectRead>;
+
+let storageReaderOverride: StorageReader | null = null;
+
+/** Test seam: inject a fake reader (deterministic bytes, no network). */
+export function setStorageReader(reader: StorageReader | null) {
+  storageReaderOverride = reader;
+}
+
+export async function readStoredObject(tenantId: string, storageKey: string): Promise<StoredObjectRead> {
+  if (storageReaderOverride) {
+    return storageReaderOverride(tenantId, storageKey);
+  }
+  // Tenant boundary: a key outside the caller's tenant prefix is never read.
+  if (!storageKey.startsWith(`tenants/${tenantId}/`)) {
+    return { status: "not_found" };
+  }
+  if (!client) {
+    return {
+      status: "not_configured",
+      reason: "Object storage is not configured (S3_BUCKET / AWS credentials)."
+    };
+  }
+  try {
+    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const result = await client.send(new GetObjectCommand({ Bucket: config.S3_BUCKET, Key: storageKey }));
+    const bytes = await result.Body?.transformToByteArray();
+    if (!bytes) {
+      return { status: "failed", reason: "Storage returned an empty body." };
+    }
+    return {
+      status: "ok",
+      body: Buffer.from(bytes),
+      contentType: result.ContentType ?? null,
+      contentLength: bytes.byteLength
+    };
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "NoSuchKey" || name === "NotFound") {
+      return { status: "not_found" };
+    }
+    return { status: "failed", reason: "Storage read failed." };
+  }
+}

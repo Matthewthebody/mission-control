@@ -238,7 +238,10 @@ describe("ask pipeline — supported answers and citations", () => {
     expect(videoCitation).toBeDefined();
     expect(videoCitation.start_seconds).toBe(402);
     expect(videoCitation.end_seconds).toBe(451);
-    expect(videoCitation.media_url).toBe("/test-media/ab-test-fogline.mp4#t=402");
+    // H3: media links are the server-built PROTECTED route (never a raw
+    // storage URL), anchored at the exact stored timestamp.
+    expect(videoCitation.media_url).toContain("/api/ask-bailey/sources/");
+    expect(videoCitation.media_url).toMatch(/\/media#t=402$/);
     // The timestamp exists in the database — never invented.
     const stored = await pool.query(
       `SELECT start_seconds::float AS s FROM knowledge_segment WHERE tenant_id = $1 AND id = $2`,
