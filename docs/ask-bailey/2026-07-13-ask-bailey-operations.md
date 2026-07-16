@@ -36,7 +36,7 @@ control, logs, or test fixtures.**
 | `ASK_BAILEY_EMBEDDING_PROVIDER` | `deterministic` | `deterministic` (char-trigram hash, no credentials) \| `openai_compatible`. |
 | `ASK_BAILEY_EMBEDDING_BASE_URL` / `_API_KEY` / `_MODEL` | `""` | Hosted embeddings endpoint (OpenAI-compatible `/embeddings`). |
 | `ASK_BAILEY_SEMANTIC_TOP_K` | `8` | Semantic candidates per ask. |
-| `ASK_BAILEY_SEMANTIC_MIN_SIMILARITY` | `0.45` | Gate for semantic-only candidates. |
+| `ASK_BAILEY_SEMANTIC_MIN_SIMILARITY` | `0.45` | Gate for semantic-only candidates. Effective gate = max(this, the adapter's `semanticGateFloor`: deterministic 0.75, hosted 0) — char-trigram cosines run hot on long unrelated texts. |
 | `ASK_BAILEY_MIN_MATCHED_CONCEPTS` | `2` | Lexical concept guard (multi-term questions). |
 | `ASK_BAILEY_TYPO_SIMILARITY` | `0.5` | Trigram word-similarity credit threshold. |
 | `ASK_BAILEY_MIN_EVIDENCE_SCORE` | `0.12` | Below this combined score → honest no-answer. |
