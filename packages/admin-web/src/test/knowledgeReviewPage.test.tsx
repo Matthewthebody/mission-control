@@ -12,6 +12,9 @@ const resolveConflictMock = vi.fn();
 const reviewReportMock = vi.fn();
 const resolveQuestionMock = vi.fn();
 const retryIngestionMock = vi.fn();
+const getVersionTranscriptMock = vi.fn();
+const correctSegmentMock = vi.fn();
+const cancelIngestionMock = vi.fn();
 
 vi.mock("../services/knowledgeReviewApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../services/knowledgeReviewApi")>();
@@ -23,7 +26,10 @@ vi.mock("../services/knowledgeReviewApi", async (importOriginal) => {
     resolveConflict: (...args: unknown[]) => resolveConflictMock(...args),
     reviewReport: (...args: unknown[]) => reviewReportMock(...args),
     resolveQuestion: (...args: unknown[]) => resolveQuestionMock(...args),
-    retryIngestion: (...args: unknown[]) => retryIngestionMock(...args)
+    retryIngestion: (...args: unknown[]) => retryIngestionMock(...args),
+    getVersionTranscript: (...args: unknown[]) => getVersionTranscriptMock(...args),
+    correctSegment: (...args: unknown[]) => correctSegmentMock(...args),
+    cancelIngestion: (...args: unknown[]) => cancelIngestionMock(...args)
   };
 });
 
@@ -159,6 +165,75 @@ describe("Knowledge Review page", () => {
     expect(await screen.findByText("Nothing waiting for review.")).toBeInTheDocument();
     expect(screen.getByText("No open conflicts. Bailey answers without disagreement warnings.")).toBeInTheDocument();
     expect(screen.getByText("No open reports.")).toBeInTheDocument();
+  });
+
+  it("opens transcript review, edits classification, and saves an audited correction", async () => {
+    getVersionTranscriptMock.mockResolvedValue({
+      version: {
+        id: "ver-1",
+        publication_status: "pending_review",
+        knowledge_mode: "operational",
+        authority_class: "approved_training",
+        extraction_status: "completed",
+        media_duration_seconds: 80,
+        title: "Tether SOP v2",
+        source_id: "src-1",
+        resource_library_item_id: "item-1"
+      },
+      segments: [
+        {
+          id: "seg-1",
+          ordinal: 0,
+          segment_kind: "transcript",
+          heading: null,
+          locator_label: "00:10–00:40",
+          content: "Count the cards before teardown.",
+          original_content: null,
+          start_seconds: 10,
+          end_seconds: 40,
+          speaker_label: null,
+          reviewer_classification: null,
+          review_notes: null,
+          updated_at: "2026-07-16"
+        }
+      ],
+      jobs: [
+        {
+          id: "job-1",
+          job_kind: "media_transcribe",
+          status: "completed",
+          attempts: 1,
+          error_message: null,
+          provider: "deterministic",
+          provider_request_id: null,
+          created_at: "2026-07-16"
+        }
+      ]
+    });
+    correctSegmentMock.mockResolvedValue({ segment: {} });
+
+    render(<KnowledgeReview token="token" />);
+    const open = await screen.findByRole("button", { name: "Review transcript" });
+    fireEvent.click(open);
+    expect(await screen.findByText("Transcript review — Tether SOP v2")).toBeInTheDocument();
+    expect(screen.getByText("duration 01:20")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play from 00:10" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Classification for segment 1"), { target: { value: "raw_discussion" } });
+    fireEvent.change(screen.getByLabelText("Transcript text for segment 1"), {
+      target: { value: "Count the cards twice before teardown." }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save correction" }));
+    await waitFor(() =>
+      expect(correctSegmentMock).toHaveBeenCalledWith(
+        "token",
+        "seg-1",
+        expect.objectContaining({
+          content: "Count the cards twice before teardown.",
+          reviewer_classification: "raw_discussion"
+        })
+      )
+    );
   });
 
   it("surfaces action failures without hiding them", async () => {

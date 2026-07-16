@@ -126,3 +126,104 @@ export function resolveQuestion(
     body: JSON.stringify(note ? { resolution, note } : { resolution })
   });
 }
+
+// ---------------------------------------------------------------------------
+// Transcript & segment review (H3-E).
+// ---------------------------------------------------------------------------
+
+export const SEGMENT_CLASSIFICATIONS = [
+  "approved_instruction",
+  "approved_training",
+  "current_workflow_observation",
+  "pain_point",
+  "future_design_idea",
+  "raw_discussion",
+  "evidence_only",
+  "historical_reference",
+  "restricted"
+] as const;
+
+export type SegmentClassification = (typeof SEGMENT_CLASSIFICATIONS)[number];
+
+export const CLASSIFICATION_LABELS: Record<SegmentClassification, string> = {
+  approved_instruction: "Approved instruction",
+  approved_training: "Approved training",
+  current_workflow_observation: "Verified current workflow",
+  pain_point: "Pain point / workaround",
+  future_design_idea: "Future-design idea",
+  raw_discussion: "Raw discussion",
+  evidence_only: "Evidence only",
+  historical_reference: "Historical",
+  restricted: "Restricted"
+};
+
+export type ReviewSegment = {
+  id: string;
+  ordinal: number;
+  segment_kind: string;
+  heading: string | null;
+  locator_label: string | null;
+  content: string;
+  original_content: string | null;
+  start_seconds: number | null;
+  end_seconds: number | null;
+  speaker_label: string | null;
+  reviewer_classification: SegmentClassification | null;
+  review_notes: string | null;
+  updated_at: string;
+};
+
+export type VersionTranscript = {
+  version: {
+    id: string;
+    publication_status: string;
+    knowledge_mode: string;
+    authority_class: string;
+    extraction_status: string;
+    media_duration_seconds: number | null;
+    title: string;
+    source_id: string;
+    resource_library_item_id: string | null;
+  };
+  segments: ReviewSegment[];
+  jobs: Array<{
+    id: string;
+    job_kind: string;
+    status: string;
+    attempts: number;
+    error_message: string | null;
+    provider: string | null;
+    provider_request_id: string | null;
+    created_at: string;
+  }>;
+};
+
+export function getVersionTranscript(token: string, versionId: string) {
+  return apiFetch<VersionTranscript>(`/api/knowledge/versions/${versionId}/segments`, token);
+}
+
+export function correctSegment(
+  token: string,
+  segmentId: string,
+  patch: {
+    content?: string;
+    start_seconds?: number | null;
+    end_seconds?: number | null;
+    reviewer_classification?: SegmentClassification | null;
+    speaker_label?: string | null;
+    review_notes?: string | null;
+    note?: string;
+  }
+) {
+  return apiFetch<{ segment: ReviewSegment }>(`/api/knowledge/segments/${segmentId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(patch)
+  });
+}
+
+export function cancelIngestion(token: string, jobId: string) {
+  return apiFetch<{ job: unknown }>(`/api/knowledge/ingestion-jobs/${jobId}/cancel`, token, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}

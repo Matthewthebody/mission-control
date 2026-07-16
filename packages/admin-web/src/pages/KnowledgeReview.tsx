@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { apiUrl } from "../api";
 import {
   approveVersion,
+  cancelIngestion,
+  CLASSIFICATION_LABELS,
+  correctSegment,
   getReviewQueue,
+  getVersionTranscript,
   rejectVersion,
   resolveConflict,
   resolveQuestion,
   retireVersion,
   retryIngestion,
   reviewReport,
-  type ReviewQueue
+  SEGMENT_CLASSIFICATIONS,
+  type ReviewQueue,
+  type ReviewSegment,
+  type SegmentClassification,
+  type VersionTranscript
 } from "../services/knowledgeReviewApi";
 
 // Knowledge Review — the knowledge-owner workflow behind Ask Bailey.
@@ -31,10 +40,247 @@ function formatDate(value: string) {
   );
 }
 
+function formatClock(seconds: number | null): string {
+  if (seconds === null) return "—";
+  const whole = Math.floor(seconds);
+  return `${String(Math.floor(whole / 60)).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
+}
+
+// Transcript & segment review (H3-E): reviewers inspect and correct extracted
+// content, adjust timestamps, and classify segments. Every save is an audited
+// server-side correction; classification changes retrieval eligibility.
+function TranscriptReviewPanel({
+  token,
+  versionId,
+  onClose,
+  onActionError
+}: {
+  token: string;
+  versionId: string;
+  onClose: () => void;
+  onActionError: (message: string) => void;
+}) {
+  const [transcript, setTranscript] = useState<VersionTranscript | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, Partial<ReviewSegment>>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const playerRef = useRef<HTMLVideoElement | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setTranscript(await getVersionTranscript(token, versionId));
+      setDrafts({});
+    } catch (error) {
+      onActionError(error instanceof Error ? error.message : "Failed to load the transcript.");
+    }
+  }, [token, versionId, onActionError]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  if (!transcript) {
+    return (
+      <section className="panel">
+        <div className="section-title">Transcript review</div>
+        <p className="section-subtitle">Loading segments…</p>
+      </section>
+    );
+  }
+
+  const { version, segments, jobs } = transcript;
+  const isApproved = version.publication_status === "approved";
+  const mediaSrc = version.resource_library_item_id
+    ? `${apiUrl}/api/ask-bailey/sources/${version.source_id}/media`
+    : null;
+
+  const draftFor = (segment: ReviewSegment) => ({ ...segment, ...(drafts[segment.id] ?? {}) });
+  const setDraft = (segmentId: string, patch: Partial<ReviewSegment>) =>
+    setDrafts((current) => ({ ...current, [segmentId]: { ...(current[segmentId] ?? {}), ...patch } }));
+
+  const save = async (segment: ReviewSegment) => {
+    const draft = draftFor(segment);
+    let note: string | undefined;
+    if (isApproved) {
+      const entered = window.prompt("This version is approved. Why is this correction needed? (required)");
+      if (!entered || !entered.trim()) return;
+      note = entered.trim();
+    }
+    setSavingId(segment.id);
+    try {
+      await correctSegment(token, segment.id, {
+        content: draft.content,
+        start_seconds: draft.start_seconds,
+        end_seconds: draft.end_seconds,
+        reviewer_classification: draft.reviewer_classification ?? null,
+        review_notes: draft.review_notes ?? null,
+        speaker_label: draft.speaker_label ?? null,
+        note
+      });
+      await refresh();
+    } catch (error) {
+      onActionError(error instanceof Error ? error.message : "The correction failed.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const playFrom = (seconds: number | null) => {
+    if (seconds === null || !playerRef.current) return;
+    playerRef.current.currentTime = seconds;
+    void playerRef.current.play().catch(() => {
+      // Playback may be blocked (no media / storage not configured); the
+      // element's own error UI stays honest.
+    });
+  };
+
+  return (
+    <section className="panel">
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+        <div className="section-title" style={{ marginBottom: 0 }}>
+          Transcript review — {version.title}
+        </div>
+        <span className="badge-pill">{version.publication_status.replace(/_/g, " ")}</span>
+        {version.media_duration_seconds !== null ? (
+          <span className="badge-pill">duration {formatClock(version.media_duration_seconds)}</span>
+        ) : null}
+        <button type="button" className="secondary-button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      <p className="section-subtitle">
+        Corrections are audited with before/after values; the provider’s original text is preserved. Classification
+        controls whether a segment may support answers.
+      </p>
+
+      {mediaSrc ? (
+        <video ref={playerRef} controls preload="none" style={{ width: "100%", maxHeight: 260, background: "#000" }} src={mediaSrc}>
+          <track kind="captions" />
+        </video>
+      ) : (
+        <p className="section-subtitle">This source has no linked media asset.</p>
+      )}
+
+      {jobs.length > 0 ? (
+        <div style={{ margin: "0.5rem 0", fontSize: "0.85rem" }}>
+          {jobs.slice(0, 3).map((job) => (
+            <div key={job.id} style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+              <span className="badge-pill">{job.job_kind.replace(/_/g, " ")}</span>
+              <span className="badge-pill">{job.status}</span>
+              <span>{job.provider ?? ""}</span>
+              {job.error_message ? <span style={{ opacity: 0.8 }}>{job.error_message}</span> : null}
+              {["failed", "not_configured", "needs_review"].includes(job.status) ? (
+                <>
+                  <button type="button" className="secondary-button" onClick={() => void retryIngestion(token, job.id).then(refresh)}>
+                    Retry
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void cancelIngestion(token, job.id).then(refresh)}>
+                    Cancel
+                  </button>
+                </>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div style={{ display: "grid", gap: "0.75rem", marginTop: "0.5rem" }}>
+        {segments.map((segment) => {
+          const draft = draftFor(segment);
+          return (
+            <div key={segment.id} style={{ border: "1px solid var(--border-color, #d9d4c8)", borderRadius: 8, padding: "0.6rem 0.9rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                <span className="badge-pill">{segment.locator_label ?? `#${segment.ordinal + 1}`}</span>
+                {segment.start_seconds !== null ? (
+                  <button type="button" className="secondary-button" onClick={() => playFrom(segment.start_seconds)}>
+                    Play from {formatClock(segment.start_seconds)}
+                  </button>
+                ) : null}
+                <select
+                  aria-label={`Classification for segment ${segment.ordinal + 1}`}
+                  value={draft.reviewer_classification ?? ""}
+                  onChange={(event) =>
+                    setDraft(segment.id, {
+                      reviewer_classification: (event.target.value || null) as SegmentClassification | null
+                    })
+                  }
+                >
+                  <option value="">Inherit from version</option>
+                  {SEGMENT_CLASSIFICATIONS.map((classification) => (
+                    <option key={classification} value={classification}>
+                      {CLASSIFICATION_LABELS[classification]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                aria-label={`Transcript text for segment ${segment.ordinal + 1}`}
+                value={draft.content}
+                onChange={(event) => setDraft(segment.id, { content: event.target.value })}
+                rows={3}
+                style={{ width: "100%", marginTop: "0.4rem" }}
+              />
+              {segment.start_seconds !== null ? (
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.3rem", fontSize: "0.85rem" }}>
+                  <label>
+                    Start (s):{" "}
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={draft.start_seconds ?? 0}
+                      onChange={(event) => setDraft(segment.id, { start_seconds: Number(event.target.value) })}
+                      style={{ width: 90 }}
+                    />
+                  </label>
+                  <label>
+                    End (s):{" "}
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={draft.end_seconds ?? 0}
+                      onChange={(event) => setDraft(segment.id, { end_seconds: Number(event.target.value) })}
+                      style={{ width: 90 }}
+                    />
+                  </label>
+                </div>
+              ) : null}
+              <input
+                aria-label={`Reviewer notes for segment ${segment.ordinal + 1}`}
+                placeholder="Reviewer notes"
+                value={draft.review_notes ?? ""}
+                onChange={(event) => setDraft(segment.id, { review_notes: event.target.value || null })}
+                style={{ width: "100%", marginTop: "0.3rem" }}
+              />
+              {segment.original_content ? (
+                <details style={{ marginTop: "0.3rem" }}>
+                  <summary style={{ cursor: "pointer", fontSize: "0.85rem" }}>Provider original</summary>
+                  <p style={{ whiteSpace: "pre-wrap", fontSize: "0.85rem", opacity: 0.85 }}>{segment.original_content}</p>
+                </details>
+              ) : null}
+              <div style={{ marginTop: "0.4rem" }}>
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={savingId === segment.id}
+                  onClick={() => void save(segment)}
+                >
+                  Save correction
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function KnowledgeReview({ token }: Props) {
   const [load, setLoad] = useState<LoadState>({ state: "loading" });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [transcriptVersionId, setTranscriptVersionId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -102,6 +348,15 @@ export default function KnowledgeReview({ token }: Props) {
         ) : null}
       </section>
 
+      {transcriptVersionId ? (
+        <TranscriptReviewPanel
+          token={token}
+          versionId={transcriptVersionId}
+          onClose={() => setTranscriptVersionId(null)}
+          onActionError={setActionError}
+        />
+      ) : null}
+
       <section className="panel">
         <div className="section-title">Pending source versions ({queue.pending_versions.length})</div>
         {queue.pending_versions.length === 0 ? (
@@ -121,6 +376,13 @@ export default function KnowledgeReview({ token }: Props) {
                 {version.extraction_status}
               </div>
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setTranscriptVersionId(version.id)}
+                >
+                  Review transcript
+                </button>
                 <button
                   type="button"
                   className="primary-button"
