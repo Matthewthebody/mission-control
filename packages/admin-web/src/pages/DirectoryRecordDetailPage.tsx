@@ -18,6 +18,7 @@ import { OrganizationHierarchyCard } from "../components/directory/OrganizationH
 import { ServiceTermsPanel } from "../components/directory/ServiceTermsPanel";
 import { LogoHistoryPanel } from "../components/directory/LogoHistoryPanel";
 import { CanonicalContactsPanel } from "../components/directory/CanonicalContactsPanel";
+import { AskBaileyLaunchButton } from "../components/askBailey/AskBaileyLauncher";
 import { CanonicalContactSelector } from "../components/directory/CanonicalContactSelector";
 import { DirectoryAvatar } from "../components/directory/DirectoryAvatar";
 import { formatDateLabel, labelForActiveStatus } from "../components/directory/directoryOptions";
@@ -253,6 +254,9 @@ function OrganizationRecordDetail({
             {org.website ? <span className="meta-pill">{org.website}</span> : null}
             {org.main_phone ? <span className="meta-pill">{org.main_phone}</span> : null}
           </div>
+          <div style={{ marginTop: "0.5rem" }}>
+            <AskBaileyLaunchButton context={{ kind: "organization", id: org.id, label: org.display_name }} />
+          </div>
         </div>
       </div>
       <ArchivedBanner archived={archived} />
@@ -430,6 +434,9 @@ function LocationRecordDetail({ location, header }: { location: DirectoryLocatio
           <div className="directory-chip-row">
             <span className="meta-pill">{labelForActiveStatus(location.active_status)}</span>
             {location.organization_display_name ? <span className="meta-pill">{location.organization_display_name}</span> : null}
+          </div>
+          <div style={{ marginTop: "0.5rem" }}>
+            <AskBaileyLaunchButton context={{ kind: "location", id: location.id, label: location.location_name }} />
           </div>
         </div>
       </div>

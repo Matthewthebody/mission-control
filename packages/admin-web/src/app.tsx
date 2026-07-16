@@ -29,6 +29,7 @@ import {
   type ShellSection,
   type TabKey
 } from "./navigation";
+import { AskBaileyProvider, useAskBailey } from "./components/askBailey/AskBaileyLauncher";
 import {
   canAccessApprovalsHub,
   canAccessRoute,
@@ -251,6 +252,23 @@ const LazyPayrollSelfCheck = lazy(() =>
 );
 const LazyAskBailey = lazy(() => import("./pages/AskBailey"));
 const LazyKnowledgeReview = lazy(() => import("./pages/KnowledgeReview"));
+
+// Persistent shell entry for Ask Bailey (H4-B): opens the contextual drawer
+// in general mode without leaving the current page.
+function AskBaileyShellTrigger({ variant }: { variant: "topbar" | "mobile" }) {
+  const { openAskBailey } = useAskBailey();
+  return (
+    <button
+      type="button"
+      className={variant === "topbar" ? "secondary-button" : "concierge-mobile-trigger"}
+      onClick={() => openAskBailey()}
+      aria-haspopup="dialog"
+      aria-label="Open Ask Bailey"
+    >
+      {variant === "topbar" ? "Ask Bailey" : <span className="concierge-mobile-trigger__label">Ask Bailey</span>}
+    </button>
+  );
+}
 const LazyWorkflowTemplateBuilderPage = lazy(() =>
   import("./pages/WorkflowTemplateBuilderPage").then((module) => ({ default: module.WorkflowTemplateBuilderPage }))
 );
@@ -839,6 +857,7 @@ export default function App() {
   }
 
   return (
+    <AskBaileyProvider token={token} userLine={`Your role: ${getShellRoleLabel(currentUser)}`}>
     <div
       className={`app-shell${displayMode ? " app-shell--display" : ""}${
         headerCollapsed ? " app-shell--header-collapsed" : ""
@@ -934,6 +953,7 @@ export default function App() {
                     <span className="concierge-shell-trigger__label">Ask Concierge anything...</span>
                     <span className="concierge-shell-trigger__shortcut">Cmd/Ctrl + K</span>
                   </button>
+                  <AskBaileyShellTrigger variant="topbar" />
                   <GlobalPunchControl token={token} currentUser={currentUser} />
                   {showTopbarMeta ? (
                   <div className="shell-topbar__meta">
@@ -1050,19 +1070,22 @@ export default function App() {
                 ) : null}
               </div>
               {!isHomeRoute ? (
-                <button
-                  type="button"
-                  className="concierge-mobile-trigger"
-                  onClick={() => openConcierge()}
-                  aria-haspopup="dialog"
-                  aria-expanded={conciergeOpen}
-                  aria-controls="concierge-command-palette"
-                >
-                  <span className="concierge-mobile-trigger__icon" aria-hidden="true">
-                    Search
-                  </span>
-                  <span className="concierge-mobile-trigger__label">Ask Concierge anything...</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="concierge-mobile-trigger"
+                    onClick={() => openConcierge()}
+                    aria-haspopup="dialog"
+                    aria-expanded={conciergeOpen}
+                    aria-controls="concierge-command-palette"
+                  >
+                    <span className="concierge-mobile-trigger__icon" aria-hidden="true">
+                      Search
+                    </span>
+                    <span className="concierge-mobile-trigger__label">Ask Concierge anything...</span>
+                  </button>
+                  <AskBaileyShellTrigger variant="mobile" />
+                </>
               ) : null}
 
               {!mobileBottomNavActive ? (
@@ -1213,6 +1236,7 @@ export default function App() {
         </>
       ) : null}
     </div>
+    </AskBaileyProvider>
   );
 }
 

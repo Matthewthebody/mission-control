@@ -26,6 +26,7 @@ const { processQueuedIngestionJobs, queueIngestionJob } = await import(
 );
 const { askBailey } = await import("../src/services/ai/askBailey.js");
 const { normalizeQuestionToTerms } = await import("../src/services/ai/retrieval.js");
+const { deterministicLanguageModel } = await import("../src/services/ai/providers/languageModel.js");
 type AuthUser = import("../src/types/auth.js").AuthUser;
 
 const PREFIX = "ab-test-";
@@ -392,7 +393,97 @@ describe("ask pipeline — context envelope", () => {
     expect(response.status).toBe(200);
     expect(response.body.context).toMatchObject({ kind: "shoot", id: shoot.rows[0].id });
     // Only allowlisted fields appear.
-    expect(Object.keys(response.body.context).sort()).toEqual(["id", "kind", "label"]);
+    expect(Object.keys(response.body.context).sort()).toEqual(["detail", "id", "kind", "label"]);
+  });
+});
+
+describe("H4 context kinds and tamper resistance", () => {
+  it("validates location and task contexts with allowlisted envelopes", async () => {
+    const location = await pool.query<{ id: string; name: string }>(
+      `SELECT id::text, name FROM shoot_location WHERE tenant_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [tenantId]
+    );
+    if (location.rows[0]) {
+      const response = await ask(leadershipToken, {
+        question: "ab-test fogline rig calibration",
+        context: { location_id: location.rows[0].id }
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.context).toMatchObject({ kind: "location", label: location.rows[0].name });
+      expect(Object.keys(response.body.context).sort()).toEqual(["detail", "id", "kind", "label"]);
+    }
+    const task = await pool.query<{ id: string; title: string }>(
+      `SELECT id::text, title FROM work_task WHERE tenant_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [tenantId]
+    );
+    if (task.rows[0]) {
+      const response = await ask(leadershipToken, {
+        question: "ab-test fogline rig calibration",
+        context: { task_id: task.rows[0].id }
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.context).toMatchObject({ kind: "task", label: task.rows[0].title });
+    }
+  });
+
+  it("validates a knowledge-source context through the eligibility predicate", async () => {
+    const source = await pool.query<{ id: string }>(
+      `SELECT s.id::text FROM knowledge_source s WHERE s.tenant_id = $1 AND s.title = '${PREFIX}Fogline Rig SOP' LIMIT 1`,
+      [tenantId]
+    );
+    const response = await ask(leadershipToken, {
+      question: "ab-test fogline rig calibration",
+      context: { source_id: source.rows[0].id }
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.context).toMatchObject({ kind: "source", label: `${PREFIX}Fogline Rig SOP` });
+
+    // A confidential source is an invisible context for a non-reviewer —
+    // indistinguishable from nonexistent.
+    const confidential = await pool.query<{ id: string }>(
+      `SELECT s.id::text FROM knowledge_source s WHERE s.tenant_id = $1 AND s.title = '${PREFIX}Confidential Policy' LIMIT 1`,
+      [tenantId]
+    );
+    const denied = await ask(associateToken, {
+      question: "ab-test fogline rig calibration",
+      context: { source_id: confidential.rows[0].id }
+    });
+    expect(denied.status).toBe(404);
+  });
+
+  it("ignores client-supplied extra context fields and never forwards raw objects", async () => {
+    let capturedContextSummary: string | null = null;
+    const result = await withClientTransaction(tenantId, leadershipId, (client) =>
+      askBailey(client, reviewerAuth(), {
+        question: "ab-test fogline rig calibration",
+        context: {
+          // Hostile extras a client might smuggle; the schema/type strips them
+          // and the envelope is rebuilt server-side from the database row.
+          ...({ payroll: "leak me", sql: "drop table jobs", role: "super_admin" } as object)
+        } as never,
+        providerOverride: {
+          name: "probe",
+          async generateAnswer(input) {
+            capturedContextSummary = input.contextSummary;
+            return deterministicLanguageModel.generateAnswer(input);
+          }
+        }
+      })
+    );
+    expect(result.status).toBe("supported");
+    // No context ids were provided, so no context reaches the provider at all.
+    expect(capturedContextSummary).toBeNull();
+  });
+
+  it("rejects a random inaccessible id for every context kind", async () => {
+    const ghost = "00000000-0000-0000-0000-000000000000";
+    for (const key of ["job_id", "shoot_id", "organization_id", "location_id", "task_id", "source_id"]) {
+      const response = await ask(associateToken, {
+        question: "ab-test fogline",
+        context: { [key]: ghost }
+      });
+      expect(response.status).toBe(404);
+    }
   });
 });
 

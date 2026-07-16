@@ -48,6 +48,7 @@ import type {
   SportsWatchFlagRecord
 } from "../sportsTypes";
 import type { SessionUser, ShootDetail } from "../types";
+import { AskBaileyLaunchButton } from "../components/askBailey/AskBaileyLauncher";
 
 type Props = {
   token: string;
@@ -412,6 +413,12 @@ export function SportsShootDetailPage({ token, currentUser }: Props) {
         ]}
         actions={
           <WorkspaceActionBar align="end">
+            {shootId ? (
+              <AskBaileyLaunchButton
+                context={{ kind: "shoot", id: shootId, label: summary.title }}
+                label="Ask Bailey about this shoot"
+              />
+            ) : null}
             <button type="button" className="secondary-button" onClick={() => (window.location.hash = "#sports/shoots")}>
               Back To Board
             </button>

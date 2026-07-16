@@ -56,7 +56,7 @@ export type AskBaileyAnswer = {
   citations: AskBaileyCitation[];
   warnings: string[];
   conflicts: AskBaileyConflict[];
-  context: { kind: string; id: string; label: string } | null;
+  context: { kind: string; id: string; label: string; detail: string | null } | null;
   evidence: { source_count: number; highest_authority: string | null; conflict_detected: boolean };
 };
 
@@ -64,6 +64,9 @@ export type AskBaileyContext = {
   job_id?: string;
   shoot_id?: string;
   organization_id?: string;
+  location_id?: string;
+  task_id?: string;
+  source_id?: string;
 };
 
 export type ConversationSummary = {

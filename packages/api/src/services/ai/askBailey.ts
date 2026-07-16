@@ -5,7 +5,11 @@ import { ApiError } from "../../errors/apiError.js";
 import type { AuthUser } from "../../types/auth.js";
 import { canViewRecords, withDepartmentContext } from "../policy/operationalAuthorization.js";
 import { assertShootAccess } from "../shootAccess.js";
-import { isKnowledgeReviewer, type KnowledgeMode } from "../knowledge/knowledgeGovernance.js";
+import {
+  buildVersionEligibilitySql,
+  isKnowledgeReviewer,
+  type KnowledgeMode
+} from "../knowledge/knowledgeGovernance.js";
 import { buildProtectedMediaUrl } from "../knowledge/knowledgeMedia.js";
 import { deterministicLanguageModel, resolveLanguageModelProvider } from "./providers/languageModel.js";
 import type {
@@ -34,10 +38,13 @@ export type AskBaileyContextInput = {
   job_id?: string | null;
   shoot_id?: string | null;
   organization_id?: string | null;
+  location_id?: string | null;
+  task_id?: string | null;
+  source_id?: string | null;
 };
 
 type ContextEnvelope = {
-  kind: "job" | "shoot" | "organization";
+  kind: "job" | "shoot" | "organization" | "location" | "task" | "source";
   id: string;
   label: string;
   detail: string | null;
@@ -88,7 +95,7 @@ export type AskBaileyAnswer = {
     owner_b_name: string | null;
     note: string | null;
   }>;
-  context: { kind: string; id: string; label: string } | null;
+  context: { kind: string; id: string; label: string; detail: string | null } | null;
   evidence: { source_count: number; highest_authority: string | null; conflict_detected: boolean };
   /** Reviewer-only retrieval diagnostics; never populated for other users. */
   retrieval_trace?: RetrievalTrace;
@@ -103,7 +110,14 @@ async function buildContextEnvelope(
   input: AskBaileyContextInput | undefined
 ): Promise<ContextEnvelope> {
   if (!input) return null;
-  const provided = [input.job_id, input.shoot_id, input.organization_id].filter(Boolean);
+  const provided = [
+    input.job_id,
+    input.shoot_id,
+    input.organization_id,
+    input.location_id,
+    input.task_id,
+    input.source_id
+  ].filter(Boolean);
   if (provided.length === 0) return null;
   if (provided.length > 1) {
     throw new ApiError(400, "Provide at most one context record.");
@@ -147,16 +161,77 @@ async function buildContextEnvelope(
       detail: [shoot.department, shoot.shoot_date].filter(Boolean).join(" · ") || null
     };
   }
-  const { rows } = await client.query<{ id: string; display_name: string }>(
-    `SELECT id::text, display_name FROM organization WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
-    [auth.tenantId, input.organization_id]
-  );
-  const organization = rows[0];
-  if (!organization) throw new ApiError(404, "Context record not found.");
-  if (!canViewRecords(auth, "organization", { organizationId: organization.id })) {
-    throw new ApiError(403, "You do not have access to that record.");
+  if (input.organization_id) {
+    const { rows } = await client.query<{ id: string; display_name: string }>(
+      `SELECT id::text, display_name FROM organization WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+      [auth.tenantId, input.organization_id]
+    );
+    const organization = rows[0];
+    if (!organization) throw new ApiError(404, "Context record not found.");
+    if (!canViewRecords(auth, "organization", { organizationId: organization.id })) {
+      throw new ApiError(403, "You do not have access to that record.");
+    }
+    return { kind: "organization", id: organization.id, label: organization.display_name, detail: null };
   }
-  return { kind: "organization", id: organization.id, label: organization.display_name, detail: null };
+  if (input.location_id) {
+    const { rows } = await client.query<{ id: string; name: string; organization_id: string | null }>(
+      `SELECT id::text, name, organization_id::text FROM shoot_location WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+      [auth.tenantId, input.location_id]
+    );
+    const location = rows[0];
+    if (!location) throw new ApiError(404, "Context record not found.");
+    if (!canViewRecords(auth, "location", { organizationId: location.organization_id, locationId: location.id })) {
+      throw new ApiError(403, "You do not have access to that record.");
+    }
+    return { kind: "location", id: location.id, label: location.name, detail: null };
+  }
+  if (input.task_id) {
+    const { rows } = await client.query<{ id: string; title: string; department_type: string | null; status: string | null; organization_id: string | null }>(
+      `SELECT id::text, title, department_type::text, status::text, organization_id::text
+       FROM work_task WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+      [auth.tenantId, input.task_id]
+    );
+    const task = rows[0];
+    if (!task) throw new ApiError(404, "Context record not found.");
+    const policyContext = withDepartmentContext(task.department_type, { organizationId: task.organization_id });
+    if (!canViewRecords(auth, "task", policyContext)) {
+      throw new ApiError(403, "You do not have access to that record.");
+    }
+    return {
+      kind: "task",
+      id: task.id,
+      label: task.title,
+      detail: [task.department_type, task.status].filter(Boolean).join(" · ") || null
+    };
+  }
+  // Knowledge source context: visible only when at least one version is
+  // eligible for THIS user — the same predicate the protected media route and
+  // retrieval use, so confidential/draft-only sources stay invisible.
+  const sourceParams: unknown[] = [auth.tenantId, input.source_id];
+  const planningEligibility = buildVersionEligibilitySql(auth, "planning", sourceParams);
+  const historicalEligibility = buildVersionEligibilitySql(auth, "historical", sourceParams);
+  const { rows } = await client.query<{ id: string; title: string; source_type: string | null }>(
+    `SELECT s.id::text, s.title,
+            (SELECT v2.source_type FROM knowledge_source_version v2
+             WHERE v2.tenant_id = s.tenant_id AND v2.id = s.current_version_id) AS source_type
+     FROM knowledge_source s
+     WHERE s.tenant_id = $1 AND s.id = $2
+       AND EXISTS (
+         SELECT 1 FROM knowledge_source_version v
+         WHERE v.tenant_id = s.tenant_id AND v.source_id = s.id
+           AND ((${planningEligibility}) OR (${historicalEligibility}))
+       )
+     LIMIT 1`,
+    sourceParams
+  );
+  const source = rows[0];
+  if (!source) throw new ApiError(404, "Context record not found.");
+  return {
+    kind: "source",
+    id: source.id,
+    label: source.title,
+    detail: source.source_type ? source.source_type.replace(/_/g, " ") : null
+  };
 }
 
 // Retrieval lives in ./retrieval.ts (hybrid lexical + semantic, eligibility
@@ -524,7 +599,7 @@ export async function askBailey(
     })),
     warnings,
     conflicts,
-    context: context ? { kind: context.kind, id: context.id, label: context.label } : null,
+    context: context ? { kind: context.kind, id: context.id, label: context.label, detail: context.detail } : null,
     evidence: {
       source_count: new Set(supportingRows.map((row) => row.source_id)).size,
       highest_authority: highestAuthority,

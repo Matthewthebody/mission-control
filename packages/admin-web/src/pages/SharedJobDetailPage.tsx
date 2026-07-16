@@ -95,6 +95,7 @@ import {
 import type { JobProductionStatus, JobStatus, SharedJobDetailResponse, SharedWorkflowTransitionValidation } from "../jobTruthTypes";
 import { JOB_PRODUCTION_STATUSES } from "../jobTruthTypes";
 import type { DirectoryOwnerOption, SessionUser } from "../types";
+import { AskBaileyLaunchButton } from "../components/askBailey/AskBaileyLauncher";
 import {
   getWorkflowChangeNoticesForJob,
   WorkflowChangeNoticePanel
@@ -1240,6 +1241,10 @@ export function SharedJobDetailPage({ token, currentUser, departmentType, routeB
       ]}
       actions={
         <WorkspaceActionBar align="end">
+          <AskBaileyLaunchButton
+            context={{ kind: "job", id: detail.job.id, label: detail.job.title || detail.job.event_name || detail.job.job_number || "this job" }}
+            label="Ask Bailey about this job"
+          />
           <button type="button" className="secondary-button" onClick={() => navigateToSharedJobHash(routeBase)}>
             Back to Jobs
           </button>

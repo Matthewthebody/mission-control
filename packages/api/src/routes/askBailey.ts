@@ -36,11 +36,17 @@ const askSchema = z.object({
   // Reviewer-only retrieval diagnostics; silently ignored for other users.
   trace: z.boolean().optional(),
   conversation_id: z.string().uuid().optional(),
+  // Candidate context ids only — the server validates kind, record, and
+  // access, and builds the envelope. Unknown fields are stripped by zod, so
+  // no raw client object can ride into retrieval or the provider request.
   context: z
     .object({
       job_id: z.string().uuid().optional(),
       shoot_id: z.string().uuid().optional(),
-      organization_id: z.string().uuid().optional()
+      organization_id: z.string().uuid().optional(),
+      location_id: z.string().uuid().optional(),
+      task_id: z.string().uuid().optional(),
+      source_id: z.string().uuid().optional()
     })
     .optional()
 });
