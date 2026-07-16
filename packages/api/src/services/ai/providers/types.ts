@@ -81,5 +81,13 @@ export interface EmbeddingProvider {
   readonly name: string;
   /** Model identity used for embedding-compatibility bookkeeping. */
   readonly model: string;
+  /**
+   * Lowest semantic similarity this adapter considers meaningful. Retrieval
+   * gates semantic-only candidates at max(config gate, this floor). The
+   * deterministic char-trigram adapter runs hot on long unrelated texts, so
+   * its floor is near-duplicate territory; calibrated hosted models use the
+   * config gate.
+   */
+  readonly semanticGateFloor: number;
   embed(texts: string[]): Promise<EmbeddingResult>;
 }

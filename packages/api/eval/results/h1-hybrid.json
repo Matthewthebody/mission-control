@@ -1,13 +1,13 @@
 {
   "metrics": {
     "label": "h1-hybrid",
-    "total": 22,
-    "passed": 22,
+    "total": 23,
+    "passed": 23,
     "failed": 0,
     "recall_at_candidates": 1,
     "false_supported_answers": 0,
-    "no_answer_correct": 7,
-    "no_answer_expected": 7,
+    "no_answer_correct": 8,
+    "no_answer_expected": 8,
     "conflict_correct": 1,
     "permission_or_status_leaks": 0
   },
@@ -56,10 +56,10 @@
       "actual_status": "supported",
       "cited_titles": [
         "eval-ab Captura Troubleshooting SOP",
-        "[DEMO] SD Card Handling SOP (Studio)",
-        "eval-ab Transfer Recovery Video"
+        "[DEMO] Tether Troubleshooting SOP",
+        "[DEMO] SD Card Handling SOP (Studio)"
       ],
-      "retrieved_candidate_count": 8,
+      "retrieved_candidate_count": 5,
       "target_in_candidates": true,
       "pass": true,
       "failure_reason": null,
@@ -143,9 +143,9 @@
       "expected": "supported",
       "actual_status": "supported",
       "cited_titles": [
-        "eval-ab Transfer Recovery Video",
         "eval-ab Captura Troubleshooting SOP",
-        "[DEMO] Tether Troubleshooting SOP"
+        "[DEMO] Tether Troubleshooting SOP",
+        "eval-ab Transfer Recovery Video"
       ],
       "retrieved_candidate_count": 6,
       "target_in_candidates": true,
@@ -173,6 +173,21 @@
       "category": "no-answer",
       "question": "What is the holiday overtime schedule?",
       "as_user": "leadership",
+      "mode": "operational",
+      "expected": "no_answer",
+      "actual_status": "no_approved_answer",
+      "cited_titles": [],
+      "retrieved_candidate_count": 0,
+      "target_in_candidates": null,
+      "pass": true,
+      "failure_reason": null,
+      "leaked_titles": []
+    },
+    {
+      "id": "semantic-false-positive-guard",
+      "category": "false-positive",
+      "question": "pricing escalation below the published floor margin for spring sports orders",
+      "as_user": "associate",
       "mode": "operational",
       "expected": "no_answer",
       "actual_status": "no_approved_answer",

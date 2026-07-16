@@ -36,6 +36,10 @@ export function deterministicEmbed(text: string): number[] {
 const deterministicEmbeddingProvider: EmbeddingProvider = {
   name: "deterministic",
   model: DETERMINISTIC_MODEL,
+  // Char-trigram cosines between long unrelated texts commonly reach 0.5-0.65
+  // (shared common-English trigrams), so only near-duplicate similarity is
+  // meaningful for this adapter.
+  semanticGateFloor: 0.75,
   async embed(texts): Promise<EmbeddingResult> {
     return {
       status: "ok",
@@ -54,6 +58,7 @@ function openAiCompatibleEmbeddingProvider(): EmbeddingProvider {
   return {
     name: "openai_compatible",
     model,
+    semanticGateFloor: 0,
     async embed(texts): Promise<EmbeddingResult> {
       if (!config.ASK_BAILEY_EMBEDDING_BASE_URL || !config.ASK_BAILEY_EMBEDDING_API_KEY || !model) {
         return {
@@ -103,6 +108,7 @@ export function resolveEmbeddingProvider(): EmbeddingProvider {
   return {
     name: "unavailable",
     model: "none",
+    semanticGateFloor: 1,
     async embed(): Promise<EmbeddingResult> {
       return { status: "not_configured", reason: `Unknown ASK_BAILEY_EMBEDDING_PROVIDER '${selected}'.` };
     }

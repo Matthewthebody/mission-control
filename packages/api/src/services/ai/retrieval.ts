@@ -259,6 +259,11 @@ export async function retrieveSegmentsHybrid(
   const provider = resolveEmbeddingProvider();
   trace.embedding.provider = provider.name;
   trace.embedding.model = provider.model;
+  // Semantic-only admission is gated at max(config gate, the adapter's own
+  // floor): the deterministic char-trigram adapter scores long unrelated
+  // texts hot, so its floor sits in near-duplicate territory.
+  const semanticGate = Math.max(config.ASK_BAILEY_SEMANTIC_MIN_SIMILARITY, provider.semanticGateFloor);
+  trace.thresholds.semantic_min_similarity = semanticGate;
   const semanticById = new Map<string, number>();
   let semanticRows: Array<RetrievedRow & { exact_phrase: boolean; heading_match: boolean }> = [];
 
@@ -291,7 +296,7 @@ export async function retrieveSegmentsHybrid(
     const questionVector = questionEmbedding.vectors[0];
     const ranked = embeddings.rows
       .map((row) => ({ segment_id: row.segment_id, similarity: cosineSimilarity(questionVector, row.embedding) }))
-      .filter((entry) => entry.similarity >= config.ASK_BAILEY_SEMANTIC_MIN_SIMILARITY)
+      .filter((entry) => entry.similarity >= semanticGate)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, config.ASK_BAILEY_SEMANTIC_TOP_K);
     for (const entry of ranked) {
@@ -367,7 +372,7 @@ export async function retrieveSegmentsHybrid(
   for (const row of scored) {
     let excludedReason: string | null = null;
     const supportedLexically = row.matched_concepts >= requiredConcepts;
-    const supportedSemantically = row.semantic_similarity >= config.ASK_BAILEY_SEMANTIC_MIN_SIMILARITY;
+    const supportedSemantically = row.semantic_similarity >= semanticGate;
     if (!supportedLexically && !supportedSemantically) {
       excludedReason = "below concept and semantic gates";
     } else if (row.score < config.ASK_BAILEY_MIN_EVIDENCE_SCORE) {

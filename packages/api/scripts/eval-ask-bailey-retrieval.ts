@@ -219,6 +219,16 @@ function buildCases(context: { namingV2Id: string }): EvalCase[] {
       expect: { kind: "no_answer" }
     },
     {
+      // Regression for the live H1 finding: long unrelated questions score
+      // hot on char-trigram cosine; the semantic gate floor must keep them
+      // from turning into supported answers backed by irrelevant sources.
+      id: "semantic-false-positive-guard",
+      category: "false-positive",
+      question: "pricing escalation below the published floor margin for spring sports orders",
+      asUser: "associate",
+      expect: { kind: "no_answer" }
+    },
+    {
       id: "restricted-associate",
       category: "authorization",
       question: "compensation band structure",
