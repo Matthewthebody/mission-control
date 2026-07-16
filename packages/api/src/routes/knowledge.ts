@@ -34,6 +34,18 @@ import {
   listVersionSegments,
   SEGMENT_CLASSIFICATIONS
 } from "../services/knowledge/knowledgeTranscriptReview.js";
+import {
+  convertUnresolvedQuestionToDraft,
+  createKnowledgeSourceVersion,
+  getKnowledgeHealth,
+  getKnowledgeSourceDetail,
+  listKnowledgeSources,
+  mergeSegmentWithNext,
+  splitSegment,
+  updateDraftVersion,
+  updateKnowledgeSourceMeta
+} from "../services/knowledge/knowledgeAuthoring.js";
+import { expandConcepts, normalizeQuestionToTerms } from "../services/ai/retrieval.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
 const router = Router();
@@ -396,6 +408,239 @@ router.delete("/synonyms/:term", async (req, res, next) => {
       deleteKnowledgeSynonym(client, auth, String(req.params.term))
     );
     return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// H5 — knowledge workspace, authoring, and health.
+// ---------------------------------------------------------------------------
+router.get("/sources", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const client = await connectGuardedClient();
+    try {
+      return res.json(
+        await listKnowledgeSources(client, auth, {
+          query: typeof req.query.query === "string" ? req.query.query : undefined,
+          status: typeof req.query.status === "string" ? req.query.status : undefined,
+          authority: typeof req.query.authority === "string" ? req.query.authority : undefined,
+          mode: typeof req.query.mode === "string" ? req.query.mode : undefined,
+          limit: req.query.limit ? Number(req.query.limit) : undefined,
+          offset: req.query.offset ? Number(req.query.offset) : undefined
+        })
+      );
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Dual-mode detail: reviewers get governance; everyone else gets the
+// eligibility-gated read-only view (Ask Bailey source cards land here).
+router.get("/sources/:sourceId", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const client = await connectGuardedClient();
+    try {
+      return res.json(await getKnowledgeSourceDetail(client, auth, String(req.params.sourceId)));
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch(
+  "/sources/:sourceId",
+  validateBody(
+    z.object({
+      title: z.string().min(1).max(240).optional(),
+      description: z.string().max(2000).nullable().optional(),
+      owner_user_id: z.string().uuid().nullable().optional(),
+      department_owner: z.string().max(80).nullable().optional()
+    })
+  ),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const source = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        updateKnowledgeSourceMeta(client, auth, String(req.params.sourceId), {
+          title: req.body.title,
+          description: req.body.description,
+          ownerUserId: req.body.owner_user_id,
+          departmentOwner: req.body.department_owner
+        })
+      );
+      return res.json({ source });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/sources/:sourceId/versions",
+  validateBody(z.object({ inline_body: z.string().max(200000).nullable().optional(), note: z.string().max(2000).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const version = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        createKnowledgeSourceVersion(client, auth, String(req.params.sourceId), {
+          inlineBody: req.body.inline_body,
+          note: req.body.note ?? null
+        })
+      );
+      return res.status(201).json(version);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.patch(
+  "/versions/:versionId",
+  validateBody(
+    z.object({
+      inline_body: z.string().max(200000).nullable().optional(),
+      authority_class: z.string().max(60).optional(),
+      knowledge_mode: z.string().max(30).optional(),
+      department_scope: z.array(z.string().max(60)).max(10).optional(),
+      role_scope: z.array(z.string().max(60)).max(20).optional(),
+      confidential: z.boolean().optional(),
+      effective_from: z.string().nullable().optional(),
+      effective_until: z.string().nullable().optional(),
+      review_due_at: z.string().nullable().optional(),
+      note: z.string().max(2000).optional()
+    })
+  ),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const version = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        updateDraftVersion(client, auth, String(req.params.versionId), {
+          inlineBody: req.body.inline_body,
+          authorityClass: req.body.authority_class,
+          knowledgeMode: req.body.knowledge_mode,
+          departmentScope: req.body.department_scope,
+          roleScope: req.body.role_scope,
+          confidential: req.body.confidential,
+          effectiveFrom: req.body.effective_from,
+          effectiveUntil: req.body.effective_until,
+          reviewDueAt: req.body.review_due_at,
+          note: req.body.note ?? null
+        })
+      );
+      return res.json({ version });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/unresolved-questions/:questionId/convert",
+  validateBody(
+    z.object({
+      title: z.string().min(1).max(240),
+      body: z.string().min(1).max(200000),
+      department_owner: z.string().max(80).nullable().optional()
+    })
+  ),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        convertUnresolvedQuestionToDraft(client, auth, String(req.params.questionId), {
+          title: req.body.title,
+          body: req.body.body,
+          departmentOwner: req.body.department_owner ?? null
+        })
+      );
+      return res.status(201).json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/segments/:segmentId/split",
+  validateBody(
+    z.object({
+      offset_chars: z.number().int().min(1).optional(),
+      split_seconds: z.number().min(0).optional(),
+      note: z.string().max(2000).optional()
+    })
+  ),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        splitSegment(client, auth, String(req.params.segmentId), {
+          offsetChars: req.body.offset_chars,
+          splitSeconds: req.body.split_seconds,
+          note: req.body.note ?? null
+        })
+      );
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/segments/:segmentId/merge-next",
+  validateBody(z.object({ note: z.string().max(2000).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        mergeSegmentWithNext(client, auth, String(req.params.segmentId), { note: req.body.note ?? null })
+      );
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.get("/health", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const client = await connectGuardedClient();
+    try {
+      return res.json(await getKnowledgeHealth(client, auth));
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Sample normalization preview for the synonym manager (reviewer-only).
+router.get("/synonyms/preview", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    requireKnowledgeReviewer(auth);
+    const question = typeof req.query.q === "string" ? req.query.q : "";
+    const client = await connectGuardedClient();
+    try {
+      const terms = normalizeQuestionToTerms(question, null);
+      const concepts = await expandConcepts(client, auth.tenantId, terms);
+      return res.json({
+        terms,
+        concepts: concepts.map((concept) => ({ term: concept.term, variants: concept.variants, from_synonym: concept.fromSynonym }))
+      });
+    } finally {
+      client.release();
+    }
   } catch (error) {
     return next(error);
   }

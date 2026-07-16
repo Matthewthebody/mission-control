@@ -430,6 +430,20 @@ export async function upsertKnowledgeSynonym(
   if (!term || expansion.length === 0) {
     throw new ApiError(400, "A synonym needs a term and at least one expansion.");
   }
+  // Circular-mapping protection (H5): a term may not expand to itself, and a
+  // one-level cycle (a→b while b→a) is rejected.
+  if (expansion.some((entry) => entry === term || entry.split(/\s+/).includes(term))) {
+    throw new ApiError(400, "A synonym cannot expand to itself.");
+  }
+  const reverse = await client.query<{ term: string; expansion: string[] }>(
+    `SELECT term, expansion FROM knowledge_synonym WHERE tenant_id = $1 AND term = ANY($2::text[])`,
+    [auth.tenantId, expansion.flatMap((entry) => entry.split(/\s+/))]
+  );
+  for (const row of reverse.rows) {
+    if (row.expansion.some((entry) => entry === term || entry.split(/\s+/).includes(term))) {
+      throw new ApiError(400, `Circular mapping: '${row.term}' already expands to '${term}'.`);
+    }
+  }
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO knowledge_synonym (tenant_id, term, expansion, note, created_by_user_id)
      VALUES ($1, $2, $3::text[], $4, $5)
