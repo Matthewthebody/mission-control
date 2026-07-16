@@ -395,6 +395,9 @@ const configSchema = z.object({
   ASK_BAILEY_TYPO_SIMILARITY: z.coerce.number().min(0.3).max(1).default(0.5),
   ASK_BAILEY_MIN_EVIDENCE_SCORE: z.coerce.number().min(0).max(1).default(0.12),
   ASK_BAILEY_MAX_SEGMENTS_PER_SOURCE: z.coerce.number().int().min(1).max(8).default(3),
+  // H8 demo/production separation: when false (production), demo-flagged
+  // knowledge sources are excluded from retrieval inside the eligibility SQL.
+  ASK_BAILEY_ALLOW_DEMO_CONTENT: z.coerce.boolean().default(true),
   JOB_CLOSEOUT_DAILY_REPORT_TIME: z.string().default("06:00"),
   JOB_CLOSEOUT_WEEKLY_REPORT_TIME: z.string().default("Monday 06:00"),
   JOB_CLOSEOUT_TIMEZONE: z.string().default("America/Chicago"),

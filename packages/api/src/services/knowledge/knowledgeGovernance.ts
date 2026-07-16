@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { ApiError } from "../../errors/apiError.js";
 import type { AuthUser } from "../../types/auth.js";
 import { hasAuthorityTier } from "../../authz/authority.js";
+import { config } from "../../config.js";
 import { createAuditLog } from "../audit.js";
 
 // Ask Bailey — knowledge governance (Phase B).
@@ -80,6 +81,16 @@ export function buildVersionEligibilitySql(
     clauses.push(`v.confidential = false`);
   }
 
+  // H8 demo/production separation: in production (ASK_BAILEY_ALLOW_DEMO_CONTENT
+  // = false) demo-flagged sources never enter retrieval — enforced here inside
+  // the eligibility predicate, not by a title convention. Self-contained over
+  // alias v so every retrieval path inherits it.
+  if (!config.ASK_BAILEY_ALLOW_DEMO_CONTENT) {
+    clauses.push(
+      `NOT EXISTS (SELECT 1 FROM knowledge_source s WHERE s.id = v.source_id AND s.is_demo = true)`
+    );
+  }
+
   return clauses.join(" AND ");
 }
 
@@ -115,6 +126,7 @@ export type CreateKnowledgeSourceInput = {
   departmentScope?: string[];
   roleScope?: string[];
   confidential?: boolean;
+  isDemo?: boolean;
 };
 
 export async function createKnowledgeSource(client: PoolClient, auth: AuthUser, input: CreateKnowledgeSourceInput) {
@@ -129,9 +141,9 @@ export async function createKnowledgeSource(client: PoolClient, auth: AuthUser, 
     }
   }
   const source = await client.query<{ id: string }>(
-    `INSERT INTO knowledge_source (tenant_id, resource_library_item_id, title, description, owner_user_id, department_owner, created_by_user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $5) RETURNING id::text`,
-    [auth.tenantId, input.resourceLibraryItemId ?? null, input.title, input.description ?? null, auth.id, input.departmentOwner ?? null]
+    `INSERT INTO knowledge_source (tenant_id, resource_library_item_id, title, description, owner_user_id, department_owner, is_demo, created_by_user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $5) RETURNING id::text`,
+    [auth.tenantId, input.resourceLibraryItemId ?? null, input.title, input.description ?? null, auth.id, input.departmentOwner ?? null, input.isDemo ?? false]
   );
   const sourceId = source.rows[0].id;
   const version = await client.query<{ id: string }>(

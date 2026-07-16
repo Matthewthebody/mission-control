@@ -1,0 +1,89 @@
+{
+  "_comment": "Ask Bailey H8 real-content pilot manifest TEMPLATE. Fill in real approved content (inline_body or a Resource Library asset id) per entry, then dry-run: `npx tsx scripts/import-ask-bailey-content.ts docs/ask-bailey/h8-content-manifest-template.json`. Add --allow-import to create governed sources. Entries with no inline_body and no resource_library_item_id are reported as LAUNCH BLOCKERS and skipped — real content is never invented.",
+  "pilot_name": "Fall Field Coach Pilot 2026",
+  "environment": "production",
+  "generated_by": "knowledge-owner@kemmetmueller.example",
+  "entries": [
+    {
+      "key": "tethered-workflow-sop",
+      "title": "Tethered School Workflow SOP",
+      "source_type": "written_sop",
+      "authority_class": "approved_sop",
+      "knowledge_mode": "operational",
+      "_owner_email_note": "Set owner_email (and optionally approver_email) to a real address before --allow-import.",
+      "department_scope": ["schools"],
+      "role_scope": [],
+      "effective_from": null,
+      "review_due_at": null,
+      "confidential": false,
+      "pilot_topics": ["tethered-workflow", "smart-shooter", "captura"],
+      "inline_body": null,
+      "resource_library_item_id": null
+    },
+    {
+      "key": "folder-naming-standards",
+      "title": "Folder and Naming Standards",
+      "source_type": "written_sop",
+      "authority_class": "approved_sop",
+      "knowledge_mode": "operational",
+      "department_scope": ["schools"],
+      "role_scope": [],
+      "confidential": false,
+      "pilot_topics": ["folder-naming", "qr-roster"],
+      "inline_body": null,
+      "resource_library_item_id": null
+    },
+    {
+      "key": "troubleshooting-guide",
+      "title": "Picture-Day Troubleshooting & Failure Recovery",
+      "source_type": "troubleshooting_guide",
+      "authority_class": "approved_sop",
+      "knowledge_mode": "operational",
+      "department_scope": ["schools"],
+      "role_scope": [],
+      "confidential": false,
+      "pilot_topics": ["troubleshooting", "failure-recovery"],
+      "inline_body": null,
+      "resource_library_item_id": null
+    },
+    {
+      "key": "pre-shoot-checklist",
+      "title": "Pre-Shoot Huddle Checklist",
+      "source_type": "checklist",
+      "authority_class": "approved_sop",
+      "knowledge_mode": "operational",
+      "department_scope": ["schools"],
+      "role_scope": [],
+      "confidential": false,
+      "pilot_topics": ["pre-shoot-huddle"],
+      "inline_body": null,
+      "resource_library_item_id": null
+    },
+    {
+      "key": "escalation-guide",
+      "title": "Escalation Hierarchy Guide",
+      "source_type": "escalation_guide",
+      "authority_class": "approved_sop",
+      "knowledge_mode": "operational",
+      "department_scope": ["schools"],
+      "role_scope": [],
+      "confidential": false,
+      "pilot_topics": ["escalation"],
+      "inline_body": null,
+      "resource_library_item_id": null
+    },
+    {
+      "key": "tether-recovery-video",
+      "title": "Tether Recovery Training Video",
+      "source_type": "training_video",
+      "authority_class": "approved_training",
+      "knowledge_mode": "training",
+      "department_scope": ["schools"],
+      "role_scope": [],
+      "confidential": false,
+      "pilot_topics": ["tethered-workflow", "failure-recovery"],
+      "inline_body": null,
+      "resource_library_item_id": null
+    }
+  ]
+}
