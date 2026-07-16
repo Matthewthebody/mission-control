@@ -42,16 +42,33 @@ export type RetrievedSegmentForModel = {
   content: string;
 };
 
+export type AnswerBlockKind = "direct_answer" | "steps" | "warning" | "escalation" | "detail";
+
+/**
+ * One independently supported claim block. segmentIds MUST reference the
+ * retrieved authorized set — the pipeline validates every id server-side and
+ * removes blocks whose support does not survive validation.
+ */
+export type AnswerBlockDraft = {
+  kind: AnswerBlockKind;
+  text: string;
+  segmentIds: string[];
+};
+
 export type LanguageModelAnswer =
   | {
       status: "ok";
       /** Plain prose answer. Rendered as sanitized plain text in the UI. */
       answerMarkdown: string;
+      /** Ordered claim blocks, each with its own supporting segment ids. */
+      blocks: AnswerBlockDraft[];
       /** MUST be a subset of the retrieved segment ids — validated server-side. */
       usedSegmentIds: string[];
       promptTokens: number | null;
       completionTokens: number | null;
       model: string;
+      /** Provider request id when the transport returns one (observability). */
+      requestId?: string | null;
     }
   | { status: "unavailable"; reason: string }
   | { status: "failed"; reason: string };

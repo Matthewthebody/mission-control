@@ -364,6 +364,18 @@ const configSchema = z.object({
   ASK_BAILEY_LLM_BASE_URL: z.string().default(""),
   ASK_BAILEY_LLM_API_KEY: z.string().default(""),
   ASK_BAILEY_LLM_MODEL: z.string().default(""),
+  // H2 hosted-generation bounds and resilience (all server-side).
+  ASK_BAILEY_LLM_API_VERSION: z.string().default(""),
+  ASK_BAILEY_LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  ASK_BAILEY_LLM_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8192).default(1024),
+  ASK_BAILEY_LLM_MAX_SEGMENT_CHARS: z.coerce.number().int().min(200).max(8000).default(2000),
+  ASK_BAILEY_LLM_RETRY_MAX: z.coerce.number().int().min(0).max(5).default(2),
+  ASK_BAILEY_LLM_MAX_CONCURRENT: z.coerce.number().int().min(1).max(32).default(4),
+  ASK_BAILEY_LLM_KILL_SWITCH: z.coerce.boolean().default(false),
+  // Cost is estimated ONLY when pricing is configured; zero means "unknown —
+  // record nothing" (never fabricate cost).
+  ASK_BAILEY_LLM_COST_PER_1M_INPUT_CENTS: z.coerce.number().min(0).default(0),
+  ASK_BAILEY_LLM_COST_PER_1M_OUTPUT_CENTS: z.coerce.number().min(0).default(0),
   ASK_BAILEY_TRANSCRIPTION_PROVIDER: z.string().default("deterministic"),
   ASK_BAILEY_MAX_RETRIEVED_SEGMENTS: z.coerce.number().int().min(1).max(24).default(8),
   ASK_BAILEY_MAX_ANSWER_CHARS: z.coerce.number().int().min(200).max(20000).default(4000),

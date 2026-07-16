@@ -414,12 +414,12 @@ describe("citation validation against a hostile provider", () => {
       })
     );
     expect(result.status).toBe("partially_supported");
-    expect(result.warnings.join(" ")).toContain("rejected");
+    expect(result.warnings.join(" ")).toContain("removed");
     expect(result.citations).toHaveLength(1);
     expect(result.citations[0].segment_id).not.toBe("11111111-1111-1111-1111-111111111111");
   });
 
-  it("refuses to show an answer whose every citation was invented", async () => {
+  it("an all-invented-citation response is never shown; the deterministic fallback answers instead", async () => {
     const result = await withClientTransaction(tenantId, leadershipId, (client) =>
       askBailey(client, reviewerAuth(), {
         question: "ab-test fogline rig calibration",
@@ -429,6 +429,7 @@ describe("citation validation against a hostile provider", () => {
             return {
               status: "ok",
               answerMarkdown: "fabricated",
+              blocks: [{ kind: "direct_answer", text: "fabricated", segmentIds: ["11111111-1111-1111-1111-111111111111"] }],
               usedSegmentIds: ["11111111-1111-1111-1111-111111111111"],
               promptTokens: null,
               completionTokens: null,
@@ -438,11 +439,47 @@ describe("citation validation against a hostile provider", () => {
         }
       })
     );
-    expect(result.status).toBe("error");
+    // H2-F: the hosted response failed grounding, so the deterministic
+    // extractive provider answers from the real sources instead.
+    expect(result.status).toBe("supported");
     expect(result.answer_markdown).not.toContain("fabricated");
+    expect(result.answer_markdown).toContain("fogline");
+    expect(result.warnings.join(" ")).toContain("direct extract");
+    expect(result.answer_blocks.length).toBeGreaterThanOrEqual(1);
+    expect(result.answer_blocks.every((block) => block.segment_ids.length >= 1)).toBe(true);
   });
 
-  it("reports provider_unavailable honestly while still listing real sources", async () => {
+  it("a mixed response keeps supported blocks, drops unsupported ones, and downgrades to partial support", async () => {
+    const result = await withClientTransaction(tenantId, leadershipId, (client) =>
+      askBailey(client, reviewerAuth(), {
+        question: "ab-test fogline rig calibration",
+        providerOverride: {
+          name: "hostile-test",
+          async generateAnswer(input) {
+            return {
+              status: "ok",
+              answerMarkdown: "unused",
+              blocks: [
+                { kind: "direct_answer", text: "Calibrate the fogline rig first.", segmentIds: [input.segments[0].segmentId] },
+                { kind: "warning", text: "UNSUPPORTED CLAIM: always reboot the payroll server.", segmentIds: ["11111111-1111-1111-1111-111111111111"] }
+              ],
+              usedSegmentIds: [input.segments[0].segmentId, "11111111-1111-1111-1111-111111111111"],
+              promptTokens: null,
+              completionTokens: null,
+              model: "hostile"
+            };
+          }
+        }
+      })
+    );
+    expect(result.status).toBe("partially_supported");
+    expect(result.answer_markdown).toContain("Calibrate the fogline rig first.");
+    expect(result.answer_markdown).not.toContain("payroll server");
+    expect(result.answer_blocks).toHaveLength(1);
+    expect(result.warnings.join(" ")).toContain("removed");
+  });
+
+  it("a provider outage falls back to the deterministic extract with a visible notice", async () => {
     const result = await withClientTransaction(tenantId, leadershipId, (client) =>
       askBailey(client, reviewerAuth(), {
         question: "ab-test fogline rig calibration",
@@ -454,9 +491,20 @@ describe("citation validation against a hostile provider", () => {
         }
       })
     );
-    expect(result.status).toBe("provider_unavailable");
-    expect(result.answer_markdown).toContain("isn't available");
+    expect(result.status).toBe("supported");
+    expect(result.warnings.join(" ")).toContain("direct extract");
     expect(result.citations.length).toBeGreaterThanOrEqual(1);
+    // The failed hosted attempt and the successful fallback are both recorded.
+    const usage = await pool.query(
+      `SELECT provider, status FROM ai_provider_usage_event
+       WHERE tenant_id = $1 AND provider IN ('down-test', 'deterministic')
+       ORDER BY created_at DESC LIMIT 2`,
+      [tenantId]
+    );
+    expect(usage.rows.map((row) => `${row.provider}:${row.status}`).sort()).toEqual([
+      "deterministic:ok",
+      "down-test:error"
+    ]);
   });
 });
 

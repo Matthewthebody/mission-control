@@ -6,8 +6,13 @@ import type { AuthUser } from "../../types/auth.js";
 import { canViewRecords, withDepartmentContext } from "../policy/operationalAuthorization.js";
 import { assertShootAccess } from "../shootAccess.js";
 import { isKnowledgeReviewer, type KnowledgeMode } from "../knowledge/knowledgeGovernance.js";
-import { resolveLanguageModelProvider } from "./providers/languageModel.js";
-import type { LanguageModelProvider, RetrievedSegmentForModel } from "./providers/types.js";
+import { deterministicLanguageModel, resolveLanguageModelProvider } from "./providers/languageModel.js";
+import type {
+  AnswerBlockKind,
+  LanguageModelAnswer,
+  LanguageModelProvider,
+  RetrievedSegmentForModel
+} from "./providers/types.js";
 import {
   AUTHORITY_RANK,
   retrieveSegmentsHybrid,
@@ -51,6 +56,13 @@ export type AskBaileyCitation = {
   media_url: string | null;
 };
 
+/** One validated claim block: every segment_id survived server validation. */
+export type AnswerBlock = {
+  kind: AnswerBlockKind;
+  text: string;
+  segment_ids: string[];
+};
+
 export type AskBaileyAnswer = {
   status:
     | "supported"
@@ -63,6 +75,8 @@ export type AskBaileyAnswer = {
   conversation_id: string;
   message_id: string;
   answer_markdown: string | null;
+  /** Ordered, independently validated claim blocks (H2-C). */
+  answer_blocks: AnswerBlock[];
   citations: AskBaileyCitation[];
   warnings: string[];
   conflicts: Array<{
@@ -201,15 +215,35 @@ async function recordUnresolvedQuestion(client: PoolClient, auth: AuthUser, ques
   );
 }
 
+// Cost is estimated ONLY when pricing is configured and the provider returned
+// token counts — never fabricated (H2-G).
+function estimateCostCents(promptTokens: number | null, completionTokens: number | null): number | null {
+  const inputRate = config.ASK_BAILEY_LLM_COST_PER_1M_INPUT_CENTS;
+  const outputRate = config.ASK_BAILEY_LLM_COST_PER_1M_OUTPUT_CENTS;
+  if (inputRate <= 0 && outputRate <= 0) return null;
+  if (promptTokens === null && completionTokens === null) return null;
+  return Number((((promptTokens ?? 0) * inputRate + (completionTokens ?? 0) * outputRate) / 1_000_000).toFixed(4));
+}
+
 async function recordUsage(
   client: PoolClient,
   auth: AuthUser,
   input: { provider: string; model: string | null; latencyMs: number; status: "ok" | "error" | "timeout"; promptTokens: number | null; completionTokens: number | null }
 ) {
   await client.query(
-    `INSERT INTO ai_provider_usage_event (tenant_id, user_id, provider, model, operation, prompt_tokens, completion_tokens, latency_ms, status)
-     VALUES ($1, $2, $3, $4, 'generate', $5, $6, $7, $8)`,
-    [auth.tenantId, auth.id, input.provider, input.model, input.promptTokens, input.completionTokens, input.latencyMs, input.status]
+    `INSERT INTO ai_provider_usage_event (tenant_id, user_id, provider, model, operation, prompt_tokens, completion_tokens, estimated_cost_cents, latency_ms, status)
+     VALUES ($1, $2, $3, $4, 'generate', $5, $6, $7, $8, $9)`,
+    [
+      auth.tenantId,
+      auth.id,
+      input.provider,
+      input.model,
+      input.promptTokens,
+      input.completionTokens,
+      estimateCostCents(input.promptTokens, input.completionTokens),
+      input.latencyMs,
+      input.status
+    ]
   );
 }
 
@@ -273,11 +307,37 @@ export async function askBailey(
   const warnings: string[] = [];
   let status: AskBaileyAnswer["status"];
   let answerMarkdown: string | null = null;
+  let answerBlocks: AnswerBlock[] = [];
   let usedSegmentIds: string[] = [];
   let provider = "none";
   let model: string | null = null;
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
+
+  // Claim-level grounding (H2-C): every block must keep at least one segment
+  // id that survives validation against the authorized retrieved set. Blocks
+  // that lose all support are removed; stripped ids and dropped blocks
+  // downgrade the answer to partially_supported.
+  const validateBlocks = (result: Extract<LanguageModelAnswer, { status: "ok" }>) => {
+    const drafts =
+      result.blocks && result.blocks.length > 0
+        ? result.blocks
+        : [{ kind: "direct_answer" as const, text: result.answerMarkdown, segmentIds: result.usedSegmentIds }];
+    const survivors: AnswerBlock[] = [];
+    let droppedBlocks = 0;
+    let strippedIds = 0;
+    for (const draft of drafts) {
+      const uniqueIds = [...new Set(draft.segmentIds)];
+      const validIds = uniqueIds.filter((id) => retrievedIds.has(id));
+      strippedIds += uniqueIds.length - validIds.length;
+      if (validIds.length > 0 && draft.text.trim().length > 0) {
+        survivors.push({ kind: draft.kind, text: draft.text, segment_ids: validIds });
+      } else {
+        droppedBlocks += 1;
+      }
+    }
+    return { survivors, droppedBlocks, strippedIds };
+  };
 
   if (conflicts.length > 0) {
     status = "source_conflict";
@@ -289,9 +349,10 @@ export async function askBailey(
       "I couldn't find an approved answer for that yet. I logged the question so the right owner can review it. I'm not going to make up a procedure.";
     await recordUnresolvedQuestion(client, auth, question);
   } else {
-    // 9-11. Bounded provider request; retrieved text is data, not instructions.
-    const providerImpl = input.providerOverride ?? resolveLanguageModelProvider();
-    provider = providerImpl.name;
+    // 9-11. Bounded provider request; retrieved text is data, not
+    // instructions. The provider receives ONLY the authorized retrieved set —
+    // no prior conversation prose ever enters the request (H2-D: every turn
+    // re-retrieves and revalidates).
     const segmentsForModel: RetrievedSegmentForModel[] = retrieved.map((row) => ({
       segmentId: row.segment_id,
       sourceTitle: row.source_title,
@@ -299,38 +360,81 @@ export async function askBailey(
       locatorLabel: row.locator_label,
       content: row.content
     }));
-    const result = await providerImpl.generateAnswer({
+    const generationInput = {
       question,
       mode,
       segments: segmentsForModel,
       contextSummary: context ? `${context.kind}: ${context.label}` : null,
       maxAnswerChars: config.ASK_BAILEY_MAX_ANSWER_CHARS
-    });
+    };
 
-    if (result.status === "ok") {
+    const primary = input.providerOverride ?? resolveLanguageModelProvider();
+    let active: LanguageModelProvider = primary;
+    let result = await primary.generateAnswer(generationInput);
+    let validation = result.status === "ok" ? validateBlocks(result) : null;
+
+    // H2-F fallback matrix: hosted not-configured / timeout / transport
+    // failure / schema mismatch / all-citations-invented all land here. The
+    // deterministic extractive provider may answer only because it produces
+    // fully supported blocks by construction. Never model memory.
+    const primaryUnusable = result.status !== "ok" || (validation !== null && validation.survivors.length === 0);
+    if (primaryUnusable && primary.name !== "deterministic") {
+      const reason =
+        result.status === "ok"
+          ? "no provider block survived citation validation"
+          : result.reason;
+      console.warn(
+        JSON.stringify({
+          event: "ask_bailey_generation_fallback",
+          provider: primary.name,
+          request_id: result.status === "ok" ? result.requestId ?? null : null,
+          reason
+        })
+      );
+      await recordUsage(client, auth, {
+        provider: primary.name,
+        model: result.status === "ok" ? result.model : null,
+        latencyMs: Date.now() - startedAt,
+        status: "error",
+        promptTokens: result.status === "ok" ? result.promptTokens : null,
+        completionTokens: result.status === "ok" ? result.completionTokens : null
+      });
+      warnings.push(
+        "The hosted answer engine wasn't usable for this question, so this answer is a direct extract from the approved sources."
+      );
+      active = deterministicLanguageModel;
+      result = await active.generateAnswer(generationInput);
+      validation = result.status === "ok" ? validateBlocks(result) : null;
+    }
+    provider = active.name;
+
+    if (result.status === "ok" && validation && validation.survivors.length > 0) {
       model = result.model;
       promptTokens = result.promptTokens;
       completionTokens = result.completionTokens;
-      // 12-13. Reject invented citation identifiers.
-      const validIds = result.usedSegmentIds.filter((id) => retrievedIds.has(id));
-      const inventedCount = result.usedSegmentIds.length - validIds.length;
-      if (inventedCount > 0) {
-        warnings.push(`${inventedCount} citation${inventedCount === 1 ? "" : "s"} returned by the provider did not map to retrieved sources and were rejected.`);
+      if (validation.strippedIds > 0 || validation.droppedBlocks > 0) {
+        warnings.push(
+          `${validation.strippedIds} citation${validation.strippedIds === 1 ? "" : "s"} and ${validation.droppedBlocks} answer block${validation.droppedBlocks === 1 ? "" : "s"} did not survive validation against the retrieved sources and were removed.`
+        );
+        console.warn(
+          JSON.stringify({
+            event: "ask_bailey_citation_validation",
+            provider: active.name,
+            stripped_ids: validation.strippedIds,
+            dropped_blocks: validation.droppedBlocks
+          })
+        );
       }
-      usedSegmentIds = validIds;
-      if (validIds.length === 0) {
-        status = "error";
-        answerMarkdown =
-          "Something went wrong assembling verified sources for this answer, so I'm not going to show it. The question has been logged.";
-        await recordUnresolvedQuestion(client, auth, question);
-      } else {
-        answerMarkdown = result.answerMarkdown;
-        // partially_supported = some of the provider's claimed support was
-        // rejected as invented; what remains is real but weaker than claimed.
-        status = inventedCount > 0 ? "partially_supported" : "supported";
-        if (mode === "planning" && retrieved.some((row) => row.authority_class === "future_design_only")) {
-          warnings.push("This answer draws on future-design material — it is not a current operating procedure.");
-        }
+      answerBlocks = validation.survivors;
+      usedSegmentIds = [...new Set(answerBlocks.flatMap((block) => block.segment_ids))];
+      let assembled = answerBlocks.map((block) => block.text).join("\n\n");
+      if (assembled.length > config.ASK_BAILEY_MAX_ANSWER_CHARS) {
+        assembled = `${assembled.slice(0, config.ASK_BAILEY_MAX_ANSWER_CHARS - 1).trimEnd()}…`;
+      }
+      answerMarkdown = assembled;
+      status = validation.strippedIds > 0 || validation.droppedBlocks > 0 ? "partially_supported" : "supported";
+      if (mode === "planning" && retrieved.some((row) => row.authority_class === "future_design_only")) {
+        warnings.push("This answer draws on future-design material — it is not a current operating procedure.");
       }
     } else if (result.status === "unavailable") {
       status = "provider_unavailable";
@@ -340,12 +444,13 @@ export async function askBailey(
     } else {
       status = "error";
       answerMarkdown = "Something went wrong while composing the answer. I'm not going to guess — please try again.";
+      await recordUnresolvedQuestion(client, auth, question);
     }
     await recordUsage(client, auth, {
       provider,
       model,
       latencyMs: Date.now() - startedAt,
-      status: result.status === "ok" ? "ok" : "error",
+      status: result.status === "ok" && status !== "error" ? "ok" : "error",
       promptTokens,
       completionTokens
     });
@@ -358,8 +463,8 @@ export async function askBailey(
   // 15. Auditable record.
   const message = await client.query<{ id: string }>(
     `INSERT INTO ai_message
-       (tenant_id, conversation_id, user_id, knowledge_mode, question, context_envelope, status, answer_markdown, warnings, provider, model, latency_ms, prompt_tokens, completion_tokens)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb, $10, $11, $12, $13, $14)
+       (tenant_id, conversation_id, user_id, knowledge_mode, question, context_envelope, status, answer_markdown, answer_blocks, warnings, provider, model, latency_ms, prompt_tokens, completion_tokens)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)
      RETURNING id::text`,
     [
       auth.tenantId,
@@ -370,6 +475,7 @@ export async function askBailey(
       JSON.stringify(context ? { kind: context.kind, id: context.id, label: context.label } : {}),
       status,
       answerMarkdown,
+      JSON.stringify(answerBlocks),
       JSON.stringify(warnings),
       provider,
       model,
@@ -399,6 +505,7 @@ export async function askBailey(
     conversation_id: conversationId,
     message_id: messageId,
     answer_markdown: answerMarkdown,
+    answer_blocks: answerBlocks,
     citations: supportingRows.map((row) => ({
       segment_id: row.segment_id,
       source_version_id: row.source_version_id,
@@ -445,7 +552,7 @@ export async function getConversation(client: PoolClient, auth: AuthUser, conver
   );
   if (!conversation.rows[0]) throw new ApiError(404, "Conversation not found.");
   const messages = await client.query(
-    `SELECT m.id::text, m.question, m.status, m.answer_markdown, m.warnings, m.knowledge_mode, m.context_envelope, m.created_at::text
+    `SELECT m.id::text, m.question, m.status, m.answer_markdown, m.answer_blocks, m.warnings, m.knowledge_mode, m.context_envelope, m.created_at::text
      FROM ai_message m WHERE m.tenant_id = $1 AND m.conversation_id = $2
      ORDER BY m.created_at ASC LIMIT 100`,
     [auth.tenantId, conversationId]
