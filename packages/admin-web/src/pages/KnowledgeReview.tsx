@@ -19,6 +19,7 @@ import {
   type SegmentClassification,
   type VersionTranscript
 } from "../services/knowledgeReviewApi";
+import { convertQuestion } from "../services/knowledgeAuthoringApi";
 
 // Knowledge Review — the knowledge-owner workflow behind Ask Bailey.
 // Five queues: pending source versions, open source conflicts, unresolved
@@ -492,6 +493,28 @@ export default function KnowledgeReview({ token }: Props) {
                   }}
                 >
                   Mark answered
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={busyId === question.id}
+                  onClick={() => {
+                    // H5: turn the gap into governed draft guidance. The draft
+                    // stays invisible to Ask Bailey until it is approved.
+                    const title = window.prompt("Title for the new guidance source:");
+                    if (!title || !title.trim()) return;
+                    const body = window.prompt("Draft answer (this becomes a DRAFT — it will not answer questions until approved):");
+                    if (!body || !body.trim()) return;
+                    void runAction(question.id, async () => {
+                      const created = await convertQuestion(token, question.id, {
+                        title: title.trim(),
+                        body: body.trim()
+                      });
+                      window.location.hash = `#knowledge/sources/${created.source_id}`;
+                    });
+                  }}
+                >
+                  Convert to draft guidance
                 </button>
                 <button
                   type="button"

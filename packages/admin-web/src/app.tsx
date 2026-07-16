@@ -252,6 +252,8 @@ const LazyPayrollSelfCheck = lazy(() =>
 );
 const LazyAskBailey = lazy(() => import("./pages/AskBailey"));
 const LazyKnowledgeReview = lazy(() => import("./pages/KnowledgeReview"));
+const LazyKnowledgeSources = lazy(() => import("./pages/KnowledgeSources"));
+const LazyKnowledgeSourceDetail = lazy(() => import("./pages/KnowledgeSourceDetail"));
 
 // Persistent shell entry for Ask Bailey (H4-B): opens the contextual drawer
 // in general mode without leaving the current page.
@@ -1683,6 +1685,22 @@ function renderRouteContent({
       <LazyKnowledgeReview token={token} />,
       "Loading Knowledge Review",
       "Opening the knowledge-owner review queues."
+    );
+  }
+
+  if (route.render.kind === "knowledge-sources") {
+    return withRouteSuspense(
+      <LazyKnowledgeSources token={token} />,
+      "Loading Knowledge Sources",
+      "Opening the knowledge authoring workspace."
+    );
+  }
+
+  if (route.render.kind === "knowledge-source-detail") {
+    return withRouteSuspense(
+      <LazyKnowledgeSourceDetail token={token} />,
+      "Loading knowledge source",
+      "Opening the governed source record."
     );
   }
 

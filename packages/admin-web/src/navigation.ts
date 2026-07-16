@@ -112,6 +112,8 @@ type RouteRender =
   | { kind: "payroll-self-check" }
   | { kind: "ask-bailey" }
   | { kind: "knowledge-review" }
+  | { kind: "knowledge-sources" }
+  | { kind: "knowledge-source-detail" }
   | { kind: "sports-overview" }
   | { kind: "sports-shoots" }
   | { kind: "sports-shoot-detail" }
@@ -1619,6 +1621,30 @@ const ROUTES: RouteDefinition[] = [
     render: { kind: "knowledge-review" }
   },
   {
+    id: "knowledge-sources",
+    label: "Knowledge Sources",
+    sectionKey: "leadership",
+    description: "Operate the company knowledge base: create, revise, classify, approve, supersede, and retire governed sources.",
+    canonicalHash: "#knowledge/sources",
+    visibleForEmployeeOnly: false,
+    visibleForFullShell: true,
+    showInSectionNav: true,
+    render: { kind: "knowledge-sources" }
+  },
+  {
+    // Dual-mode destination behind Ask Bailey source cards — employees get an
+    // eligibility-gated read-only view, reviewers get the governance record.
+    id: "knowledge-source-detail",
+    label: "Knowledge Source",
+    sectionKey: "leadership",
+    description: "Governed knowledge source record: versions, supersession, transcript segments, and audit history.",
+    canonicalHash: "#knowledge/sources",
+    visibleForEmployeeOnly: true,
+    visibleForFullShell: true,
+    showInSectionNav: false,
+    render: { kind: "knowledge-source-detail" }
+  },
+  {
     id: "labor-command-center",
     label: "Labor Command",
     sectionKey: "leadership",
@@ -2009,6 +2035,7 @@ const SECTION_CHILD_ORDER: Partial<Record<ShellSectionKey, ShellRouteId[]>> = {
     "business-health-labor",
     "labor-command-center",
     "knowledge-review",
+    "knowledge-sources",
     "business-health-profitability",
     "business-health-customer-service",
     "business-health-trends",
@@ -2602,6 +2629,13 @@ export function resolveRouteId(hashValue: string, availableTabs: TabKey[], emplo
   }
   if (path === "knowledge/review") {
     return pickVisibleRoute("knowledge-review", availableTabs, employeeOnlyMode);
+  }
+  // Detail matched before the list route so a trailing id opens the record page.
+  if (/^knowledge\/sources\/[^/]+$/i.test(path)) {
+    return pickVisibleRoute("knowledge-source-detail", availableTabs, employeeOnlyMode);
+  }
+  if (path === "knowledge/sources") {
+    return pickVisibleRoute("knowledge-sources", availableTabs, employeeOnlyMode);
   }
   if (path === "reports/finance") {
     return pickVisibleRoute("business-health-profitability", availableTabs, employeeOnlyMode);

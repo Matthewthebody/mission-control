@@ -2297,6 +2297,14 @@ export function canAccessRoute(user: SessionUser, routeId: ShellRouteId) {
     case "knowledge-review":
       // Mirrors the API's isKnowledgeReviewer gate.
       return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
+    case "knowledge-sources":
+      // The authoring workspace is reviewer-only, same gate as knowledge-review.
+      return hasAuthorityTier(user, ["super_admin", "leadership", "director_admin"]);
+    case "knowledge-source-detail":
+      // Dual-mode page: any authenticated employee may open it. The server
+      // decides employee vs reviewer mode and answers with an opaque 404 for
+      // confidential or ineligible sources — never rely on hiding the route.
+      return true;
     case "dashboard-payroll-self-check":
       return canAccessEmployeeMyWork(user);
     case "ask-bailey":

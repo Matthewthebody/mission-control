@@ -184,11 +184,14 @@ export function SourceCard({ citation }: { citation: AskBaileyCitation }) {
         <span className="badge-pill">{authorityLabel(citation.authority_class)}</span>
       </div>
       {citation.locator_label ? <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>{citation.locator_label}</div> : null}
-      {hasTimestamp && citation.media_url ? (
-        <a href={citation.media_url} target="_blank" rel="noreferrer">
-          Watch from {formatTimestamp(citation.start_seconds as number)}
-        </a>
-      ) : null}
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        {hasTimestamp && citation.media_url ? (
+          <a href={citation.media_url} target="_blank" rel="noreferrer">
+            Watch from {formatTimestamp(citation.start_seconds as number)}
+          </a>
+        ) : null}
+        <a href={`#knowledge/sources/${citation.source_id}`}>Open source</a>
+      </div>
     </div>
   );
 }
