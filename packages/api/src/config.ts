@@ -371,7 +371,13 @@ const configSchema = z.object({
   ASK_BAILEY_LLM_MAX_SEGMENT_CHARS: z.coerce.number().int().min(200).max(8000).default(2000),
   ASK_BAILEY_LLM_RETRY_MAX: z.coerce.number().int().min(0).max(5).default(2),
   ASK_BAILEY_LLM_MAX_CONCURRENT: z.coerce.number().int().min(1).max(32).default(4),
-  ASK_BAILEY_LLM_KILL_SWITCH: z.coerce.boolean().default(false),
+  // z.coerce.boolean() treats ANY non-empty string as true, so "false" would
+  // wrongly enable the switch. Parse like the other boolean flags (ALLOW_DEV_LOGIN):
+  // unset -> default; "true" -> true; anything else (incl. "false") -> false.
+  ASK_BAILEY_LLM_KILL_SWITCH: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined ? false : value === "true")),
   // Cost is estimated ONLY when pricing is configured; zero means "unknown —
   // record nothing" (never fabricate cost).
   ASK_BAILEY_LLM_COST_PER_1M_INPUT_CENTS: z.coerce.number().min(0).default(0),
@@ -397,7 +403,12 @@ const configSchema = z.object({
   ASK_BAILEY_MAX_SEGMENTS_PER_SOURCE: z.coerce.number().int().min(1).max(8).default(3),
   // H8 demo/production separation: when false (production), demo-flagged
   // knowledge sources are excluded from retrieval inside the eligibility SQL.
-  ASK_BAILEY_ALLOW_DEMO_CONTENT: z.coerce.boolean().default(true),
+  // Parse like the other boolean flags — z.coerce.boolean() would treat the
+  // string "false" as true and silently keep demo content enabled in production.
+  ASK_BAILEY_ALLOW_DEMO_CONTENT: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined ? true : value === "true")),
   JOB_CLOSEOUT_DAILY_REPORT_TIME: z.string().default("06:00"),
   JOB_CLOSEOUT_WEEKLY_REPORT_TIME: z.string().default("Monday 06:00"),
   JOB_CLOSEOUT_TIMEZONE: z.string().default("America/Chicago"),
