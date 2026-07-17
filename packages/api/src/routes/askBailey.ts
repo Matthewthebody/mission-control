@@ -14,6 +14,16 @@ import {
 } from "../services/ai/askBailey.js";
 import { getPlayableMedia } from "../services/knowledge/knowledgeMedia.js";
 import { getObservabilitySummary, getReleaseGate } from "../services/ai/askBaileyObservability.js";
+import {
+  cancelAssistiveAction,
+  confirmAssistiveAction,
+  generateProposalsFromGaps,
+  getKnowledgeGaps,
+  getMyLearningMemory,
+  listProposals,
+  previewPreShootHuddle,
+  reviewProposal
+} from "../services/ai/knowledgeLearning.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 
 // Ask Bailey — read-only Q&A endpoints. All answer assembly, authorization,
@@ -166,6 +176,99 @@ router.get("/release-gate", async (req, res, next) => {
     const auth = (req as unknown as AuthenticatedRequest).auth;
     const report = await withClientTransaction(auth.tenantId, auth.id, (client) => getReleaseGate(client, auth));
     return res.json(report);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// H9 — governed learning (reviewer-gated in the service) + bounded assistive
+// actions (self, permission-checked at the typed write).
+router.get("/knowledge-gaps", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const gaps = await withClientTransaction(auth.tenantId, auth.id, (client) => getKnowledgeGaps(client, auth));
+    return res.json({ gaps });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/proposals/generate", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) => generateProposalsFromGaps(client, auth));
+    return res.status(201).json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/proposals", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) => listProposals(client, auth, status));
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post(
+  "/proposals/:proposalId/review",
+  validateBody(z.object({ decision: z.enum(["accepted", "dismissed"]), note: z.string().max(2000).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        reviewProposal(client, auth, String(req.params.proposalId), { decision: req.body.decision, note: req.body.note ?? null })
+      );
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/actions/pre-shoot-huddle",
+  validateBody(z.object({ job_id: z.string().uuid() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as unknown as AuthenticatedRequest).auth;
+      const preview = await withClientTransaction(auth.tenantId, auth.id, (client) => previewPreShootHuddle(client, auth, req.body.job_id));
+      return res.status(201).json(preview);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post("/actions/:actionId/confirm", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) => confirmAssistiveAction(client, auth, String(req.params.actionId)));
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/actions/:actionId/cancel", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) => cancelAssistiveAction(client, auth, String(req.params.actionId)));
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/my-learning-memory", async (req, res, next) => {
+  try {
+    const auth = (req as unknown as AuthenticatedRequest).auth;
+    const memory = await withClientTransaction(auth.tenantId, auth.id, (client) => getMyLearningMemory(client, auth));
+    return res.json(memory);
   } catch (error) {
     return next(error);
   }
