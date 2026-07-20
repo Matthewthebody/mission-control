@@ -200,3 +200,73 @@ describe("operations dashboard canonical hours (G2 slice D)", () => {
     expect(rec!.source.canonical).toContain("time_session_payroll_summary");
   });
 });
+
+describe("G2 consumer opt-in — canonical hours reach labor reporting and leadership", () => {
+  async function fetchFullDashboard() {
+    const res = await request(app)
+      .get(`/api/dashboard/operations?date=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    return res.body as {
+      reporting: { labor: Array<Record<string, unknown>> };
+      insights: {
+        hours_by_department: Array<Record<string, unknown>>;
+        hours_by_shoot: Array<Record<string, unknown>>;
+      };
+    };
+  }
+
+  it("per-employee labor reporting carries canonical hours, coverage, and delta — NULL when uncovered", async () => {
+    const body = await fetchFullDashboard();
+    const byEmployee = new Map(body.reporting.labor.map((row) => [row.assigned_user_id, row]));
+    const divergent = byEmployee.get(employees.divergent) as Record<string, unknown>;
+    const canonicalless = byEmployee.get(employees.canonicalless) as Record<string, unknown>;
+    expect(Number(divergent.actual_hours_canonical)).toBeCloseTo(7.5, 2);
+    expect(Number(divergent.canonical_covered_shift_count)).toBe(1);
+    expect(Number(divergent.labor_delta_hours_canonical)).toBeCloseTo(-0.5, 2); // 7.5 canonical - 8 scheduled
+    expect(canonicalless.actual_hours_canonical).toBeNull();
+    expect(Number(canonicalless.canonical_covered_shift_count)).toBe(0);
+    expect(canonicalless.labor_delta_hours_canonical).toBeNull();
+  });
+
+  it("department rollup sums canonical hours with honest coverage counts", async () => {
+    const body = await fetchFullDashboard();
+    const dept = body.insights.hours_by_department.find((row) => row.department === "unassigned") as Record<string, unknown>;
+    expect(dept).toBeTruthy();
+    expect(Number(dept.actual_hours)).toBeCloseTo(18, 2);
+    expect(Number(dept.actual_hours_canonical)).toBeCloseTo(13.5, 2);
+    expect(Number(dept.canonical_covered_shift_count)).toBe(2);
+    expect(Number(dept.shift_count)).toBe(3);
+  });
+
+  it("hours-by-shoot insight carries canonical hours and coverage", async () => {
+    const body = await fetchFullDashboard();
+    const shoot = body.insights.hours_by_shoot.find((row) => row.scope_id === shootId) as Record<string, unknown>;
+    expect(shoot).toBeTruthy();
+    expect(Number(shoot.actual_hours_canonical)).toBeCloseTo(13.5, 2);
+    expect(Number(shoot.canonical_covered_shift_count)).toBe(2);
+  });
+
+  it("weekly labor leadership report opts into canonical hours and says which truth it used", async () => {
+    const res = await request(app)
+      .get(`/api/dashboard/reports/weekly_labor_summary?date=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    const detail = res.body as {
+      summary_line: string;
+      metrics: Array<{ label: string; value: unknown }>;
+      sections: Array<{ id: string; rows: Array<{ values: Array<{ label: string; value: unknown }> }> }>;
+    };
+    // Our two covered fixture shifts sit inside the anchored week, so the report
+    // must run canonical and disclose it.
+    const sourceMetric = detail.metrics.find((metric) => metric.label === "Hours source");
+    expect(sourceMetric).toBeTruthy();
+    expect(sourceMetric!.value).toBe("Canonical (payroll)");
+    expect(detail.summary_line).toContain("Canonical payroll hours");
+    const departmentSection = detail.sections.find((section) => section.id === "department_mix");
+    expect(departmentSection).toBeTruthy();
+    for (const row of departmentSection!.rows) {
+      expect(row.values.some((value) => value.label === "Canonical")).toBe(true);
+    }
+  });
+});

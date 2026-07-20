@@ -69,6 +69,8 @@ function sanitizeShootMetrics(rows: Record<string, unknown>[], includeLabor: boo
     ...row,
     scheduled_hours: 0,
     actual_hours: 0,
+    actual_hours_canonical: null,
+    canonical_covered_shift_count: 0,
     rigorous_shoot_score: 0
   }));
 }
@@ -267,7 +269,29 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
             WHERE sp.shift_id = ws.id
           ),
           0
-        )) AS actual_hours
+        )) AS actual_hours,
+        -- G2 consumer opt-in: canonical payroll-truth hours alongside legacy, same
+        -- source_shift_id join as the per-shift Slice D block. NULL = no shift in
+        -- this group has canonical coverage; the covered count keeps partial
+        -- coverage honest.
+        SUM((
+          SELECT SUM(ps.payable_minutes) / 60.0
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        )) AS actual_hours_canonical,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        ))::int AS canonical_covered_shift_count
       FROM work_shift ws
       LEFT JOIN shoot s ON s.id = ws.shoot_id
       WHERE ${sqlWhere}
@@ -327,6 +351,26 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
             0
           )
         ) AS actual_hours,
+        -- G2 consumer opt-in: canonical hours per employee, NULL when none of the
+        -- employee's shifts have canonical coverage (never a fake zero).
+        SUM((
+          SELECT SUM(ps.payable_minutes) / 60.0
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        )) AS actual_hours_canonical,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        ))::int AS canonical_covered_shift_count,
         SUM(
           (
             SELECT COUNT(*)
@@ -619,12 +663,38 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
     return [...buckets.values()].sort((left, right) => left.bucket_label.localeCompare(right.bucket_label));
   })();
   const hoursByDepartment = (() => {
-    const totals = new Map<string, { department: string; scheduled_hours: number; actual_hours: number; employee_count: number }>();
+    const totals = new Map<
+      string,
+      {
+        department: string;
+        scheduled_hours: number;
+        actual_hours: number;
+        actual_hours_canonical: number | null;
+        shift_count: number;
+        canonical_covered_shift_count: number;
+        employee_count: number;
+      }
+    >();
     for (const row of laborReport.rows) {
       const department = String(row.department ?? "unassigned");
-      const current = totals.get(department) ?? { department, scheduled_hours: 0, actual_hours: 0, employee_count: 0 };
+      const current =
+        totals.get(department) ??
+        {
+          department,
+          scheduled_hours: 0,
+          actual_hours: 0,
+          actual_hours_canonical: null,
+          shift_count: 0,
+          canonical_covered_shift_count: 0,
+          employee_count: 0
+        };
       current.scheduled_hours += Number(row.scheduled_hours ?? 0);
       current.actual_hours += Number(row.actual_hours ?? 0);
+      if (row.actual_hours_canonical != null) {
+        current.actual_hours_canonical = (current.actual_hours_canonical ?? 0) + Number(row.actual_hours_canonical);
+      }
+      current.shift_count += Number(row.shift_count ?? 0);
+      current.canonical_covered_shift_count += Number(row.canonical_covered_shift_count ?? 0);
       current.employee_count += 1;
       totals.set(department, current);
     }
@@ -688,7 +758,11 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
       labor: includeLabor
         ? laborReport.rows.map((row) => ({
             ...row,
-            labor_delta_hours: Number(Number(row.actual_hours ?? 0) - Number(row.scheduled_hours ?? 0)).toFixed(2)
+            labor_delta_hours: Number(Number(row.actual_hours ?? 0) - Number(row.scheduled_hours ?? 0)).toFixed(2),
+            labor_delta_hours_canonical:
+              row.actual_hours_canonical != null
+                ? Number(Number(row.actual_hours_canonical) - Number(row.scheduled_hours ?? 0)).toFixed(2)
+                : null
           }))
         : [],
       punches: punchReport.rows,
@@ -705,6 +779,8 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
             department: row.department,
             scheduled_hours: row.scheduled_hours,
             actual_hours: row.actual_hours,
+            actual_hours_canonical: row.actual_hours_canonical ?? null,
+            canonical_covered_shift_count: Number(row.canonical_covered_shift_count ?? 0),
             planned_staff_count: row.planned_staff_count,
             scheduled_employees: row.scheduled_employees,
             fill_rate_percent:

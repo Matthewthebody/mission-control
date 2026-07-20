@@ -909,6 +909,22 @@ async function buildWeeklyLaborReport(client: PoolClient, auth: AuthUser, filter
   });
   const hoursByDepartment = ops.insights.hours_by_department ?? [];
   const hoursByShoot = ops.insights.hours_by_shoot ?? [];
+  // G2 retirement step: leadership is the SECOND consumer (after the Home labor
+  // band) to opt into canonical payroll hours. Honest by construction — when no
+  // canonical session covers the week's shifts, the report keeps the legacy
+  // figure and says so; it never fabricates a canonical number.
+  const reconciliation = ops.hours_reconciliation ?? null;
+  const canonicalAvailable = Boolean(reconciliation && reconciliation.status !== "canonical_unavailable");
+  const workedHours = canonicalAvailable
+    ? Number(reconciliation!.canonical_hours_total ?? 0)
+    : Number(ops.summary.actual_labor_hours ?? 0);
+  const uncoveredShiftCount = Number(reconciliation?.canonical_unavailable_shift_count ?? 0);
+  const comparableShiftCount = Number(reconciliation?.comparable_shift_count ?? 0);
+  const hoursSourceLabel = canonicalAvailable
+    ? uncoveredShiftCount > 0
+      ? `Canonical payroll hours — ${comparableShiftCount} of ${comparableShiftCount + uncoveredShiftCount} shifts covered by time sessions.`
+      : "Canonical payroll hours (time sessions)."
+    : "Legacy hours — no canonical time sessions cover this week's shifts yet.";
   const csvRows = (ops.reporting.labor ?? []).map((row) => ({
     employee_name: String(row.assigned_user_name ?? ""),
     department: String(row.department ?? ""),
@@ -916,7 +932,11 @@ async function buildWeeklyLaborReport(client: PoolClient, auth: AuthUser, filter
     shift_count: Number(row.shift_count ?? 0),
     scheduled_hours: Number(row.scheduled_hours ?? 0),
     actual_hours: Number(row.actual_hours ?? 0),
+    actual_hours_canonical: row.actual_hours_canonical != null ? Number(row.actual_hours_canonical) : null,
     labor_delta_hours: Number(row.labor_delta_hours ?? 0),
+    labor_delta_hours_canonical:
+      row.labor_delta_hours_canonical != null ? Number(row.labor_delta_hours_canonical) : null,
+    hours_source: row.actual_hours_canonical != null ? "canonical" : "legacy",
     open_exception_count: Number(row.open_exception_count ?? 0)
   }));
 
@@ -926,13 +946,14 @@ async function buildWeeklyLaborReport(client: PoolClient, auth: AuthUser, filter
       title: "Weekly Labor Summary",
       audience: "Leadership only",
       formats: { onscreen: true, pdf: true, csv: true },
-      summary_line: `Weekly labor is currently tracking at ${Number(ops.summary.actual_labor_hours ?? 0).toFixed(1)} worked hours against ${Number(ops.summary.scheduled_labor_hours ?? 0).toFixed(1)} scheduled hours.`,
+      summary_line: `Weekly labor is currently tracking at ${workedHours.toFixed(1)} worked hours against ${Number(ops.summary.scheduled_labor_hours ?? 0).toFixed(1)} scheduled hours. ${hoursSourceLabel}`,
       tone: Number(ops.summary.overtime_risk_count ?? 0) > 0 ? "heads_up" : "good",
       leadership_only: true,
       generated_at: new Date().toISOString(),
       metrics: [
         { label: "Scheduled hours", value: Number(ops.summary.scheduled_labor_hours ?? 0).toFixed(1), tone: "info" },
-        { label: "Worked hours", value: Number(ops.summary.actual_labor_hours ?? 0).toFixed(1), tone: "info" },
+        { label: "Worked hours", value: workedHours.toFixed(1), tone: "info" },
+        { label: "Hours source", value: canonicalAvailable ? "Canonical (payroll)" : "Legacy", tone: canonicalAvailable ? "good" : "heads_up" },
         { label: "Overtime indicators", value: Number(ops.summary.overtime_risk_count ?? 0), tone: toneFromCount(Number(ops.summary.overtime_risk_count ?? 0), 1, 3) },
         { label: "Fill rate", value: `${Number(ops.summary.fill_rate_percent ?? 0).toFixed(1)}%`, tone: Number(ops.summary.fill_rate_percent ?? 0) < 90 ? "heads_up" : "good" },
         { label: "Trade requests", value: Number(ops.summary.trade_request_count ?? 0), tone: Number(ops.summary.trade_request_count ?? 0) > 0 ? "info" : "neutral" },
@@ -948,6 +969,13 @@ async function buildWeeklyLaborReport(client: PoolClient, auth: AuthUser, filter
             values: [
               { label: "Scheduled", value: Number(row.scheduled_hours ?? 0).toFixed(1) },
               { label: "Actual", value: Number(row.actual_hours ?? 0).toFixed(1) },
+              {
+                label: "Canonical",
+                value:
+                  row.actual_hours_canonical != null
+                    ? `${Number(row.actual_hours_canonical).toFixed(1)} (${Number(row.canonical_covered_shift_count ?? 0)}/${Number(row.shift_count ?? 0)} shifts)`
+                    : "Not covered yet"
+              },
               { label: "Employees", value: Number(row.employee_count ?? 0) }
             ]
           }))
@@ -962,6 +990,11 @@ async function buildWeeklyLaborReport(client: PoolClient, auth: AuthUser, filter
             values: [
               { label: "Scheduled", value: Number(row.scheduled_hours ?? 0).toFixed(1) },
               { label: "Actual", value: Number(row.actual_hours ?? 0).toFixed(1) },
+              {
+                label: "Canonical",
+                value:
+                  row.actual_hours_canonical != null ? Number(row.actual_hours_canonical).toFixed(1) : "Not covered yet"
+              },
               { label: "Fill Rate", value: `${Number(row.fill_rate_percent ?? 0).toFixed(1)}%`, tone: Number(row.fill_rate_percent ?? 0) < 90 ? "heads_up" : "good" }
             ]
           }))
