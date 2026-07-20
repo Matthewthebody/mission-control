@@ -4,6 +4,7 @@ import { canViewAttendanceExceptions, canViewLaborCost } from "../authz/authorit
 import { ApiError } from "../errors/apiError.js";
 import { shouldRestrictShiftList } from "./shiftAccess.js";
 import { getLocalDayBounds } from "../utils/localDate.js";
+import { config } from "../config.js";
 
 type DashboardFilters = {
   date: string;
@@ -56,6 +57,7 @@ function sanitizeShiftRows(
     actual_hours: options.includeLabor ? row.actual_hours : 0,
     actual_hours_canonical: options.includeLabor ? (row.actual_hours_canonical ?? null) : null,
     hours_source_delta: options.includeLabor ? (row.hours_source_delta ?? null) : null,
+    hours_source: options.includeLabor ? (row.hours_source ?? "legacy") : null,
     open_exception_count: options.includeAttendanceExceptions ? row.open_exception_count : 0,
     latest_approval_state: options.includeAttendanceExceptions ? row.latest_approval_state : null
   }));
@@ -70,6 +72,7 @@ function sanitizeShootMetrics(rows: Record<string, unknown>[], includeLabor: boo
     scheduled_hours: 0,
     actual_hours: 0,
     actual_hours_canonical: null,
+    actual_hours_legacy_uncovered: null,
     canonical_covered_shift_count: 0,
     rigorous_shoot_score: 0
   }));
@@ -291,7 +294,39 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
            AND ps.tenant_id = ts.tenant_id
           WHERE ts.source_shift_id = ws.id
             AND ts.tenant_id = ws.tenant_id
-        ))::int AS canonical_covered_shift_count
+        ))::int AS canonical_covered_shift_count,
+        -- Legacy hours for the UNCOVERED shifts only, so the read-cutover can
+        -- display canonical + per-shift legacy fallback with exact group totals.
+        SUM(COALESCE(
+          (
+            SELECT SUM(COALESCE(te.minutes_worked, 0)) / 60.0
+            FROM time_entry te
+            WHERE te.shoot_id = ws.shoot_id
+              AND te.user_id = ws.assigned_user_id
+          ),
+          (
+            SELECT GREATEST(
+              0,
+              EXTRACT(
+                EPOCH FROM (
+                  MAX(CASE WHEN sp.direction = 'out' THEN sp.client_timestamp END) -
+                  MIN(CASE WHEN sp.direction = 'in' THEN sp.client_timestamp END)
+                )
+              ) / 3600.0
+            )
+            FROM shift_punch sp
+            WHERE sp.shift_id = ws.id
+          ),
+          0
+        )) FILTER (WHERE NOT EXISTS (
+          SELECT 1
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        )) AS actual_hours_legacy_uncovered
       FROM work_shift ws
       LEFT JOIN shoot s ON s.id = ws.shoot_id
       WHERE ${sqlWhere}
@@ -371,6 +406,36 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
           WHERE ts.source_shift_id = ws.id
             AND ts.tenant_id = ws.tenant_id
         ))::int AS canonical_covered_shift_count,
+        SUM(COALESCE(
+          (
+            SELECT SUM(COALESCE(te.minutes_worked, 0)) / 60.0
+            FROM time_entry te
+            WHERE te.shoot_id = ws.shoot_id
+              AND te.user_id = ws.assigned_user_id
+          ),
+          (
+            SELECT GREATEST(
+              0,
+              EXTRACT(
+                EPOCH FROM (
+                  MAX(CASE WHEN sp.direction = 'out' THEN sp.client_timestamp END) -
+                  MIN(CASE WHEN sp.direction = 'in' THEN sp.client_timestamp END)
+                )
+              ) / 3600.0
+            )
+            FROM shift_punch sp
+            WHERE sp.shift_id = ws.id
+          ),
+          0
+        )) FILTER (WHERE NOT EXISTS (
+          SELECT 1
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+        )) AS actual_hours_legacy_uncovered,
         SUM(
           (
             SELECT COUNT(*)
@@ -609,8 +674,34 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
       canonical: "time_session_payroll_summary.payable_minutes"
     }
   };
+  // G2 read-cutover (config OPS_DASHBOARD_HOURS_SOURCE): under canonical_preferred
+  // the DISPLAYED actual_hours become canonical wherever a time session covers the
+  // shift, with per-shift legacy fallback and provenance in hours_source. Group
+  // totals stay exact: canonical sum + legacy hours of the uncovered shifts. The
+  // reconciliation block above is always computed from the raw truths first.
+  const canonicalPreferred = config.OPS_DASHBOARD_HOURS_SOURCE === "canonical_preferred";
+  const displayRows = rows.map((row) => ({
+    ...row,
+    actual_hours:
+      canonicalPreferred && row.actual_hours_canonical != null ? row.actual_hours_canonical : row.actual_hours,
+    hours_source:
+      canonicalPreferred && row.actual_hours_canonical != null ? ("canonical" as const) : ("legacy" as const)
+  }));
+  const resolveGroupActualHours = (row: {
+    actual_hours?: unknown;
+    actual_hours_canonical?: unknown;
+    actual_hours_legacy_uncovered?: unknown;
+  }) =>
+    canonicalPreferred && row.actual_hours_canonical != null
+      ? Number(row.actual_hours_canonical) + Number(row.actual_hours_legacy_uncovered ?? 0)
+      : Number(row.actual_hours ?? 0);
+  const laborRows = laborReport.rows.map((row) => ({
+    ...row,
+    actual_hours: resolveGroupActualHours(row)
+  }));
   const shootMetrics = byShoot.rows.map((row) => ({
     ...row,
+    actual_hours: resolveGroupActualHours(row),
     rigorous_shoot_score:
       Number(row.projected_students ?? 0) === 0
         ? 0
@@ -675,7 +766,7 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
         employee_count: number;
       }
     >();
-    for (const row of laborReport.rows) {
+    for (const row of laborRows) {
       const department = String(row.department ?? "unassigned");
       const current =
         totals.get(department) ??
@@ -737,8 +828,8 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
     unscheduled_punches: exceptions.rows.filter((row) => row.exception_type === "UNSCHEDULED_PUNCH").reduce((sum, row) => sum + Number(row.total), 0),
     out_of_bounds_punches: exceptions.rows.filter((row) => row.exception_type === "OUTSIDE_GEOFENCE_PUNCH").reduce((sum, row) => sum + Number(row.total), 0),
     studio_staff_on_shift: rows.filter((row) => row.shift_kind === "studio").length,
-    scheduled_labor_hours: Number(rows.reduce((sum, row) => sum + Number(row.scheduled_hours ?? 0), 0).toFixed(2)),
-    actual_labor_hours: Number(rows.reduce((sum, row) => sum + Number(row.actual_hours ?? 0), 0).toFixed(2)),
+    scheduled_labor_hours: Number(displayRows.reduce((sum, row) => sum + Number(row.scheduled_hours ?? 0), 0).toFixed(2)),
+    actual_labor_hours: Number(displayRows.reduce((sum, row) => sum + Number(row.actual_hours ?? 0), 0).toFixed(2)),
     payable_labor_hours: Number((payrollReport.rows.reduce((sum, row) => sum + Number(row.approved_payable_minutes ?? row.payable_minutes ?? 0), 0) / 60).toFixed(2)),
     break_deduction_hours: Number((payrollReport.rows.reduce((sum, row) => sum + Number(row.break_deduction_minutes ?? 0), 0) / 60).toFixed(2)),
     fill_rate_percent: fillRates.length ? Number((fillRates.reduce((sum, value) => sum + value, 0) / fillRates.length).toFixed(1)) : 0,
@@ -753,10 +844,10 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
     // Labor-gated like every other hours field: non-labor viewers get no reconciliation data.
     hours_reconciliation: includeLabor ? hoursReconciliation : null,
     shoots: sanitizeShootMetrics(shootMetrics, includeLabor),
-    shifts: sanitizeShiftRows(rows, { includeLabor, includeAttendanceExceptions }),
+    shifts: sanitizeShiftRows(displayRows, { includeLabor, includeAttendanceExceptions }),
     reporting: {
       labor: includeLabor
-        ? laborReport.rows.map((row) => ({
+        ? laborRows.map((row) => ({
             ...row,
             labor_delta_hours: Number(Number(row.actual_hours ?? 0) - Number(row.scheduled_hours ?? 0)).toFixed(2),
             labor_delta_hours_canonical:

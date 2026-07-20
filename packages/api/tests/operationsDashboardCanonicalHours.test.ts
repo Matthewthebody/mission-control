@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { config } from "../src/config.js";
 import { pool } from "../src/db/pool.js";
 import { devLogin, getMembershipId } from "./helpers.js";
 
@@ -265,6 +266,18 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     expect(varianceCard!.detail).toContain("canonical payroll hours");
   });
 
+  it("legacy hours stay the default display and every shift declares hours_source", async () => {
+    const res = await request(app)
+      .get(`/api/dashboard/operations?date=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    const byId = new Map((res.body.shifts as Array<Record<string, unknown>>).map((row) => [row.id, row]));
+    const divergent = byId.get(shiftIds.divergent) as Record<string, unknown>;
+    expect(Number(divergent.actual_hours)).toBeCloseTo(8, 2); // default = legacy, untouched
+    expect(divergent.hours_source).toBe("legacy");
+    expect(Number(res.body.summary.actual_labor_hours)).toBeCloseTo(18, 2);
+  });
+
   it("weekly labor leadership report opts into canonical hours and says which truth it used", async () => {
     const res = await request(app)
       .get(`/api/dashboard/reports/weekly_labor_summary?date=${fixtureDate}`)
@@ -286,5 +299,55 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     for (const row of departmentSection!.rows) {
       expect(row.values.some((value) => value.label === "Canonical")).toBe(true);
     }
+  });
+});
+
+describe("G2 read-cutover flag — OPS_DASHBOARD_HOURS_SOURCE=canonical_preferred", () => {
+  beforeAll(() => {
+    (config as { OPS_DASHBOARD_HOURS_SOURCE: string }).OPS_DASHBOARD_HOURS_SOURCE = "canonical_preferred";
+  });
+  afterAll(() => {
+    (config as { OPS_DASHBOARD_HOURS_SOURCE: string }).OPS_DASHBOARD_HOURS_SOURCE = "legacy";
+  });
+
+  async function fetchCutoverDashboard() {
+    const res = await request(app)
+      .get(`/api/dashboard/operations?date=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    return res.body as Record<string, any>;
+  }
+
+  it("displays canonical hours per shift with honest legacy fallback and provenance", async () => {
+    const body = await fetchCutoverDashboard();
+    const byId = new Map((body.shifts as Array<Record<string, unknown>>).map((row) => [row.id, row]));
+    const divergent = byId.get(shiftIds.divergent) as Record<string, unknown>;
+    const canonicalless = byId.get(shiftIds.canonicalless) as Record<string, unknown>;
+    expect(Number(divergent.actual_hours)).toBeCloseTo(7.5, 2); // canonical wins where covered
+    expect(divergent.hours_source).toBe("canonical");
+    expect(Number(canonicalless.actual_hours)).toBeCloseTo(4, 2); // uncovered falls back to legacy
+    expect(canonicalless.hours_source).toBe("legacy");
+  });
+
+  it("summary and group totals equal the sum of the displayed shifts", async () => {
+    const body = await fetchCutoverDashboard();
+    // 7.5 canonical + 6 canonical + 4 legacy fallback = 17.5
+    expect(Number(body.summary.actual_labor_hours)).toBeCloseTo(17.5, 2);
+    const dept = (body.insights.hours_by_department as Array<Record<string, unknown>>).find(
+      (row) => row.department === "unassigned"
+    ) as Record<string, unknown>;
+    expect(Number(dept.actual_hours)).toBeCloseTo(17.5, 2);
+    const shoot = (body.insights.hours_by_shoot as Array<Record<string, unknown>>).find(
+      (row) => row.scope_id === shootId
+    ) as Record<string, unknown>;
+    expect(Number(shoot.actual_hours)).toBeCloseTo(17.5, 2);
+  });
+
+  it("the reconciliation block still compares the raw truths, not the resolved display", async () => {
+    const body = await fetchCutoverDashboard();
+    const rec = body.hours_reconciliation as Record<string, unknown>;
+    expect(Number(rec.legacy_hours_total)).toBeCloseTo(18, 2);
+    expect(Number(rec.canonical_hours_total)).toBeCloseTo(13.5, 2);
+    expect(rec.status).toBe("mismatch");
   });
 });
