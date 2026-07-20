@@ -247,6 +247,24 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     expect(Number(shoot.canonical_covered_shift_count)).toBe(2);
   });
 
+  it("profitability workspace labor burden uses canonical hours and discloses the source", async () => {
+    const res = await request(app)
+      .get(`/api/profitability/workspace?date=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    const burdenRows = (res.body.operational_burden?.rows ?? []) as Array<{ id: string; value: string; detail: string }>;
+    const laborRow = burdenRows.find((row) => row.id === "labor_today");
+    expect(laborRow).toBeTruthy();
+    // Canonical total for the fixture day is 13.5h (7.5 + 6); scheduled 24h (3 × 8h).
+    expect(laborRow!.value).toBe("13.5h / 24.0h");
+    expect(laborRow!.detail).toContain("canonical payroll hours");
+    const varianceCard = (res.body.overview_cards ?? []).find(
+      (card: { id: string }) => card.id === "labor_variance_today"
+    ) as { detail: string } | undefined;
+    expect(varianceCard).toBeTruthy();
+    expect(varianceCard!.detail).toContain("canonical payroll hours");
+  });
+
   it("weekly labor leadership report opts into canonical hours and says which truth it used", async () => {
     const res = await request(app)
       .get(`/api/dashboard/reports/weekly_labor_summary?date=${fixtureDate}`)

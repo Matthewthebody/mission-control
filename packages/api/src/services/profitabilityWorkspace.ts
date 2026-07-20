@@ -415,6 +415,26 @@ function buildRecommendationFlagItem(
   };
 }
 
+// G2 retirement step: profitability is the THIRD consumer (after the Home labor
+// band and leadership reports) to opt into canonical payroll hours. Same honesty
+// contract — canonical when time sessions cover the window, legacy fallback with
+// the source disclosed, never a fabricated canonical number.
+function resolveActualLaborHours(laborDashboard: Awaited<ReturnType<typeof getOperationsDashboard>>) {
+  const reconciliation = laborDashboard.hours_reconciliation ?? null;
+  if (!reconciliation || reconciliation.status === "canonical_unavailable") {
+    return {
+      actualHours: Number(laborDashboard.summary.actual_labor_hours ?? 0),
+      source: "legacy" as const,
+      sourceLabel: "legacy hours — no canonical time sessions cover this window yet"
+    };
+  }
+  return {
+    actualHours: Number(reconciliation.canonical_hours_total ?? 0),
+    source: "canonical" as const,
+    sourceLabel: "canonical payroll hours (time sessions)"
+  };
+}
+
 function buildOverviewCards(options: {
   watchCount: number;
   productionItems: ProductionProjectSummaryRecord[];
@@ -431,12 +451,9 @@ function buildOverviewCards(options: {
   const blockedRework = options.productionItems.filter(
     (project) => project.stage === "correction_needed" || project.stage === "blocked"
   ).length;
-  const laborVariance = options.laborDashboard
-    ? Math.max(
-        0,
-        Number(options.laborDashboard.summary.actual_labor_hours ?? 0) -
-          Number(options.laborDashboard.summary.scheduled_labor_hours ?? 0)
-      )
+  const laborResolution = options.laborDashboard ? resolveActualLaborHours(options.laborDashboard) : null;
+  const laborVariance = laborResolution
+    ? Math.max(0, laborResolution.actualHours - Number(options.laborDashboard!.summary.scheduled_labor_hours ?? 0))
     : 0;
 
   return [
@@ -473,8 +490,8 @@ function buildOverviewCards(options: {
       id: "labor_variance_today",
       label: "Labor Variance Today",
       value: options.laborDashboard ? `${laborVariance.toFixed(1)}h` : "Hidden",
-      detail: options.laborDashboard
-        ? "Actual labor above scheduled plan for today."
+      detail: laborResolution
+        ? `Actual labor above scheduled plan for today (${laborResolution.sourceLabel}).`
         : "Labor profitability signals are hidden without labor-cost access.",
       tone: !options.laborDashboard ? "neutral" : laborVariance > 1 ? "heads_up" : "good",
       action_hash: "#labor"
@@ -546,13 +563,13 @@ function buildOperationalBurden(options: {
 
   if (options.laborDashboard) {
     const scheduled = Number(options.laborDashboard.summary.scheduled_labor_hours ?? 0);
-    const actual = Number(options.laborDashboard.summary.actual_labor_hours ?? 0);
+    const resolution = resolveActualLaborHours(options.laborDashboard);
     rows.push({
       id: "labor_today",
       label: "Labor Burden Today",
-      value: `${actual.toFixed(1)}h / ${scheduled.toFixed(1)}h`,
-      detail: "Actual versus scheduled labor for today.",
-      tone: actual > scheduled ? "heads_up" : "good",
+      value: `${resolution.actualHours.toFixed(1)}h / ${scheduled.toFixed(1)}h`,
+      detail: `Actual versus scheduled labor for today (${resolution.sourceLabel}).`,
+      tone: resolution.actualHours > scheduled ? "heads_up" : "good",
       action_hash: "#labor"
     });
   }
