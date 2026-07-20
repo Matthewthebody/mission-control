@@ -662,6 +662,16 @@ function singleParam(value: string | string[] | undefined) {
 
 router.use(requireAuth);
 
+// Non-uuid ids otherwise reach the DB and raise a cast error → 500.
+// 404 (not 400) to match the tested quick-view contract: a malformed id is
+// indistinguishable from a job that does not exist.
+router.param("jobId", (req, res, next, value) => {
+  if (!z.string().uuid().safeParse(singleParam(value)).success) {
+    return res.status(404).json({ error: "Job not found" });
+  }
+  return next();
+});
+
 router.get("/watchlist", validateQuery(exceptionQueueQuerySchema), async (req, res, next) => {
   try {
     const auth = getAuth(req as unknown as AuthenticatedRequest);

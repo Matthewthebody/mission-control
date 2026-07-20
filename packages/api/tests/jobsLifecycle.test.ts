@@ -62,6 +62,20 @@ async function archivedAt(id: string): Promise<string | null> {
   return (await dbPool.query(`SELECT archived_at::text FROM jobs WHERE id=$1`, [id])).rows[0]?.archived_at ?? null;
 }
 
+describe("job id param guard", () => {
+  it("rejects a non-uuid job id with 404 instead of a DB cast 500", async () => {
+    const response = await request(app).get("/api/jobs/not-a-uuid").set("Authorization", `Bearer ${leadershipToken}`);
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe("Job not found");
+  });
+  it("still returns 404 for a well-formed uuid that matches no job", async () => {
+    const response = await request(app)
+      .get("/api/jobs/00000000-0000-4000-8000-000000000000")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("classifyJobLifecycle (pure) — archival prevention", () => {
   const base = {
     id: "x", department_type: "sports" as const, job_status: "execution_complete", production_status: "complete",

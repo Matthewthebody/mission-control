@@ -55,40 +55,57 @@ beforeAll(async () => {
   );
   tenantId = tenantRow.rows[0].tenant_id;
 
-  // A recent published shoot (with location, required by post_shoot_evaluation) on a date where
-  // the photographer has NO other shoot shifts — the recalc must see only our fixtures.
-  const shootRow = await pool.query<{ id: string; shoot_date: string; location_id: string }>(
-    `SELECT s.id, s.shoot_date::text AS shoot_date, s.location_id
-       FROM shoot s
-      WHERE s.tenant_id = $1
-        AND s.record_state = 'published'
-        AND s.deleted_at IS NULL
-        AND s.location_id IS NOT NULL
-        AND s.shoot_date <= CURRENT_DATE
-        AND s.shoot_date >= CURRENT_DATE - INTERVAL '14 days'
-        AND NOT EXISTS (
-          SELECT 1 FROM work_shift ws
-          WHERE ws.tenant_id = s.tenant_id
-            AND ws.assigned_user_id = $2
-            AND ws.shift_kind = 'shoot'
-            AND ws.cancelled_at IS NULL
-            AND COALESCE((SELECT sx.shoot_date FROM shoot sx WHERE sx.id = ws.shoot_id), ws.starts_at::date) = s.shoot_date
-        )
-      ORDER BY s.shoot_date DESC
+  // The most recent date where the photographer has NO other shoot shifts — the
+  // recalc must see only our fixtures. The window reaches far back because the
+  // shared dev DB accretes fixture shifts on every recent date.
+  const dateRow = await pool.query<{ d: string }>(
+    `SELECT d::date::text AS d
+       FROM generate_series(CURRENT_DATE - 365, CURRENT_DATE, interval '1 day') AS g(d)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM work_shift ws
+        WHERE ws.tenant_id = $1
+          AND ws.assigned_user_id = $2
+          AND ws.shift_kind = 'shoot'
+          AND ws.cancelled_at IS NULL
+          AND COALESCE((SELECT sx.shoot_date FROM shoot sx WHERE sx.id = ws.shoot_id), ws.starts_at::date) = g.d::date
+      )
+      ORDER BY g.d DESC
       LIMIT 1`,
     [tenantId, photographerId]
   );
-  expect(shootRow.rows.length).toBe(1);
-  shootId = shootRow.rows[0].id;
-  shootDate = shootRow.rows[0].shoot_date;
-  const locationId = shootRow.rows[0].location_id;
+  expect(dateRow.rows.length).toBe(1);
+  shootDate = dateRow.rows[0].d;
 
-  // Re-runnable cleanup of prior fixture rows.
+  // Re-runnable cleanup of prior fixture rows (shifts and eval reference the shoot).
   await pool.query(
     `DELETE FROM post_shoot_evaluation WHERE tenant_id = $1 AND shoot_name = $2`,
     [tenantId, SHIFT_MARKER]
   );
   await pool.query("DELETE FROM work_shift WHERE tenant_id = $1 AND title = $2", [tenantId, SHIFT_MARKER]);
+  await pool.query("DELETE FROM shoot WHERE tenant_id = $1 AND title = $2", [tenantId, SHIFT_MARKER]);
+
+  // Our own published shoot (with the canonical location post_shoot_evaluation requires),
+  // cloned from any real published shoot so NOT NULL columns carry over — the suite must
+  // not depend on the demo seed still having a shoot inside the recent window.
+  const shootRow = await pool.query<{ id: string; location_id: string }>(
+    `INSERT INTO shoot (
+        tenant_id, studio_id, shoot_code, title, shoot_date, location_id, location_name,
+        location_address, location_lat, location_lng, geofence_radius_meters, showtime,
+        arrival_time, start_time, end_time_est, projected_students, record_state, created_by
+      )
+      SELECT tenant_id, studio_id, $2, $3, $4::date, location_id, location_name,
+        location_address, location_lat, location_lng, geofence_radius_meters, showtime,
+        arrival_time, start_time, end_time_est, projected_students, 'published', created_by
+      FROM shoot
+      WHERE tenant_id = $1 AND record_state = 'published' AND deleted_at IS NULL AND location_id IS NOT NULL
+      ORDER BY shoot_date DESC
+      LIMIT 1
+      RETURNING id, location_id`,
+    [tenantId, "PSME-TEST", SHIFT_MARKER, shootDate]
+  );
+  expect(shootRow.rows.length).toBe(1);
+  shootId = shootRow.rows[0].id;
+  const locationId = shootRow.rows[0].location_id;
 
   const starts = `${shootDate}T09:00:00Z`;
   const ends = `${shootDate}T15:00:00Z`;
@@ -118,6 +135,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await pool.query(`DELETE FROM post_shoot_evaluation WHERE tenant_id = $1 AND shoot_name = $2`, [tenantId, SHIFT_MARKER]);
   await pool.query("DELETE FROM work_shift WHERE tenant_id = $1 AND title = $2", [tenantId, SHIFT_MARKER]);
+  await pool.query("DELETE FROM shoot WHERE tenant_id = $1 AND title = $2", [tenantId, SHIFT_MARKER]);
   // Recompute canonical mileage from the remaining REAL data so the demo row is restored.
   await restoreMileage(photographerId);
   await restoreMileage(seniorId);

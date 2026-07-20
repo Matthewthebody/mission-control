@@ -94,19 +94,23 @@ beforeAll(async () => {
   await pool.query("DELETE FROM quickbooks_sync_log WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM exception_request WHERE tenant_id = $1 AND 'payroll_self_check' = ANY(reporting_flags)", [tenantId]);
   await pool.query("DELETE FROM work_shift WHERE tenant_id = $1 AND title = 'LCC-TEST-FUTURE-SHIFT'", [tenantId]);
+  // The overtime endpoints aggregate the current WORKWEEK, so the synthetic
+  // session must land in it — periodStart drifts out of the workweek during the
+  // second week of every bi-weekly period. Today is always in both windows.
+  const sessionDate = new Date().toLocaleDateString("en-CA");
   await pool.query(
     "DELETE FROM time_session WHERE tenant_id = $1 AND employee_id = $2 AND work_date = $3::date AND source_shift_id IS NULL",
-    [tenantId, employeeId, periodStart]
+    [tenantId, employeeId, sessionDate]
   );
 
-  // Synthetic canonical labor: one closed 8.5h session on the first day of the period.
+  // Synthetic canonical labor: one closed 8.5h session inside the current workweek.
   const sessionRow = await pool.query<{ id: string }>(
     `INSERT INTO time_session (tenant_id, employee_id, work_date, status) VALUES ($1, $2, $3::date, 'closed') RETURNING id`,
-    [tenantId, employeeId, periodStart]
+    [tenantId, employeeId, sessionDate]
   );
   syntheticSessionId = sessionRow.rows[0].id;
-  const startTime = new Date(`${periodStart}T09:00:00`).toISOString();
-  const endTime = new Date(`${periodStart}T17:30:00`).toISOString();
+  const startTime = new Date(`${sessionDate}T09:00:00`).toISOString();
+  const endTime = new Date(`${sessionDate}T17:30:00`).toISOString();
   await pool.query(
     `
       INSERT INTO time_segment (tenant_id, session_id, employee_id, work_state, start_time, end_time, source_type, review_status)

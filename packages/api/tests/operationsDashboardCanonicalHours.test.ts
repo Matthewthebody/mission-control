@@ -41,12 +41,18 @@ beforeAll(async () => {
   tenantId = tenantRow.rows[0].tenant_id;
 
   // A past date with zero existing shifts, so the reconciliation block is exactly ours.
+  // The dashboard selects by OVERLAP against business-local day bounds, not UTC
+  // starts_at::date — guard a full ±1-day UTC band so no timezone shift or
+  // day-spanning shift can leak a fourth row into the reconciliation.
   const dateRow = await pool.query<{ d: string }>(
     `
       SELECT d::date::text AS d
       FROM generate_series(CURRENT_DATE - 90, CURRENT_DATE - 30, interval '1 day') AS g(d)
       WHERE NOT EXISTS (
-        SELECT 1 FROM work_shift ws WHERE ws.tenant_id = $1 AND ws.starts_at::date = g.d::date
+        SELECT 1 FROM work_shift ws
+        WHERE ws.tenant_id = $1
+          AND ws.ends_at >= g.d::date - interval '1 day'
+          AND ws.starts_at < g.d::date + interval '2 days'
       )
       ORDER BY g.d DESC
       LIMIT 1
