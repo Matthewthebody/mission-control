@@ -259,6 +259,33 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     expect(Number(shoot.canonical_covered_shift_count)).toBe(2);
   });
 
+  it("shift list and detail expose canonical payroll summaries alongside legacy (NULL when uncovered)", async () => {
+    const list = await request(app)
+      .get(`/api/shifts?date_from=${fixtureDate}&date_to=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(list.status).toBe(200);
+    const byId = new Map((list.body as Array<Record<string, any>>).map((row) => [row.id, row]));
+    const divergentRow = byId.get(shiftIds.divergent);
+    const canonicallessRow = byId.get(shiftIds.canonicalless);
+    expect(divergentRow.payroll_summary_canonical).toBeTruthy();
+    expect(Number(divergentRow.payroll_summary_canonical.payable_minutes)).toBe(450);
+    expect(canonicallessRow.payroll_summary_canonical).toBeNull();
+
+    const detail = await request(app)
+      .get(`/api/shifts/${shiftIds.divergent}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(detail.status).toBe(200);
+    expect(Number(detail.body.payroll_summary_canonical.payable_minutes)).toBe(450);
+    expect(detail.body.canonical_sessions.length).toBe(1);
+
+    const uncovered = await request(app)
+      .get(`/api/shifts/${shiftIds.canonicalless}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(uncovered.status).toBe(200);
+    expect(uncovered.body.payroll_summary_canonical).toBeNull();
+    expect(uncovered.body.canonical_sessions).toEqual([]);
+  });
+
   it("profitability workspace labor burden uses canonical hours and discloses the source", async () => {
     const res = await request(app)
       .get(`/api/profitability/workspace?date=${fixtureDate}`)

@@ -788,7 +788,33 @@ export async function listShifts(client: PoolClient, auth: AuthUser, filters: Sh
           WHERE te.shift_id = ws.id
           ORDER BY te.clock_in_at DESC NULLS LAST, te.created_at DESC
           LIMIT 1
-        ) AS payroll_summary
+        ) AS payroll_summary,
+        -- G2: canonical payroll truth alongside the legacy time_entry summary.
+        -- NULL when no time session covers the shift — honestly unavailable.
+        -- Canonical vocabulary differs by design (lunch deduction, session
+        -- status) — consumers opt in explicitly, never a silent field swap.
+        (
+          SELECT json_build_object(
+            'session_id', ts.id,
+            'work_date', ts.work_date,
+            'session_status', ts.status,
+            'clock_in_at', (SELECT MIN(seg.start_time) FROM time_segment seg WHERE seg.session_id = ts.id),
+            'clock_out_at', (SELECT MAX(seg.end_time) FROM time_segment seg WHERE seg.session_id = ts.id),
+            'total_worked_minutes', ps.total_worked_minutes,
+            'lunch_deduction_minutes', ps.lunch_deduction_minutes,
+            'payable_minutes', ps.payable_minutes,
+            'lunch_challenge_status', ps.lunch_challenge_status,
+            'manual_correction_count', ps.manual_correction_count
+          )
+          FROM time_session ts
+          JOIN time_session_payroll_summary ps
+            ON ps.session_id = ts.id
+           AND ps.tenant_id = ts.tenant_id
+          WHERE ts.source_shift_id = ws.id
+            AND ts.tenant_id = ws.tenant_id
+          ORDER BY ts.work_date DESC, ts.created_at DESC
+          LIMIT 1
+        ) AS payroll_summary_canonical
       FROM work_shift ws
       JOIN app_user au ON au.id = ws.assigned_user_id
       LEFT JOIN app_user manager ON manager.id = ws.manager_user_id
@@ -1179,6 +1205,31 @@ export async function getShiftById(client: PoolClient, auth: AuthUser, shiftId: 
     [shiftId]
   );
   const timeEntries = await client.query("SELECT * FROM time_entry WHERE shift_id = $1 ORDER BY clock_in_at DESC NULLS LAST, created_at DESC", [shiftId]);
+  // G2: canonical payroll truth alongside the legacy time_entry projection.
+  // Empty/NULL when no time session covers the shift — honestly unavailable.
+  const canonicalSessions = await client.query(
+    `
+      SELECT
+        ts.id AS session_id,
+        ts.work_date,
+        ts.status AS session_status,
+        (SELECT MIN(seg.start_time) FROM time_segment seg WHERE seg.session_id = ts.id) AS clock_in_at,
+        (SELECT MAX(seg.end_time) FROM time_segment seg WHERE seg.session_id = ts.id) AS clock_out_at,
+        ps.total_worked_minutes,
+        ps.lunch_deduction_minutes,
+        ps.payable_minutes,
+        ps.lunch_challenge_status,
+        ps.manual_correction_count
+      FROM time_session ts
+      JOIN time_session_payroll_summary ps
+        ON ps.session_id = ts.id
+       AND ps.tenant_id = ts.tenant_id
+      WHERE ts.source_shift_id = $1
+        AND ts.tenant_id = $2
+      ORDER BY ts.work_date DESC, ts.created_at DESC
+    `,
+    [shiftId, auth.tenantId]
+  );
   const coworkers = await getCoworkersForShift(client, shift);
   const closeoutCompliance = await getShiftCloseoutCompliance(client, {
     tenantId: auth.tenantId,
@@ -1196,6 +1247,8 @@ export async function getShiftById(client: PoolClient, auth: AuthUser, shiftId: 
     punches: punches.rows,
     time_entries: timeEntries.rows,
     payroll_summary: timeEntries.rows[0] ?? null,
+    canonical_sessions: canonicalSessions.rows,
+    payroll_summary_canonical: canonicalSessions.rows[0] ?? null,
     exceptions: exceptions.rows,
     coworkers,
     closeout_compliance: closeoutCompliance,
