@@ -75,9 +75,14 @@ describe("employee staffing labels", () => {
   it("outstanding = still actionable; role summary marks the lead", () => {
     expect(isOutstandingConfirmation(assignment({ can_acknowledge: true }))).toBe(true);
     expect(isOutstandingConfirmation(assignment({ can_acknowledge: false }))).toBe(false);
-    expect(assignmentRoleSummary(assignment({ lead_coverage: true }))).toBe("lead_photographer (Lead)");
+    // Compact copy: humanized role, and no redundant "(Lead)" when the role
+    // name already says it.
+    expect(assignmentRoleSummary(assignment({ lead_coverage: true }))).toBe("Lead Photographer");
+    expect(
+      assignmentRoleSummary(assignment({ lead_coverage: true, assignments: [{ staffing_role: "photographer" }] }))
+    ).toBe("Photographer (Lead)");
     expect(
       assignmentRoleSummary(assignment({ lead_coverage: false, assignments: [{ staffing_role: "photographer" }] }))
-    ).toBe("photographer");
+    ).toBe("Photographer");
   });
 });

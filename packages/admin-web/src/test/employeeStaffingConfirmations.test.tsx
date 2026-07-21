@@ -89,7 +89,9 @@ describe("EmployeeStaffingConfirmations", () => {
     render(<EmployeeStaffingConfirmations token="t" />);
 
     expect(await screen.findByText("Wayzata Picture Day")).toBeInTheDocument();
-    expect(screen.getByTestId("assignment-status-r1")).toHaveTextContent("Awaiting acknowledgment");
+    // Compact copy: an outstanding confirmation IS its deadline — one line, no
+    // separate "Awaiting acknowledgment" + "Confirm by" pair.
+    expect(screen.getByTestId("assignment-status-r1")).toHaveTextContent(/Confirm by/);
 
     fireEvent.click(screen.getByRole("button", { name: "Acknowledge" }));
     await waitFor(() => expect(screen.getByTestId("assignment-status-r1")).toHaveTextContent("Acknowledged"));

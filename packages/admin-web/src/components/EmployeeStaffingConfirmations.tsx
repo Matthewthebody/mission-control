@@ -23,9 +23,39 @@ function formatWindow(assignment: EmployeeStaffingAssignment): string {
   const start = assignment.arrival_time ?? assignment.start_time;
   const end = assignment.end_time_est;
   if (start && end) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    // Same-day windows don't repeat the date: "Jul 23, 2:45 – 5:00 PM".
+    if (
+      !Number.isNaN(startDate.getTime()) &&
+      !Number.isNaN(endDate.getTime()) &&
+      startDate.toDateString() === endDate.toDateString()
+    ) {
+      const endTime = endDate.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      return `${formatDateTime(start)} – ${endTime}`;
+    }
     return `${formatDateTime(start)} – ${formatDateTime(end)}`;
   }
   return formatDateTime(start);
+}
+
+// One status line instead of two: the due date rides with the state instead of
+// getting its own row, and an outstanding confirmation IS its deadline.
+function assignmentStatusLine(assignment: EmployeeStaffingAssignment): string {
+  const due = assignment.acknowledgment_due_at;
+  if (
+    due &&
+    assignment.can_acknowledge &&
+    assignment.acknowledgment_state === "awaiting" &&
+    !assignment.requires_renewed_acknowledgment
+  ) {
+    return `Confirm by ${formatDateTime(due)}`;
+  }
+  const label = assignmentStatusLabel(assignment);
+  if (due && assignment.acknowledgment_state === "overdue") {
+    return `${label} — was due ${formatDateTime(due)}`;
+  }
+  return label;
 }
 
 export function EmployeeStaffingConfirmations({
@@ -201,10 +231,7 @@ export function EmployeeStaffingConfirmations({
               {assignment.location_name ? ` · ${assignment.location_name}` : ""}
             </div>
             <div className="muted">{assignmentRoleSummary(assignment)}</div>
-            <div data-testid={`assignment-status-${assignment.recipient_id}`}>{assignmentStatusLabel(assignment)}</div>
-            {assignment.acknowledgment_due_at && assignment.can_acknowledge ? (
-              <div className="muted">Confirm by {formatDateTime(assignment.acknowledgment_due_at)}</div>
-            ) : null}
+            <div data-testid={`assignment-status-${assignment.recipient_id}`}>{assignmentStatusLine(assignment)}</div>
             {assignment.decline_reason ? <div className="muted">Your reason: {assignment.decline_reason}</div> : null}
             <div className="employee-staffing-confirmations__actions">
               {assignment.can_acknowledge ? (

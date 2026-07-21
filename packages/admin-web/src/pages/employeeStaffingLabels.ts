@@ -40,11 +40,18 @@ export function isOutstandingConfirmation(assignment: EmployeeStaffingAssignment
   return assignment.can_acknowledge;
 }
 
+function humanizeRole(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 export function assignmentRoleSummary(assignment: EmployeeStaffingAssignment): string {
   const roles = assignment.assignments
     .map((entry) => entry.staffing_role)
     .filter((role): role is string => Boolean(role));
   const unique = [...new Set(roles)];
-  const base = unique.length ? unique.join(", ") : "Assignment";
-  return assignment.lead_coverage ? `${base} (Lead)` : base;
+  const base = unique.length ? unique.map(humanizeRole).join(", ") : "Assignment";
+  // "(Lead)" only when the role name doesn't already say it — "Lead
+  // Photographer (Lead)" was saying the same thing twice.
+  const alreadySaysLead = unique.some((role) => role.toLowerCase().includes("lead"));
+  return assignment.lead_coverage && !alreadySaysLead ? `${base} (Lead)` : base;
 }
