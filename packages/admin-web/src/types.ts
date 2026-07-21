@@ -4202,7 +4202,10 @@ export type LaborReportRow = {
   clocked_in_shift_count: number | string;
   scheduled_hours: number | string;
   actual_hours: number | string;
+  actual_hours_canonical?: number | string | null;
+  canonical_covered_shift_count?: number | string | null;
   labor_delta_hours: number | string;
+  labor_delta_hours_canonical?: number | string | null;
   open_exception_count: number | string;
 };
 
@@ -4253,6 +4256,16 @@ export type PayrollReportRow = {
 
 export type OperationsDashboard = {
   summary: DashboardSummary;
+  // G2: the server compares raw truths regardless of which one the display uses.
+  hours_reconciliation?: {
+    legacy_hours_total: number;
+    canonical_hours_total: number;
+    comparable_shift_count: number;
+    mismatch_shift_count: number;
+    canonical_unavailable_shift_count: number;
+    status: "canonical_unavailable" | "mismatch" | "matched";
+    source: { legacy: string; canonical: string };
+  } | null;
   shoots: DashboardShootMetric[];
   shifts: Array<
     Omit<ShiftRecord, "segments" | "punches"> & {

@@ -167,7 +167,16 @@ export function Labor({ token, currentUser, socket }: Props) {
         <article className="stat-card panel">
           <div className="eyebrow">Worked Hours</div>
           <strong>{formatHours(summary?.actual_labor_hours)}h</strong>
-          <span className="muted">Punch-backed hours captured so far.</span>
+          {/* G2: say which truth the number comes from — canonical payroll
+              sessions where covered, legacy punches where not. */}
+          <span className="muted">
+            {dashboard?.hours_reconciliation && dashboard.hours_reconciliation.status !== "canonical_unavailable"
+              ? `Canonical payroll hours — ${dashboard.hours_reconciliation.comparable_shift_count} of ${
+                  dashboard.hours_reconciliation.comparable_shift_count +
+                  dashboard.hours_reconciliation.canonical_unavailable_shift_count
+                } shifts covered by time sessions.`
+              : "Legacy punch-backed hours — no canonical time sessions cover this range yet."}
+          </span>
         </article>
         <article className="stat-card panel">
           <div className="eyebrow">Fill Rate</div>
@@ -252,6 +261,7 @@ export function Labor({ token, currentUser, socket }: Props) {
                       <th>Clocked In</th>
                       <th>Scheduled</th>
                       <th>Worked</th>
+                      <th>Sessions</th>
                       <th>Delta</th>
                       <th>Open</th>
                     </tr>
@@ -268,13 +278,18 @@ export function Labor({ token, currentUser, socket }: Props) {
                         <td>{Number(row.clocked_in_shift_count ?? 0)}</td>
                         <td>{formatHours(row.scheduled_hours)}h</td>
                         <td>{formatHours(row.actual_hours)}h</td>
+                        {/* G2: honest canonical coverage — how many of the shifts are
+                            backed by payroll time sessions vs legacy fallback. */}
+                        <td>
+                          {Number(row.canonical_covered_shift_count ?? 0)}/{Number(row.shift_count ?? 0)}
+                        </td>
                         <td>{formatSignedHours(Number(row.labor_delta_hours ?? 0))}</td>
                         <td>{Number(row.open_exception_count ?? 0)}</td>
                       </tr>
                     ))}
                     {!laborRows.length ? (
                       <tr>
-                        <td colSpan={8} className="empty-state">
+                        <td colSpan={9} className="empty-state">
                           No labor rows match this view yet.
                         </td>
                       </tr>
