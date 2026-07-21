@@ -593,6 +593,60 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
     ]
   );
 
+  // G2: canonical companion to the legacy payrollReport above — the same window
+  // read from the single-writer payroll summaries via source_shift_id. Additive;
+  // rows exist only where a time session covers the shift (honest coverage).
+  const payrollReportCanonical = await client.query(
+    `
+      SELECT
+        ps.id,
+        ts.id AS session_id,
+        ts.source_shift_id AS shift_id,
+        ts.work_date,
+        ts.status AS session_status,
+        (SELECT MIN(seg.start_time) FROM time_segment seg WHERE seg.session_id = ts.id) AS clock_in_at,
+        (SELECT MAX(seg.end_time) FROM time_segment seg WHERE seg.session_id = ts.id) AS clock_out_at,
+        ps.total_worked_minutes,
+        ps.lunch_deduction_minutes,
+        ps.lunch_deduction_source,
+        ps.lunch_challenge_status,
+        ps.payable_minutes,
+        ps.manual_correction_count,
+        ws.title AS shift_title,
+        ws.department,
+        ws.location_name,
+        au.full_name AS assigned_user_name,
+        manager.full_name AS manager_name,
+        s.shoot_code
+      FROM time_session ts
+      JOIN time_session_payroll_summary ps
+        ON ps.session_id = ts.id
+       AND ps.tenant_id = ts.tenant_id
+      JOIN app_user au ON au.id = ts.employee_id
+      JOIN work_shift ws ON ws.id = ts.source_shift_id
+      LEFT JOIN app_user manager ON manager.id = ws.manager_user_id
+      LEFT JOIN shoot s ON s.id = ws.shoot_id
+      WHERE ts.tenant_id = $1
+        AND ($2::timestamptz IS NULL OR ws.starts_at >= $2::timestamptz)
+        AND ($3::timestamptz IS NULL OR ws.starts_at < $3::timestamptz)
+        AND ($4::uuid IS NULL OR ts.employee_id = $4::uuid)
+        AND ($5::department_code IS NULL OR ws.department = $5::department_code)
+        AND ($6::uuid IS NULL OR ws.shoot_id = $6::uuid)
+        AND ($7::uuid IS NULL OR ws.manager_user_id = $7::uuid)
+      ORDER BY ws.starts_at DESC
+      LIMIT 80
+    `,
+    [
+      auth.tenantId,
+      reportStart,
+      reportEndExclusive,
+      filters.employeeId ?? null,
+      filters.department ?? null,
+      filters.shootId ?? null,
+      filters.managerId ?? null
+    ]
+  );
+
   const tradeReport = await client.query(
     `
       SELECT
@@ -858,7 +912,8 @@ export async function getOperationsDashboard(client: PoolClient, auth: AuthUser,
         : [],
       punches: punchReport.rows,
       exceptions: includeAttendanceExceptions ? exceptionReport.rows : [],
-      payroll: includeLabor ? payrollReport.rows : []
+      payroll: includeLabor ? payrollReport.rows : [],
+      payroll_canonical: includeLabor ? payrollReportCanonical.rows : []
     },
     insights: {
       hours_by_department: includeLabor ? hoursByDepartment : [],

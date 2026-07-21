@@ -286,6 +286,18 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     expect(uncovered.body.canonical_sessions).toEqual([]);
   });
 
+  it("ops payroll report carries a canonical companion covering only session-backed shifts", async () => {
+    const body = (await request(app)
+      .get(`/api/dashboard/operations?date=${fixtureDate}`)
+      .set("Authorization", `Bearer ${adminToken}`)).body as Record<string, any>;
+    const canonicalRows = body.reporting.payroll_canonical as Array<Record<string, unknown>>;
+    const byShift = new Map(canonicalRows.map((row) => [row.shift_id, row]));
+    const covered = byShift.get(shiftIds.divergent) as Record<string, unknown>;
+    expect(covered).toBeTruthy();
+    expect(Number(covered.payable_minutes)).toBe(450);
+    expect(byShift.has(shiftIds.canonicalless)).toBe(false); // uncovered shift is absent, not zeroed
+  });
+
   it("profitability workspace labor burden uses canonical hours and discloses the source", async () => {
     const res = await request(app)
       .get(`/api/profitability/workspace?date=${fixtureDate}`)
