@@ -10,6 +10,9 @@
 | `listShifts` / `getShiftById` (`/api/shifts`) | Additive `payroll_summary_canonical` (+ `canonical_sessions` on detail) |
 | Ops payroll report (`reporting.payroll`) | Additive `reporting.payroll_canonical` companion |
 
+## Status update (same day, `74072b0` + `f047a18`, gate 208/208)
+Preconditions **1, 2, 4, 5 are DONE**: (1) attendance exceptions carry `time_record_*_canonical` from the session lateral and the Attendance page prefers them; (2) punch envelopes are canonical-safe by construction (`interpreted_time_record` falls back to punch + session state); (4) the deprecated shoot time-entries projection and `services/clock.ts` are deleted (tests pin the 404); (5) the orphaned legacy `getPayrollSummary` in attendance.ts is deleted. **Remaining: precondition 3 (freeze BOTH writers together — attendance.ts + worker attendanceMonitor.ts:1068 — behind a `TIME_ENTRY_DUAL_WRITE` flag) and the post-freeze comparison retention (6/7).** The freeze slice must also update legacy-asserting tests (several suites assert time_entry rows after punch flows).
+
 ## Remaining preconditions (ordered)
 1. **Attendance page lateral** — `services/attendance.ts:2846-2862` (`listAttendanceExceptions`) projects `time_entry.attendance_state` + `time_record_*` to `Attendance.tsx:496-508`. A `time_session` join is already in the projection; swap the lateral to session/payroll-summary and update the page fields. MIGRATE.
 2. **Punch result attach** — `attendance.ts:543` (`buildPunchResult`) returns the time_entry row on every clock-in/out response. Replace with the canonical session snapshot (mobile/web punch UIs read this envelope). MIGRATE.
