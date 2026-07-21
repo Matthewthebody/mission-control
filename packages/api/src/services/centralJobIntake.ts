@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import { canCreateOrEditShootDepartment, hasAuthorityTier } from "../authz/authority.js";
 import type { CentralJobDepartment } from "../domain/centralJobIntake/index.js";
 import { ApiError } from "../errors/apiError.js";
+import { featureFlags } from "../featureFlags.js";
 import type { AuthUser } from "../types/auth.js";
 import type {
   CentralJobActivityLogRecord,
@@ -3008,67 +3009,132 @@ async function ensureEngagementJobForShoot(
     normalized: CentralJobNormalizedPayload;
     effectiveDate: string;
   }
-): Promise<{ job_id: string; link_id: string; created: boolean }> {
+): Promise<{ job_id: string; link_id: string; created: boolean; reused: boolean }> {
   const departmentType = mapIntakeDepartmentToJobDepartment(input.normalized.department);
-  const jobResult = await client.query<{ id: string; created: boolean }>(
-    `
-      INSERT INTO jobs (
-        tenant_id, department_type, title, job_status, job_number, legacy_shoot_id,
-        organization_id, primary_location_id, primary_contact_id, scheduled_start_at,
-        account_owner_user_id
-      )
-      VALUES ($1, $2::job_department_type, $3, 'confirmed', $4, $5, $6, $7, $8, ($9::date)::timestamptz, $10)
-      ON CONFLICT (legacy_shoot_id) DO UPDATE SET
-        title = EXCLUDED.title,
-        job_number = COALESCE(jobs.job_number, EXCLUDED.job_number),
-        organization_id = COALESCE(EXCLUDED.organization_id, jobs.organization_id),
-        primary_location_id = COALESCE(EXCLUDED.primary_location_id, jobs.primary_location_id),
-        primary_contact_id = COALESCE(EXCLUDED.primary_contact_id, jobs.primary_contact_id),
-        scheduled_start_at = EXCLUDED.scheduled_start_at,
-        updated_at = now()
-      RETURNING id, (xmax = 0) AS created
-    `,
-    [
-      auth.tenantId,
-      departmentType,
-      input.title,
-      input.jobNumber,
-      input.shootId,
-      input.normalized.organization_id,
-      input.normalized.location_id,
-      input.normalized.primary_contact_id,
-      input.effectiveDate,
-      input.normalized.account_owner_user_id
-    ]
-  );
-  const jobId = jobResult.rows[0].id;
-  const created = jobResult.rows[0].created;
+  // Engagement key: the same current-term lookup the dated_commitment snapshot
+  // captures, resolved once here for reuse + persisted on the Job.
+  const serviceTermId = input.normalized.organization_id
+    ? ((
+        await client.query<{ id: string }>(
+          `
+            SELECT st.id
+            FROM school_service_term st
+            WHERE st.tenant_id = $1 AND st.organization_id = $2 AND st.status = 'current'
+            ORDER BY st.created_at DESC
+            LIMIT 1
+          `,
+          [auth.tenantId, input.normalized.organization_id]
+        )
+      ).rows[0]?.id ?? null)
+    : null;
 
+  // A1 ratified semantics: one engagement Job → many Shoots. If this shoot has
+  // no Job yet but an engagement already exists for the same org + service
+  // term + department, LINK to it (additional day) instead of minting a 1:1
+  // Job. legacy_shoot_id idempotency stays first so re-publish never re-keys.
+  let jobId: string | null = null;
+  let created = false;
+  let reused = false;
+  const existingByShoot = await client.query<{ id: string }>(
+    "SELECT id FROM jobs WHERE tenant_id = $1 AND legacy_shoot_id = $2 LIMIT 1",
+    [auth.tenantId, input.shootId]
+  );
+  if (existingByShoot.rows[0]) {
+    jobId = existingByShoot.rows[0].id;
+  } else if (featureFlags.intakeEngagementReuseV1 && input.normalized.organization_id && serviceTermId) {
+    const engagement = await client.query<{ id: string }>(
+      `
+        SELECT id
+        FROM jobs
+        WHERE tenant_id = $1
+          AND organization_id = $2
+          AND service_term_id = $3
+          AND department_type = $4::job_department_type
+          AND archived_at IS NULL
+          AND job_status <> 'cancelled'::job_status_type
+        ORDER BY created_at ASC
+        LIMIT 1
+      `,
+      [auth.tenantId, input.normalized.organization_id, serviceTermId, departmentType]
+    );
+    if (engagement.rows[0]) {
+      jobId = engagement.rows[0].id;
+      reused = true;
+    }
+  }
+
+  if (!jobId) {
+    const jobResult = await client.query<{ id: string; created: boolean }>(
+      `
+        INSERT INTO jobs (
+          tenant_id, department_type, title, job_status, job_number, legacy_shoot_id,
+          organization_id, primary_location_id, primary_contact_id, scheduled_start_at,
+          account_owner_user_id, service_term_id
+        )
+        VALUES ($1, $2::job_department_type, $3, 'confirmed', $4, $5, $6, $7, $8, ($9::date)::timestamptz, $10, $11)
+        ON CONFLICT (legacy_shoot_id) DO UPDATE SET
+          title = EXCLUDED.title,
+          job_number = COALESCE(jobs.job_number, EXCLUDED.job_number),
+          organization_id = COALESCE(EXCLUDED.organization_id, jobs.organization_id),
+          primary_location_id = COALESCE(EXCLUDED.primary_location_id, jobs.primary_location_id),
+          primary_contact_id = COALESCE(EXCLUDED.primary_contact_id, jobs.primary_contact_id),
+          scheduled_start_at = EXCLUDED.scheduled_start_at,
+          service_term_id = COALESCE(jobs.service_term_id, EXCLUDED.service_term_id),
+          updated_at = now()
+        RETURNING id, (xmax = 0) AS created
+      `,
+      [
+        auth.tenantId,
+        departmentType,
+        input.title,
+        input.jobNumber,
+        input.shootId,
+        input.normalized.organization_id,
+        input.normalized.location_id,
+        input.normalized.primary_contact_id,
+        input.effectiveDate,
+        input.normalized.account_owner_user_id,
+        serviceTermId
+      ]
+    );
+    jobId = jobResult.rows[0].id;
+    created = jobResult.rows[0].created;
+  }
+
+  const relationshipType = reused ? "additional_day" : "primary";
+  const linkReason = reused ? "intake_additional_day" : "intake_primary";
+  const reasonText = reused
+    ? "Shoot linked to the existing engagement Job by central intake publish (same organization, service term, and department)"
+    : "Job and Shoot created together by central intake publish";
   const linkResult = await client.query<{ id: string; created: boolean }>(
     `
       INSERT INTO job_shoot_links (
         tenant_id, job_id, shoot_id, link_reason, relationship_type, source, status,
         linked_by_user_id, linked_at, reason
       )
-      VALUES ($1, $2, $3, 'intake_primary', 'primary', 'intake', 'confirmed', $4, now(),
-              'Job and Shoot created together by central intake publish')
+      VALUES ($1, $2, $3, $5, $6, 'intake', 'confirmed', $4, now(), $7)
       ON CONFLICT (tenant_id, job_id, shoot_id) DO UPDATE SET
         status = 'confirmed',
         linked_at = COALESCE(job_shoot_links.linked_at, now()),
         updated_at = now()
       RETURNING id, (xmax = 0) AS created
     `,
-    [auth.tenantId, jobId, input.shootId, auth.id]
+    [auth.tenantId, jobId, input.shootId, auth.id, linkReason, relationshipType, reasonText]
   );
   const linkId = linkResult.rows[0].id;
   if (linkResult.rows[0].created) {
     await client.query(
       `INSERT INTO job_shoot_link_event (tenant_id, link_id, event_type, to_status, actor_user_id, metadata)
        VALUES ($1, $2, 'confirmed', 'confirmed', $3, $4::jsonb)`,
-      [auth.tenantId, linkId, auth.id, JSON.stringify({ source: "intake", shoot_id: input.shootId, job_id: jobId })]
+      [
+        auth.tenantId,
+        linkId,
+        auth.id,
+        JSON.stringify({ source: "intake", shoot_id: input.shootId, job_id: jobId, relationship_type: relationshipType })
+      ]
     );
   }
-  return { job_id: jobId, link_id: linkId, created };
+  return { job_id: jobId, link_id: linkId, created, reused };
 }
 
 async function ensureProductionShells(
@@ -3512,7 +3578,8 @@ export async function publishDraftJob(
   await writeActivityLog(client, auth, shootId, "engagement_job_linked", {
     job_id: engagement.job_id,
     link_id: engagement.link_id,
-    engagement_created: engagement.created
+    engagement_created: engagement.created,
+    engagement_reused: engagement.reused
   });
 
   if (downstream.production_project_ids.length > 0) {

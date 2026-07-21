@@ -15,6 +15,9 @@ export const featureFlags = {
   get jobCloseoutV1() {
     return readBooleanFlag("JOB_CLOSEOUT_V1_ENABLED", config.JOB_CLOSEOUT_V1_ENABLED);
   },
+  get intakeEngagementReuseV1() {
+    return readBooleanFlag("INTAKE_ENGAGEMENT_REUSE_V1_ENABLED", config.INTAKE_ENGAGEMENT_REUSE_V1_ENABLED);
+  },
   get complianceWorkspaceV1() {
     return readBooleanFlag("COMPLIANCE_WORKSPACE_V1_ENABLED", config.COMPLIANCE_WORKSPACE_V1_ENABLED);
   },

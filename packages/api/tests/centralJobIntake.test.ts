@@ -941,9 +941,10 @@ describe("central job intake publish pipeline", () => {
     expect(Number(persistedDownstream.rows[0].production_count)).toBeGreaterThan(0);
     expect(Number(persistedDownstream.rows[0].staffing_count)).toBeGreaterThan(0);
 
-    // Convergence slice 1 (owner-ratified 2026-07-13): publish also creates the
-    // Job engagement row and the CONFIRMED job_shoot_links row in the same
-    // transaction — new work is never spine-orphaned.
+    // Convergence slice 1 + A1 semantics: publish links the shoot to a CONFIRMED
+    // engagement Job in the same transaction — created fresh, or REUSED when an
+    // engagement already exists for the org + service term (one Job → many
+    // Shoots), so the join is via the link, not a per-shoot legacy_shoot_id.
     const engagement = await dbPool.query<{
       job_id: string;
       job_status: string;
@@ -954,17 +955,95 @@ describe("central job intake publish pipeline", () => {
       `
         SELECT j.id::text AS job_id, j.job_status::text, j.job_number,
                l.status AS link_status, l.source AS link_source
-        FROM jobs j
-        JOIN job_shoot_links l ON l.tenant_id = j.tenant_id AND l.job_id = j.id AND l.shoot_id = $2::uuid
-        WHERE j.tenant_id = $1 AND j.legacy_shoot_id = $2::uuid
+        FROM job_shoot_links l
+        JOIN jobs j ON j.id = l.job_id AND j.tenant_id = l.tenant_id
+        WHERE l.tenant_id = $1 AND l.shoot_id = $2::uuid AND l.status = 'confirmed'
       `,
       [leadershipAuth.tenantId, draftId]
     );
     expect(engagement.rows).toHaveLength(1);
     expect(engagement.rows[0].job_status).toBe("confirmed");
-    expect(engagement.rows[0].job_number).toBe(publishResponse.body.intake.job.job_number);
+    expect(engagement.rows[0].job_number).toBeTruthy();
     expect(engagement.rows[0].link_status).toBe("confirmed");
     expect(engagement.rows[0].link_source).toBe("intake");
+  });
+
+  it("reuses the engagement Job for a second shoot in the same org + service term (A1 one Job → many Shoots)", async () => {
+    const tenantId = leadershipAuth.tenantId as string;
+    // The engagement key needs a CURRENT service term for the org.
+    const existingTerm = await dbPool.query<{ id: string }>(
+      `SELECT id FROM school_service_term WHERE tenant_id = $1 AND organization_id = $2 AND status = 'current' ORDER BY created_at DESC LIMIT 1`,
+      [tenantId, schoolsOrganizationId]
+    );
+    const termId =
+      existingTerm.rows[0]?.id ??
+      (
+        await dbPool.query<{ id: string }>(
+          `INSERT INTO school_service_term (tenant_id, organization_id, period_label, status)
+           VALUES ($1, $2, 'A1 engagement test term', 'current') RETURNING id`,
+          [tenantId, schoolsOrganizationId]
+        )
+      ).rows[0].id;
+
+    const draftPayload = (offsetDays: number) => ({
+      department: "schools" as const,
+      job_type: "schools_underclass_portraits",
+      organization_id: schoolsOrganizationId,
+      location_id: schoolsLocationId,
+      primary_contact_id: schoolsPrimaryContactId,
+      job_owner_user_id: schoolsOfficeUserId,
+      start_date: futureSchoolsDate(offsetDays),
+      start_time: "08:00",
+      timezone: "America/Chicago",
+      production_required: true,
+      staffing_required: true,
+      staffing_estimate: 2,
+      delivery_due_date: futureSchoolsDate(offsetDays + 7),
+      request_source: "manual" as const,
+      school_detail: {
+        school_job_type: "underclass",
+        roster_status: "received",
+        id_required: true,
+        id_sort_method: "alpha",
+        yearbook_required: false
+      }
+    });
+
+    // Offsets far beyond every other fixture date — the duplicate hard-block
+    // keys on org+type+location+START DATE, so shared dates collide.
+    const first = await createDraft(leadershipToken, draftPayload(203));
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    const firstShootId = first.body.job.id as string;
+    expect((await duplicateCheck(leadershipToken, firstShootId)).status).toBe(200);
+    const firstPublish = await publishDraft(leadershipToken, firstShootId);
+    expect(firstPublish.status, JSON.stringify(firstPublish.body)).toBe(200);
+
+    const second = await createDraft(leadershipToken, draftPayload(204));
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
+    const secondShootId = second.body.job.id as string;
+    expect((await duplicateCheck(leadershipToken, secondShootId)).status).toBe(200);
+    const secondPublish = await publishDraft(leadershipToken, secondShootId);
+    expect(secondPublish.status, JSON.stringify(secondPublish.body)).toBe(200);
+
+    const links = await dbPool.query<{ shoot_id: string; job_id: string; relationship_type: string; status: string }>(
+      `SELECT shoot_id::text, job_id::text, relationship_type, status
+       FROM job_shoot_links WHERE tenant_id = $1 AND shoot_id = ANY($2::uuid[]) ORDER BY linked_at ASC`,
+      [tenantId, [firstShootId, secondShootId]]
+    );
+    expect(links.rows).toHaveLength(2);
+    // One engagement Job, both shoots confirmed onto it.
+    expect(links.rows[0].job_id).toBe(links.rows[1].job_id);
+    expect(links.rows.every((row) => row.status === "confirmed")).toBe(true);
+    const secondLink = links.rows.find((row) => row.shoot_id === secondShootId);
+    expect(secondLink?.relationship_type).toBe("additional_day");
+
+    // The engagement key resolves to exactly one Job.
+    const engagementJobs = await dbPool.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM jobs
+       WHERE tenant_id = $1 AND organization_id = $2 AND service_term_id = $3 AND department_type = 'schools'`,
+      [tenantId, schoolsOrganizationId, termId]
+    );
+    expect(Number(engagementJobs.rows[0].n)).toBe(1);
   });
 
   it("captures a dated-commitment snapshot at publish that stays stable when the contact is later edited", async () => {

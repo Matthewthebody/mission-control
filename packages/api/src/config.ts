@@ -354,6 +354,13 @@ const configSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === undefined ? true : value === "true"),
+  // Convergence A1 (ratified): intake publish REUSES the engagement Job for a
+  // second shoot in the same org + service term + department instead of
+  // minting a per-shoot 1:1 Job. Default ON; env false = per-shoot fallback.
+  INTAKE_ENGAGEMENT_REUSE_V1_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value === undefined ? true : value === "true"),
   JOB_CLOSEOUT_V1_ENABLED: z
     .string()
     .optional()
