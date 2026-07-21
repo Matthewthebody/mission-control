@@ -18,6 +18,9 @@ export const featureFlags = {
   get intakeEngagementReuseV1() {
     return readBooleanFlag("INTAKE_ENGAGEMENT_REUSE_V1_ENABLED", config.INTAKE_ENGAGEMENT_REUSE_V1_ENABLED);
   },
+  get mileageAnswerPendingV1() {
+    return readBooleanFlag("MILEAGE_ANSWER_PENDING_V1_ENABLED", config.MILEAGE_ANSWER_PENDING_V1_ENABLED);
+  },
   get complianceWorkspaceV1() {
     return readBooleanFlag("COMPLIANCE_WORKSPACE_V1_ENABLED", config.COMPLIANCE_WORKSPACE_V1_ENABLED);
   },

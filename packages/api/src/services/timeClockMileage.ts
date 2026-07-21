@@ -7,6 +7,7 @@ import type {
 } from "../types/timeClock.js";
 import { ApiError } from "../errors/apiError.js";
 import { canFinalizePayroll, canManagePayrollPeriods } from "../authz/authority.js";
+import { featureFlags } from "../featureFlags.js";
 import { createAuditLog } from "./audit.js";
 import { haversineMiles } from "./geo.js";
 import { getStudioLocation } from "./maps.js";
@@ -32,6 +33,7 @@ type MileageCandidateEvaluation = {
   shoot_code: string | null;
   shoot_date: string;
   submit_for_mileage: boolean;
+  mileage_response: "pending" | "eligible" | "declined";
   vehicle_type: MileageVehicleType | null;
   location_name: string | null;
   latitude: number | null;
@@ -191,6 +193,7 @@ export type MileageReimbursementListPayload = {
 const REVIEW_REASON_LABELS: Record<MileageReimbursementReasonCode, string> = {
   missing_post_shoot_evaluation: "Post-Shoot Evaluation still missing",
   not_mileage_eligible: "Employee is not mileage eligible",
+  answer_pending: "Waiting on the photographer's mileage answer",
   submit_declined: "Mileage was declined on the evaluation",
   company_vehicle: "Company Vehicle is not reimbursable",
   carpool_passenger: "Carpool passengers are not reimbursed",
@@ -309,6 +312,7 @@ async function loadSubmittedEvaluations(
         s.shoot_code,
         pse.shoot_date::text AS shoot_date,
         pse.submit_for_mileage,
+        pse.mileage_response,
         pse.vehicle_type::text AS vehicle_type,
         sl.name AS location_name,
         sl.latitude,
@@ -485,7 +489,25 @@ function summarizeCandidateStatus(input: {
 
   const studio = getStudioLocation();
   const sources = input.evaluations.map((evaluation) => {
-    if (!evaluation.submit_for_mileage) {
+    // C7 tri-state: an explicit yes (submit_for_mileage) is always eligible —
+    // in-form answers need no writer change. On false, "pending" means the
+    // question was never answered (honest review state), "declined" means the
+    // photographer said no. Flag off = legacy boolean semantics.
+    const response = evaluation.submit_for_mileage
+      ? "eligible"
+      : featureFlags.mileageAnswerPendingV1
+        ? evaluation.mileage_response
+        : "declined";
+    if (response === "pending") {
+      return buildSourceRow({
+        evaluation,
+        zone: null,
+        distanceMiles: null,
+        eligibleForSelection: false,
+        reviewReasonCode: "answer_pending"
+      });
+    }
+    if (response === "declined") {
       return buildSourceRow({
         evaluation,
         zone: null,
@@ -567,7 +589,9 @@ function summarizeCandidateStatus(input: {
   }
 
   const reviewSource = sources.find((source) =>
-    ["other_needs_review", "missing_location_coordinates", "missing_zone_match"].includes(String(source.reviewReasonCode))
+    ["answer_pending", "other_needs_review", "missing_location_coordinates", "missing_zone_match"].includes(
+      String(source.reviewReasonCode)
+    )
   );
   if (reviewSource?.reviewReasonCode) {
     return { status: "review_required", reasonCode: reviewSource.reviewReasonCode, sources, selected: null };

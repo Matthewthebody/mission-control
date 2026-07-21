@@ -149,6 +149,36 @@ describe("mileage eligibility response", () => {
     expect(res.body.error).toMatch(/evaluation is required/i);
   });
 
+  it("an unanswered evaluation is answer_pending, never silently declined (C7)", async () => {
+    // Only one ACTIVE profile may exist per employee — temporarily backdate the
+    // live one so it covers the historical fixture date, restored in finally.
+    const original = await pool.query<{ id: string; effective_date: string }>(
+      `SELECT id, effective_date::text AS effective_date FROM employee_pay_profile
+       WHERE tenant_id = $1 AND employee_id = $2 AND active_status = true LIMIT 1`,
+      [tenantId, photographerId]
+    );
+    expect(original.rows.length).toBe(1);
+    await pool.query("UPDATE employee_pay_profile SET effective_date = '2000-01-01' WHERE id = $1", [
+      original.rows[0].id
+    ]);
+    try {
+      await restoreMileage(photographerId);
+      const row = await pool.query<{ status: string; review_reason_code: string | null }>(
+        `SELECT status::text, review_reason_code::text
+         FROM mileage_reimbursement
+         WHERE tenant_id = $1 AND employee_id = $2 AND work_date = $3::date`,
+        [tenantId, photographerId, shootDate]
+      );
+      expect(row.rows[0]?.status).toBe("review_required");
+      expect(row.rows[0]?.review_reason_code).toBe("answer_pending");
+    } finally {
+      await pool.query("UPDATE employee_pay_profile SET effective_date = $2::date WHERE id = $1", [
+        original.rows[0].id,
+        original.rows[0].effective_date
+      ]);
+    }
+  });
+
   it("records declined honestly: canonical status is never payable", async () => {
     const res = await post(photographerToken, { shoot_id: shootId, eligible: false });
     expect(res.status).toBe(200);

@@ -361,6 +361,13 @@ const configSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === undefined ? true : value === "true"),
+  // C7 (ratified): unanswered mileage questions surface as answer_pending
+  // review items instead of silently reading as declined. Env false = legacy
+  // boolean semantics.
+  MILEAGE_ANSWER_PENDING_V1_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value === undefined ? true : value === "true"),
   JOB_CLOSEOUT_V1_ENABLED: z
     .string()
     .optional()

@@ -72,6 +72,7 @@ export type MileageReimbursementStatus =
 export type MileageReimbursementReasonCode =
   | "missing_post_shoot_evaluation"
   | "not_mileage_eligible"
+  | "answer_pending"
   | "submit_declined"
   | "company_vehicle"
   | "carpool_passenger"

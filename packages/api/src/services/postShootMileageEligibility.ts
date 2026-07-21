@@ -101,10 +101,18 @@ export async function recordMileageEligibilityResponse(
     `
       UPDATE post_shoot_evaluation
       SET submit_for_mileage = $2,
-          vehicle_type = $3::mileage_vehicle_type
+          vehicle_type = $3::mileage_vehicle_type,
+          mileage_response = $4
       WHERE id = $1
     `,
-    [evaluation.id, input.eligible, input.eligible ? input.vehicleType : null]
+    [
+      evaluation.id,
+      input.eligible,
+      input.eligible ? input.vehicleType : null,
+      // C7: the answer is explicit now — a recorded "no" is a decline, never
+      // confusable with the unanswered default.
+      input.eligible ? "eligible" : "declined"
+    ]
   );
 
   await recalculateMileageForEmployeeDate(client, {
