@@ -1179,6 +1179,73 @@ async function createAutoCloseArtifacts(client: any, shift: any, now: Date) {
   });
 }
 
+// G4 slice 1: ranked reminder ladders over the SAME compliance flags this sweep
+// already scans (never a parallel pipeline). Stage state lives in the flag's
+// metadata jsonb (laborSweep's monotonic-stage-gate pattern, no new table); a
+// stage fires at most once per flag, escalating employee → lead → leadership.
+type ComplianceReminderStage = { key: string; afterMinutes: number };
+
+const CLOSEOUT_REMINDER_LADDER: ComplianceReminderStage[] = [
+  { key: "employee_follow_up", afterMinutes: CLOSEOUT_FOLLOW_UP_THRESHOLD_HOURS * 60 },
+  { key: "lead_follow_up", afterMinutes: 240 },
+  { key: "leadership_follow_up", afterMinutes: 480 }
+];
+
+const END_OF_DAY_REMINDER_LADDER: ComplianceReminderStage[] = [
+  { key: "leadership_escalation", afterMinutes: END_OF_DAY_ESCALATION_THRESHOLD_MINUTES },
+  { key: "owner_escalation", afterMinutes: 360 }
+];
+
+function resolveDueComplianceStage(
+  stages: ComplianceReminderStage[],
+  firstDetectedAt: string,
+  lastStageKey: string | null
+): { stage: ComplianceReminderStage; rank: number } | null {
+  const ageMinutes = (Date.now() - new Date(firstDetectedAt).getTime()) / 60_000;
+  const lastRank = lastStageKey ? stages.findIndex((stage) => stage.key === lastStageKey) + 1 : 0;
+  let due: { stage: ComplianceReminderStage; rank: number } | null = null;
+  stages.forEach((stage, index) => {
+    if (ageMinutes >= stage.afterMinutes) {
+      due = { stage, rank: index + 1 };
+    }
+  });
+  return due && (due as { rank: number }).rank > lastRank ? due : null;
+}
+
+async function recordComplianceReminderStage(client: any, flagId: string, stageKey: string) {
+  await client.query(
+    `
+      UPDATE time_clock_compliance_flag
+      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'last_reminder_stage', $2::text,
+            'last_reminder_at', now()::text,
+            'reminder_count', COALESCE((metadata->>'reminder_count')::int, 0) + 1
+          ),
+          updated_at = now()
+      WHERE id = $1
+    `,
+    [flagId, stageKey]
+  );
+}
+
+async function getOwnerRecipients(client: any, tenantId: string) {
+  const { rows } = await client.query(
+    `
+      SELECT DISTINCT au.id
+      FROM app_user au
+      LEFT JOIN user_authority_assignment uaa
+        ON uaa.user_id = au.id AND uaa.tenant_id = au.tenant_id
+      LEFT JOIN user_role ur ON ur.user_id = au.id AND ur.tenant_id = au.tenant_id
+      LEFT JOIN role r ON r.id = ur.role_id
+      WHERE au.tenant_id = $1
+        AND au.status = 'active'
+        AND (uaa.authority_tier = 'super_admin' OR r.code = 'owner_admin')
+    `,
+    [tenantId]
+  );
+  return rows.map((row: any) => String(row.id));
+}
+
 async function queueComplianceFollowUps(client: any, tenantId: string) {
   const { rows } = await client.query(
     `
@@ -1189,8 +1256,10 @@ async function queueComplianceFollowUps(client: any, tenantId: string) {
         flag.shoot_id,
         flag.item_type::text AS item_type,
         flag.first_detected_at,
+        flag.metadata->>'last_reminder_stage' AS last_reminder_stage,
         employee.full_name AS employee_name,
         shift.title AS shift_title,
+        shift.manager_user_id,
         shoot.title AS shoot_title
       FROM time_clock_compliance_flag flag
       JOIN app_user employee
@@ -1207,8 +1276,15 @@ async function queueComplianceFollowUps(client: any, tenantId: string) {
     [tenantId, CLOSEOUT_FOLLOW_UP_THRESHOLD_HOURS]
   );
 
-  const today = dateBucket(new Date());
   for (const row of rows) {
+    const due = resolveDueComplianceStage(
+      CLOSEOUT_REMINDER_LADDER,
+      String(row.first_detected_at),
+      row.last_reminder_stage ?? null
+    );
+    if (!due) {
+      continue;
+    }
     const subject = row.shoot_title ?? row.shift_title ?? "this shoot";
     const body =
       row.item_type === "mileage_blocked_missing_post_shoot_evaluation"
@@ -1216,18 +1292,38 @@ async function queueComplianceFollowUps(client: any, tenantId: string) {
         : row.item_type === "missing_post_shoot_evaluation"
           ? `Post-Shoot Evaluation is still missing for ${subject}.`
           : `Setup Photo is still missing for ${subject}.`;
+    const recipients = new Set<string>([String(row.employee_id)]);
+    if (due.stage.key === "lead_follow_up") {
+      for (const userId of await findShootLeaderRecipients(client, {
+        tenant_id: tenantId,
+        shoot_id: row.shoot_id ?? null,
+        manager_user_id: row.manager_user_id ?? null,
+        assigned_user_id: row.employee_id
+      })) {
+        recipients.add(userId);
+      }
+    }
+    if (due.stage.key === "leadership_follow_up") {
+      for (const userId of await getLeadershipRecipients(client, tenantId)) {
+        recipients.add(userId);
+      }
+    }
     await queueNotification(client, {
       tenantId,
-      recipientUserIds: [String(row.employee_id)],
+      recipientUserIds: [...recipients],
       shiftId: row.shift_id ?? null,
       shootId: row.shoot_id ?? null,
       notificationType: "attendance.closeout_follow_up",
       title: `Closeout follow-up for ${subject}`,
       body,
-      priority: row.item_type === "mileage_blocked_missing_post_shoot_evaluation" ? "high" : "normal",
-      dedupe: `closeout-follow-up:${row.id}:${today}`,
+      priority:
+        due.stage.key !== "employee_follow_up" || row.item_type === "mileage_blocked_missing_post_shoot_evaluation"
+          ? "high"
+          : "normal",
+      dedupe: `closeout-ladder:${row.id}:${due.stage.key}`,
       deepLink: row.shift_id ? `/attendance/shifts/${row.shift_id}` : "/compliance"
     });
+    await recordComplianceReminderStage(client, String(row.id), due.stage.key);
   }
 }
 
@@ -1241,6 +1337,7 @@ async function queueEndOfDayEscalations(client: any, tenantId: string) {
         flag.shoot_id,
         flag.session_id,
         flag.first_detected_at,
+        flag.metadata->>'last_reminder_stage' AS last_reminder_stage,
         employee.full_name AS employee_name,
         shift.title AS shift_title
       FROM time_clock_compliance_flag flag
@@ -1257,20 +1354,36 @@ async function queueEndOfDayEscalations(client: any, tenantId: string) {
   );
 
   const leadershipRecipients = await getLeadershipRecipients(client, tenantId);
-  const bucket = sixHourBucket(new Date());
   for (const row of rows) {
+    const due = resolveDueComplianceStage(
+      END_OF_DAY_REMINDER_LADDER,
+      String(row.first_detected_at),
+      row.last_reminder_stage ?? null
+    );
+    if (!due) {
+      continue;
+    }
+    const recipients = new Set<string>([...leadershipRecipients, String(row.employee_id)]);
+    if (due.stage.key === "owner_escalation") {
+      // B4 (owner-ratified): payroll-blocking alerts stay owner-only IN-APP —
+      // the final rung fans out to the owner, never a Teams route.
+      for (const userId of await getOwnerRecipients(client, tenantId)) {
+        recipients.add(userId);
+      }
+    }
     await queueNotification(client, {
       tenantId,
-      recipientUserIds: [...new Set([...leadershipRecipients, String(row.employee_id)])],
+      recipientUserIds: [...recipients],
       shiftId: row.shift_id ?? null,
       shootId: row.shoot_id ?? null,
       notificationType: "attendance.end_of_day_confirmation_escalation",
       title: `End-of-day confirmation still unresolved`,
       body: `${row.employee_name} still needs an end-of-day confirmation for ${row.shift_title ?? "the latest shift"}. Payroll confidence remains blocked until it is confirmed or corrected.`,
       priority: "high",
-      dedupe: `end-of-day-escalation:${row.session_id ?? row.id}:${bucket}`,
+      dedupe: `end-of-day-ladder:${row.session_id ?? row.id}:${due.stage.key}`,
       deepLink: "/compliance"
     });
+    await recordComplianceReminderStage(client, String(row.id), due.stage.key);
   }
 }
 

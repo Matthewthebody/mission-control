@@ -929,6 +929,60 @@ describe("attendance monitor worker", () => {
     );
   }, 60000);
 
+  it("escalates compliance reminders through the ranked ladder — one stage per flag, monotonic across retries", async () => {
+    const workDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const session = (
+      await pool.query(
+        `INSERT INTO time_session (tenant_id, employee_id, work_date, status)
+         VALUES ($1,$2,$3::date,'needs_end_of_day_confirmation') RETURNING id`,
+        [tenantId, photoId, workDate]
+      )
+    ).rows[0];
+    // Aged past the FINAL rung of each ladder: EOD owner escalation (360m),
+    // closeout leadership follow-up (480m).
+    await insertOpenComplianceFlag({
+      employeeId: photoId,
+      itemType: "unresolved_end_of_day_confirmation",
+      sessionId: session.id,
+      ageMinutes: 400
+    });
+    await insertOpenComplianceFlag({ employeeId: photoId, itemType: "missing_setup_photo", ageMinutes: 500 });
+
+    const countNotifications = async () =>
+      (
+        await pool.query(
+          `SELECT payload->>'notification_type' AS notification_type
+           FROM app_event
+           WHERE tenant_id = $1 AND event_type = 'notification.dispatch'
+             AND payload->>'notification_type' IN ('attendance.end_of_day_confirmation_escalation','attendance.closeout_follow_up')`,
+          [tenantId]
+        )
+      ).rows;
+
+    const baseline = await countNotifications();
+    await monitorAttendanceForTenant(tenantId);
+    const firstPass = await countNotifications();
+    expect(firstPass.length).toBeGreaterThan(baseline.length);
+
+    // The monotonic gate jumps straight to the highest due rung and records it.
+    const stages = await pool.query(
+      `SELECT item_type::text, metadata->>'last_reminder_stage' AS stage, (metadata->>'reminder_count')::int AS reminder_count
+       FROM time_clock_compliance_flag
+       WHERE tenant_id = $1 AND employee_id = $2 AND status = 'open'
+         AND item_type IN ('unresolved_end_of_day_confirmation','missing_setup_photo')`,
+      [tenantId, photoId]
+    );
+    const byType = new Map(stages.rows.map((row) => [row.item_type, row]));
+    expect(byType.get("unresolved_end_of_day_confirmation")?.stage).toBe("owner_escalation");
+    expect(byType.get("missing_setup_photo")?.stage).toBe("leadership_follow_up");
+    expect(byType.get("unresolved_end_of_day_confirmation")?.reminder_count).toBe(1);
+
+    // Retry adds nothing: every due stage has already fired.
+    await monitorAttendanceForTenant(tenantId);
+    const secondPass = await countNotifications();
+    expect(secondPass.length).toBe(firstPass.length);
+  }, 60000);
+
   it("auto-closes stale shifts after 45 minutes and creates a review exception", async () => {
     const startsAt = addMinutes(new Date(), -180);
     const endsAt = addMinutes(new Date(), -50);
