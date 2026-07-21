@@ -217,7 +217,9 @@ describe("protected route regression coverage", () => {
 
     expect(statusEvent.status).toBe(201);
     expect(clockIn.status).toBe(201);
-    expect(timeEntries.status).toBe(200);
+    // G2: the deprecated legacy time-entries projection is retired (zero product
+    // consumers) — the field flow no longer includes it.
+    expect(timeEntries.status).toBe(404);
     expect(mileage.status).toBe(200);
     expect(presign.status).toBe(200);
     expect(media.status).toBe(201);

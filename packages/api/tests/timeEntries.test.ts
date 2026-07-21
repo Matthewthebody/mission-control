@@ -143,13 +143,11 @@ describe("clock-out and time entry retrieval", () => {
     expect(clockOut.body.timeEntry.clock_out_at).toBeTruthy();
     expect(Number(clockOut.body.timeEntry.minutes_worked)).toBeGreaterThanOrEqual(0);
 
+    // G2: the deprecated legacy time-entries projection is retired (it had zero
+    // product consumers) — the route must be gone, not silently serving.
     const entries = await request(app)
       .get(`/api/shoots/${shootId}/time-entries`)
       .set("Authorization", `Bearer ${token}`);
-
-    expect(entries.status).toBe(200);
-    expect(entries.headers["x-pmc-canonical-source"]).toBe("canonical_labor_state");
-    expect(entries.headers["x-pmc-compatibility-mode"]).toBe("legacy_time_entry_projection");
-    expect(entries.body.some((entry: { id: string }) => entry.id === clockOut.body.timeEntry.id)).toBe(true);
+    expect(entries.status).toBe(404);
   });
 });

@@ -4083,58 +4083,9 @@ export async function overrideTimeEntryBreakDeduction(
   }
 }
 
-export async function getPayrollSummary(
-  client: PoolClient,
-  auth: AuthUser,
-  filters: { date?: string; dateFrom?: string; dateTo?: string; department?: string; userId?: string } = {}
-) {
-  const effectiveUserId = shouldRestrictShiftList(auth) ? auth.id : filters.userId ?? null;
-  const bounds = filters.date
-    ? getLocalDayBounds(filters.date)
-    : {
-        start: filters.dateFrom ? getLocalDayBounds(filters.dateFrom).start : null,
-        endExclusive: filters.dateTo ? getLocalDayBounds(filters.dateTo).endExclusive : null
-      };
-  const values: unknown[] = [auth.tenantId, bounds.start?.toISOString() ?? null, bounds.endExclusive?.toISOString() ?? null, filters.department ?? null, effectiveUserId];
-  const { rows } = await client.query(
-    `
-      SELECT
-        te.*,
-        ws.title AS shift_title,
-        ws.department,
-        ws.location_name,
-        au.full_name AS user_name,
-        s.shoot_code,
-        (
-          SELECT ARRAY_REMOVE(array_agg(DISTINCT ae.exception_type), NULL)
-          FROM attendance_exception ae
-          WHERE ae.shift_id = te.shift_id
-        ) AS exception_flags
-      FROM time_entry te
-      LEFT JOIN work_shift ws ON ws.id = te.shift_id
-      LEFT JOIN shoot s ON s.id = te.shoot_id
-      JOIN app_user au ON au.id = te.user_id
-      WHERE te.tenant_id = $1
-        AND ($2::timestamptz IS NULL OR te.clock_in_at >= $2::timestamptz)
-        AND ($3::timestamptz IS NULL OR te.clock_in_at < $3::timestamptz)
-        AND ($4::department_code IS NULL OR ws.department = $4::department_code)
-        AND ($5::uuid IS NULL OR te.user_id = $5::uuid)
-      ORDER BY te.clock_in_at DESC
-    `,
-    values
-  );
-
-  return {
-    summary: {
-      gross_hours: Number((rows.reduce((sum, row) => sum + Number(row.gross_minutes ?? 0), 0) / 60).toFixed(2)),
-      break_deduction_hours: Number((rows.reduce((sum, row) => sum + Number(row.break_deduction_minutes ?? 0), 0) / 60).toFixed(2)),
-      payable_hours: Number((rows.reduce((sum, row) => sum + Number(row.approved_payable_minutes ?? row.payable_minutes ?? 0), 0) / 60).toFixed(2)),
-      break_override_count: rows.filter((row) => Boolean(row.break_deduction_overridden)).length,
-      exception_entry_count: rows.filter((row) => Array.isArray(row.exception_flags) && row.exception_flags.length).length
-    },
-    rows
-  };
-}
+// G2 (2026-07-20): the legacy time_entry-based getPayrollSummary that lived here
+// was orphaned dead code — every live caller imports the canonical
+// getPayrollSummary from timeClockPayroll.ts. Deleted, not migrated.
 
 export async function reviewAttendanceException(
   client: PoolClient,

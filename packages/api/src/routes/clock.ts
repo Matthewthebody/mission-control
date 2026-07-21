@@ -4,7 +4,6 @@ import { validateBody } from "../middleware/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAction } from "../middleware/rbac.js";
 import { withClientTransaction } from "../db/tx.js";
-import { listTimeEntriesForActor } from "../services/clock.js";
 import { createPunch } from "../services/attendance.js";
 import type { AuthenticatedRequest } from "../types/http.js";
 import { getRequestMeta } from "../utils/requestMeta.js";
@@ -83,17 +82,8 @@ router.post("/:id/clock-out", requireAuth, requireAction("time.clock"), validate
   }
 });
 
-router.get("/:id/time-entries", requireAuth, requireAction("time_entry.read"), async (req, res, next) => {
-  try {
-    const auth = (req as AuthenticatedRequest).auth;
-    const entries = await withClientTransaction(auth.tenantId, auth.id, async (client) =>
-      listTimeEntriesForActor(client, auth, String(req.params.id))
-    );
-    applyCompatibilityHeaders(res, "legacy_time_entry_projection");
-    return res.json(entries);
-  } catch (error) {
-    return next(error);
-  }
-});
+// G2 (2026-07-20, owner-approved): the deprecated GET /:id/time-entries legacy
+// projection is retired — it had zero product consumers. The clock-in/out
+// bridges above stay; they write through the canonical punch path.
 
 export default router;
