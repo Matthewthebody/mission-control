@@ -6,9 +6,11 @@ import type {
   MileageVehicleType
 } from "../types/timeClock.js";
 import { ApiError } from "../errors/apiError.js";
+import { canFinalizePayroll, canManagePayrollPeriods } from "../authz/authority.js";
 import { createAuditLog } from "./audit.js";
 import { haversineMiles } from "./geo.js";
 import { getStudioLocation } from "./maps.js";
+import { getPayrollCalendarConfig, getPayrollPeriodBounds } from "./payrollPeriods.js";
 import { shouldRestrictShiftList } from "./shiftAccess.js";
 
 type MileageZoneRow = {
@@ -739,6 +741,126 @@ async function upsertReimbursement(client: PoolClient, input: {
   });
 
   return reimbursement;
+}
+
+// G3 (ratified): approved/exported finally get their writer — a dedicated
+// governance transition, deliberately NOT routed through upsertReimbursement so
+// the recalc can never overwrite a payable decision (the SSA-3 guard's premise).
+// Money is unchanged: exports already pay candidate rows; this adds the lock.
+const MILEAGE_TRANSITIONS: Record<"approved" | "exported", MileageReimbursementStatus[]> = {
+  approved: ["candidate", "review_required"],
+  exported: ["approved"]
+};
+
+export async function transitionMileageReimbursement(
+  client: PoolClient,
+  auth: AuthUser,
+  input: { reimbursementId: string; toStatus: "approved" | "exported"; reason?: string | null }
+) {
+  if (input.toStatus === "approved" && !canManagePayrollPeriods(auth)) {
+    throw new ApiError(403, "Approving mileage requires payroll management access");
+  }
+  if (input.toStatus === "exported" && !canFinalizePayroll(auth)) {
+    throw new ApiError(403, "Marking mileage exported is an owner-only payroll action");
+  }
+  const { rows } = await client.query(
+    `SELECT * FROM mileage_reimbursement WHERE tenant_id = $1 AND id = $2 LIMIT 1 FOR UPDATE`,
+    [auth.tenantId, input.reimbursementId]
+  );
+  const row = rows[0];
+  if (!row) {
+    throw new ApiError(404, "Mileage reimbursement not found");
+  }
+  const allowedFrom = MILEAGE_TRANSITIONS[input.toStatus];
+  if (!allowedFrom.includes(row.status)) {
+    throw new ApiError(409, `Mileage cannot move from '${row.status}' to '${input.toStatus}'`, {
+      code: "mileage_invalid_transition",
+      status: row.status
+    });
+  }
+  const updated = await client.query(
+    `UPDATE mileage_reimbursement
+     SET status = $3::mileage_reimbursement_status, updated_at = now()
+     WHERE tenant_id = $1 AND id = $2
+     RETURNING *`,
+    [auth.tenantId, input.reimbursementId, input.toStatus]
+  );
+  await createAuditLog(client, {
+    tenantId: auth.tenantId,
+    actorUserId: auth.id,
+    targetUserId: row.employee_id,
+    action: input.toStatus === "approved" ? "time_clock.mileage.approved" : "time_clock.mileage.exported",
+    entityType: "mileage_reimbursement",
+    entityId: input.reimbursementId,
+    previousValues: { status: row.status },
+    newValues: { status: input.toStatus },
+    reasonComment: input.reason ?? null,
+    metadata: { work_date: row.work_date }
+  });
+  return updated.rows[0];
+}
+
+// G3: per-employee mileage reconciliation for the payroll period containing the
+// anchor date — canonical mileage_reimbursement vs legacy mileage_claim totals,
+// the period-bound version of the list view's global transition block.
+export async function getMileageReconciliationSummary(
+  client: PoolClient,
+  auth: AuthUser,
+  input: { anchorDate: string }
+) {
+  if (!canManagePayrollPeriods(auth)) {
+    throw new ApiError(403, "Mileage reconciliation requires payroll management access");
+  }
+  const calendar = await getPayrollCalendarConfig(client, auth.tenantId);
+  const bounds = getPayrollPeriodBounds(calendar, input.anchorDate);
+  const { rows } = await client.query(
+    `
+      WITH canonical AS (
+        SELECT employee_id, COUNT(*)::int AS canonical_day_count,
+               SUM(COALESCE(reimbursement_amount, 0)) AS canonical_total,
+               COUNT(*) FILTER (WHERE status = 'review_required')::int AS review_required_count,
+               COUNT(*) FILTER (WHERE status IN ('approved', 'exported'))::int AS approved_or_exported_count
+        FROM mileage_reimbursement
+        WHERE tenant_id = $1 AND work_date BETWEEN $2::date AND $3::date
+        GROUP BY employee_id
+      ),
+      legacy AS (
+        SELECT mc.user_id AS employee_id, COUNT(*)::int AS legacy_claim_count,
+               SUM(COALESCE(mc.reimbursement_amount, 0)) AS legacy_total
+        FROM mileage_claim mc
+        JOIN shoot s ON s.id = mc.shoot_id
+        WHERE mc.tenant_id = $1 AND s.shoot_date BETWEEN $2::date AND $3::date
+        GROUP BY mc.user_id
+      )
+      SELECT
+        COALESCE(c.employee_id, l.employee_id)::text AS employee_id,
+        au.full_name AS employee_name,
+        COALESCE(c.canonical_day_count, 0) AS canonical_day_count,
+        COALESCE(c.canonical_total, 0)::numeric(10,2)::text AS canonical_total,
+        COALESCE(c.review_required_count, 0) AS review_required_count,
+        COALESCE(c.approved_or_exported_count, 0) AS approved_or_exported_count,
+        COALESCE(l.legacy_claim_count, 0) AS legacy_claim_count,
+        COALESCE(l.legacy_total, 0)::numeric(10,2)::text AS legacy_total,
+        (COALESCE(c.canonical_total, 0) - COALESCE(l.legacy_total, 0))::numeric(10,2)::text AS amount_delta,
+        (ABS(COALESCE(c.canonical_total, 0) - COALESCE(l.legacy_total, 0)) < 0.01) AS amount_match
+      FROM canonical c
+      FULL OUTER JOIN legacy l ON l.employee_id = c.employee_id
+      JOIN app_user au ON au.id = COALESCE(c.employee_id, l.employee_id)
+      ORDER BY ABS(COALESCE(c.canonical_total, 0) - COALESCE(l.legacy_total, 0)) DESC, au.full_name ASC
+    `,
+    [auth.tenantId, bounds.start, bounds.end]
+  );
+  return {
+    period_start: bounds.start,
+    period_end: bounds.end,
+    source: {
+      canonical: "mileage_reimbursement",
+      legacy: "mileage_claim (retirement comparison)"
+    },
+    employee_count: rows.length,
+    mismatch_count: rows.filter((row: { amount_match: boolean }) => !row.amount_match).length,
+    rows
+  };
 }
 
 export async function recalculateMileageForEmployeeDate(client: PoolClient, input: {

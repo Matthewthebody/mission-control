@@ -33,7 +33,11 @@ import {
   getTimeClockShellControlState
 } from "../services/timeClockRuntime.js";
 import { listTimeClockComplianceFlags } from "../services/timeClockCompliance.js";
-import { listMileageReimbursements } from "../services/timeClockMileage.js";
+import {
+  getMileageReconciliationSummary,
+  listMileageReimbursements,
+  transitionMileageReimbursement
+} from "../services/timeClockMileage.js";
 import { getPayrollSummary, submitNoLunchChallenge } from "../services/timeClockPayroll.js";
 import {
   buildPayrollExportPayload,
@@ -662,6 +666,70 @@ router.get(
           status: req.query.status ? (String(req.query.status) as any) : undefined,
           userId: req.query.user_id ? String(req.query.user_id) : undefined
         })
+      );
+      return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+// G3: the approved/exported writer (service enforces the transition table and
+// the approve-vs-owner-export RBAC split) and the per-period reconciliation.
+router.post(
+  "/mileage-reimbursements/:id/approve",
+  requireAuth,
+  requireAction("attendance.read"),
+  validateBody(z.object({ reason: z.string().max(500).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        transitionMileageReimbursement(client, auth, {
+          reimbursementId: String(req.params.id),
+          toStatus: "approved",
+          reason: req.body.reason ?? null
+        })
+      );
+      return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  "/mileage-reimbursements/:id/mark-exported",
+  requireAuth,
+  requireAction("attendance.read"),
+  validateBody(z.object({ reason: z.string().max(500).optional() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        transitionMileageReimbursement(client, auth, {
+          reimbursementId: String(req.params.id),
+          toStatus: "exported",
+          reason: req.body.reason ?? null
+        })
+      );
+      return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.get(
+  "/mileage-reconciliation",
+  requireAuth,
+  requireAction("attendance.read"),
+  validateQuery(z.object({ date: z.string() })),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        getMileageReconciliationSummary(client, auth, { anchorDate: String(req.query.date) })
       );
       return res.json(payload);
     } catch (error) {

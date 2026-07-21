@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { hasAuthorityTier } from "../authz/authority.js";
 import { config } from "../config.js";
 import { ApiError } from "../errors/apiError.js";
+import { recalculateMileageForEmployeeDate } from "./timeClockMileage.js";
 import type { AuthUser } from "../types/auth.js";
 
 export const JOB_CLOSEOUT_TIMEZONE = config.JOB_CLOSEOUT_TIMEZONE;
@@ -921,19 +922,48 @@ async function upsertMileageReview(
   if (!input.mileageQualified) {
     return null;
   }
-  const zone = await client.query<{ id: string; zone_name: string; reimbursement_amount: string }>(
-    `
-      SELECT id::text, zone_name, reimbursement_amount::text
-      FROM mileage_zone
-      WHERE tenant_id = $1
-        AND active_status = true
-      ORDER BY effective_date DESC, min_distance ASC
-      LIMIT 1
-    `,
-    [auth.tenantId]
-  );
-  const matchedZone = zone.rows[0] ?? null;
-  const status = matchedZone ? "pending_review" : "needs_zone_review";
+  // G3 re-point: run the CANONICAL derivation first and mirror its row —
+  // job_closeout_mileage_review is a reference/display cache, never a fourth
+  // mileage writer. The ad-hoc latest-zone guess survives only as a fallback
+  // when no canonical row exists for the employee/date.
+  const workDate = input.job.scheduled_start_at
+    ? input.job.scheduled_start_at.slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+  await recalculateMileageForEmployeeDate(client, {
+    tenantId: auth.tenantId,
+    employeeId: auth.id,
+    workDate,
+    actorUserId: auth.id,
+    reason: "Job closeout mileage review synced canonical mileage"
+  });
+  const canonical = (
+    await client.query<{ id: string; zone_id: string | null; zone_name: string | null; reimbursement_amount: string | null }>(
+      `SELECT id::text, zone_id::text, zone_name, reimbursement_amount::text
+       FROM mileage_reimbursement
+       WHERE tenant_id = $1 AND employee_id = $2 AND work_date = $3::date
+       LIMIT 1`,
+      [auth.tenantId, auth.id, workDate]
+    )
+  ).rows[0] ?? null;
+
+  let matchedZone: { id: string | null; zone_name: string | null; reimbursement_amount: string | null } | null = null;
+  if (canonical) {
+    matchedZone = { id: canonical.zone_id, zone_name: canonical.zone_name, reimbursement_amount: canonical.reimbursement_amount };
+  } else {
+    const zone = await client.query<{ id: string; zone_name: string; reimbursement_amount: string }>(
+      `
+        SELECT id::text, zone_name, reimbursement_amount::text
+        FROM mileage_zone
+        WHERE tenant_id = $1
+          AND active_status = true
+        ORDER BY effective_date DESC, min_distance ASC
+        LIMIT 1
+      `,
+      [auth.tenantId]
+    );
+    matchedZone = zone.rows[0] ?? null;
+  }
+  const status = canonical ? "pending_review" : matchedZone ? "pending_review" : "needs_zone_review";
   const result = await client.query<{ id: string; status: string }>(
     `
       INSERT INTO job_closeout_mileage_review (
@@ -948,9 +978,10 @@ async function upsertMileageReview(
         zone_name,
         calculated_amount,
         status,
-        note
+        note,
+        reimbursement_id
       )
-      VALUES ($1,$2,$3,$3,$4,$5,true,$6,$7,$8,$9::job_closeout_mileage_status_type,$10)
+      VALUES ($1,$2,$3,$3,$4,$5,true,$6,$7,$8,$9::job_closeout_mileage_status_type,$10,$11)
       ON CONFLICT (tenant_id, evaluation_id, user_id)
       WHERE evaluation_id IS NOT NULL
       DO UPDATE SET
@@ -960,8 +991,9 @@ async function upsertMileageReview(
         calculated_amount = EXCLUDED.calculated_amount,
         status = EXCLUDED.status,
         note = EXCLUDED.note,
+        reimbursement_id = EXCLUDED.reimbursement_id,
         updated_at = now()
-      RETURNING id::text, status::text
+      RETURNING id::text, status::text, reimbursement_id::text
     `,
     [
       auth.tenantId,
@@ -973,7 +1005,8 @@ async function upsertMileageReview(
       matchedZone?.zone_name ?? null,
       matchedZone?.reimbursement_amount ?? null,
       status,
-      input.note
+      input.note,
+      canonical?.id ?? null
     ]
   );
   return result.rows[0];
