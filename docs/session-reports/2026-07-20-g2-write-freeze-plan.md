@@ -10,6 +10,9 @@
 | `listShifts` / `getShiftById` (`/api/shifts`) | Additive `payroll_summary_canonical` (+ `canonical_sessions` on detail) |
 | Ops payroll report (`reporting.payroll`) | Additive `reporting.payroll_canonical` companion |
 
+## FREEZE LANDED (same day, `9dad9d3`, gate 208/208 + worker 69/69, pushed)
+`TIME_ENTRY_DUAL_WRITE` defaults OFF: syncTimeEntryWithClockEvent + recalculateTimeEntryPayroll no-op (env `true` = rollback). Manager break-override still corrects historical rows; the worker auto-clock-out drains open legacy rows (never creates — deliberately ungated). Punch envelopes backfill the interpreted time record from canonical session segments. Tests migrated to the frozen contract. Remaining G2 tail: retire the timeClockPayroll legacy comparison after one clean season.
+
 ## Status update (same day, `74072b0` + `f047a18`, gate 208/208)
 Preconditions **1, 2, 4, 5 are DONE**: (1) attendance exceptions carry `time_record_*_canonical` from the session lateral and the Attendance page prefers them; (2) punch envelopes are canonical-safe by construction (`interpreted_time_record` falls back to punch + session state); (4) the deprecated shoot time-entries projection and `services/clock.ts` are deleted (tests pin the 404); (5) the orphaned legacy `getPayrollSummary` in attendance.ts is deleted. **Remaining: precondition 3 (freeze BOTH writers together — attendance.ts + worker attendanceMonitor.ts:1068 — behind a `TIME_ENTRY_DUAL_WRITE` flag) and the post-freeze comparison retention (6/7).** The freeze slice must also update legacy-asserting tests (several suites assert time_entry rows after punch flows).
 
