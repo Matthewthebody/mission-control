@@ -170,15 +170,17 @@ describe("Labor Command Center", () => {
     periodId = current.id;
   });
 
-  it("payroll calendar config is readable and configurable (close rule flagged for business verification)", async () => {
+  it("payroll calendar config is readable and configurable (close rule owner-ratified 2026-07-20)", async () => {
     const initial = await authed("get", "/api/labor/calendar-config", leadershipToken);
     expect(initial.status).toBe(200);
     expect(initial.body.config.period_length_days).toBe(14);
-    expect(initial.body.config.self_check_window_hours).toBe(24);
+    // Ratified window: self-check opens Monday 00:00, 60h before the Wednesday
+    // 12:00 lock (close_offset_hours 60).
+    expect(initial.body.config.self_check_window_hours).toBe(60);
     expect(initial.body.config.is_default).toBe(true);
 
     const updated = await authed("put", "/api/labor/calendar-config", leadershipToken).send({
-      self_check_window_hours: 24,
+      self_check_window_hours: 60,
       close_offset_hours: 60
     });
     expect(updated.status).toBe(200);

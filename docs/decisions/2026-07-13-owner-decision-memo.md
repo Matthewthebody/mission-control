@@ -1,8 +1,9 @@
 # Owner Decision Memo — 2026-07-13
 
-> **RATIFIED 2026-07-13 (same day):** Matthew approved **all recommended defaults** ("Move forward with all your recommendations"). Every ⬜ below whose recommendation states a default is now a ratified decision; implementation began immediately (convergence slice 1 first). **Still awaiting owner input — no default was safe:**
-> - **B1** — the three payroll calendar facts (real period anchor date, close day, lock/export day for the QuickBooks run).
-> - **B4** — which Teams channel receives payroll alerts.
+> **RATIFIED 2026-07-13 (same day):** Matthew approved **all recommended defaults** ("Move forward with all your recommendations"). Every ⬜ below whose recommendation states a default is now a ratified decision; implementation began immediately (convergence slice 1 first). ~~Still awaiting owner input — no default was safe:~~
+> **RATIFIED 2026-07-20 — the last two open items are answered:**
+> - **B1** — anchor **Monday 2026-06-29 CONFIRMED**; the period **closes for review the Monday** after it ends; payroll is **locked/exported Wednesday** for the QuickBooks run (encoded: lock Wednesday 12:00 = close_offset_hours 60; self-check window opens Monday 00:00 = self_check_window_hours 60 — migration 176).
+> - **B4** — payroll alerts stay **owner-only in-app; NO Teams channel** is configured (the payroll_alert Teams seam stays honest and dormant).
 > Sequenced-by-design items (C6 approve/export=G3, C7 answer-pending after G2, C8 legacy mileage retirement next season, D2 unified registry in Phase 3) are ratified as direction and will land in their stated order.
 
 **For:** Matthew Kemmetmueller
@@ -40,8 +41,8 @@ Today two disjoint intake paths exist: the shoot-spine QuickCreate cascade (`cen
 
 **Context.** The Labor Command Center (migrations 165/166) encodes a bi-weekly payroll calendar with a placeholder anchor and rules explicitly marked "NEEDS BUSINESS VERIFICATION."
 
-### B1 ⬜ **Bi-weekly close rule + anchor date.** The system currently assumes bi-weekly periods anchored at **Monday 2026-06-29**. Confirm: (a) the real anchor date of a current period start; (b) the day the period *closes* for review; (c) the day payroll must be *locked/exported* to hit your QuickBooks run.
-**Needed from you:** three dates/weekdays. This is configuration (`payroll_calendar_config`), not code — but wrong values poison every period boundary.
+### B1 ✅ **Bi-weekly close rule + anchor date.** The system currently assumes bi-weekly periods anchored at **Monday 2026-06-29**. Confirm: (a) the real anchor date of a current period start; (b) the day the period *closes* for review; (c) the day payroll must be *locked/exported* to hit your QuickBooks run.
+**ANSWERED 2026-07-20:** (a) anchor **Monday 2026-06-29 is correct**; (b) closes for review the **Monday** after the period ends; (c) locked/exported **Wednesday**. Encoded in migration 176 + `payrollPeriods.ts` defaults (lock Wednesday 12:00 local; self-check window opens Monday 00:00).
 
 ### B2 ⬜ **Travel/drive-time pay policy.** Part-time and seasonal photographers' drive time is currently *held for payroll review* (never auto-paid). The `travel_policy` field is a placeholder. State the actual rule (e.g., "paid over X minutes / between shoots only / at a different rate?").
 **Recommended default until stated:** keep hold-for-review (safe, but adds manual work every period).
@@ -49,7 +50,8 @@ Today two disjoint intake paths exist: the shoot-spine QuickCreate cascade (`cen
 ### B3 ⬜ **QuickBooks connection.** The QB transport is deliberately not implemented (honest "not connected"; CSV is the working handoff). To build the real sync we need QB Online OAuth credentials + a sandbox company. Is that a now-thing or a later-thing?
 **Recommended: later** — CSV handoff is safe and working; wire QB after a full manual cycle succeeds end-to-end.
 
-### B4 ⬜ **Teams payroll alerts.** The `payroll_alert` type exists but no Teams route is configured in alert governance. Should payroll blockers/overtime warnings post to a Teams channel, and which one?
+### B4 ✅ **Teams payroll alerts.** The `payroll_alert` type exists but no Teams route is configured in alert governance. Should payroll blockers/overtime warnings post to a Teams channel, and which one?
+**ANSWERED 2026-07-20: owner-only, no Teams channel.** Payroll alerts stay in-app to the owner; no `payroll_alert` Teams route is configured. The pipeline's honest no-route behavior is the ratified end state (no code change needed).
 
 **Unblocks:** first real payroll period close in the Labor CC; G3 review tools.
 

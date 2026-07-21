@@ -29,14 +29,17 @@ export type PayrollCalendarConfig = {
   is_default: boolean;
 };
 
-// Bi-weekly, paid every other Friday. The exact close rule is NOT yet verified with
-// the owner — these defaults are configurable per tenant via payroll_calendar_config
-// and flagged for business verification in the UI.
+// Owner-RATIFIED 2026-07-20 (decision memo B1): bi-weekly Mon–Sun periods
+// anchored Monday 2026-06-29; the period closes for employee/manager review on
+// the Monday after it ends and is locked/exported for the QuickBooks run on
+// Wednesday 12:00 local (Monday 00:00 + 60h). The self-check window opens
+// Monday 00:00 — 60h before lock. Still tenant-configurable via
+// payroll_calendar_config (migration 176).
 const DEFAULT_CALENDAR_CONFIG: PayrollCalendarConfig = {
   period_length_days: 14,
   reference_period_start: "2026-06-29",
   close_offset_hours: 60,
-  self_check_window_hours: 24,
+  self_check_window_hours: 60,
   travel_policy: {},
   is_default: true
 };
