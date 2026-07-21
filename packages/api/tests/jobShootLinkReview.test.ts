@@ -62,7 +62,17 @@ beforeAll(async () => {
   shootB = await pickUnlinkedShoot([shootA]);
 });
 
+const cleanupLinkIds: string[] = [];
+
 afterAll(async () => {
+  if (cleanupLinkIds.length > 0) {
+    // Backfill proposals created by the propose runs — removed so the shared
+    // demo review queue is left exactly as the suite found it.
+    await dbPool.query(`DELETE FROM job_shoot_links WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND status = 'proposed'`, [
+      tenantId,
+      cleanupLinkIds
+    ]);
+  }
   if (cleanupJobIds.length > 0) {
     await dbPool.query(`DELETE FROM jobs WHERE tenant_id = $1 AND id = ANY($2::uuid[])`, [tenantId, cleanupJobIds]);
   }
@@ -200,5 +210,83 @@ describe("Job↔Shoot reviewed links", () => {
       .set("Authorization", `Bearer ${leadershipToken}`)
       .send({});
     expect(unknown.status).toBe(404);
+  });
+
+  it("A4 backfill proposer: deterministic legacy_shoot_id match proposes once, never re-proposes, respects rejection", async () => {
+    // A pre-convergence-shaped fixture: a Job keyed to a PUBLISHED shoot via
+    // legacy_shoot_id but with NO link row — exactly what backfill exists for.
+    const publishedShoot = await dbPool.query<{ id: string }>(
+      `SELECT s.id::text FROM shoot s
+       WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.record_state = 'published'
+         AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.legacy_shoot_id = s.id)
+         AND NOT EXISTS (SELECT 1 FROM job_shoot_links l WHERE l.tenant_id = s.tenant_id AND l.shoot_id = s.id)
+       LIMIT 1`,
+      [tenantId]
+    );
+    expect(publishedShoot.rows.length).toBe(1);
+    const shootC = publishedShoot.rows[0].id;
+    const backfillJob = (
+      await dbPool.query<{ id: string }>(
+        `INSERT INTO jobs (tenant_id, department_type, title, job_status, scheduled_start_at, legacy_shoot_id)
+         VALUES ($1, 'sports', 'link-review-fixture-backfill', 'ready_to_staff', now() + interval '5 days', $2) RETURNING id::text`,
+        [tenantId, shootC]
+      )
+    ).rows[0].id;
+    cleanupJobIds.push(backfillJob);
+
+    const denied = await request(app)
+      .post("/api/jobs/link-review/propose")
+      .set("Authorization", `Bearer ${photographerToken}`)
+      .send({});
+    expect(denied.status).toBe(403);
+
+    const firstRun = await request(app)
+      .post("/api/jobs/link-review/propose")
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(firstRun.status).toBe(200);
+    cleanupLinkIds.push(...(firstRun.body.proposed_link_ids as string[]));
+    expect(firstRun.body.proposed_count).toBeGreaterThanOrEqual(1);
+
+    const proposed = await dbPool.query(
+      `SELECT id::text, status, source, relationship_type, confidence::text FROM job_shoot_links
+       WHERE tenant_id = $1 AND job_id = $2 AND shoot_id = $3`,
+      [tenantId, backfillJob, shootC]
+    );
+    expect(proposed.rows).toHaveLength(1);
+    expect(proposed.rows[0]).toMatchObject({ status: "proposed", source: "suggested", relationship_type: "primary" });
+    expect(Number(proposed.rows[0].confidence)).toBeCloseTo(0.99, 2);
+
+    // Idempotent: a second run never duplicates the pair.
+    const secondRun = await request(app)
+      .post("/api/jobs/link-review/propose")
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(secondRun.status).toBe(200);
+    cleanupLinkIds.push(...(secondRun.body.proposed_link_ids as string[]));
+    const afterSecond = await dbPool.query(
+      `SELECT count(*)::int AS n FROM job_shoot_links WHERE tenant_id = $1 AND job_id = $2 AND shoot_id = $3`,
+      [tenantId, backfillJob, shootC]
+    );
+    expect(afterSecond.rows[0].n).toBe(1);
+
+    // A human rejection is final: the proposer never resurrects it.
+    const reject = await request(app)
+      .post(`/api/jobs/link-review/${proposed.rows[0].id}/reject`)
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({ note: "A4 test rejection" });
+    expect(reject.status).toBe(200);
+    const thirdRun = await request(app)
+      .post("/api/jobs/link-review/propose")
+      .set("Authorization", `Bearer ${leadershipToken}`)
+      .send({});
+    expect(thirdRun.status).toBe(200);
+    cleanupLinkIds.push(...(thirdRun.body.proposed_link_ids as string[]));
+    const afterReject = await dbPool.query(
+      `SELECT status FROM job_shoot_links WHERE tenant_id = $1 AND job_id = $2 AND shoot_id = $3`,
+      [tenantId, backfillJob, shootC]
+    );
+    expect(afterReject.rows).toHaveLength(1);
+    expect(afterReject.rows[0].status).toBe("rejected");
   });
 });

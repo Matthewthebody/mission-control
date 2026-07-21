@@ -88,6 +88,115 @@ export async function listJobShootLinkReview(client: PoolClient, auth: AuthUser)
   };
 }
 
+// A4 (owner-ratified): the matching script PROPOSES links for active-season
+// shoots only — a human confirms in this review queue; historical shoots stay
+// honestly unlinked. Two DETERMINISTIC rules only (the audits bar fuzzy
+// backfill): (1) jobs.legacy_shoot_id = shoot.id — the 1:1 key intake wrote
+// before engagement reuse; (2) the migration-177 engagement key — an existing
+// Job for the shoot's organization + CURRENT service term + department, with
+// the shoot dated inside the term window when the term declares one. Demo and
+// test-fixture jobs never generate proposals. Idempotent: shoots with ANY
+// existing link row (proposed/confirmed/rejected) are skipped, so re-running
+// never re-proposes what a reviewer already rejected.
+const PROPOSAL_BATCH_LIMIT = 200;
+
+export async function proposeJobShootLinkBackfill(client: PoolClient, auth: AuthUser) {
+  requireLinkReviewAccess(auth);
+  const { rows: candidates } = await client.query<{
+    shoot_id: string;
+    job_id: string;
+    rule: string;
+    confidence: string;
+    relationship_type: string;
+    reason: string;
+  }>(
+    `
+      WITH unlinked_shoot AS (
+        SELECT s.id, s.organization_id, s.department, s.shoot_date
+        FROM shoot s
+        WHERE s.tenant_id = $1
+          AND s.record_state = 'published'
+          AND s.deleted_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM job_shoot_links l
+            WHERE l.tenant_id = $1 AND l.shoot_id = s.id
+          )
+      ),
+      legacy_match AS (
+        SELECT us.id AS shoot_id, j.id AS job_id,
+               'legacy_shoot_id' AS rule, '0.990' AS confidence,
+               'primary' AS relationship_type,
+               'Deterministic match: the Job''s legacy_shoot_id is this Shoot.' AS reason
+        FROM unlinked_shoot us
+        JOIN jobs j ON j.tenant_id = $1 AND j.legacy_shoot_id = us.id
+        WHERE j.archived_at IS NULL
+          AND j.job_status <> 'cancelled'::job_status_type
+          AND (j.data_origin IS NULL OR j.data_origin NOT IN ('seed_demo', 'test_fixture'))
+      ),
+      engagement_match AS (
+        SELECT us.id AS shoot_id, j.id AS job_id,
+               'engagement_key' AS rule, '0.900' AS confidence,
+               'additional_day' AS relationship_type,
+               'Engagement-key match: same organization, current service term, and department.' AS reason
+        FROM unlinked_shoot us
+        JOIN school_service_term st
+          ON st.tenant_id = $1
+         AND st.organization_id = us.organization_id
+         AND st.status = 'current'
+         AND (st.start_date IS NULL OR us.shoot_date >= st.start_date)
+         AND (st.end_date IS NULL OR us.shoot_date <= st.end_date)
+        JOIN jobs j
+          ON j.tenant_id = $1
+         AND j.organization_id = us.organization_id
+         AND j.service_term_id = st.id
+         AND j.department_type::text = us.department::text
+        WHERE j.archived_at IS NULL
+          AND j.job_status <> 'cancelled'::job_status_type
+          AND (j.data_origin IS NULL OR j.data_origin NOT IN ('seed_demo', 'test_fixture'))
+          AND us.id NOT IN (SELECT shoot_id FROM legacy_match)
+      )
+      SELECT * FROM legacy_match
+      UNION ALL
+      SELECT * FROM engagement_match
+      ORDER BY confidence DESC, shoot_id
+    `,
+    [auth.tenantId]
+  );
+
+  const batch = candidates.slice(0, PROPOSAL_BATCH_LIMIT);
+  const proposedIds: string[] = [];
+  for (const candidate of batch) {
+    const inserted = await client.query<{ id: string }>(
+      `
+        INSERT INTO job_shoot_links (
+          tenant_id, job_id, shoot_id, link_reason, relationship_type, source, status,
+          confidence, reason, linked_by_user_id
+        )
+        VALUES ($1, $2, $3, 'backfill_proposal', $4, 'suggested', 'proposed', $5::numeric, $6, $7)
+        ON CONFLICT (tenant_id, job_id, shoot_id) DO NOTHING
+        RETURNING id
+      `,
+      [auth.tenantId, candidate.job_id, candidate.shoot_id, candidate.relationship_type, candidate.confidence, candidate.reason, auth.id]
+    );
+    const linkId = inserted.rows[0]?.id;
+    if (linkId) {
+      proposedIds.push(linkId);
+      await client.query(
+        `INSERT INTO job_shoot_link_event (tenant_id, link_id, event_type, to_status, actor_user_id, metadata)
+         VALUES ($1, $2, 'proposed', 'proposed', $3, $4::jsonb)`,
+        [auth.tenantId, linkId, auth.id, JSON.stringify({ rule: candidate.rule, shoot_id: candidate.shoot_id, job_id: candidate.job_id })]
+      );
+    }
+  }
+
+  return {
+    candidate_count: candidates.length,
+    proposed_count: proposedIds.length,
+    truncated_at: candidates.length > PROPOSAL_BATCH_LIMIT ? PROPOSAL_BATCH_LIMIT : null,
+    proposed_link_ids: proposedIds
+  };
+}
+
 async function loadLink(client: PoolClient, tenantId: string, linkId: string) {
   const { rows } = await client.query(
     `SELECT * FROM job_shoot_links WHERE tenant_id = $1 AND id = $2 LIMIT 1`,

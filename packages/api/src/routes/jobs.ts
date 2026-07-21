@@ -88,6 +88,7 @@ import {
 import {
   confirmJobShootLink,
   listJobShootLinkReview,
+  proposeJobShootLinkBackfill,
   rejectJobShootLink
 } from "../services/jobTruth/jobShootLinkReview.js";
 import type { AuthenticatedRequest } from "../types/http.js";
@@ -1067,6 +1068,19 @@ router.get("/link-review", async (req, res, next) => {
     } finally {
       client.release();
     }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// A4: run the deterministic backfill proposer — proposes only, never confirms.
+router.post("/link-review/propose", async (req, res, next) => {
+  try {
+    const auth = getAuth(req as unknown as AuthenticatedRequest);
+    const result = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+      proposeJobShootLinkBackfill(client, auth)
+    );
+    return res.json(result);
   } catch (error) {
     return next(error);
   }
