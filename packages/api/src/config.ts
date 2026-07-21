@@ -289,12 +289,12 @@ const configSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === undefined ? true : value === "true"),
-  // G2 read-cutover: "canonical_preferred" makes the operations dashboard display
-  // canonical payroll hours wherever a time session covers the shift (legacy
-  // fallback per shift, provenance disclosed via hours_source). Default stays
-  // "legacy" until the owner ratifies the visible cutover; flipping is config,
-  // not code. The hours_reconciliation block always compares the raw truths.
-  OPS_DASHBOARD_HOURS_SOURCE: z.enum(["legacy", "canonical_preferred"]).default("legacy"),
+  // G2 read-cutover: the operations dashboard displays canonical payroll hours
+  // wherever a time session covers the shift (legacy fallback per shift,
+  // provenance disclosed via hours_source). Owner ratified the visible cutover
+  // 2026-07-20; set "legacy" to roll back the display without a deploy. The
+  // hours_reconciliation block always compares the raw truths.
+  OPS_DASHBOARD_HOURS_SOURCE: z.enum(["legacy", "canonical_preferred"]).default("canonical_preferred"),
   CORE_FOUNDATION_DIAGNOSTICS_ENABLED: z
     .string()
     .optional()

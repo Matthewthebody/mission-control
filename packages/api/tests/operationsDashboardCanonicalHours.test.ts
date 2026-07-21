@@ -165,7 +165,17 @@ async function fetchDashboard() {
   };
 }
 
-describe("operations dashboard canonical hours (G2 slice D)", () => {
+describe("operations dashboard canonical hours (G2 slice D — legacy rollback mode)", () => {
+  // The owner ratified canonical_preferred as the default display (2026-07-20).
+  // These tests pin the ROLLBACK path: with the flag set back to legacy, the raw
+  // time_entry-derived display and the additive canonical fields are unchanged.
+  beforeAll(() => {
+    (config as { OPS_DASHBOARD_HOURS_SOURCE: string }).OPS_DASHBOARD_HOURS_SOURCE = "legacy";
+  });
+  afterAll(() => {
+    (config as { OPS_DASHBOARD_HOURS_SOURCE: string }).OPS_DASHBOARD_HOURS_SOURCE = "canonical_preferred";
+  });
+
   it("keeps legacy actual_hours untouched while emitting canonical hours and per-shift deltas", async () => {
     const body = await fetchDashboard();
     const byId = new Map(body.shifts.map((row) => [row.id, row]));
@@ -234,7 +244,8 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     const body = await fetchFullDashboard();
     const dept = body.insights.hours_by_department.find((row) => row.department === "unassigned") as Record<string, unknown>;
     expect(dept).toBeTruthy();
-    expect(Number(dept.actual_hours)).toBeCloseTo(18, 2);
+    // Default display is canonical_preferred: 7.5 + 6 canonical + 4 legacy fallback.
+    expect(Number(dept.actual_hours)).toBeCloseTo(17.5, 2);
     expect(Number(dept.actual_hours_canonical)).toBeCloseTo(13.5, 2);
     expect(Number(dept.canonical_covered_shift_count)).toBe(2);
     expect(Number(dept.shift_count)).toBe(3);
@@ -266,18 +277,6 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
     expect(varianceCard!.detail).toContain("canonical payroll hours");
   });
 
-  it("legacy hours stay the default display and every shift declares hours_source", async () => {
-    const res = await request(app)
-      .get(`/api/dashboard/operations?date=${fixtureDate}`)
-      .set("Authorization", `Bearer ${adminToken}`);
-    expect(res.status).toBe(200);
-    const byId = new Map((res.body.shifts as Array<Record<string, unknown>>).map((row) => [row.id, row]));
-    const divergent = byId.get(shiftIds.divergent) as Record<string, unknown>;
-    expect(Number(divergent.actual_hours)).toBeCloseTo(8, 2); // default = legacy, untouched
-    expect(divergent.hours_source).toBe("legacy");
-    expect(Number(res.body.summary.actual_labor_hours)).toBeCloseTo(18, 2);
-  });
-
   it("weekly labor leadership report opts into canonical hours and says which truth it used", async () => {
     const res = await request(app)
       .get(`/api/dashboard/reports/weekly_labor_summary?date=${fixtureDate}`)
@@ -302,14 +301,7 @@ describe("G2 consumer opt-in — canonical hours reach labor reporting and leade
   });
 });
 
-describe("G2 read-cutover flag — OPS_DASHBOARD_HOURS_SOURCE=canonical_preferred", () => {
-  beforeAll(() => {
-    (config as { OPS_DASHBOARD_HOURS_SOURCE: string }).OPS_DASHBOARD_HOURS_SOURCE = "canonical_preferred";
-  });
-  afterAll(() => {
-    (config as { OPS_DASHBOARD_HOURS_SOURCE: string }).OPS_DASHBOARD_HOURS_SOURCE = "legacy";
-  });
-
+describe("G2 read-cutover — canonical_preferred is the DEFAULT display (owner-ratified 2026-07-20)", () => {
   async function fetchCutoverDashboard() {
     const res = await request(app)
       .get(`/api/dashboard/operations?date=${fixtureDate}`)
