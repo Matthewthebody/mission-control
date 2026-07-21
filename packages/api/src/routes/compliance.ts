@@ -11,6 +11,7 @@ import {
   getComplianceWorkspaceItemDetail,
   listComplianceWorkspaceItems
 } from "../services/complianceWorkspace.js";
+import { listComplianceIncidentPatterns } from "../services/compliancePatterns.js";
 
 const router = Router();
 
@@ -26,6 +27,36 @@ function requireComplianceWorkspaceView(req: Request, res: Response, next: NextF
   }
   return next();
 }
+
+// G6 slice 1: repeated-incident pattern report (leadership lens over the same
+// gate as the workspace — read-only, no new write paths).
+router.get(
+  "/patterns",
+  requireAuth,
+  requireComplianceWorkspaceView,
+  validateQuery(
+    z.object({
+      window_days: z.coerce.number().int().min(7).max(365).optional(),
+      min_incidents: z.coerce.number().int().min(1).max(20).optional(),
+      limit: z.coerce.number().int().min(1).max(200).optional()
+    })
+  ),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        listComplianceIncidentPatterns(client, auth, {
+          windowDays: req.query.window_days ? Number(req.query.window_days) : undefined,
+          minIncidents: req.query.min_incidents ? Number(req.query.min_incidents) : undefined,
+          limit: req.query.limit ? Number(req.query.limit) : undefined
+        })
+      );
+      return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 router.get(
   "/workspace",
