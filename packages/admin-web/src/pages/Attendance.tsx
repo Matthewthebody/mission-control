@@ -491,17 +491,18 @@ export function Attendance({ token, currentUser, socket }: Props) {
               </OperationalDetailSection>
               <OperationalDetailSection title="Interpreted Time Record" summary="This operator-friendly state is derived from schedule, raw punches, and saved correction history.">
                 <div className="dashboard-summary-list">
+                  {/* G2: canonical session record preferred; legacy time_entry fallback until the write-freeze. */}
                   <div className="dashboard-summary-row">
                     <span className="muted">Clock-in</span>
-                    <strong>{selectedException.time_record_clock_in_at ? new Date(selectedException.time_record_clock_in_at).toLocaleString() : "Missing clock-in"}</strong>
+                    <strong>{(selectedException.time_record_clock_in_at_canonical ?? selectedException.time_record_clock_in_at) ? new Date(selectedException.time_record_clock_in_at_canonical ?? selectedException.time_record_clock_in_at!).toLocaleString() : "Missing clock-in"}</strong>
                   </div>
                   <div className="dashboard-summary-row">
                     <span className="muted">Clock-out</span>
-                    <strong>{selectedException.time_record_clock_out_at ? new Date(selectedException.time_record_clock_out_at).toLocaleString() : "Missing clock-out or still active"}</strong>
+                    <strong>{(selectedException.time_record_clock_out_at_canonical ?? selectedException.time_record_clock_out_at) ? new Date(selectedException.time_record_clock_out_at_canonical ?? selectedException.time_record_clock_out_at!).toLocaleString() : "Missing clock-out or still active"}</strong>
                   </div>
                   <div className="dashboard-summary-row">
                     <span className="muted">Worked duration</span>
-                    <strong>{formatWorkedDuration(selectedException.time_record_worked_minutes)}</strong>
+                    <strong>{formatWorkedDuration(selectedException.time_record_worked_minutes_canonical ?? selectedException.time_record_worked_minutes)}</strong>
                   </div>
                   <div className="dashboard-summary-row">
                     <span className="muted">Attendance classification</span>

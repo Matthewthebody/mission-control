@@ -3913,6 +3913,11 @@ export type AttendanceExceptionRecord = {
   time_record_clock_in_at?: string | null;
   time_record_clock_out_at?: string | null;
   time_record_worked_minutes?: number | null;
+  time_record_clock_in_at_canonical?: string | null;
+  time_record_clock_out_at_canonical?: string | null;
+  time_record_worked_minutes_canonical?: number | null;
+  time_record_payable_minutes_canonical?: number | null;
+  time_record_lunch_deduction_minutes_canonical?: number | null;
   time_entry_attendance_state?: string | null;
   time_record_break_override?: boolean | null;
   time_session_status?: string | null;

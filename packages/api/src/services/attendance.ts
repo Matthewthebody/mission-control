@@ -2812,6 +2812,11 @@ export async function listAttendanceExceptions(
         time_entry.break_deduction_overridden AS time_record_break_override,
         session_row.status::text AS time_session_status,
         session_row.work_date::text AS time_session_work_date,
+        session_row.clock_in_at::text AS time_record_clock_in_at_canonical,
+        session_row.clock_out_at::text AS time_record_clock_out_at_canonical,
+        session_row.total_worked_minutes AS time_record_worked_minutes_canonical,
+        session_row.payable_minutes AS time_record_payable_minutes_canonical,
+        session_row.lunch_deduction_minutes AS time_record_lunch_deduction_minutes_canonical,
         COALESCE(approval_records.records, '[]'::json) AS time_clock_approval_records
       FROM attendance_exception ae
       LEFT JOIN work_shift ws ON ws.id = ae.shift_id
@@ -2861,8 +2866,22 @@ export async function listAttendanceExceptions(
         LIMIT 1
       ) time_entry ON true
       LEFT JOIN LATERAL (
-        SELECT ts.status, ts.work_date, ts.updated_at
+        -- G2: canonical time record for the exception's shift — session bounds
+        -- from segments, minutes from the single-writer payroll summary. NULL
+        -- fields mean honestly uncovered, never zeroes.
+        SELECT
+          ts.status,
+          ts.work_date,
+          ts.updated_at,
+          (SELECT MIN(seg.start_time) FROM time_segment seg WHERE seg.session_id = ts.id) AS clock_in_at,
+          (SELECT MAX(seg.end_time) FROM time_segment seg WHERE seg.session_id = ts.id) AS clock_out_at,
+          ps.total_worked_minutes,
+          ps.payable_minutes,
+          ps.lunch_deduction_minutes
         FROM time_session ts
+        LEFT JOIN time_session_payroll_summary ps
+          ON ps.session_id = ts.id
+         AND ps.tenant_id = ts.tenant_id
         WHERE ts.tenant_id = ae.tenant_id
           AND ts.employee_id = ae.user_id
           AND ae.shift_id IS NOT NULL
