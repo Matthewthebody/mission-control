@@ -121,6 +121,12 @@ export function getProjectWorkflowCommandCenter(
   return apiFetch<ProjectWorkflowCommandCenter>(`/api/workflows/command-center${suffix}`, token);
 }
 
+// G7: per-job command-center view — the server scopes to one job instead of the
+// panel fetching every row and filtering client-side.
+export function getProjectWorkflowCommandCenterForJob(token: string, jobId: string) {
+  return apiFetch<ProjectWorkflowCommandCenter>(`/api/workflows/command-center/jobs/${jobId}`, token);
+}
+
 export function getProjectWorkflowProductionQueue(token: string, query: { limit?: number } = {}) {
   const params = new URLSearchParams();
   if (query.limit) {

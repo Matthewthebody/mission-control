@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  getProjectWorkflowCommandCenter,
+  getProjectWorkflowCommandCenterForJob,
   getProjectWorkflowInstance,
   instantiateProjectWorkflow,
   listProjectWorkflowTemplates
@@ -161,9 +161,9 @@ function useJobWorkflowState(token: string, jobId: string) {
     setLoading(true);
     setError("");
 
-    // The command-center query schema caps limit at 200 (routes/workflows.ts) — 250 was rejected
-    // with a zod 400, silently breaking this panel for every role.
-    void getProjectWorkflowCommandCenter(token, { view: "global", limit: 200 })
+    // G7: server-scoped per-job view — no more fetching the entire command
+    // center (and hitting its 200-row cap) just to find one job's row.
+    void getProjectWorkflowCommandCenterForJob(token, jobId)
       .then(async (commandCenter) => {
         const row = commandCenter.job_rows.find((jobRow) => jobRow.job_id === jobId) ?? null;
         const workflow = row?.workflow_run_id ? await getProjectWorkflowInstance(token, row.workflow_run_id) : null;

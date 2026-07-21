@@ -85,6 +85,9 @@ vi.mock("../services/jobsApi", () => ({
 
 vi.mock("../services/projectTracking", () => ({
   getProjectWorkflowCommandCenter: (...args: unknown[]) => getProjectWorkflowCommandCenterMock(...args),
+  // The panel's per-job endpoint (G7) routes through the same mock so the
+  // existing resolved-value fixtures keep working unchanged.
+  getProjectWorkflowCommandCenterForJob: (...args: unknown[]) => getProjectWorkflowCommandCenterMock(...args),
   getProjectWorkflowInstance: (...args: unknown[]) => getProjectWorkflowInstanceMock(...args),
   instantiateProjectWorkflow: (...args: unknown[]) => instantiateProjectWorkflowMock(...args),
   listProjectWorkflowTemplates: (...args: unknown[]) => listProjectWorkflowTemplatesMock(...args)

@@ -4632,7 +4632,14 @@ export async function loadProjectWorkflowInstance(
 export async function listProjectWorkflowCommandCenter(
   client: PoolClient,
   auth: AuthUser,
-  input: { view?: "personal" | "department" | "global"; department?: WorkDepartmentType | null; limit?: number }
+  input: {
+    view?: "personal" | "department" | "global";
+    department?: WorkDepartmentType | null;
+    limit?: number;
+    // G7: scope to a single job for the per-job endpoint. Skips the personal
+    // predicate — the caller already passed workflow.read and tenant scoping.
+    jobId?: string | null;
+  }
 ) {
   const view = input.view ?? "personal";
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 200);
@@ -4794,8 +4801,10 @@ export async function listProjectWorkflowCommandCenter(
       WHERE job.tenant_id = $1
         AND job.archived_at IS NULL
         AND job.job_status <> 'cancelled'::job_status_type
+        AND ($4::uuid IS NULL OR job.id = $4::uuid)
         AND (
-          $2::text <> 'personal'
+          $4::uuid IS NOT NULL
+          OR $2::text <> 'personal'
           OR job.account_owner_user_id = $3::uuid
           OR step.assigned_user_id = $3::uuid
         )
@@ -4806,7 +4815,7 @@ export async function listProjectWorkflowCommandCenter(
         step.sort_order ASC NULLS LAST,
         step.created_at ASC NULLS LAST
     `,
-    [auth.tenantId, view, auth.id]
+    [auth.tenantId, view, auth.id, input.jobId ?? null]
   );
   const { allRows: candidateJobRows } = buildProjectWorkflowJobRows(jobSourceRows.rows, Number.MAX_SAFE_INTEGER);
   const allJobRows = view === "department" && department

@@ -517,6 +517,27 @@ describe("project tracking foundation", () => {
     expect(row?.current_step.assigned_user_id).toBe(photoUserId);
     expect(row?.current_step.assigned_queue).toBe("production");
 
+    // G7: the per-job view returns exactly this job's row without the caller
+    // pulling (and being capped at) the whole command center.
+    const byJob = await request(app)
+      .get(`/api/workflows/command-center/jobs/${row.job_id}`)
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(byJob.status, JSON.stringify(byJob.body)).toBe(200);
+    expect(byJob.body.job_rows.length).toBe(1);
+    expect(byJob.body.job_rows[0].job_id).toBe(row.job_id);
+    expect(byJob.body.job_rows[0].workflow_run_id).toBe(workflow.workflow_run.id);
+
+    const byJobMissing = await request(app)
+      .get("/api/workflows/command-center/jobs/00000000-0000-4000-8000-000000000000")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(byJobMissing.status).toBe(200);
+    expect(byJobMissing.body.job_rows.length).toBe(0);
+
+    const byJobMalformed = await request(app)
+      .get("/api/workflows/command-center/jobs/not-a-uuid")
+      .set("Authorization", `Bearer ${leadershipToken}`);
+    expect(byJobMalformed.status).toBe(404);
+
     const templateDetail = await dbPool.query<{ assigned_user_id: string | null }>(
       `
         SELECT assigned_user_id::text

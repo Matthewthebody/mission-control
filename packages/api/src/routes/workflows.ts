@@ -520,6 +520,32 @@ router.get(
   }
 );
 
+// G7: per-job command-center view — the job panel no longer fetches the whole
+// command center and filters client-side. Malformed ids 404 like routes/jobs.ts.
+router.param("jobId", (req, res, next, value) => {
+  if (!z.string().uuid().safeParse(value).success) {
+    return res.status(404).json({ error: "Job not found" });
+  }
+  return next();
+});
+
+router.get(
+  "/command-center/jobs/:jobId",
+  requireAuth,
+  requireWorkflowPermission("workflow.read", ["super_admin", "leadership", "director_admin", "supervisor"]),
+  async (req, res, next) => {
+    try {
+      const auth = (req as AuthenticatedRequest).auth;
+      const payload = await withClientTransaction(auth.tenantId, auth.id, (client) =>
+        listProjectWorkflowCommandCenter(client, auth, { view: "global", jobId: String(req.params.jobId) })
+      );
+      return res.json(payload);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 router.patch(
   "/template-builder/versions/:templateVersionId/steps/:stepId",
   requireAuth,
