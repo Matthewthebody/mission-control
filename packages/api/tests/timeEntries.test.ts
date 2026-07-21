@@ -105,8 +105,8 @@ beforeAll(async () => {
   );
 });
 
-describe("clock-out and time entry retrieval", () => {
-  it("creates a time entry and exposes it via GET /time-entries", async () => {
+describe("clock-out under the G2 write-freeze", () => {
+  it("punches stay canonical-only: no legacy time_entry row, retired projection 404s", async () => {
     const clockInEventId = crypto.randomUUID();
     const clockOutEventId = crypto.randomUUID();
 
@@ -140,8 +140,15 @@ describe("clock-out and time entry retrieval", () => {
     expect(clockOut.status).toBe(201);
     expect(clockOut.headers["x-pmc-canonical-source"]).toBe("canonical_labor_state");
     expect(clockOut.headers["x-pmc-compatibility-mode"]).toBe("legacy_shoot_punch_bridge");
-    expect(clockOut.body.timeEntry.clock_out_at).toBeTruthy();
-    expect(Number(clockOut.body.timeEntry.minutes_worked)).toBeGreaterThanOrEqual(0);
+    // G2 write-freeze: the legacy projection no longer grows; the canonical
+    // interpreted record carries the truth on the punch envelope.
+    expect(clockOut.body.timeEntry).toBeNull();
+    expect(clockOut.body.interpreted_time_record?.actual_clock_out_at).toBeTruthy();
+    const legacyRows = await pool.query(
+      "SELECT id FROM time_entry WHERE tenant_id = $1 AND shoot_id = $2",
+      [tenantId, shootId]
+    );
+    expect(legacyRows.rows.length).toBe(0);
 
     // G2: the deprecated legacy time-entries projection is retired (it had zero
     // product consumers) — the route must be gone, not silently serving.

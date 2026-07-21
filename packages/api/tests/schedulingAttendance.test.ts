@@ -919,12 +919,19 @@ describe("scheduling and attendance operations", () => {
         client_event_id: randomUUID()
       });
     expect(clockOut.status).toBe(201);
-    expect(clockOut.body.timeEntry.gross_minutes).toBe(330);
-    expect(clockOut.body.timeEntry.break_deduction_minutes).toBe(30);
-    expect(clockOut.body.timeEntry.payable_minutes).toBe(300);
+    // G2 write-freeze: punches no longer grow the legacy projection.
+    expect(clockOut.body.timeEntry).toBeNull();
+    // The break-override flow is retained for HISTORICAL pre-freeze rows — seed
+    // one exactly as the legacy writer produced it (330 gross → auto 30 break).
+    const historicalEntry = await pool.query<{ id: string }>(
+      `INSERT INTO time_entry (tenant_id, shoot_id, shift_id, user_id, clock_in_at, clock_out_at, minutes_worked, gross_minutes, break_deduction_minutes, break_deduction_applied, break_deduction_source, payable_minutes, attendance_state, payroll_state)
+       VALUES ($1, $2, $3, $4, $5, $6, 330, 330, 30, true, 'auto_30_after_5h', 300, 'clocked_out', 'ready')
+       RETURNING id`,
+      [tenantId, shift.shoot_id ?? null, shift.id, photoId, startsAt.toISOString(), addMinutes(startsAt, 330).toISOString()]
+    );
 
     const override = await request(app)
-      .post(`/api/attendance/time-entries/${clockOut.body.timeEntry.id}/break-override`)
+      .post(`/api/attendance/time-entries/${historicalEntry.rows[0].id}/break-override`)
       .set("Authorization", `Bearer ${leadershipToken}`)
       .send({
         break_deduction_minutes: 0,
@@ -1315,7 +1322,9 @@ describe("scheduling and attendance operations", () => {
       });
     expect(outPunch.status).toBe(201);
     expect(outPunch.body.punch.direction).toBe("out");
-    expect(outPunch.body.timeEntry.minutes_worked).toBeGreaterThan(0);
+    // G2 write-freeze: worked time is asserted from the canonical record.
+    expect(outPunch.body.timeEntry).toBeNull();
+    expect(Number(outPunch.body.interpreted_time_record?.worked_minutes ?? 0)).toBeGreaterThan(0);
   });
 
   it("lets a senior photographer classify same-day attendance issues for the shoot they lead", async () => {
@@ -1448,7 +1457,9 @@ describe("scheduling and attendance operations", () => {
       });
     expect(outPunch.status).toBe(201);
     expect(outPunch.body.punch.shift_id).toBe(shift.id);
-    expect(outPunch.body.timeEntry.minutes_worked).toBe(90);
+    // G2 write-freeze: the overnight duration is asserted from the canonical record.
+    expect(outPunch.body.timeEntry).toBeNull();
+    expect(Number(outPunch.body.interpreted_time_record?.worked_minutes ?? 0)).toBe(90);
 
     const correction = await request(app)
       .post("/api/attendance/exceptions")

@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { ApiError } from "../errors/apiError.js";
+import { config } from "../config.js";
 import { canPerformAction, isFieldRole } from "../authz/policy.js";
 import { canEditHours, hasJobFunctionProfile } from "../authz/authority.js";
 import type { AuthUser } from "../types/auth.js";
@@ -492,14 +493,19 @@ function buildInterpretedTimeRecord(input: {
   scheduledEndAt: string | null;
   exceptionClassification?: string | null;
   exceptionStatus?: string | null;
+  // G2 write-freeze: canonical session values back the record when the frozen
+  // legacy projection has no row.
+  canonicalClockInAt?: string | null;
+  canonicalClockOutAt?: string | null;
+  canonicalWorkedMinutes?: number | null;
 }) {
   const summary = deriveTimeReviewSummary({
     shiftEndsAt: input.scheduledEndAt,
     exceptionStatus: input.exceptionStatus ?? null,
     exceptionClassification: input.exceptionClassification ?? null,
     timeEntryAttendanceState: input.timeEntry?.attendance_state ?? null,
-    clockInAt: input.timeEntry?.clock_in_at ?? null,
-    clockOutAt: input.timeEntry?.clock_out_at ?? null,
+    clockInAt: input.timeEntry?.clock_in_at ?? input.canonicalClockInAt ?? null,
+    clockOutAt: input.timeEntry?.clock_out_at ?? input.canonicalClockOutAt ?? null,
     latestPunchDirection: input.punch.direction,
     latestPunchApprovalState: input.punch.approval_state ?? null,
     latestPunchGeofenceStatus: input.punch.geofence_status ?? null,
@@ -510,9 +516,9 @@ function buildInterpretedTimeRecord(input: {
     linked_assignment_id: input.punch.shift_id ?? null,
     scheduled_start_at: input.scheduledStartAt,
     scheduled_end_at: input.scheduledEndAt,
-    actual_clock_in_at: input.timeEntry?.clock_in_at ?? null,
-    actual_clock_out_at: input.timeEntry?.clock_out_at ?? null,
-    worked_minutes: input.timeEntry?.minutes_worked ?? null,
+    actual_clock_in_at: input.timeEntry?.clock_in_at ?? input.canonicalClockInAt ?? null,
+    actual_clock_out_at: input.timeEntry?.clock_out_at ?? input.canonicalClockOutAt ?? null,
+    worked_minutes: input.timeEntry?.minutes_worked ?? input.canonicalWorkedMinutes ?? null,
     attendance_classification: input.timeEntry?.attendance_state ?? null,
     exception_flags: [
       ...(input.punch.missed_punch_required ? ["missing_punch_workflow"] : []),
@@ -707,6 +713,11 @@ async function recalculateTimeEntryPayroll(
   timeEntryId: string,
   shift: ShiftContext | null | undefined
 ) {
+  // G2 write-freeze: legacy time_entry is no longer maintained unless the
+  // rollback flag re-enables the dual-write. Historical rows stay untouched.
+  if (!config.TIME_ENTRY_DUAL_WRITE) {
+    return null;
+  }
   const result = await client.query("SELECT * FROM time_entry WHERE id = $1 LIMIT 1", [timeEntryId]);
   const entry = result.rows[0] as TimeEntryRow | undefined;
   if (!entry) {
@@ -777,6 +788,11 @@ async function syncTimeEntryWithClockEvent(
     shift?: ShiftContext | null;
   }
 ) {
+  // G2 write-freeze: canonical time_session/clock_event are the only maintained
+  // truth; the legacy projection stops growing unless the rollback flag is set.
+  if (!config.TIME_ENTRY_DUAL_WRITE) {
+    return null;
+  }
   if (input.type === "CLOCK_IN") {
     const openEntry = await client.query(
       `
@@ -2608,14 +2624,28 @@ export async function createPunch(client: PoolClient, auth: AuthUser, input: Pun
   const timeSession =
     shift?.id
       ? (
-          await client.query<Pick<TimeSessionRow, "status">>(
+          await client.query<
+            Pick<TimeSessionRow, "status"> & {
+              canonical_clock_in_at: string | null;
+              canonical_clock_out_at: string | null;
+              canonical_worked_minutes: number | null;
+            }
+          >(
             `
-              SELECT status
-              FROM time_session
-              WHERE tenant_id = $1
-                AND employee_id = $2
-                AND source_shift_id = $3
-              ORDER BY updated_at DESC
+              SELECT
+                ts.status,
+                (SELECT MIN(seg.start_time) FROM time_segment seg WHERE seg.session_id = ts.id)::text AS canonical_clock_in_at,
+                (SELECT MAX(seg.end_time) FROM time_segment seg WHERE seg.session_id = ts.id)::text AS canonical_clock_out_at,
+                (
+                  SELECT ROUND(SUM(EXTRACT(EPOCH FROM (COALESCE(seg.end_time, now()) - seg.start_time)) / 60.0))::int
+                  FROM time_segment seg
+                  WHERE seg.session_id = ts.id
+                ) AS canonical_worked_minutes
+              FROM time_session ts
+              WHERE ts.tenant_id = $1
+                AND ts.employee_id = $2
+                AND ts.source_shift_id = $3
+              ORDER BY ts.updated_at DESC
               LIMIT 1
             `,
             [auth.tenantId, auth.id, shift.id]
@@ -2633,7 +2663,10 @@ export async function createPunch(client: PoolClient, auth: AuthUser, input: Pun
     scheduledStartAt: shift?.starts_at ?? null,
     scheduledEndAt: shift?.ends_at ?? null,
     exceptionClassification: locationClassification,
-    exceptionStatus: exceptions.find((item) => item.status)?.status ?? null
+    exceptionStatus: exceptions.find((item) => item.status)?.status ?? null,
+    canonicalClockInAt: timeSession?.canonical_clock_in_at ?? null,
+    canonicalClockOutAt: timeSession?.canonical_clock_out_at ?? null,
+    canonicalWorkedMinutes: timeSession?.canonical_worked_minutes ?? null
   });
 
   return {

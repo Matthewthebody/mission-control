@@ -295,6 +295,14 @@ const configSchema = z.object({
   // 2026-07-20; set "legacy" to roll back the display without a deploy. The
   // hours_reconciliation block always compares the raw truths.
   OPS_DASHBOARD_HOURS_SOURCE: z.enum(["legacy", "canonical_preferred"]).default("canonical_preferred"),
+  // G2 write-freeze (owner-approved 2026-07-20): legacy time_entry dual-writes
+  // are STOPPED by default. Set "true" to re-enable the dual-write as a rollback
+  // without a deploy. Historical rows are never touched; canonical
+  // time_session/time_segment + payroll summaries are the single truth.
+  TIME_ENTRY_DUAL_WRITE: z
+    .string()
+    .optional()
+    .transform((value) => value === undefined ? false : value === "true"),
   CORE_FOUNDATION_DIAGNOSTICS_ENABLED: z
     .string()
     .optional()
